@@ -12,7 +12,11 @@ export type LogSource =
   | "dex"
   | "portfolio"
   | "api"
-  | "selector";
+  | "selector"
+  | "market"
+  | "ai"
+  | "goplus"
+  | "site";
 
 const MAX_LOG_ROWS = 500;
 

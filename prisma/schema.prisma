@@ -199,10 +199,113 @@ model Round {
 model AppLog {
   id                  Int      @id @default(autoincrement())
   level               String   @default("info") // "debug" | "info" | "warn" | "error"
-  source              String   @default("engine") // "engine" | "risk" | "scam" | "cex" | "dex" | "portfolio" | "api"
+  source              String   @default("engine") // "engine" | "risk" | "scam" | "cex" | "dex" | "portfolio" | "api" | "market" | "ai" | "goplus" | "site"
   message             String
   context             String?  // JSON
   createdAt           DateTime @default(now())
 
   @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Market analysis snapshots. One row per symbol per analysis tick.
+// Stores technical indicators (RSI, MACD, EMA, Bollinger) + sentiment (Fear &
+// Greed Index, trending status) so we can review decisions post-mortem.
+// ---------------------------------------------------------------------------
+model MarketSnapshot {
+  id                  Int      @id @default(autoincrement())
+  symbol              String
+  source              String   // "cex" | "dex"
+  chain               String?
+  tokenId             String?
+  priceUsd            Float
+  // Technical indicators (latest values)
+  rsi14               Float?   // 0-100 (overbought > 70, oversold < 30)
+  macdHist            Float?   // MACD histogram (positive = bullish momentum)
+  ema20                Float?   // 20-period EMA (short-term trend)
+  ema50                Float?   // 50-period EMA (medium-term trend)
+  bollUpper           Float?   // Upper Bollinger band
+  bollLower           Float?   // Lower Bollinger band
+  bollPercent         Float?   // %B (0 = at lower band, 1 = at upper band)
+  // Sentiment / macro
+  fearGreedIndex      Int?     // 0-100 (global crypto Fear & Greed)
+  fearGreedClass      String?  // "Extreme Fear" | "Fear" | "Neutral" | "Greed" | "Extreme Greed"
+  trendingRank        Int?     // CoinGecko trending rank (1 = most trending)
+  // Composite signal — derived from indicators + sentiment
+  signalScore         Int      @default(50) // 0-100 (100 = strongest bullish)
+  signalLabel         String   @default("neutral") // "strong_buy" | "buy" | "neutral" | "sell" | "strong_sell"
+  rawIndicators       String?  // JSON with full indicator set for audit
+  analyzedAt          DateTime @default(now())
+
+  @@index([symbol])
+  @@index([analyzedAt])
+}
+
+// ---------------------------------------------------------------------------
+// AI agent insights. Each LLM call (trading thesis, contract analysis, news
+// sentiment) is logged here with prompt summary, model output, and the action
+// recommended by the agent. Auditable trail of AI decisions.
+// ---------------------------------------------------------------------------
+model AIInsight {
+  id                  Int      @id @default(autoincrement())
+  agentRole           String   // "thesis" | "contract_analyst" | "news_sentiment" | "risk_advisor"
+  symbol              String?
+  tokenId             String?
+  chain               String?
+  promptSummary       String   // short summary of what was asked (≤500 chars)
+  modelOutput         String   // full LLM response
+  recommendation      String   // "buy" | "hold" | "avoid" | "investigate" | "exit"
+  confidence          Int      @default(50) // 0-100
+  keySignals          String?  // JSON array of bullet signals extracted
+  tokensUsed          Int      @default(0)
+  durationMs          Int      @default(0)
+  error               String?
+  createdAt           DateTime @default(now())
+
+  @@index([agentRole])
+  @@index([symbol])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Site integrity audits. Whenever the engine considers a token whose project
+// has a website (or whenever operator manually triggers a check), we audit:
+//   - SSL certificate validity + expiry
+//   - Domain age (whois-like via free RDAP)
+//   - HTTP security headers (CSP, HSTS, X-Frame-Options)
+//   - Google Safe Browsing status (free API, no key required for v4 mock; we
+//     use a heuristic fallback if no key configured)
+//   - On-page red flags (form asking for seed phrase, "send ETH to receive",
+//     etc.)
+// ---------------------------------------------------------------------------
+model SiteAudit {
+  id                  Int      @id @default(autoincrement())
+  url                 String
+  symbol              String?
+  tokenId             String?
+  chain               String?
+  // Composite score 0-100 (100 = cleanest)
+  score               Int
+  passed              Boolean
+  // Sub-scores
+  sslScore            Int      @default(0)
+  domainAgeScore      Int      @default(0)
+  headersScore        Int      @default(0)
+  safeBrowsingScore   Int      @default(0)
+  contentScore        Int      @default(0)
+  // Details
+  sslValid            Boolean  @default(false)
+  sslDaysToExpiry     Int?
+  domainAgeDays       Int?
+  hstsPresent         Boolean  @default(false)
+  cspPresent          Boolean  @default(false)
+  xfoPresent          Boolean  @default(false)
+  safeBrowsingFlagged Boolean  @default(false)
+  redFlags            String?  // JSON array of strings
+  findings            String?  // JSON object with all sub-score details
+  auditedAt           DateTime @default(now())
+
+  @@index([url])
+  @@index([symbol])
+  @@index([auditedAt])
 }

@@ -26,6 +26,9 @@ import {
   History,
   Coins,
   Gauge,
+  Brain,
+  Globe,
+  BarChart3,
 } from "lucide-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -38,6 +41,9 @@ import {
   useRounds,
   useReserve,
   useConfig,
+  useMarketData,
+  useAIInsights,
+  useSiteAudits,
 } from "@/hooks/use-trading-data";
 import { PositionsTable } from "@/components/dashboard/positions-table";
 import { HistoryTable } from "@/components/dashboard/history-table";
@@ -45,6 +51,9 @@ import { LogsFeed } from "@/components/dashboard/logs-feed";
 import { ScamReportsList } from "@/components/dashboard/scam-reports";
 import { RoundsTable } from "@/components/dashboard/rounds-table";
 import { ConfigEditor } from "@/components/dashboard/config-editor";
+import { MarketPanel } from "@/components/dashboard/market-panel";
+import { AIInsightsPanel } from "@/components/dashboard/ai-insights-panel";
+import { SiteAuditPanel } from "@/components/dashboard/site-audit-panel";
 
 function fmtUsd(n: number, decimals = 2): string {
   return n.toLocaleString("en-US", {
@@ -80,6 +89,9 @@ export default function Home() {
   const rounds = useRounds();
   const reserve = useReserve();
   const config = useConfig();
+  const market = useMarketData(30);
+  const aiInsights = useAIInsights(50);
+  const siteAudits = useSiteAudits(30);
 
   const [reserveWithdrawAmount, setReserveWithdrawAmount] = useState("");
 
@@ -417,15 +429,24 @@ export default function Home() {
 
         {/* Main tabs */}
         <Tabs defaultValue="positions" className="space-y-4">
-          <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full">
+          <TabsList className="grid grid-cols-2 md:grid-cols-8 w-full">
             <TabsTrigger value="positions" className="gap-1">
               <Activity className="size-3" /> Posições
             </TabsTrigger>
             <TabsTrigger value="history" className="gap-1">
               <History className="size-3" /> Histórico
             </TabsTrigger>
+            <TabsTrigger value="market" className="gap-1">
+              <BarChart3 className="size-3" /> Mercado
+            </TabsTrigger>
+            <TabsTrigger value="ai" className="gap-1">
+              <Brain className="size-3" /> AI Agents
+            </TabsTrigger>
             <TabsTrigger value="scam" className="gap-1">
               <Shield className="size-3" /> Scam Audit
+            </TabsTrigger>
+            <TabsTrigger value="site" className="gap-1">
+              <Globe className="size-3" /> Site Audit
             </TabsTrigger>
             <TabsTrigger value="rounds" className="gap-1">
               <Coins className="size-3" /> Rounds
@@ -449,10 +470,28 @@ export default function Home() {
             />
           </TabsContent>
 
+          <TabsContent value="market" className="space-y-4">
+            <MarketPanel data={market.data} isLoading={market.isLoading} />
+          </TabsContent>
+
+          <TabsContent value="ai" className="space-y-4">
+            <AIInsightsPanel
+              insights={aiInsights.data ?? []}
+              isLoading={aiInsights.isLoading}
+            />
+          </TabsContent>
+
           <TabsContent value="scam" className="space-y-4">
             <ScamReportsList
               reports={scamReports.data ?? []}
               isLoading={scamReports.isLoading}
+            />
+          </TabsContent>
+
+          <TabsContent value="site" className="space-y-4">
+            <SiteAuditPanel
+              audits={siteAudits.data ?? []}
+              isLoading={siteAudits.isLoading}
             />
           </TabsContent>
 
@@ -525,7 +564,7 @@ export default function Home() {
 
         <footer className="text-xs text-muted-foreground text-center py-6 space-y-1">
           <p>
-            CryptoBot Autonomous — Paper trading MVP • Stack: Next.js 16 + Prisma/SQLite + CCXT + ethers.js
+            CryptoBot Autonomous — Paper trading MVP • Stack: Next.js 16 + Prisma/SQLite + Binance REST + DexScreener + GoPlus + z-ai-web-dev-sdk LLM
           </p>
           <p>
             ⚠️ Sistema reduz risco, não elimina. Operações em capital real apenas após graduação

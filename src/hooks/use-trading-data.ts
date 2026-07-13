@@ -232,3 +232,132 @@ export function useConfig() {
     refetchInterval: 15000,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Market data
+// ---------------------------------------------------------------------------
+export interface MarketSnapshotRow {
+  id: number;
+  symbol: string;
+  source: string;
+  chain?: string | null;
+  tokenId?: string | null;
+  priceUsd: number;
+  rsi14: number | null;
+  macdHist: number | null;
+  ema20: number | null;
+  ema50: number | null;
+  bollUpper: number | null;
+  bollLower: number | null;
+  bollPercent: number | null;
+  fearGreedIndex: number | null;
+  fearGreedClass: string | null;
+  trendingRank: number | null;
+  signalScore: number;
+  signalLabel: string;
+  analyzedAt: string;
+}
+
+export interface FearGreedData {
+  value: number;
+  classification: string;
+  timestamp: string;
+}
+
+export interface TrendingToken {
+  id: string;
+  symbol: string;
+  rank: number;
+}
+
+export interface MarketData {
+  snapshots: MarketSnapshotRow[];
+  fearGreed: FearGreedData | null;
+  trending: TrendingToken[];
+}
+
+export function useMarketData(limit = 30) {
+  return useQuery<MarketData>({
+    queryKey: ["market", limit],
+    queryFn: async () => {
+      const r = await fetch(`/api/market?limit=${limit}`);
+      if (!r.ok) throw new Error("market failed");
+      return r.json();
+    },
+    refetchInterval: 15000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// AI insights
+// ---------------------------------------------------------------------------
+export interface AIInsightRow {
+  id: number;
+  agentRole: string;
+  symbol: string | null;
+  tokenId: string | null;
+  chain: string | null;
+  promptSummary: string;
+  modelOutput: string;
+  recommendation: string;
+  confidence: number;
+  keySignals: string[];
+  tokensUsed: number;
+  durationMs: number;
+  error: string | null;
+  createdAt: string;
+}
+
+export function useAIInsights(limit = 50, role?: string) {
+  return useQuery<AIInsightRow[]>({
+    queryKey: ["ai-insights", limit, role],
+    queryFn: async () => {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (role) params.set("role", role);
+      const r = await fetch(`/api/ai-insights?${params}`);
+      if (!r.ok) throw new Error("ai-insights failed");
+      return r.json();
+    },
+    refetchInterval: 10000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Site audits
+// ---------------------------------------------------------------------------
+export interface SiteAuditRow {
+  id: number;
+  url: string;
+  symbol: string | null;
+  tokenId: string | null;
+  chain: string | null;
+  score: number;
+  passed: boolean;
+  sslScore: number;
+  domainAgeScore: number;
+  headersScore: number;
+  safeBrowsingScore: number;
+  contentScore: number;
+  sslValid: boolean;
+  sslDaysToExpiry: number | null;
+  domainAgeDays: number | null;
+  hstsPresent: boolean;
+  cspPresent: boolean;
+  xfoPresent: boolean;
+  safeBrowsingFlagged: boolean;
+  redFlags: string[];
+  findings: Record<string, string[]>;
+  auditedAt: string;
+}
+
+export function useSiteAudits(limit = 30) {
+  return useQuery<SiteAuditRow[]>({
+    queryKey: ["site-audits", limit],
+    queryFn: async () => {
+      const r = await fetch(`/api/site-audit?limit=${limit}`);
+      if (!r.ok) throw new Error("site-audit failed");
+      return r.json();
+    },
+    refetchInterval: 15000,
+  });
+}

@@ -24,6 +24,9 @@ import {
 import { analyzeToken } from "./scam-detector";
 import { selectCandidates } from "./token-selector";
 import { fetchPricesBatch } from "./price-feed";
+import { scanTokenWithGoPlus } from "./goplus-scanner";
+import { analyzeMarket } from "./market-analysis";
+import { runAgentSquad } from "./ai-agent";
 import {
   ensureInitialized,
   openPosition,
@@ -279,27 +282,135 @@ class Engine {
     }
 
     // ANALYZE
+    // Multi-layer analysis: scam-detector (regex on contract source) +
+    // GoPlus (real honeypot/tax/holder data via API) + market indicators +
+    // AI agent squad (LLM thesis, news sentiment, contract audit).
+    //
+    // A token must pass ALL layers to be approved:
+    //   1. scam-detector score >= cfg.scamScoreMin
+    //   2. GoPlus has no criticalFlags
+    //   3. AI consensus is NOT "avoid" or "investigate"
+    //   4. Market signal is not "strong_sell"
     this.currentLoopState = "analyze";
-    const approved: { candidate: typeof candidates[0]; report: Awaited<ReturnType<typeof analyzeToken>> }[] = [];
+    const approved: {
+      candidate: (typeof candidates)[0];
+      report: Awaited<ReturnType<typeof analyzeToken>>;
+      market: Awaited<ReturnType<typeof analyzeMarket>>;
+    }[] = [];
     let rejectedScam = 0;
+    let rejectedAI = 0;
+    let rejectedMarket = 0;
+
+    // Process candidates sequentially to avoid burning rate limits on
+    // GoPlus + LLM APIs. We analyze up to (maxPositions * 3) candidates.
     for (const c of candidates) {
+      // Layer 1: scam-detector (regex + Etherscan source check)
       const report = await analyzeToken(cfg, c);
-      if (report.passed) {
-        approved.push({ candidate: c, report });
-      } else {
+      if (!report.passed) {
         rejectedScam++;
+        continue;
       }
+
+      // Layer 2: GoPlus (real on-chain honeypot/tax check)
+      if (c.source === "dex" && c.tokenId && c.chain) {
+        try {
+          const goplus = await scanTokenWithGoPlus(c.chain, c.tokenId);
+          if (goplus.criticalFlags.length > 0) {
+            rejectedScam++;
+            logger.warn(
+              "goplus",
+              `${c.symbol} rejeitado por GoPlus: ${goplus.criticalFlags.join("; ")}`
+            );
+            continue;
+          }
+        } catch (err) {
+          // GoPlus failure shouldn't hard-block — log and continue
+          logger.warn("goplus", `Erro scan ${c.symbol}: ${String(err)}`);
+        }
+      }
+
+      // Layer 3: market analysis (TA + sentiment)
+      let market: Awaited<ReturnType<typeof analyzeMarket>>;
+      try {
+        market = await analyzeMarket(c);
+      } catch (err) {
+        logger.warn("market", `Erro analisando ${c.symbol}: ${String(err)}`);
+        market = {
+          symbol: c.symbol,
+          source: c.source,
+          chain: c.chain,
+          tokenId: c.tokenId,
+          priceUsd: c.priceUsd,
+          rsi14: null,
+          macdHist: null,
+          ema20: null,
+          ema50: null,
+          bollUpper: null,
+          bollLower: null,
+          bollPercent: null,
+          fearGreedIndex: null,
+          fearGreedClass: null,
+          trendingRank: null,
+          signalScore: 50,
+          signalLabel: "neutral",
+          raw: {},
+        };
+      }
+      if (market.signalLabel === "strong_sell") {
+        rejectedMarket++;
+        logger.info("market", `${c.symbol} rejeitado — signal=strong_sell`);
+        continue;
+      }
+
+      // Layer 4: AI agent squad (LLM thesis + news + contract audit)
+      // Only run on the first maxPositions candidates that pass layers 1-3
+      // to limit LLM API spend.
+      if (approved.length < cfg.maxPositionsPerRound) {
+        try {
+          const goplusForAI =
+            c.source === "dex" && c.tokenId && c.chain
+              ? await scanTokenWithGoPlus(c.chain, c.tokenId)
+              : null;
+          const squad = await runAgentSquad(c, market, report, goplusForAI);
+          // AI veto only when consensus is "avoid" AND confidence is high
+          // (>=70%). "investigate" alone doesn't veto — just logs.
+          if (
+            squad.consensus === "avoid" &&
+            squad.consensusConfidence >= 70
+          ) {
+            rejectedAI++;
+            logger.info(
+              "ai",
+              `${c.symbol} rejeitado pela AI squad: ${squad.consensus} (conf ${squad.consensusConfidence}%)`
+            );
+            continue;
+          }
+          if (squad.consensus === "investigate") {
+            logger.info(
+              "ai",
+              `${c.symbol} marcado para investigação pela AI (conf ${squad.consensusConfidence}%) — prosseguindo com cautela`
+            );
+          }
+        } catch (err) {
+          // AI failure shouldn't block — log and proceed with the token
+          logger.warn("ai", `Erro squad ${c.symbol}: ${String(err)} — prosseguindo sem AI veto`);
+        }
+      }
+
+      approved.push({ candidate: c, report, market });
+      if (approved.length >= cfg.maxPositionsPerRound) break;
     }
+
     await db.round.update({
       where: { id: round.id },
       data: {
         tokensPassedFilter: approved.length,
-        tokensRejectedScam: rejectedScam,
+        tokensRejectedScam: rejectedScam + rejectedAI + rejectedMarket,
       },
     });
     logger.info(
       "engine",
-      `ANALYZE: ${approved.length} aprovados, ${rejectedScam} rejeitados (scam score < ${cfg.scamScoreMin})`
+      `ANALYZE: ${approved.length} aprovados, ${rejectedScam} scam, ${rejectedMarket} market, ${rejectedAI} AI-vetoed`
     );
 
     if (approved.length === 0) {
