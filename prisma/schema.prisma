@@ -397,3 +397,48 @@ model PerformanceSnapshot {
 
   @@index([timestamp])
 }
+
+// ---------------------------------------------------------------------------
+// External notification channels (Telegram / Discord / generic webhook).
+// Each channel subscribes to a set of event types. When the engine emits an
+// event, the notifier iterates over enabled channels and dispatches the
+// message via the channel's transport.
+// ---------------------------------------------------------------------------
+model NotificationChannel {
+  id                  String   @id @default(cuid())
+  name                String   // human label, e.g. "Meu Telegram"
+  type                String   // "telegram" | "discord" | "webhook"
+  // JSON-encoded config — shape depends on `type`:
+  //   telegram: { botToken, chatId }
+  //   discord:  { webhookUrl }
+  //   webhook:  { url, method, headers }
+  config              String
+  // JSON-encoded array of event types this channel subscribes to:
+  //   "kill_switch_on" | "kill_switch_off" | "position_opened" |
+  //   "position_closed" | "drawdown_breach" | "daily_loss_breach" |
+  //   "graduation" | "engine_started" | "engine_stopped"
+  events              String
+  enabled             Boolean  @default(true)
+  // Optional throttle: max 1 message per eventType per N seconds (0 = no throttle)
+  throttleSec         Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// One row per dispatch attempt. Keeps last ~5,000 rows (auto-trimmed).
+model NotificationLog {
+  id                  Int      @id @default(autoincrement())
+  channelId           String   // references NotificationChannel.id (no FK)
+  channelName         String   // snapshot at time of send (for logs after channel delete)
+  channelType         String
+  eventType           String
+  message             String   // text body that was sent
+  status              String   @default("sent") // "sent" | "failed"
+  error               String?
+  durationMs          Int      @default(0)
+  sentAt              DateTime @default(now())
+
+  @@index([channelId])
+  @@index([eventType])
+  @@index([sentAt])
+}

@@ -24,7 +24,8 @@ export type LogSource =
   | "rising"
   | "scout"
   | "platform"
-  | "backtest";
+  | "backtest"
+  | "notifier";
 
 const MAX_LOG_ROWS = 500;
 

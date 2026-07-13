@@ -33,6 +33,7 @@ import { planExit, applyExitPlan } from "./exit-planner";
 import { getApprovedPlatformIds } from "./platform-scanner";
 import { eventBus } from "./event-bus";
 import { recordSnapshotIfDue } from "./performance-snapshot";
+import { notifyEvent } from "./notifier";
 import {
   ensureInitialized,
   openPosition,
@@ -66,6 +67,17 @@ class Engine {
     }
     await setEngineRunning(true);
     logger.info("engine", `Engine iniciada (modo ${cfg.mode}, intervalo ${cfg.loopIntervalSec}s)`);
+    // External notification
+    notifyEvent({
+      eventType: "engine_started",
+      title: "Engine Iniciada",
+      message: `Engine de trading iniciada em modo *${cfg.mode}* com intervalo de ${cfg.loopIntervalSec}s. Saldo: $${cfg.initialCapitalUsd.toFixed(2)}.`,
+      context: {
+        mode: cfg.mode,
+        loopIntervalSec: cfg.loopIntervalSec,
+        killSwitchActive: cfg.killSwitchActive,
+      },
+    }).catch(() => { /* fire-and-forget */ });
     // Run first tick immediately, then setInterval.
     this.tick();
     this.intervalId = setInterval(
@@ -81,6 +93,16 @@ class Engine {
     }
     await setEngineRunning(false);
     logger.info("engine", "Engine parada");
+    // External notification
+    notifyEvent({
+      eventType: "engine_stopped",
+      title: "Engine Parada",
+      message: `Engine de trading foi parada. Nenhuma nova posição será aberta. Posições abertas existentes continuam sendo monitoradas manualmente.`,
+      context: {
+        loopIteration: this.loopIteration,
+        currentRoundId: this.currentRoundId,
+      },
+    }).catch(() => { /* fire-and-forget */ });
   }
 
   isRunning(): boolean {
@@ -161,6 +183,16 @@ class Engine {
                   `Graduação paper → live disponível`,
                   { cycles: updated.paperCyclesPassed }
                 );
+                // External notification — graduation milestone
+                notifyEvent({
+                  eventType: "graduation",
+                  title: "🎓 Graduação Paper → Live",
+                  message: `Bot completou ${updated.paperCyclesPassed} ciclos paper aprovados (mínimo: ${updated.paperCyclesRequired}). Modo *live trading* agora disponível para ativação manual.`,
+                  context: {
+                    paperCyclesPassed: updated.paperCyclesPassed,
+                    paperCyclesRequired: updated.paperCyclesRequired,
+                  },
+                }).catch(() => { /* fire-and-forget */ });
               }
             }
             this.currentRoundId = null;
@@ -242,6 +274,28 @@ class Engine {
             entryAmountUsd: pos.entryAmountUsd,
           },
         });
+        // External notification — fetch fresh position to compute P&L
+        try {
+          const fresh = await db.position.findUnique({ where: { id: pos.id } });
+          const pnlUsd = fresh?.pnlUsd ?? 0;
+          const pnlPct = fresh?.pnlPct ?? 0;
+          notifyEvent({
+            eventType: "position_closed",
+            title: `Posição Fechada: ${pos.symbol} (${reasonLabel(reason)})`,
+            message: `${pos.symbol} saiu em *${reasonLabel(reason)}* @ $${price.toFixed(price < 1 ? 6 : 2)}. P&L: ${pnlUsd >= 0 ? "+" : ""}$${pnlUsd.toFixed(2)} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%).`,
+            context: {
+              symbol: pos.symbol,
+              reason,
+              exitPrice: price,
+              entryPrice: pos.entryPriceUsd,
+              pnlUsd: pnlUsd.toFixed(2),
+              pnlPct: pnlPct.toFixed(2) + "%",
+              positionId: pos.id,
+            },
+          }).catch(() => { /* fire-and-forget */ });
+        } catch {
+          // ignore
+        }
       } else {
         stillOpen.push(pos);
       }
@@ -680,6 +734,22 @@ class Engine {
             roundId: round.id,
           },
         });
+        // External notification — new position opened
+        notifyEvent({
+          eventType: "position_opened",
+          title: `Posição Aberta: ${candidate.symbol}`,
+          message: `Comprou *${candidate.symbol}* @ $${candidate.priceUsd.toFixed(candidate.priceUsd < 1 ? 6 : 2)} — $${perToken.toFixed(2)} alocado (score anti-scam: ${report.score}/100, source: ${candidate.source}${candidate.chain ? "/" + candidate.chain : ""}).`,
+          context: {
+            symbol: candidate.symbol,
+            source: candidate.source,
+            chain: candidate.chain ?? "",
+            entryPrice: candidate.priceUsd.toFixed(candidate.priceUsd < 1 ? 6 : 2),
+            entryAmountUsd: perToken.toFixed(2),
+            scamScore: report.score,
+            roundId: round.id,
+            positionId: pos.id,
+          },
+        }).catch(() => { /* fire-and-forget */ });
       }
     }
 

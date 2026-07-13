@@ -10,6 +10,7 @@ import { db } from "@/lib/db";
 import { EngineConfig } from "./config";
 import { logger } from "./logger";
 import type { RiskAssessment } from "./types";
+import { notifyEvent } from "./notifier";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -74,6 +75,18 @@ export async function assessTradeRisk(
       `Drawdown ${drawdownPct.toFixed(2)}% atingiu limite ${cfg.maxDrawdownPct}%`,
       { drawdownPct, peak: balance.peakBalanceUsd, realizedPnl }
     );
+    // External notification (Telegram/Discord/Webhook)
+    await notifyEvent({
+      eventType: "drawdown_breach",
+      title: "Drawdown Crítico Atingido",
+      message: `Drawdown de ${drawdownPct.toFixed(2)}% atingiu o limite configurado de ${cfg.maxDrawdownPct}%. Trading suspenso até reset manual.`,
+      context: {
+        drawdownPct: drawdownPct.toFixed(2) + "%",
+        limitPct: cfg.maxDrawdownPct + "%",
+        peakBalanceUsd: balance.peakBalanceUsd.toFixed(2),
+        realizedPnlUsd: realizedPnl.toFixed(2),
+      },
+    });
   }
 
   // 5. Max daily loss — sum of realized + unrealized losses in last 24h
@@ -99,6 +112,17 @@ export async function assessTradeRisk(
       `Perda diária atingiu limite`,
       { dailyPnl, maxDailyLossUsd }
     );
+    // External notification
+    await notifyEvent({
+      eventType: "daily_loss_breach",
+      title: "Perda Diária Crítica Atingida",
+      message: `Perda nas últimas 24h de $${Math.abs(dailyPnl).toFixed(2)} atingiu o limite de $${maxDailyLossUsd.toFixed(2)}. Novas entradas bloqueadas.`,
+      context: {
+        dailyPnlUsd: dailyPnl.toFixed(2),
+        maxDailyLossUsd: maxDailyLossUsd.toFixed(2),
+        limitPct: cfg.maxDailyLossPct + "%",
+      },
+    });
   }
 
   // 6. Max exposure per token — computed against PEAK balance so it stays
@@ -181,6 +205,16 @@ export async function triggerKillSwitch(reason: string): Promise<void> {
     `Kill switch ativado: ${reason}`,
     { reason }
   );
+  // External notification — critical priority
+  await notifyEvent({
+    eventType: "kill_switch_on",
+    title: "KILL SWITCH ATIVADO",
+    message: `Trading interrompido: ${reason}. Posições abertas serão force-exitadas no próximo tick. Engine parada.`,
+    context: {
+      reason,
+      triggeredAt: new Date().toISOString(),
+    },
+  });
   // Close all open positions at market (in paper mode, this is just marking them)
   // The engine's next loop iteration will see killSwitchActive and skip new entries;
   // existing positions get force-closed by the engine in the EXIT phase.
@@ -201,6 +235,13 @@ export async function clearKillSwitch(): Promise<void> {
     "Kill switch desativado manualmente",
     {}
   );
+  // External notification — info priority
+  await notifyEvent({
+    eventType: "kill_switch_off",
+    title: "Kill Switch Desativado",
+    message: `Kill switch resetado manualmente. Engine pode ser reiniciada.`,
+    context: { clearedAt: new Date().toISOString() },
+  });
 }
 
 // Update peak balance if current balance exceeds it. Called after each round.

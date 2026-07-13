@@ -33,6 +33,7 @@ import {
   Building2,
   FlaskConical,
   LineChart,
+  Bell,
 } from "lucide-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -66,6 +67,7 @@ import { PortfolioSummaryCard } from "@/components/dashboard/portfolio-summary-c
 import { AlertsToast } from "@/components/dashboard/alerts-toast";
 import { BacktestPanel } from "@/components/dashboard/backtest-panel";
 import { AnalyticsPanel } from "@/components/dashboard/analytics-panel";
+import { NotificationsPanel } from "@/components/dashboard/notifications-panel";
 
 function fmtUsd(n: number, decimals = 2): string {
   return n.toLocaleString("en-US", {
@@ -475,7 +477,7 @@ export default function Home() {
 
         {/* Main tabs */}
         <Tabs defaultValue="positions" className="space-y-4">
-          <TabsList className="grid grid-cols-2 md:grid-cols-12 w-full">
+          <TabsList className="grid grid-cols-2 md:grid-cols-[repeat(13,minmax(0,1fr))] w-full">
             <TabsTrigger value="positions" className="gap-1">
               <Activity className="size-3" /> Posições
             </TabsTrigger>
@@ -521,6 +523,9 @@ export default function Home() {
             </TabsTrigger>
             <TabsTrigger value="logs" className="gap-1">
               <ScrollText className="size-3" /> Logs
+            </TabsTrigger>
+            <TabsTrigger value="notifications" className="gap-1">
+              <Bell className="size-3" /> Notificações
             </TabsTrigger>
           </TabsList>
 
@@ -589,6 +594,10 @@ export default function Home() {
 
           <TabsContent value="logs" className="space-y-4">
             <LogsFeed logs={logs.data ?? []} isLoading={logs.isLoading} />
+          </TabsContent>
+
+          <TabsContent value="notifications" className="space-y-4">
+            <NotificationsPanel />
           </TabsContent>
         </Tabs>
 

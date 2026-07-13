@@ -484,3 +484,88 @@ Stage Summary:
 - TypeScript compila sem erros em src/
 - Dev server estável em /home/z/my-project porta 3000
 - Dashboard agora tem 12 tabs: Posições, Histórico, Mercado, AI Agents, Scam Audit, Site Audit, Plataformas, Vigilância, Backtest, Analytics, Rounds, Logs
+
+---
+Task ID: enhancement-v10
+Agent: main
+Task: Adicionar sistema de Notificações externas (Telegram/Discord/Webhook) — 13ª tab "Notificações" com CRUD de canais, logs de envio, e hooks no engine para 9 tipos de evento.
+
+Work Log:
+- Adicionados 2 modelos Prisma ao schema:
+  - NotificationChannel (id, name, type, config JSON, events JSON, enabled, throttleSec, timestamps)
+  - NotificationLog (id, channelId, channelName, channelType, eventType, message, status, error, durationMs, sentAt) com 3 índices
+- db push + prisma generate executados
+- Criado src/lib/trading/notifier.ts (385 linhas):
+  - Tipos: NotificationEventType (9 valores), ChannelType, configs (TelegramConfig, DiscordConfig, WebhookConfig), NotificationChannelRow, NotifyPayload
+  - 3 transports: sendTelegram (POST https://api.telegram.org/bot{token}/sendMessage com Markdown), sendDiscord (POST webhookUrl com content truncado 2000 chars), sendWebhook (POST/PUT JSON com payload completo + headers custom)
+  - Todos com timeout de 10s via AbortSignal.timeout, tratamento de erro, retorno { status, error?, durationMs }
+  - notifyEvent(payload): carrega canais, filtra por enabled + events inscritos, aplica throttle in-memory por (channelId, eventType), despacha via transport apropriado, persiste NotificationLog para cada tentativa (sent ou failed), trim automático em 5.000 rows
+  - sendTestNotification(channel): bypassa subscrição de eventos, envia mensagem de teste
+  - ALL_EVENT_TYPES exportado com 9 entradas (label + description em PT-BR)
+  - formatMessage com emojis por evento (🛑 kill_on, ✅ kill_off, 🟢 pos_opened, 🔵 pos_closed, 📉 drawdown, ⚠️ daily_loss, 🎓 graduation, ▶️ engine_on, ⏹️ engine_off), Markdown bold no título, bullets para context, timestamp em itálico
+- Hookado notifier em src/lib/trading/risk-manager.ts:
+  - triggerKillSwitch: notifyEvent kill_switch_on (message completa com reason + triggeredAt)
+  - clearKillSwitch: notifyEvent kill_switch_off
+  - assessTradeRisk: notifyEvent drawdown_breach quando drawdownPct >= limite (com valores)
+  - assessTradeRisk: notifyEvent daily_loss_breach quando perda 24h >= limite (com valores)
+- Hookado notifier em src/lib/trading/engine.ts (fire-and-forget via .catch):
+  - Engine.start(): notifyEvent engine_started (modo, intervalo, killSwitchActive)
+  - Engine.stop(): notifyEvent engine_stopped (loopIteration, currentRoundId)
+  - monitorAndExit (TP/SL/timeout): notifyEvent position_closed com P&L (busca fresh position para pnlUsd/pnlPct)
+  - scoutAndExecute (openPosition): notifyEvent position_opened com symbol, source, chain, entryPrice, entryAmount, scamScore, roundId
+  - rebalanceRound (graduation milestone): notifyEvent graduation com ciclos aprovados
+- Criadas 4 API routes:
+  - GET/POST /api/notifications/channels: lista canais (com eventTypes) / cria novo (valida config por tipo)
+  - PATCH/DELETE /api/notifications/channels/[id]: atualiza / deleta canal
+  - POST /api/notifications/channels/[id]/test: envia notificação de teste, loga tentativa
+  - GET /api/notifications/logs?limit=100&channelId=...&eventType=...: lista logs com filtros
+- Adicionados hooks useNotificationChannels() (refetch 15s) e useNotificationLogs(limit=100) (refetch 5s) em use-trading-data.ts
+- Criado src/components/dashboard/notifications-panel.tsx (~550 linhas):
+  - 3 stat cards: Canais Configurados, Canais Ativos (verde), Envios (logs recentes)
+  - Card "Canais de Notificação": lista cada canal com nome, tipo (badge colorido por tipo), status (Ativo/Inativo), throttle badge, eventos inscritos (badges coloridos por tipo de evento), config preview (chatId ou URL truncada), switch on/off, botões Testar/Edit/Delete
+  - Card "Histórico de Envios": tabela com 6 colunas (Status icon, Evento badge, Canal nome+tipo, Mensagem preview, Duração, Data/hora) — 100 rows, refresh manual
+  - Dialog "Novo Canal" / "Editar Canal": Nome + Tipo (Telegram/Discord/Webhook genérico), campos dinâmicos por tipo (Telegram: botToken+chatId; Discord: webhookUrl; Webhook: url+método POST/PUT+headers JSON+throttle), throttle input, 9 checkboxes de eventos inscritos com label+descrição
+  - Validação: Nome obrigatório, config mínima por tipo (Telegram requer botToken+chatId, Discord requer webhookUrl, Webhook requer url), headers JSON parseable
+  - Toasts de feedback (sucesso/erro) em todas as operações
+- Adicionada 13ª tab "Notificações" no page.tsx (com ícone Bell do lucide-react). TabsList atualizado de grid-cols-12 para grid-cols-[repeat(13,minmax(0,1fr))] (Tailwind v4 não tem grid-cols-13 nativo)
+- Adicionado "notifier" ao tipo LogSource em logger.ts
+- TypeScript compila sem erros em src/
+- Validado via curl:
+  - GET /api/notifications/channels: retorna { channels: [], eventTypes: [9 items] }
+  - POST /api/notifications/channels: cria webhook apontando para httpbin.org/post
+  - POST /api/notifications/channels/{id}/test: recebe 503 do httpbin (instável), mas log gravado com status=failed e error completo
+  - PATCH /api/notifications/channels/{id}: atualiza config para http://127.0.0.1:9876/notify
+  - POST /api/notifications/channels/{id}/test: enviado com sucesso em 7ms (recebedor local capturou payload JSON completo)
+  - POST /api/kill-switch {active:true, reason:"Test ON"}: triggerKillSwitch disparou notifyEvent kill_switch_on automaticamente — recebedor local recebeu payload em 3ms
+  - POST /api/kill-switch {active:false}: clearKillSwitch disparou notifyEvent kill_switch_off automaticamente — recebedor recebeu em 4ms
+  - GET /api/notifications/logs?limit=5: retorna 5 logs com status sent/failed, durationsMs, mensagens completas, timestamps
+- Validado via agent-browser:
+  - Dashboard renderiza com 13 tabs (Notificações é a última, ícone Bell)
+  - Tab Notificações: 3 stat cards no topo (Canais Configurados=1, Canais Ativos=1, Envios=5)
+  - Canal "Webhook Teste Local" visível com badge roxo Webhook, badge verde Ativo, 9 badges de eventos coloridos por categoria
+  - Switch, botão Testar, botão Edit (lápis), botão Delete (lixeira) todos presentes
+  - Tabela de logs com 5 entradas: Kill OFF (verde check), Kill ON x2 (verde check), Pos Fechada x2 (1 verde + 1 vermelho X com erro 503)
+  - Botão "Novo Canal" abre dialog com: Nome, Tipo (default Telegram), Bot Token, Chat ID, Throttle, 9 checkboxes de eventos (todos desmarcados), botões Cancelar/Criar Canal
+  - Dropdown Tipo expande mostrando 3 opções: Telegram, Discord, Webhook genérico
+- Screenshots em /home/z/my-project/download/:
+  - v10-notifications-tab.png (tab Notificações com stats + canal + 5 logs)
+  - v10-notifications-channels-card.png (foco no card de canais)
+  - v10-notifications-new-channel-dialog.png (dialog Novo Canal aberto com form Telegram)
+  - v10-notifications-webhook-form.png (após selecionar Webhook genérico no dropdown)
+  - v10-notifications-full-page.png (página completa com scroll)
+- Script auxiliar scripts/test-webhook-receiver.js: servidor HTTP local na porta 9876 para testar entrega de webhooks (loga payload recebido em stdout, retorna 200 OK)
+
+Stage Summary:
+- 13ª tab "Notificações" adicionada ao dashboard
+- Sistema de notificações externas completo: 3 transports (Telegram, Discord, Webhook genérico), 9 tipos de evento, throttle por canal+evento, logs persistentes com trim em 5.000 rows
+- Hooks no engine (start/stop/position_open/position_close/graduation) e no risk-manager (kill_switch_on/off, drawdown_breach, daily_loss_breach) — todos fire-and-forget para não bloquear o tick
+- 4 API routes (CRUD channels + test + list logs)
+- 1 lib/trading/notifier.ts (385 linhas) + 1 notifications-panel.tsx (~550 linhas) + 4 hooks
+- 14 Prisma models (adicionados NotificationChannel + NotificationLog)
+- 23 lib/trading files (adicionado notifier.ts)
+- 16 dashboard components (adicionado notifications-panel.tsx)
+- 21 API routes (adicionadas 4 routes de notifications)
+- TypeScript compila sem erros em src/
+- Dev server estável em /home/z/my-project porta 3000
+- Dashboard agora tem 13 tabs: Posições, Histórico, Mercado, AI Agents, Scam Audit, Site Audit, Plataformas, Vigilância, Backtest, Analytics, Rounds, Logs, Notificações
+- Validação end-to-end: kill switch trigger → notifyEvent → 3 transports dispatched → NotificationLog persisted → dashboard logs table atualizada em tempo real

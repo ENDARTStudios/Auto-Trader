@@ -663,3 +663,89 @@ export function useAnalytics(range: AnalyticsRange = "24h") {
     refetchInterval: 10000,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Notifications — external channels (Telegram/Discord/Webhook) + dispatch logs
+// ---------------------------------------------------------------------------
+
+export type NotificationEventType =
+  | "kill_switch_on"
+  | "kill_switch_off"
+  | "position_opened"
+  | "position_closed"
+  | "drawdown_breach"
+  | "daily_loss_breach"
+  | "graduation"
+  | "engine_started"
+  | "engine_stopped";
+
+export type ChannelType = "telegram" | "discord" | "webhook";
+
+export interface TelegramConfig {
+  botToken: string;
+  chatId: string;
+}
+export interface DiscordConfig {
+  webhookUrl: string;
+}
+export interface WebhookConfig {
+  url: string;
+  method?: "POST" | "PUT";
+  headers?: Record<string, string>;
+}
+
+export interface NotificationChannelRow {
+  id: string;
+  name: string;
+  type: ChannelType;
+  config: TelegramConfig | DiscordConfig | WebhookConfig;
+  events: NotificationEventType[];
+  enabled: boolean;
+  throttleSec: number;
+}
+
+export interface NotificationEventTypeMeta {
+  value: NotificationEventType;
+  label: string;
+  description: string;
+}
+
+export interface NotificationLogRow {
+  id: number;
+  channelId: string;
+  channelName: string;
+  channelType: string;
+  eventType: string;
+  message: string;
+  status: string;
+  error: string | null;
+  durationMs: number;
+  sentAt: string;
+}
+
+export function useNotificationChannels() {
+  return useQuery<{
+    channels: NotificationChannelRow[];
+    eventTypes: NotificationEventTypeMeta[];
+  }>({
+    queryKey: ["notif-channels"],
+    queryFn: async () => {
+      const r = await fetch("/api/notifications/channels");
+      if (!r.ok) throw new Error("channels failed");
+      return r.json();
+    },
+    refetchInterval: 15000,
+  });
+}
+
+export function useNotificationLogs(limit = 100) {
+  return useQuery<{ logs: NotificationLogRow[]; total: number }>({
+    queryKey: ["notif-logs", limit],
+    queryFn: async () => {
+      const r = await fetch(`/api/notifications/logs?limit=${limit}`);
+      if (!r.ok) throw new Error("logs failed");
+      return r.json();
+    },
+    refetchInterval: 5000,
+  });
+}
