@@ -1,0 +1,208 @@
+// Autonomous Crypto Trading Bot — Database Schema
+// Paper trading first; live trading only after explicit graduation.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Single-row config table. Holds all tunable parameters.
+// ---------------------------------------------------------------------------
+model Config {
+  id                  String   @id @default("singleton")
+  // Mode: "paper" (default, no real orders) | "live" (real orders via CEX/DEX)
+  mode                String   @default("paper")
+  // Loop cadence (seconds)
+  loopIntervalSec     Int      @default(60)
+  // Capital allocation
+  initialCapitalUsd   Float    @default(1000.0)
+  maxPositionsPerRound Int     @default(10)
+  capitalPctPerRound  Float    @default(100.0) // % of trading balance to deploy per round
+  // Profit split
+  reservePct          Float    @default(50.0) // % of profit → USDC cold reserve
+  reinvestPct         Float    @default(50.0) // % of profit → next round
+  reserveAsset        String   @default("USDC")
+  // Exit rules
+  takeProfitPct       Float    @default(15.0)
+  stopLossPct         Float    @default(8.0)
+  maxHoldMinutes      Int      @default(180)
+  // Risk / circuit breakers
+  maxDailyLossPct     Float    @default(10.0) // % of trading balance
+  maxLossPerTradePct  Float    @default(5.0)  // % of trading balance
+  maxExposurePerTokenPct Float  @default(15.0) // % of trading balance per single token
+  maxDrawdownPct      Float    @default(20.0) // % from peak trading balance
+  // Scam detector threshold (0-100). Tokens scoring below are rejected.
+  scamScoreMin        Int      @default(70)
+  // Liquidity filter (USD)
+  minLiquidityUsd     Float    @default(100000.0)
+  minVolume24hUsd     Float    @default(50000.0)
+  // Selection: which sources to scan
+  scanCex             Boolean  @default(true) // majors on Binance
+  scanDex             Boolean  @default(true) // memecoins on L2s
+  // CEX/DEX targets (JSON-encoded string arrays — SQLite can't store lists directly)
+  cexSymbols          String   @default("[\"BTC/USDT\",\"ETH/USDT\",\"SOL/USDT\",\"BNB/USDT\",\"XRP/USDT\"]")
+  dexChains           String   @default("[\"base\",\"arbitrum\",\"optimism\"]")
+  // Engine runtime state
+  engineRunning       Boolean  @default(false)
+  killSwitchActive    Boolean  @default(false)
+  killSwitchReason    String?
+  killSwitchAt        DateTime?
+  // Graduation: how many successful paper cycles required before going live
+  paperCyclesRequired Int      @default(50)
+  paperCyclesPassed   Int      @default(0)
+  graduatedToLive     Boolean  @default(false)
+  // Timestamps
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Open or closed position. One row per token per round.
+// ---------------------------------------------------------------------------
+model Position {
+  id                  String   @id @default(cuid())
+  // Identification
+  symbol              String   // e.g. "BTC/USDT" (CEX) or "DEGEN" (DEX)
+  tokenId             String?  // contract address for DEX tokens
+  chain               String?  // "base" | "arbitrum" | "optimism" | "cex"
+  source              String   // "cex" | "dex"
+  // Status lifecycle
+  status              String   @default("open") // "open" | "closed" | "liquidated" | "killed"
+  // Entry
+  entryPriceUsd       Float
+  entryAmountUsd      Float    // USD allocated to this position
+  entryQty            Float    // token quantity
+  entryAt             DateTime @default(now())
+  // Exit (nullable while open)
+  exitPriceUsd        Float?
+  exitAmountUsd       Float?
+  exitAt              DateTime?
+  exitReason          String?  // "take_profit" | "stop_loss" | "timeout" | "kill_switch" | "manual"
+  // P&L
+  pnlUsd              Float?
+  pnlPct              Float?
+  // Risk caps locked at entry
+  takeProfitPrice     Float
+  stopLossPrice       Float
+  maxExitAt           DateTime // entryAt + maxHoldMinutes
+  // Scam score at time of entry (for audit trail)
+  scamScore           Int      @default(0)
+  scamBreakdown       String?  // JSON of sub-scores
+  // Metadata
+  roundId             Int
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([status])
+  @@index([roundId])
+  @@index([symbol])
+}
+
+// ---------------------------------------------------------------------------
+// Cold reserve balance — accumulated profit in stablecoins, never auto-traded.
+// Single row, updated atomically.
+// ---------------------------------------------------------------------------
+model Reserve {
+  id                  String   @id @default("singleton")
+  asset               String   @default("USDC")
+  balanceUsd          Float    @default(0.0)
+  // Total ever moved into reserve (lifetime)
+  totalDepositedUsd   Float    @default(0.0)
+  // Total ever withdrawn (only via manual authorization)
+  totalWithdrawnUsd   Float    @default(0.0)
+  updatedAt           DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Trading balance tracker (separate from reserve). Single row.
+// ---------------------------------------------------------------------------
+model TradingBalance {
+  id                  String   @id @default("singleton")
+  balanceUsd          Float    @default(1000.0) // current cash available for new positions
+  peakBalanceUsd      Float    @default(1000.0) // for drawdown calculation
+  // Lifetime stats
+  realizedPnlUsd      Float    @default(0.0)
+  tradesOpened        Int      @default(0)
+  tradesClosed        Int      @default(0)
+  wins                Int      @default(0)
+  losses              Int      @default(0)
+  updatedAt           DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Risk events: circuit breaker triggers, kill-switch activations.
+// ---------------------------------------------------------------------------
+model RiskEvent {
+  id                  String   @id @default(cuid())
+  type                String   // "kill_switch" | "daily_loss_breach" | "per_trade_loss_breach" | "exposure_breach" | "drawdown_breach"
+  severity            String   @default("warning") // "info" | "warning" | "critical"
+  message             String
+  context             String?  // JSON string with extra details
+  triggeredAt         DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Scam detection audit log. One row per token analyzed.
+// ---------------------------------------------------------------------------
+model ScamReport {
+  id                  String   @id @default(cuid())
+  symbol              String
+  tokenId             String?
+  chain               String?
+  // Final score 0-100
+  score               Int
+  passed              Boolean
+  // Sub-scores (0-100 each)
+  honeypotScore       Int      @default(0)
+  liquidityScore      Int      @default(0)
+  contractScore       Int      @default(0)
+  taxScore            Int      @default(0)
+  holderScore         Int      @default(0)
+  ageScore            Int      @default(0)
+  // Raw findings (JSON)
+  findings            String?  // JSON with detailed flags
+  analyzedAt          DateTime @default(now())
+
+  @@index([symbol])
+  @@index([passed])
+}
+
+// ---------------------------------------------------------------------------
+// Engine round log. Each loop iteration creates one row.
+// ---------------------------------------------------------------------------
+model Round {
+  id                  Int      @id @default(autoincrement())
+  startedAt           DateTime @default(now())
+  endedAt             DateTime?
+  // Snapshot at round start
+  tradingBalanceUsd   Float
+  reserveBalanceUsd   Float
+  // Outcome
+  tokensScanned       Int      @default(0)
+  tokensPassedFilter  Int      @default(0)
+    tokensRejectedScam  Int      @default(0)
+  positionsOpened     Int      @default(0)
+  positionsClosed     Int      @default(0)
+  roundPnlUsd         Float?
+  status              String   @default("running") // "running" | "completed" | "aborted"
+  notes               String?
+}
+
+// ---------------------------------------------------------------------------
+// Application log (lightweight, recent only). For dashboard activity feed.
+// ---------------------------------------------------------------------------
+model AppLog {
+  id                  Int      @id @default(autoincrement())
+  level               String   @default("info") // "debug" | "info" | "warn" | "error"
+  source              String   @default("engine") // "engine" | "risk" | "scam" | "cex" | "dex" | "portfolio" | "api"
+  message             String
+  context             String?  // JSON
+  createdAt           DateTime @default(now())
+
+  @@index([createdAt])
+}
