@@ -60,6 +60,7 @@ import { AIInsightsPanel } from "@/components/dashboard/ai-insights-panel";
 import { SiteAuditPanel } from "@/components/dashboard/site-audit-panel";
 import { SurveillancePanel } from "@/components/dashboard/surveillance-panel";
 import { PlatformScannerPanel } from "@/components/dashboard/platform-scanner-panel";
+import { PortfolioSummaryCard } from "@/components/dashboard/portfolio-summary-card";
 
 function fmtUsd(n: number, decimals = 2): string {
   return n.toLocaleString("en-US", {
@@ -450,6 +451,21 @@ export default function Home() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Portfolio summary — consolidated view */}
+        <PortfolioSummaryCard
+          status={s}
+          positions={positions.data ?? []}
+          rounds={rounds.data ?? []}
+          surveillanceCounts={
+            surveillance.data?.counts ?? { critical: 0, warning: 0, info: 0, total: 0 }
+          }
+          platforms={{
+            approved: platforms.data?.approved ?? 0,
+            total: platforms.data?.total ?? 0,
+            pending: platforms.data?.pending ?? 0,
+          }}
+        />
 
         {/* Main tabs */}
         <Tabs defaultValue="positions" className="space-y-4">

@@ -59,10 +59,23 @@ export const PLATFORM_REGISTRY: PlatformEntry[] = [
   { id: "velodrome", name: "Velodrome", url: "https://velodrome.finance",  kind: "dex", chains: ["optimism"], notes: "DEX principal da Optimism." },
   { id: "camelot",   name: "Camelot",   url: "https://camelot.exchange",   kind: "dex", chains: ["arbitrum"], notes: "DEX nativa da Arbitrum." },
 
+  // ----- Additional DEXs (extended registry) -----
+  { id: "maverick",  name: "Maverick",  url: "https://app.mav.xyz",        kind: "dex", chains: ["ethereum", "bsc", "base", "arbitrum"], notes: "DEX com liquidez concentrada adaptativa." },
+  { id: "bancor",    name: "Bancor",    url: "https://app.bancor.network", kind: "dex", chains: ["ethereum"], notes: "DEX histórico com proteção impermanente loss." },
+  { id: "kyber",     name: "KyberSwap", url: "https://kyberswap.com",      kind: "dex", chains: ["ethereum", "arbitrum", "optimism", "base", "polygon", "bsc"], notes: "DEX aggregator com pools dinâmicas." },
+  { id: "dodo",      name: "DODO",      url: "https://app.dodoex.io",      kind: "dex", chains: ["ethereum", "arbitrum", "optimism", "base", "polygon", "bsc"], notes: "DEX com PMM (Proactive Market Maker)." },
+  { id: "syncswap",  name: "SyncSwap",  url: "https://syncswap.xyz",       kind: "dex", chains: ["zksync", "base"], notes: "DEX nativa da zkSync." },
+  { id: "orca",      name: "Orca",      url: "https://www.orca.so",        kind: "dex", chains: ["solana"], notes: "DEX líder na Solana com pools concentradas." },
+  { id: "raydium",   name: "Raydium",   url: "https://raydium.io",         kind: "dex", chains: ["solana"], notes: "DEX Solana integrada com Serum orderbook." },
+  { id: "meteora",   name: "Meteora",   url: "https://www.meteora.ag",     kind: "dex", chains: ["solana"], notes: "DEX Solana com DLMM (Dynamic Liquidity Market Making)." },
+
+  // ----- Solana aggregators -----
+  { id: "jupiter",   name: "Jupiter",   url: "https://jup.ag",             kind: "aggregator", chains: ["solana"], notes: "Maior agregador Solana. API pública gratuita." },
+
   // ----- Aggregators (roteadores que escolhem o melhor DEX) -----
   { id: "oneinch",   name: "1inch",     url: "https://app.1inch.io",       kind: "aggregator", chains: ["ethereum", "arbitrum", "optimism", "base", "polygon", "bsc"], notes: "Maior agregador DEX. API gratuita." },
   { id: "paraswap",  name: "ParaSwap",  url: "https://www.paraswap.io",    kind: "aggregator", chains: ["ethereum", "arbitrum", "optimism", "base", "polygon", "bsc"], notes: "Agregador DEX. API gratuita." },
-  { id: "odos",      name: "Odos",      url: "https://app.odos.com",       kind: "aggregator", chains: ["ethereum", "arbitrum", "optimism", "base", "polygon"], notes: "Agregador DEX com otimização de rota." },
+  { id: "odos",      name: "Odos",      url: "https://www.odos.com",       kind: "aggregator", chains: ["ethereum", "arbitrum", "optimism", "base", "polygon"], notes: "Agregador DEX com otimização de rota." },
   { id: "0x",        name: "0x Protocol", url: "https://www.0x.org",       kind: "aggregator", chains: ["ethereum", "arbitrum", "optimism", "base", "polygon", "bsc"], notes: "Protocolo de liquidez para DEXs. API Matcha gratuita." },
 
   // ----- Data providers (free APIs we already use) -----

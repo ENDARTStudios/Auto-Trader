@@ -119,20 +119,63 @@ interface DexScreenerPair {
 // Map DexScreener dexId -> our PLATFORM_REGISTRY id.
 // Anything not in this map defaults to null (engine will reject unless
 // it's a CEX candidate).
+// We include aliases for the most common DEXes that DexScreener tags.
 const DEX_ID_TO_PLATFORM: Record<string, string> = {
+  // --- Uniswap family ---
   uniswap: "uniswap",
   uniswapv3: "uniswap",
+  uniswapv2: "uniswap",
+  // --- SushiSwap family ---
   sushiswap: "sushiswap",
+  sushi: "sushiswap",
+  sushiswapv3: "sushiswap",
+  // --- Curve ---
   curve: "curve",
+  curvefinance: "curve",
+  // --- Balancer ---
   balancer: "balancer",
+  // --- PancakeSwap ---
   pancakeswap: "pancake",
+  pancake: "pancake",
+  pancakeswapv3: "pancake",
+  pancakeswapv2: "pancake",
+  // --- Aerodrome (Base) ---
   aerodrome: "aerodrome",
+  aerodromev2: "aerodrome",
+  // --- Velodrome (Optimism) ---
   velodrome: "velodrome",
+  velodromev2: "velodrome",
+  // --- Camelot (Arbitrum) ---
   camelot: "camelot",
-  // 1inch & ParaSwap routes through underlying DEX, but if DexScreener
-  // tags the pair as 1inch we treat the aggregator as the platform.
+  camelotv3: "camelot",
+  // --- Aggregators ---
   oneinch: "oneinch",
+  "1inch": "oneinch",
   paraswap: "paraswap",
+  // --- Other DEXes (no platform registry entry but we still map them so
+  // we can later audit them as platforms). We DON'T auto-approve these —
+  // the engine requires the platform to be in PLATFORM_REGISTRY & approved.
+  // Listed here for visibility/debugging only.
+  maverick: "maverick",
+  bancor: "bancor",
+  Kyber: "kyber",
+  kyberswap: "kyber",
+  dodo: "dodo",
+  illumi: "illumi",
+  syncswap: "syncswap",
+  woofi: "woofi",
+  mosaic: "mosaic",
+  orca: "orca",
+  raydium: "raydium",
+  jupiter: "jupiter",
+  meteora: "meteora",
+  phoenix: "phoenix",
+  gmgn: "gmgn",
+  moonshot: "moonshot",
+  pumpfun: "pumpfun",
+  // Solana aggregator
+  "fluxbeam": "fluxbeam",
+  "alice": "alice",
 };
 
 let dexCache: { at: number; data: TokenCandidate[] } = { at: 0, data: [] };

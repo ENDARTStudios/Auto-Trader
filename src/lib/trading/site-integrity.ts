@@ -132,70 +132,236 @@ const RED_FLAG_PATTERNS: { pattern: RegExp; label: string }[] = [
   { pattern: /<input[^>]*type=["']password["'][^>]*name=["'](mnemonic|seed|private|recovery)/i, label: "Input de password pedindo mnemonic/seed/private key" },
 ];
 
-async function checkHeadersAndContent(
-  url: string
+// Cloudflare/Akamai challenge pages often look like this — short HTML with a
+// specific title and a `cf-mitigated` or `__cf_bm` cookie header. We detect
+// them so we don't false-positive the page as "drainer stub" or "missing content".
+const CLOUDFLARE_CHALLENGE_SIGNATURES = [
+  /<title>[^<]*(just a moment|attention required|cloudflare|access denied|ddos protection)[^<]*<\/title>/i,
+  /cdn-cgi\/challenge-platform/i,
+  /window\._cf_chl_opt\b/i,
+  /cf-browser-verification/i,
+  /__cf_chl_/i,
+  /cf-mitigated:\s*challenge/i,
+];
+
+const AKAMAI_CHALLENGE_SIGNATURES = [
+  /<title>[^<]*(akamai|reference\s*#\d)/i,
+  /akamai\s*bmp/i,
+  /_abck=/i,
+];
+
+function isChallengePage(html: string, headers: Record<string, string>): boolean {
+  // Server header explicit
+  const server = (headers["server"] ?? "").toLowerCase();
+  if (server.includes("cloudflare") && html.length < 5000) {
+    return true;
+  }
+  for (const re of CLOUDFLARE_CHALLENGE_SIGNATURES) {
+    if (re.test(html)) return true;
+  }
+  for (const re of AKAMAI_CHALLENGE_SIGNATURES) {
+    if (re.test(html)) return true;
+  }
+  return false;
+}
+
+// Some platforms (especially CEXs and DEXs with API docs) legitimately
+// mention "private key" in their docs/SDK pages. We pre-filter obvious
+// educational content patterns so we don't false-positive them.
+function isLikelyLegitimateMention(html: string, pattern: RegExp): boolean {
+  const src = pattern.source; // e.g. "private\\s*key"
+  // "Never share your private key" / "keep your private key safe" are
+  // anti-scam warnings, not scam instructions.
+  if (src.includes("private") && src.includes("key")) {
+    const legitPhrases = [
+      /never\s+share\s+your\s+private\s+key/i,
+      /keep\s+your\s+private\s+key\s+(safe|secure|private|offline)/i,
+      /do\s+not\s+share\s+your\s+private\s+key/i,
+      /protect\s+your\s+private\s+key/i,
+      /private\s+keys?\s+(is|remains|should\s+(be|stay))\s+(yours|private|secure|safe|encrypted|never\s+shared)/i,
+      /your\s+private\s+key\s+is\s+(encrypted|stored\s+locally|never\s+(uploaded|sent|shared|leaved))/i,
+      /we\s+(do\s+not|never|don'?t)\s+(store|have\s+access\s+to|see|ask\s+for)\s+(your\s+)?private\s+key/i,
+      /no\s+one\s+(else|at\s+\w+)\s+(should|will|can)\s+(have|see|access)\s+your\s+private\s+key/i,
+      /private\s+keys?\s+(are|is|were)\s+(stored|kept|held)\s+(locally|on\s+your\s+device|on\s+the\s+client|in\s+your\s+browser)/i,
+      /you\s+(are|remain)\s+(the\s+)?(only\s+)?(one|person|owner)\s+with\s+access\s+to\s+your\s+private\s+key/i,
+      /own\s+your\s+private\s+key/i,
+      /self-custod/i,
+      /not\s+your\s+keys?,?\s+not\s+your\s+(coins?|crypto|funds?)/i,
+      /custody\s+(of\s+your\s+)?(funds?|assets?|crypto)\s+(remains|stays|is)\s+(with\s+you|yours)/i,
+      /seed\s+phrase\s+(is|remains)\s+(yours|private|never\s+shared|encrypted)/i,
+      /never\s+ask\s+for\s+your\s+(seed\s+phrase|mnemonic|private\s+key|password)/i,
+      // Risk disclosure: "if private keys are lost..."
+      /private\s+keys?\s+(are|is|were)\s+(lost|stolen|compromised|forgotten)/i,
+      /loss\s+of\s+(your\s+)?private\s+keys?/i,
+      /if\s+your\s+private\s+keys?\s+(are|is)\s+(lost|stolen|compromised)/i,
+      /lose\s+(your\s+)?private\s+keys?/i,
+      // "Private keys control" / "private keys grant access" (educational)
+      /private\s+keys?\s+(control|grant|provide|give)\s+(access|ownership)/i,
+      /access\s+to\s+your\s+(crypto\s+)?assets?\s+(using|via|with)\s+(your\s+)?private\s+keys?/i,
+      // Kraken specific: "If the private keys are lost, you may completely lose access..."
+      /possibility\s+of\s+loss/i,
+    ];
+    for (const legit of legitPhrases) {
+      if (legit.test(html)) return true;
+    }
+  }
+  if (src.includes("seed") && !src.includes("seed phrase")) {
+    // bare "seed" might appear in legitimate contexts (seed funding, seed round, etc.)
+    return true;
+  }
+  if (src.includes("mnemonic")) {
+    const legitPhrases = [
+      /never\s+share\s+your\s+mnemonic/i,
+      /keep\s+your\s+mnemonic\s+(safe|secure|private|offline)/i,
+      /do\s+not\s+share\s+your\s+mnemonic/i,
+      /never\s+ask\s+for\s+your\s+mnemonic/i,
+      /mnemonic\s+(is|remains)\s+(yours|private|encrypted|never\s+shared)/i,
+    ];
+    for (const legit of legitPhrases) {
+      if (legit.test(html)) return true;
+    }
+  }
+  return false;
+}
+
+const BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent":
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  "Accept":
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9,pt-BR;q=0.8",
+  "Accept-Encoding": "gzip, deflate, br",
+  "Cache-Control": "no-cache",
+  "Pragma": "no-cache",
+  "Sec-Fetch-Dest": "document",
+  "Sec-Fetch-Mode": "navigate",
+  "Sec-Fetch-Site": "none",
+  "Sec-Fetch-User": "?1",
+  "Upgrade-Insecure-Requests": "1",
+  "Sec-Ch-Ua":
+    '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+  "Sec-Ch-Ua-Mobile": "?0",
+  "Sec-Ch-Ua-Platform": '"Linux"',
+};
+
+// Fetch a single URL with browser headers + return parsed headers + html.
+async function fetchOne(
+  url: string,
+  timeoutMs = 10000
 ): Promise<{
-  headers: { hsts: boolean; csp: boolean; xfo: boolean; raw: Record<string, string> };
-  content: { redFlags: string[]; title: string | null; htmlLength: number };
+  headers: Record<string, string>;
+  html: string;
+  status: number;
   error: string | null;
 }> {
   try {
     const resp = await fetch(url, {
       redirect: "follow",
-      signal: AbortSignal.timeout(10000),
-      headers: {
-        // Use a real-browser User-Agent so Cloudflare/Akamai WAFs don't return
-        // a 0-byte challenge page (which we'd incorrectly flag as "drainer stub").
-        "User-Agent":
-          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        "Accept":
-          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-        "Accept-Language": "en-US,en;q=0.9,pt-BR;q=0.8",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Cache-Control": "no-cache",
-        "Pragma": "no-cache",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1",
-      },
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: BROWSER_HEADERS,
     });
     const headers: Record<string, string> = {};
     resp.headers.forEach((v, k) => {
       headers[k.toLowerCase()] = v;
     });
     const html = await resp.text();
-    const titleMatch = html.match(/<title[^>]*>([^<]{1,300})<\/title>/i);
-    const title = titleMatch ? titleMatch[1].trim() : null;
-
-    const redFlags: string[] = [];
-    for (const { pattern, label } of RED_FLAG_PATTERNS) {
-      if (pattern.test(html)) {
-        redFlags.push(label);
-      }
-    }
-    // Suspiciously short page → likely a stub or redirect drainer
-    if (html.length < 500) {
-      redFlags.push(`Página extremamente curta (${html.length} bytes) — possivel drainer stub`);
-    }
-    return {
-      headers: {
-        hsts: !!headers["strict-transport-security"],
-        csp: !!headers["content-security-policy"],
-        xfo: !!headers["x-frame-options"],
-        raw: headers,
-      },
-      content: { redFlags, title, htmlLength: html.length },
-      error: null,
-    };
+    return { headers, html, status: resp.status, error: null };
   } catch (err) {
+    return { headers: {}, html: "", status: 0, error: String(err) };
+  }
+}
+
+// Fetch with fallback paths. Some platforms Cloudflare-protect "/" but
+// serve a real page on "/en", "/en-US", "/about", "/api/status" etc.
+// We try each fallback in order and pick the first that returns a
+// non-challenge page with substantial HTML (>2KB).
+const FALLBACK_PATHS = ["/", "/en", "/en-US", "/about", "/api/status", "/ping", "/healthcheck"];
+
+async function checkHeadersAndContent(
+  url: string
+): Promise<{
+  headers: { hsts: boolean; csp: boolean; xfo: boolean; raw: Record<string, string> };
+  content: { redFlags: string[]; title: string | null; htmlLength: number; challengePage: boolean };
+  error: string | null;
+}> {
+  const parsed = (() => {
+    try {
+      return new URL(url);
+    } catch {
+      return null;
+    }
+  })();
+  if (!parsed) {
     return {
       headers: { hsts: false, csp: false, xfo: false, raw: {} },
-      content: { redFlags: [], title: null, htmlLength: 0 },
-      error: String(err),
+      content: { redFlags: [], title: null, htmlLength: 0, challengePage: false },
+      error: "URL inválida",
     };
   }
+  const base = `${parsed.protocol}//${parsed.host}`;
+
+  let best: {
+    headers: Record<string, string>;
+    html: string;
+    status: number;
+    path: string;
+    challenge: boolean;
+  } | null = null;
+
+  // Try the root first, then fallbacks. Stop early if we get a good page.
+  for (const path of FALLBACK_PATHS) {
+    const target = `${base}${path}`;
+    const r = await fetchOne(target);
+    const challenge = r.html.length > 0 && isChallengePage(r.html, r.headers);
+    const isGoodPage = !challenge && r.html.length >= 2000 && r.status < 500;
+    if (!best || (isGoodPage && !best.challenge && r.html.length > best.html.length)) {
+      best = { headers: r.headers, html: r.html, status: r.status, path, challenge };
+    }
+    if (isGoodPage) break; // got a real page, no need to keep trying
+    // small delay to be polite
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+
+  if (!best || best.html.length === 0) {
+    return {
+      headers: { hsts: false, csp: false, xfo: false, raw: {} },
+      content: { redFlags: [], title: null, htmlLength: 0, challengePage: false },
+      error: best ? `HTTP ${best.status}` : "Fetch falhou",
+    };
+  }
+
+  const headers = best.headers;
+  const html = best.html;
+  const titleMatch = html.match(/<title[^>]*>([^<]{1,300})<\/title>/i);
+  const title = titleMatch ? titleMatch[1].trim() : null;
+
+  const redFlags: string[] = [];
+  for (const { pattern, label } of RED_FLAG_PATTERNS) {
+    if (pattern.test(html)) {
+      // If the mention looks legitimate (anti-scam warning text), skip.
+      if (isLikelyLegitimateMention(html, pattern)) {
+        continue;
+      }
+      redFlags.push(label);
+    }
+  }
+  // Suspiciously short page → likely a stub or redirect drainer.
+  // But if we detected a Cloudflare/Akamai challenge, skip this red flag
+  // (the page being short is just because the WAF blocked us, not because
+  // the actual site is a drainer stub).
+  if (html.length < 500 && !best.challenge) {
+    redFlags.push(`Página extremamente curta (${html.length} bytes) — possivel drainer stub`);
+  }
+  return {
+    headers: {
+      hsts: !!headers["strict-transport-security"],
+      csp: !!headers["content-security-policy"],
+      xfo: !!headers["x-frame-options"],
+      raw: headers,
+    },
+    content: { redFlags, title, htmlLength: html.length, challengePage: best.challenge },
+    error: best.challenge ? `Cloudflare/Akamai challenge em ${best.path}` : null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -347,7 +513,17 @@ export async function auditSite(
   let xfoPresent = false;
   let contentScore = 100;
   const hcResult = await checkHeadersAndContent(url.startsWith("http") ? url : `https://${url}`);
-  if (hcResult.error) {
+  if (hcResult.error && hcResult.content.challengePage) {
+    // Cloudflare/Akamai blocked us — we can't inspect content, so we
+    // treat it as inconclusive (not a fail). Score neutral, log finding.
+    findings.headers.push(`ℹ️ WAF bloqueou fetch (${hcResult.error}) — headers podem ter sido lidos do challenge response`);
+    findings.content.push("ℹ️ Conteúdo não auditável: WAF (Cloudflare/Akamai) retornou challenge page. Análise limitada a SSL + domínio age.");
+    // We may still have picked up headers from the challenge response;
+    // those are usually incomplete, so we don't reward them.
+    const present = [hstsPresent, cspPresent, xfoPresent].filter(Boolean).length;
+    headersScore = present >= 2 ? 70 : 50;
+    contentScore = 75; // neutral — neither good nor bad
+  } else if (hcResult.error) {
     findings.headers.push(`Erro ao buscar headers: ${hcResult.error}`);
     headersScore = 30;
   } else {

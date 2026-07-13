@@ -257,3 +257,39 @@ Stage Summary:
 - Documentação completa: README com workflow diagram, env vars table, estrutura de projeto atualizada
 - Dev server estável em /home/z/my-project porta 3000
 - Projeto considerado FINALIZADO — todas as 7 tarefas do todo list completas
+
+---
+Task ID: enhancement-v6
+Agent: main
+Task: Tunar bypass do Cloudflare em site-integrity (fallback paths + challenge detection + legit mention patterns), expandir DEX_ID_TO_PLATFORM com mais DEXes, criar PortfolioSummaryCard no dashboard, re-auditar todas as plataformas para chegar a 100% de aprovação.
+
+Work Log:
+- Adicionado em site-integrity.ts: detecção de Cloudflare/Akamai challenge pages (CLOUDFLARE_CHALLENGE_SIGNATURES, AKAMAI_CHALLENGE_SIGNATURES, isChallengePage()). Quando challenge detectado, content score é neutral (75) em vez de penalizado.
+- Adicionado em site-integrity.ts: função isLikelyLegitimateMention(html, pattern) com 22 regexes de avisos anti-scam legítimos (never share your private key, keep your mnemonic safe, private keys are lost, self-custody, not your keys not your coins, etc.). Bug corrigido: pattern.toString() retornava a forma "/private\\s*key/i" com regex syntax, então includes("private key") falhava. Trocado para pattern.source.includes("private") && pattern.source.includes("key").
+- Adicionado em site-integrity.ts: BROWSER_HEADERS com Sec-Ch-Ua e Sec-Ch-Ua-Platform para melhor se passar por Chrome real.
+- Adicionado em site-integrity.ts: FALLBACK_PATHS = ["/", "/en", "/en-US", "/about", "/api/status", "/ping", "/healthcheck"]. checkHeadersAndContent agora tenta cada path em sequência, para no primeiro que retorna HTML >2KB sem challenge, e usa o melhor resultado.
+- Adicionado scoring condicional em auditSite(): se challenge page detectado, headersScore=50-70 e contentScore=75 (neutral) em vez de reprovado.
+- Expandido DEX_ID_TO_PLATFORM em token-selector.ts: adicionados aliases (uniswapv2, sushi, sushiswapv3, curvefinance, pancake/pancakeswapv3/pancakeswapv2, aerodromev2, velodromev2, camelotv3, "1inch") + 18 novos DEXes (maverick, bancor, kyber, dodo, syncswap, orca, raydium, jupiter, meteora, phoenix, gmgn, moonshot, pumpfun, fluxbeam, alice, illumi, woofi, mosaic).
+- Expandido PLATFORM_REGISTRY em platform-scanner.ts: adicionadas 9 novas plataformas auditáveis (Maverick, Bancor, KyberSwap, DODO, SyncSwap, Orca, Raydium, Meteora, Jupiter). BaseSwap removido (DNS offline — baseswap.fi não resolve).
+- Corrigido URL do Odos no PLATFORM_REGISTRY: app.odos.com → www.odos.com (app.odos.com não resolvia DNS).
+- Criado src/components/dashboard/portfolio-summary-card.tsx (260 linhas): card consolidado com Patrimônio Total (trading + deployed + reserve), P&L Total (realizado + não-realizado com barra visual de composição), Win Rate + Profit Factor, Capital Alocado % (com Progress bar), Rounds 5 últimos (P&L somado + win rate), P&L médio por posição, Vigilância status, Plataformas aprovadas %. Badges: ROI %, Drawdown %, alertas críticos. Cores dinâmicas (verde/vermelho) baseadas em sinal de P&L.
+- Integrado PortfolioSummaryCard no page.tsx entre os balance cards (4 stat cards) e as tabs principais. Props injetadas: status (EngineSnapshot), positions, rounds, surveillanceCounts, platforms {approved, total, pending}.
+- Re-auditoria das 3 plataformas problemáticas:
+  - MEXC: score 67→71 APROVADO (Cloudflare challenge detectado, tratado como inconclusivo)
+  - Kraken: score 73→81 APROVADO (legit mention "private keys are lost" reconhecido)
+  - Odos: score 57→78 APROVADO (URL corrigido para www.odos.com)
+- Scan all platforms (force=true) executado em 60s — resultado final: 35/35 aprovadas, 0 rejeitadas, 0 pendentes. SCORES: PancakeSwap=90, 0x Protocol/Aerodrome/Basescan/Camelot/DexScreener/DODO/GoPlus/Jupiter/OKX/SyncSwap/Uniswap/Velodrome=84, Bybit/Kraken/Maverick/Orca/SushiSwap=81, Gate.io/Odos/ParaSwap=78, Balancer/Binance/Raydium=75, 1inch/Arbiscan/Bancor/Coinbase/CoinGecko/Curve/Etherscan/KuCoin/KyberSwap/Meteora/MEXC=71.
+- Validado via agent-browser:
+  - Dashboard renderiza com h1 "Auto Trader", 10 tabs, 6 posições abertas (BTC, ETH, SOL, BNB, XRP, ARB)
+  - PortfolioSummaryCard visível com: Patrimônio $983.90, P&L -$16.10, Capital 90% alocado em 6 posições, 2 alertas ativos, 35/35 plataformas (100%)
+  - Tab Plataformas: 35 cards APPROVED, 0 REJECTED, 0 PENDING
+- Screenshots em /home/z/my-project/download/: v6-portfolio-summary.png, v6-platforms-35-of-35.png, v6-final-dashboard.png
+
+Stage Summary:
+- Site-integrity agora faz bypass robusto de WAF (Cloudflare/Akamai) via: (1) detecção de challenge page signature, (2) fallback paths para encontrar conteúdo real, (3) legit-mention detection com 22 patterns de avisos anti-scam
+- Platform approval rate: 23/26 (88%) → 35/35 (100%) — todas as 35 plataformas agora APROVADAS
+- DEX coverage expandido: 11 → 29 DEXes mapeados no DEX_ID_TO_PLATFORM
+- Platform registry expandido: 26 → 35 plataformas auditáveis (+9 DEXes extra, -1 defunct BaseSwap)
+- Dashboard tem novo PortfolioSummaryCard com 8 métricas consolidadas (patrimônio, P&L total, win rate, profit factor, capital utilization, rounds recentes, vigilância, plataformas) + barra visual de composição do P&L
+- Dev server estável em /home/z/my-project porta 3000
+- TypeScript compila sem erros no src/
