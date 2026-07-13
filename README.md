@@ -221,7 +221,7 @@ equity curve (SVG no dashboard), per-symbol breakdown.
 ```
 src/
 ├── app/
-│   ├── page.tsx                       # Dashboard principal (11 tabs + AlertsToast SSE)
+│   ├── page.tsx                       # Dashboard principal (12 tabs + AlertsToast SSE)
 │   ├── layout.tsx                     # Root layout + Providers
 │   ├── providers.tsx                  # QueryClient provider
 │   └── api/                           # REST endpoints
@@ -242,6 +242,7 @@ src/
 │       ├── platforms/                 # GET/POST: platform scanner (37 curated)
 │       ├── surveillance/              # GET/POST: position alerts + scan_now
 │       ├── backtest/                  # GET/POST: backtest runner + history
+│       ├── analytics/                 # GET: equity curve + breakdowns (range=24h|7d|30d|all)
 │       ├── stream/                    # GET: SSE real-time event stream
 │       └── initialize/                # POST: init DB singletons
 ├── lib/
@@ -266,6 +267,7 @@ src/
 │       ├── portfolio.ts               # Position lifecycle + 50/50 split
 │       ├── backtest.ts                # Backtesting engine (Binance klines, RSI strategy)
 │       ├── event-bus.ts               # In-memory event bus singleton for SSE push
+│       ├── performance-snapshot.ts    # Records periodic PerformanceSnapshot for analytics
 │       └── engine.ts                  # Main loop state machine (with platform gate)
 ├── components/
 │   └── dashboard/
@@ -281,17 +283,19 @@ src/
 │       ├── platform-scanner-panel.tsx # 37-platform scanner with re-audit button
 │       ├── surveillance-panel.tsx     # Position alerts + scan_now button
 │       ├── backtest-panel.tsx         # Backtest form + results + equity curve
+│       ├── analytics-panel.tsx        # Equity curve + drawdown + per-symbol/dow/hour breakdowns
 │       ├── portfolio-summary-card.tsx # Consolidated 8-metric portfolio card
 │       └── alerts-toast.tsx           # Real-time sticky toasts (SSE-driven)
 └── hooks/
-    ├── use-trading-data.ts            # TanStack Query hooks (13)
+    ├── use-trading-data.ts            # TanStack Query hooks (14)
     └── use-event-stream.ts            # SSE singleton hook (shared EventSource)
 
 prisma/
-└── schema.prisma                      # 11 models: Config, Position, Reserve,
+└── schema.prisma                      # 12 models: Config, Position, Reserve,
                                         #   TradingBalance, RiskEvent, ScamReport,
                                         #   Round, AppLog, MarketSnapshot, AIInsight,
-                                        #   SiteAudit, PositionAlert, BacktestResult
+                                        #   SiteAudit, PositionAlert, BacktestResult,
+                                        #   PerformanceSnapshot
 
 scripts/
 └── reset-db.js                        # Reset DB for testing

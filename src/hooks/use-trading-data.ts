@@ -567,3 +567,99 @@ export function useBacktest(id: number | null) {
     refetchInterval: 3000,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Analytics
+// ---------------------------------------------------------------------------
+export type AnalyticsRange = "24h" | "7d" | "30d" | "all";
+
+export interface EquityPoint {
+  timestamp: string;
+  tradingBalanceUsd: number;
+  reserveBalanceUsd: number;
+  peakBalanceUsd: number;
+  realizedPnlUsd: number;
+  unrealizedPnlUsd: number;
+  totalEquityUsd: number;
+  openPositionsCount: number;
+  drawdownPct: number;
+}
+
+export interface AnalyticsSummary {
+  startEquityUsd: number;
+  endEquityUsd: number;
+  absChangeUsd: number;
+  pctChange: number;
+  maxEquityUsd: number;
+  minEquityUsd: number;
+  maxDrawdownPct: number;
+  snapshotCount: number;
+  rangeStart: string | null;
+  rangeEnd: string | null;
+}
+
+export interface BySymbolRow {
+  symbol: string;
+  trades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  totalPnlUsd: number;
+  avgPnlUsd: number;
+}
+
+export interface ByDowRow {
+  dow: number;
+  trades: number;
+  wins: number;
+  losses: number;
+  totalPnlUsd: number;
+}
+
+export interface ByHourRow {
+  hour: number;
+  trades: number;
+  wins: number;
+  losses: number;
+  totalPnlUsd: number;
+}
+
+export interface AnalyticsData {
+  range: AnalyticsRange;
+  equityCurve: EquityPoint[];
+  summary: AnalyticsSummary | null;
+  bySymbol: BySymbolRow[];
+  byDayOfWeek: ByDowRow[];
+  byHour: ByHourRow[];
+  streaks: {
+    currentWinStreak: number;
+    currentLossStreak: number;
+    longestWinStreak: number;
+    longestLossStreak: number;
+  };
+  bestTrade: {
+    symbol: string;
+    pnlUsd: number;
+    pnlPct: number;
+    exitAt: string;
+  } | null;
+  worstTrade: {
+    symbol: string;
+    pnlUsd: number;
+    pnlPct: number;
+    exitAt: string;
+  } | null;
+  closedPositionsCount: number;
+}
+
+export function useAnalytics(range: AnalyticsRange = "24h") {
+  return useQuery<AnalyticsData>({
+    queryKey: ["analytics", range],
+    queryFn: async () => {
+      const r = await fetch(`/api/analytics?range=${range}`);
+      if (!r.ok) throw new Error("analytics failed");
+      return r.json();
+    },
+    refetchInterval: 10000,
+  });
+}

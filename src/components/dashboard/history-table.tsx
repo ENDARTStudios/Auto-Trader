@@ -2,9 +2,11 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Download } from "lucide-react";
 import type { PositionRow } from "@/hooks/use-trading-data";
+import { downloadCsv } from "@/lib/csv-export";
 
 function fmtUsd(n: number, decimals = 4): string {
   return n.toLocaleString("en-US", {
@@ -89,6 +91,37 @@ export function HistoryTable({
               <TrendingDown className="size-3 text-red-500" />
               {losses}L
             </Badge>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 gap-1"
+              disabled={history.length === 0}
+              onClick={() =>
+                downloadCsv(
+                  `history-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.csv`,
+                  history.map((p) => ({
+                    symbol: p.symbol,
+                    source: p.source,
+                    chain: p.chain ?? "",
+                    status: p.status,
+                    entryPriceUsd: p.entryPriceUsd,
+                    entryAmountUsd: p.entryAmountUsd,
+                    entryQty: p.entryQty,
+                    entryAt: p.entryAt,
+                    exitPriceUsd: p.exitPriceUsd ?? "",
+                    exitAmountUsd: p.exitAmountUsd ?? "",
+                    exitAt: p.exitAt ?? "",
+                    exitReason: p.exitReason ?? "",
+                    pnlUsd: p.pnlUsd ?? "",
+                    pnlPct: p.pnlPct ?? "",
+                    scamScore: p.scamScore,
+                    roundId: p.roundId,
+                  }))
+                )
+              }
+            >
+              <Download className="size-3" /> CSV
+            </Button>
           </div>
         </CardTitle>
       </CardHeader>

@@ -32,6 +32,7 @@ import { runSurveillance, resolveAlertsForPosition } from "./position-surveillan
 import { planExit, applyExitPlan } from "./exit-planner";
 import { getApprovedPlatformIds } from "./platform-scanner";
 import { eventBus } from "./event-bus";
+import { recordSnapshotIfDue } from "./performance-snapshot";
 import {
   ensureInitialized,
   openPosition,
@@ -175,6 +176,8 @@ class Engine {
 
       // Update peak balance after each tick
       await updatePeakBalance();
+      // Record performance snapshot (throttled to 1/min)
+      await recordSnapshotIfDue();
     } catch (err) {
       logger.error("engine", "Erro no tick", { error: String(err), stack: (err as Error).stack });
     } finally {

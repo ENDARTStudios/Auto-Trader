@@ -32,6 +32,7 @@ import {
   ShieldAlert,
   Building2,
   FlaskConical,
+  LineChart,
 } from "lucide-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -64,6 +65,7 @@ import { PlatformScannerPanel } from "@/components/dashboard/platform-scanner-pa
 import { PortfolioSummaryCard } from "@/components/dashboard/portfolio-summary-card";
 import { AlertsToast } from "@/components/dashboard/alerts-toast";
 import { BacktestPanel } from "@/components/dashboard/backtest-panel";
+import { AnalyticsPanel } from "@/components/dashboard/analytics-panel";
 
 function fmtUsd(n: number, decimals = 2): string {
   return n.toLocaleString("en-US", {
@@ -473,7 +475,7 @@ export default function Home() {
 
         {/* Main tabs */}
         <Tabs defaultValue="positions" className="space-y-4">
-          <TabsList className="grid grid-cols-2 md:grid-cols-11 w-full">
+          <TabsList className="grid grid-cols-2 md:grid-cols-12 w-full">
             <TabsTrigger value="positions" className="gap-1">
               <Activity className="size-3" /> Posições
             </TabsTrigger>
@@ -510,6 +512,9 @@ export default function Home() {
             </TabsTrigger>
             <TabsTrigger value="backtest" className="gap-1">
               <FlaskConical className="size-3" /> Backtest
+            </TabsTrigger>
+            <TabsTrigger value="analytics" className="gap-1">
+              <LineChart className="size-3" /> Analytics
             </TabsTrigger>
             <TabsTrigger value="rounds" className="gap-1">
               <Coins className="size-3" /> Rounds
@@ -572,6 +577,10 @@ export default function Home() {
 
           <TabsContent value="backtest" className="space-y-4">
             <BacktestPanel />
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-4">
+            <AnalyticsPanel />
           </TabsContent>
 
           <TabsContent value="rounds" className="space-y-4">

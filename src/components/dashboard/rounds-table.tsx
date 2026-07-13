@@ -2,8 +2,11 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Download } from "lucide-react";
 import type { RoundRow } from "@/hooks/use-trading-data";
+import { downloadCsv } from "@/lib/csv-export";
 
 function fmtUsd(n: number): string {
   return n.toLocaleString("en-US", {
@@ -54,7 +57,37 @@ export function RoundsTable({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Histórico de Rounds ({rounds.length})</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <span>Histórico de Rounds ({rounds.length})</span>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1"
+            disabled={rounds.length === 0}
+            onClick={() =>
+              downloadCsv(
+                `rounds-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.csv`,
+                rounds.map((r) => ({
+                  id: r.id,
+                  startedAt: r.startedAt,
+                  endedAt: r.endedAt ?? "",
+                  tradingBalanceUsd: r.tradingBalanceUsd,
+                  reserveBalanceUsd: r.reserveBalanceUsd,
+                  tokensScanned: r.tokensScanned,
+                  tokensPassedFilter: r.tokensPassedFilter,
+                  tokensRejectedScam: r.tokensRejectedScam,
+                  positionsOpened: r.positionsOpened,
+                  positionsClosed: r.positionsClosed,
+                  roundPnlUsd: r.roundPnlUsd ?? "",
+                  status: r.status,
+                  notes: r.notes ?? "",
+                }))
+              )
+            }
+          >
+            <Download className="size-3" /> CSV
+          </Button>
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto max-h-[600px] overflow-y-auto">

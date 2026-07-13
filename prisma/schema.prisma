@@ -380,3 +380,20 @@ model BacktestResult {
   @@index([startedAt])
 }
 
+
+// Performance snapshots — recorded periodically by the engine to build
+// the live equity curve displayed in the Analytics tab.
+model PerformanceSnapshot {
+  id                  Int      @id @default(autoincrement())
+  timestamp           DateTime @default(now())
+  tradingBalanceUsd   Float
+  reserveBalanceUsd   Float
+  peakBalanceUsd      Float
+  realizedPnlUsd      Float
+  unrealizedPnlUsd    Float    // sum of open positions' unrealized P&L
+  totalEquityUsd      Float    // trading + reserve + unrealized
+  openPositionsCount  Int
+  drawdownPct         Float    // (peak - current) / peak * 100
+
+  @@index([timestamp])
+}

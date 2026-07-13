@@ -416,3 +416,71 @@ Stage Summary:
 - Dev server estável em /home/z/my-project porta 3000
 - 100% gratuito: SSE usa apenas HTTP nativo, sem dependência de socket.io/redis para o caso single-process
 - Polling ainda existe para dados tabulares (positions, logs, market) — SSE é complementar para alertas críticos
+
+---
+Task ID: enhancement-v9
+Agent: main
+Task: Adicionar aba de Analytics com equity curve histórica (PerformanceSnapshot model + recording no engine tick + /api/analytics + analytics-panel.tsx), e adicionar export CSV nas tabelas de Posições/Histórico/Rounds.
+
+Work Log:
+- Adicionado model PerformanceSnapshot ao prisma/schema.prisma (9 campos: timestamp, tradingBalanceUsd, reserveBalanceUsd, peakBalanceUsd, realizedPnlUsd, unrealizedPnlUsd, totalEquityUsd, openPositionsCount, drawdownPct, com @@index([timestamp]). db push + prisma generate executados.
+- Criado src/lib/trading/performance-snapshot.ts (105 linhas): função recordSnapshotIfDue() com throttle de 60s. Busca tradingBalance/reserve singletons, calcula unrealized P&L via fetchPricesBatch para posições abertas, calcula totalEquity = trading + reserve + unrealized, calcula drawdownPct = (peak - totalEquity) / peak * 100. Persiste em PerformanceSnapshot table. Trim automático para manter no máx 50.000 rows (~35 dias a 1-min granularity).
+- Modificado src/lib/trading/engine.ts: adicionado import de recordSnapshotIfDue e chamada após updatePeakBalance() no final do tick. Snapshots são gravados a cada 60s enquanto a engine roda.
+- Criado src/app/api/analytics/route.ts (225 linhas): endpoint GET /api/analytics?range=24h|7d|30d|all. Retorna:
+  - equityCurve: array de snapshots no período (timestamp + 8 métricas)
+  - summary: startEquity, endEquity, absChange, pctChange, maxEquity, minEquity, maxDrawdown, snapshotCount, rangeStart, rangeEnd
+  - bySymbol: P&L agregado por símbolo (top trades, wins, losses, winRate, totalPnl, avgPnl)
+  - byDayOfWeek: 7 entradas (Dom..Sáb) com trades/wins/losses/totalPnl
+  - byHour: 24 entradas (0..23h) com trades/wins/losses/totalPnl
+  - streaks: currentWinStreak, currentLossStreak, longestWinStreak, longestLossStreak (computado sobre TODAS as posições fechadas, não só do range)
+  - bestTrade / worstTrade: {symbol, pnlUsd, pnlPct, exitAt} ou null
+  - closedPositionsCount
+- Bug fix durante desenvolvimento: range=all usava Date.now() - Number.MAX_SAFE_INTEGER que overflow para Invalid Date. Trocado para new Date(0) (epoch 1970) quando range=all.
+- Adicionado hooks useAnalytics(range) em use-trading-data.ts com tipos AnalyticsRange, EquityPoint, AnalyticsSummary, BySymbolRow, ByDowRow, ByHourRow, AnalyticsData. Refetch 10s.
+- Criado src/components/dashboard/analytics-panel.tsx (450 linhas): dashboard de analytics com:
+  - Range selector (4 botões: 24h / 7d / 30d / Tudo)
+  - 4 stat cards: Retorno no período (% + USD), Max Drawdown %, Streak atual (W/L + longest), Trades no período
+  - Equity Curve SVG inline (800x280): linha de equity total colorida verde/vermelho conforme start vs end, linha de peak balance tracejada cinza, shading vermelho para regiões de drawdown, grid Y com 5 ticks, legenda
+  - Drawdown Chart SVG inline (800x120): área vermelha preenchida mostrando % de drawdown ao longo do tempo
+  - P&L por símbolo (top 10): bar chart horizontal com barras verdes (lucro) ou vermelhas (prejuízo) partindo do centro, mostra symbol + trades + winRate
+  - Melhor & Pior trade: 2 cards coloridos (verde/vermelho) com symbol, pnl, %, timestamp
+  - P&L por dia da semana: 7 cells heatmap colorido por intensidade de P&L (Dom..Sáb)
+  - P&L por hora do dia: 24 cells heatmap compacto colorido por intensidade de P&L
+- Adicionado 12ª tab "Analytics" no page.tsx (TabsList agora grid-cols-12), com ícone LineChart do lucide-react.
+- Criado src/lib/csv-export.ts (45 linhas): utility downloadCsv(filename, rows) que gera CSV a partir de array de objetos. Coleta todas as chaves únicas, escapa cells com aspas se contêm vírgia/aspas/newline, cria Blob, triggers download via <a> element.
+- Adicionado botão "CSV" (com ícone Download) em 3 componentes:
+  - positions-table.tsx: exporta 16 campos por posição (symbol, source, chain, tokenId, entryPrice, entryAmount, entryQty, entryAt, currentPrice, unrealizedPnl, unrealizedPnlPct, takeProfit, stopLoss, maxExitAt, scamScore, roundId)
+  - history-table.tsx: exporta 15 campos por posição fechada (incluindo exitPrice, exitAt, exitReason, pnlUsd, pnlPct)
+  - rounds-table.tsx: exporta 13 campos por round (id, startedAt, endedAt, balances, tokensScanned/Passed/Rejected, positionsOpened/Closed, roundPnl, status, notes)
+- TypeScript compila sem erros em src/ (apenas examples/ e skills/ com erros pré-existentes)
+- Validado via curl:
+  - GET /api/analytics?range=24h: retorna JSON válido com equityCurve[], summary, bySymbol[], byDayOfWeek[7], byHour[24], streaks, bestTrade/worstTrade
+  - GET /api/analytics?range=all: retorna todos os snapshots gravados (após engine rodar 70s, gerou 2 snapshots)
+  - POST /api/engine/start → wait 70s → POST /api/engine/stop: engine gravou 2 PerformanceSnapshots (throttle 60s funcionando)
+  - Snapshot contém: tradingBalanceUsd=100, reserveBalanceUsd=0, peakBalanceUsd=1000, unrealizedPnlUsd=-14.32, totalEquityUsd=85.68, openPositionsCount=6, drawdownPct=91.43
+- Validado via agent-browser:
+  - Dashboard renderiza com 12 tabs (adicionado Analytics com ícone LineChart)
+  - Tab Analytics: range selector (24h/7d/30d/Tudo) visível, 4 stat cards (Retorno, Max Drawdown, Streak, Trades), Equity Curve SVG, Drawdown SVG, P&L por símbolo, Melhor & Pior trade, P&L por dia da semana (7 cells), P&L por hora do dia (24 cells)
+  - Click em "Tudo" carrega todos os snapshots disponíveis
+  - Tab Posições: botão "CSV" visível e habilitado (6 posições abertas)
+  - Click no botão CSV: download automático de positions-2026-07-13-04-57-05.csv para /home/z/Downloads/
+  - CSV gerado corretamente: 16 colunas, 6 rows (BTC, ETH, SOL, BNB, XRP, ARB), com tokenId do ARB (0x912CE59144191C1204E64559FE8253a0e49E6548) e preços formatados
+- Screenshots em /home/z/my-project/download/:
+  - v9-analytics-tab.png (tab Analytics com range 24h default)
+  - v9-analytics-range-all.png (tab Analytics após click em "Tudo")
+  - v9-analytics-breakdowns.png (scroll down mostrando bySymbol + best/worst + dow/hour heatmaps)
+  - v9-positions-csv-button.png (tab Posições com botão CSV visível)
+
+Stage Summary:
+- 12ª tab "Analytics" adicionada ao dashboard com equity curve histórica + drawdown + breakdowns por símbolo/dia/hora + melhor/pior trade + streaks
+- PerformanceSnapshot model (12º Prisma model) grava snapshots a cada 60s enquanto engine roda, com trim automático em 50k rows
+- /api/analytics endpoint retorna agregações completas para o range selecionado (24h/7d/30d/all)
+- 3 botões de export CSV adicionados (Posições, Histórico, Rounds) — downloads verificados funcionando
+- 19 API routes (adicionado /api/analytics)
+- 22 lib/trading files (adicionado performance-snapshot.ts)
+- 1 lib/csv-export.ts utility
+- 15 dashboard components (adicionado analytics-panel.tsx)
+- 12 Prisma models (adicionado PerformanceSnapshot)
+- TypeScript compila sem erros em src/
+- Dev server estável em /home/z/my-project porta 3000
+- Dashboard agora tem 12 tabs: Posições, Histórico, Mercado, AI Agents, Scam Audit, Site Audit, Plataformas, Vigilância, Backtest, Analytics, Rounds, Logs
