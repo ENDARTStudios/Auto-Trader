@@ -221,7 +221,7 @@ equity curve (SVG no dashboard), per-symbol breakdown.
 ```
 src/
 ├── app/
-│   ├── page.tsx                       # Dashboard principal (10 tabs)
+│   ├── page.tsx                       # Dashboard principal (11 tabs + AlertsToast SSE)
 │   ├── layout.tsx                     # Root layout + Providers
 │   ├── providers.tsx                  # QueryClient provider
 │   └── api/                           # REST endpoints
@@ -239,8 +239,10 @@ src/
 │       ├── market/                    # GET/POST: market snapshots + on-demand analysis
 │       ├── ai-insights/               # GET: AI agent outputs
 │       ├── site-audit/                # GET/POST: site integrity audits
-│       ├── platforms/                 # GET/POST: platform scanner (26 curated)
+│       ├── platforms/                 # GET/POST: platform scanner (37 curated)
 │       ├── surveillance/              # GET/POST: position alerts + scan_now
+│       ├── backtest/                  # GET/POST: backtest runner + history
+│       ├── stream/                    # GET: SSE real-time event stream
 │       └── initialize/                # POST: init DB singletons
 ├── lib/
 │   ├── db.ts                          # Prisma client
@@ -251,8 +253,8 @@ src/
 │       ├── risk-manager.ts            # Circuit breakers (5)
 │       ├── scam-detector.ts           # 6 sub-scorers (regex + Etherscan)
 │       ├── goplus-scanner.ts          # GoPlus Security API (honeypot/tax/holders)
-│       ├── site-integrity.ts          # 5-layer site audit (SSL/RDAP/headers/SafeBrowsing/content)
-│       ├── platform-scanner.ts        # 26-platform registry + scanAll/getApprovedPlatformIds
+│       ├── site-integrity.ts          # 5-layer site audit (SSL/RDAP/headers/SafeBrowsing/content) com WAF bypass
+│       ├── platform-scanner.ts        # 37-platform registry + scanAll/getApprovedPlatformIds
 │       ├── token-selector.ts          # CEX (Binance) + DEX (DexScreener) with platformId
 │       ├── rising-tokens.ts           # CoinGecko trending + gainers discovery
 │       ├── price-feed.ts              # Live price fetching (Binance + DexScreener)
@@ -262,6 +264,8 @@ src/
 │       ├── position-surveillance.ts   # 7 risk detectors for open positions
 │       ├── paper-trader.ts            # Simulated order execution
 │       ├── portfolio.ts               # Position lifecycle + 50/50 split
+│       ├── backtest.ts                # Backtesting engine (Binance klines, RSI strategy)
+│       ├── event-bus.ts               # In-memory event bus singleton for SSE push
 │       └── engine.ts                  # Main loop state machine (with platform gate)
 ├── components/
 │   └── dashboard/
@@ -274,16 +278,20 @@ src/
 │       ├── market-panel.tsx           # Technical indicators + sentiment
 │       ├── ai-insights-panel.tsx      # AI agent outputs (4 roles)
 │       ├── site-audit-panel.tsx       # Manual URL audit + history
-│       ├── platform-scanner-panel.tsx # 26-platform scanner with re-audit button
-│       └── surveillance-panel.tsx     # Position alerts + scan_now button
+│       ├── platform-scanner-panel.tsx # 37-platform scanner with re-audit button
+│       ├── surveillance-panel.tsx     # Position alerts + scan_now button
+│       ├── backtest-panel.tsx         # Backtest form + results + equity curve
+│       ├── portfolio-summary-card.tsx # Consolidated 8-metric portfolio card
+│       └── alerts-toast.tsx           # Real-time sticky toasts (SSE-driven)
 └── hooks/
-    └── use-trading-data.ts            # TanStack Query hooks (11)
+    ├── use-trading-data.ts            # TanStack Query hooks (13)
+    └── use-event-stream.ts            # SSE singleton hook (shared EventSource)
 
 prisma/
-└── schema.prisma                      # 10 models: Config, Position, Reserve,
+└── schema.prisma                      # 11 models: Config, Position, Reserve,
                                         #   TradingBalance, RiskEvent, ScamReport,
                                         #   Round, AppLog, MarketSnapshot, AIInsight,
-                                        #   SiteAudit, PositionAlert
+                                        #   SiteAudit, PositionAlert, BacktestResult
 
 scripts/
 └── reset-db.js                        # Reset DB for testing
@@ -295,21 +303,22 @@ scripts/
 2. **Tax score é heurística** — taxa real de buy/sell requer simulação de swap via `eth_call` em RPC archive node. No MVP, usa score neutro.
 3. **Honeypot check é indireto** — usa turnover 24h/liquidez como proxy. Honeypot detection real requer simulação local de swap (comprar → vender → ver se vende).
 4. **Engine roda in-process** — sobrevive ao hot reload do Next.js dev, mas em produção precisa ser um worker separado (BullMQ + Redis ou processo Node standalone).
-5. **Sem WebSocket** — dashboard usa polling (3-10s por endpoint). Para produção, adicionar socket.io para updates em tempo real.
-6. **Sem autenticação** — dashboard é aberto. Para produção, adicionar NextAuth + role-based access.
+5. **Sem autenticação** — dashboard é aberto. Para produção, adicionar NextAuth + role-based access.
+6. **SSE é in-process** — funciona porque engine + API rodam no mesmo processo Next.js. Em produção com worker separado, trocar por Redis Pub/Sub → SSE bridge.
+7. **Event bus não persiste** — reiniciar o processo Next.js limpa o ring buffer de eventos. Histórico completo continua em AppLog/PositionAlert/etc tables.
 
 ## Roadmap para produção
 
-- [ ] Worker separado para engine (BullMQ + Redis)
+- [ ] Worker separado para engine (BullMQ + Redis) + Redis Pub/Sub → SSE bridge
 - [ ] Vault/KMS integration para chave privada (HashiCorp Vault dev mode em Docker)
 - [ ] CCXT integration para live CEX orders (Binance)
 - [ ] ethers.js Uniswap V3 router para live DEX orders (Base/Arbitrum/Optimism)
 - [ ] Honeypot detection real via `eth_call` simulation em archive node
 - [ ] Tax simulation via swap router static call
-- [ ] WebSocket (socket.io) para real-time updates
+- [x] ~~WebSocket (socket.io) para real-time updates~~ → feito via SSE (sem dependência extra)
+- [x] ~~Backtesting UI com dados históricos~~ → feito (Binance klines + RSI strategy)
 - [ ] NextAuth + role-based access control
-- [ ] Backtesting UI com dados históricos
-- [ ] Alertas Telegram/Discord para eventos críticos
+- [ ] Alertas Telegram/Discord para eventos críticos (consumir do event-bus)
 
 ## Licença
 

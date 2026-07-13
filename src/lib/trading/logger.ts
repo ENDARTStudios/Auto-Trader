@@ -1,7 +1,9 @@
 // Lightweight logger that persists to AppLog table for dashboard feed.
-// Also mirrors to console for dev visibility.
+// Also mirrors to console for dev visibility, and publishes warn/error
+// entries to the in-memory event bus for real-time SSE push.
 
 import { db } from "@/lib/db";
+import { eventBus } from "./event-bus";
 
 export type LogLevel = "debug" | "info" | "warn" | "error";
 export type LogSource =
@@ -67,6 +69,29 @@ export async function log(
     // Don't let logging failures break the engine.
     console.error("[logger] failed to persist log:", err);
   }
+
+  // Publish high-signal log lines to the real-time event bus.
+  // info+debug are excluded to keep the SSE channel focused on actionable
+  // events. The bus itself buffers the last 200 events.
+  if (level === "warn" || level === "error") {
+    try {
+      eventBus.push({
+        type: "log",
+        level: level === "error" ? "error" : "warn",
+        source,
+        title: truncate(message, 110),
+        message,
+        context,
+      });
+    } catch {
+      // ignore — bus should never break logging
+    }
+  }
+}
+
+function truncate(s: string, n: number): string {
+  if (s.length <= n) return s;
+  return s.slice(0, n - 1) + "\u2026";
 }
 
 export const logger = {

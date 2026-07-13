@@ -68,6 +68,8 @@ export const PLATFORM_REGISTRY: PlatformEntry[] = [
   { id: "orca",      name: "Orca",      url: "https://www.orca.so",        kind: "dex", chains: ["solana"], notes: "DEX líder na Solana com pools concentradas." },
   { id: "raydium",   name: "Raydium",   url: "https://raydium.io",         kind: "dex", chains: ["solana"], notes: "DEX Solana integrada com Serum orderbook." },
   { id: "meteora",   name: "Meteora",   url: "https://www.meteora.ag",     kind: "dex", chains: ["solana"], notes: "DEX Solana com DLMM (Dynamic Liquidity Market Making)." },
+  { id: "pumpfun",   name: "Pump.fun",  url: "https://pump.fun",           kind: "dex", chains: ["solana"], notes: "Launchpad de memecoins Solana. Bonding curve on-chain." },
+  { id: "moonshot",  name: "Moonshot",  url: "https://moonshot.money",     kind: "dex", chains: ["solana"], notes: "DEX Solana para memecoins com launch via DexScreener." },
 
   // ----- Solana aggregators -----
   { id: "jupiter",   name: "Jupiter",   url: "https://jup.ag",             kind: "aggregator", chains: ["solana"], notes: "Maior agregador Solana. API pública gratuita." },

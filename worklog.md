@@ -333,3 +333,86 @@ Stage Summary:
 - 17 API routes (adicionado /api/backtest)
 - 20 lib/trading files (adicionado backtest.ts)
 - 13 dashboard components (adicionado backtest-panel.tsx)
+
+---
+Task ID: enhancement-v8
+Agent: main
+Task: Adicionar Pump.fun e Moonshot ao PLATFORM_REGISTRY (Solana DEXes missing), implementar camada de real-time alerts via SSE para substituir o polling de 5s, criar componente de toasts sticky para surface de eventos críticos no dashboard.
+
+Work Log:
+- Adicionadas 2 entradas ao PLATFORM_REGISTRY em platform-scanner.ts:
+  - Pump.fun (https://pump.fun) — Launchpad de memecoins Solana, bonding curve on-chain
+  - Moonshot (https://moonshot.money) — DEX Solana para memecoins com launch via DexScreener
+  - Registry total: 35 → 37 plataformas
+- Re-auditadas as 2 novas plataformas via POST /api/platforms {action:"scan_one",force:true}:
+  - Pump.fun: score 71 APROVADO (Cloudflare challenge detectado e tratado — contentScore neutral 75)
+  - Moonshot: score 75 APROVADO (sem WAF, content limpo, SSL válido)
+  - Scan all final: 37/37 aprovadas, 0 rejeitadas, 0 pendentes (100%)
+- Criado src/lib/trading/event-bus.ts (135 linhas): singleton EventEmitter in-memory que mantém ring buffer dos últimos 200 BusEvents. Tipos: log, alert, position, engine, round, kill_switch, scam_detected, trade, market. API: push(opts), subscribe(onEvent, {replayHistory, historyLimit}), history(limit), size(). Persiste em globalThis.__AUTO_TRADER_EVENT_BUS__ para sobreviver a hot reloads.
+- Modificado src/lib/trading/logger.ts: a cada warn/error, publica evento "log" no eventBus com title truncado a 110 chars. info/debug são excluídos para manter o canal SSE high-signal.
+- Modificado src/lib/trading/engine.ts: adicionada import do eventBus. Adicionados 3 pontos de emissão de eventos:
+  1. Após closePosition no monitorAndExit mecânico (TP/SL/timeout) — evento "position" com level info/warn conforme reason
+  2. Após openPosition no scoutAndExecute — evento "position" info com symbol, preço, amount, scamScore, roundId
+  3. Após closePosition no forceExitAll (kill_switch) — evento "position" critical com motivo
+  Adicionada helper function reasonLabel(r: ExitReason) no final do arquivo.
+- Modificado src/app/api/kill-switch/route.ts: emite evento "kill_switch" critical quando ativado (sticky toast) e "engine" info quando desativado.
+- Modificado src/app/api/engine/start/route.ts: emite evento "engine" info "Engine iniciada" quando start tem sucesso.
+- Modificado src/app/api/engine/stop/route.ts: emite evento "engine" warn "Engine parada" quando stop é chamado.
+- Criado src/app/api/stream/route.ts (102 linhas): endpoint SSE (Server-Sent Events). Headers: Content-Type text/event-stream, no-cache, keep-alive, X-Accel-Buffering no. ReadableStream com:
+  - Event "hello" inicial com serverTime e bufferSize
+  - Replay dos últimos 20 eventos bufferizados (para clientes recém-conectados verem histórico recente)
+  - Subscrição ao eventBus para eventos futuros
+  - Heartbeat a cada 15s (mantém conexão viva através de proxies)
+  - Cleanup no req.signal.abort (cancela subscrição + fecha controller)
+  - dynamic=force-dynamic, runtime=nodejs
+- Criado src/hooks/use-event-stream.ts (200 linhas): hook React com singleton module-level EventSource compartilhado entre todos os callers (browsers limitam SSE por origem a ~6). API: useEventStream({onEvent, maxRecent}) → {readyState, recent, reconnect}. Features:
+  - Auto-reconnect manual após EventSource.readyState===2 (backoff 3s)
+  - Listeners Set<Listener> + readyListeners Set<(s)=>void> para pub/sub interno
+  - Dedupe via seenIds Set (limite 500 para evitar growth ilimitado)
+  - Helpers exportados: isCritical(ev), severityRank(ev)
+- Criado src/components/dashboard/alerts-toast.tsx (260 linhas): componente sticky toast top-right. Features:
+  - Máx 5 toasts visíveis simultaneamente
+  - Critical (kill_switch, error, force-exit) = sticky (não auto-dismiss)
+  - Warn = auto-dismiss 8s, Info = auto-dismiss 5s
+  - Color-coded: vermelho (critical/error), âmbar (warn), esmeralda (position), azul (engine), cinza (default)
+  - Click no título expande para mostrar context JSON completo
+  - Botão × em cada toast para dismiss individual
+  - Botão "Limpar (N)" para dismiss all
+  - Indicador LIVE/RECONNECTING/OFFLINE no topo com dot animado (verde/âmbar/cinza)
+  - Animação slideIn via <style jsx> (Tailwind não tem built-in)
+  - Tick a cada 1s para checar auto-dismiss
+- Integrado AlertsToast no src/app/page.tsx: import + <AlertsToast /> montado uma única vez no início do return principal, antes do header. Como é fixed top-right z-50, fica sobreposto a todo o conteúdo.
+- Validado via curl:
+  - GET /api/stream: retorna headers SSE corretos + event hello + replay dos últimos 20 eventos bufferizados
+  - POST /api/kill-switch {active:true,reason:"SSE test trigger"}: gera 3 eventos SSE imediatos (kill_switch critical, log warn do risk, log warn do api) — todos entregues via stream
+  - POST /api/kill-switch {active:false}: gera evento engine info
+  - TypeScript compila sem erros em src/ (apenas examples/ e skills/ com erros pré-existentes)
+- Validado via agent-browser:
+  - Dashboard renderiza com 11 tabs + AlertsToast no topo-right
+  - Indicador LIVE verde pulsante visível após SSE conectar
+  - Toasts aparecem em tempo real quando kill switch é triggerado via API: stack de 5 toasts visíveis (KILL SWITCH ATIVADO sticky vermelho + 2 log warns âmbar + Kill switch desativado info azul + log warn âmbar)
+  - Botão "Limpar todos os toasts" funciona (limpa stack)
+  - Botão "Dispensar" em cada toast funciona individualmente
+  - Tab Plataformas: 37 cards APPROVED, 0 REJECTED, 0 PENDING
+  - "37/37 (100%)" visível no PortfolioSummaryCard e no header da tab Plataformas
+  - Pump.fun e Moonshot cards presentes na lista
+- Screenshots em /home/z/my-project/download/:
+  - v8-dashboard-with-toasts.png (dashboard com stack de 5 toasts visíveis)
+  - v8-toasts-cleared.png (após click no botão Limpar)
+  - v8-toasts-after-trigger.png (após re-trigger do kill switch — novos toasts apareceram)
+  - v8-platforms-37-of-37.png (tab Plataformas com 37/37 aprovadas)
+  - v8-final-dashboard-with-sse.png (dashboard final com indicador LIVE)
+
+Stage Summary:
+- Plataformas: 35 → 37 (+Pump.fun, +Moonshot, ambos Solana DEXes)
+- Approval rate mantida em 100% (37/37 aprovadas)
+- Real-time layer: SSE endpoint /api/stream + event-bus singleton + useEventStream hook + AlertsToast component
+- Substitui polling de 5s para alertas críticos — kill switch, position open/close, force-exit agora chegam instantaneamente ao dashboard
+- 18 API routes (adicionado /api/stream)
+- 21 lib/trading files (adicionado event-bus.ts)
+- 14 dashboard components (adicionado alerts-toast.tsx)
+- 2 hooks files (adicionado use-event-stream.ts)
+- TypeScript compila sem erros em src/
+- Dev server estável em /home/z/my-project porta 3000
+- 100% gratuito: SSE usa apenas HTTP nativo, sem dependência de socket.io/redis para o caso single-process
+- Polling ainda existe para dados tabulares (positions, logs, market) — SSE é complementar para alertas críticos

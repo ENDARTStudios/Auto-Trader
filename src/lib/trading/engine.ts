@@ -31,6 +31,7 @@ import { runAgentSquad } from "./ai-agent";
 import { runSurveillance, resolveAlertsForPosition } from "./position-surveillance";
 import { planExit, applyExitPlan } from "./exit-planner";
 import { getApprovedPlatformIds } from "./platform-scanner";
+import { eventBus } from "./event-bus";
 import {
   ensureInitialized,
   openPosition,
@@ -223,6 +224,21 @@ class Engine {
         await closePosition(cfg, pos.id, price, reason);
         await resolveAlertsForPosition(pos.id, "exited_position");
         closed++;
+        eventBus.push({
+          type: "position",
+          level: reason === "take_profit" ? "info" : reason === "stop_loss" ? "warn" : "info",
+          source: "engine",
+          title: `Posição ${pos.symbol} fechada (${reasonLabel(reason)})`,
+          message: `${pos.symbol} saiu em ${reasonLabel(reason)} @ $${price.toFixed(price < 1 ? 6 : 2)}`,
+          context: {
+            positionId: pos.id,
+            symbol: pos.symbol,
+            reason,
+            exitPrice: price,
+            entryPrice: pos.entryPriceUsd,
+            entryAmountUsd: pos.entryAmountUsd,
+          },
+        });
       } else {
         stillOpen.push(pos);
       }
@@ -333,6 +349,20 @@ class Engine {
       const price = prices.get(pos.id) ?? pos.entryPriceUsd;
       await closePosition(cfg, pos.id, price, reason);
       await resolveAlertsForPosition(pos.id, "exited_position");
+      eventBus.push({
+        type: "position",
+        level: "critical",
+        source: "engine",
+        title: `Force-exit: ${pos.symbol} (${reasonLabel(reason)})`,
+        message: `${pos.symbol} forçadamente fechado @ $${price.toFixed(price < 1 ? 6 : 2)} — motivo: ${reasonLabel(reason)}`,
+        context: {
+          positionId: pos.id,
+          symbol: pos.symbol,
+          reason,
+          exitPrice: price,
+          entryPrice: pos.entryPriceUsd,
+        },
+      });
     }
   }
 
@@ -628,7 +658,26 @@ class Engine {
         continue;
       }
       const pos = await openPosition(cfg, candidate, perToken, report, round.id);
-      if (pos) opened++;
+      if (pos) {
+        opened++;
+        eventBus.push({
+          type: "position",
+          level: "info",
+          source: "engine",
+          title: `Posição aberta: ${candidate.symbol}`,
+          message: `Comprou ${candidate.symbol} @ $${candidate.priceUsd.toFixed(candidate.priceUsd < 1 ? 6 : 2)} ($${perToken.toFixed(2)} alocado, score ${report.score}/100)`,
+          context: {
+            positionId: pos.id,
+            symbol: candidate.symbol,
+            source: candidate.source,
+            chain: candidate.chain,
+            entryPrice: candidate.priceUsd,
+            entryAmountUsd: perToken,
+            scamScore: report.score,
+            roundId: round.id,
+          },
+        });
+      }
     }
 
     await db.round.update({
@@ -691,4 +740,24 @@ export async function getEngineSnapshot(): Promise<EngineSnapshot> {
     currentRoundId: engine.getCurrentRoundId(),
     loopIteration: engine.getIteration(),
   };
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function reasonLabel(r: ExitReason): string {
+  switch (r) {
+    case "take_profit":
+      return "TP";
+    case "stop_loss":
+      return "SL";
+    case "timeout":
+      return "timeout";
+    case "kill_switch":
+      return "kill switch";
+    case "manual":
+      return "manual";
+    default:
+      return r;
+  }
 }

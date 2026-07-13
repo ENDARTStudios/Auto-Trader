@@ -62,6 +62,7 @@ import { SiteAuditPanel } from "@/components/dashboard/site-audit-panel";
 import { SurveillancePanel } from "@/components/dashboard/surveillance-panel";
 import { PlatformScannerPanel } from "@/components/dashboard/platform-scanner-panel";
 import { PortfolioSummaryCard } from "@/components/dashboard/portfolio-summary-card";
+import { AlertsToast } from "@/components/dashboard/alerts-toast";
 import { BacktestPanel } from "@/components/dashboard/backtest-panel";
 
 function fmtUsd(n: number, decimals = 2): string {
@@ -209,6 +210,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <AlertsToast />
       <div className="border-b bg-card">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
