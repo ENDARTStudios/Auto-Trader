@@ -29,6 +29,7 @@ import {
   Brain,
   Globe,
   BarChart3,
+  ShieldAlert,
 } from "lucide-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -44,6 +45,7 @@ import {
   useMarketData,
   useAIInsights,
   useSiteAudits,
+  useSurveillance,
 } from "@/hooks/use-trading-data";
 import { PositionsTable } from "@/components/dashboard/positions-table";
 import { HistoryTable } from "@/components/dashboard/history-table";
@@ -54,6 +56,7 @@ import { ConfigEditor } from "@/components/dashboard/config-editor";
 import { MarketPanel } from "@/components/dashboard/market-panel";
 import { AIInsightsPanel } from "@/components/dashboard/ai-insights-panel";
 import { SiteAuditPanel } from "@/components/dashboard/site-audit-panel";
+import { SurveillancePanel } from "@/components/dashboard/surveillance-panel";
 
 function fmtUsd(n: number, decimals = 2): string {
   return n.toLocaleString("en-US", {
@@ -92,6 +95,7 @@ export default function Home() {
   const market = useMarketData(30);
   const aiInsights = useAIInsights(50);
   const siteAudits = useSiteAudits(30);
+  const surveillance = useSurveillance(80, false);
 
   const [reserveWithdrawAmount, setReserveWithdrawAmount] = useState("");
 
@@ -429,7 +433,7 @@ export default function Home() {
 
         {/* Main tabs */}
         <Tabs defaultValue="positions" className="space-y-4">
-          <TabsList className="grid grid-cols-2 md:grid-cols-8 w-full">
+          <TabsList className="grid grid-cols-2 md:grid-cols-9 w-full">
             <TabsTrigger value="positions" className="gap-1">
               <Activity className="size-3" /> Posições
             </TabsTrigger>
@@ -447,6 +451,14 @@ export default function Home() {
             </TabsTrigger>
             <TabsTrigger value="site" className="gap-1">
               <Globe className="size-3" /> Site Audit
+            </TabsTrigger>
+            <TabsTrigger value="surveillance" className="gap-1 relative">
+              <ShieldAlert className="size-3" /> Vigilância
+              {(surveillance.data?.counts.total ?? 0) > 0 && (
+                <Badge variant="destructive" className="ml-1 h-4 px-1 text-[9px]">
+                  {surveillance.data?.counts.total}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="rounds" className="gap-1">
               <Coins className="size-3" /> Rounds
@@ -492,6 +504,14 @@ export default function Home() {
             <SiteAuditPanel
               audits={siteAudits.data ?? []}
               isLoading={siteAudits.isLoading}
+            />
+          </TabsContent>
+
+          <TabsContent value="surveillance" className="space-y-4">
+            <SurveillancePanel
+              alerts={surveillance.data?.alerts ?? []}
+              counts={surveillance.data?.counts ?? { critical: 0, warning: 0, info: 0, total: 0 }}
+              isLoading={surveillance.isLoading}
             />
           </TabsContent>
 

@@ -16,7 +16,11 @@ export type LogSource =
   | "market"
   | "ai"
   | "goplus"
-  | "site";
+  | "site"
+  | "surveillance"
+  | "exit_planner"
+  | "rising"
+  | "scout";
 
 const MAX_LOG_ROWS = 500;
 

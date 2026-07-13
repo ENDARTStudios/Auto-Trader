@@ -361,3 +361,54 @@ export function useSiteAudits(limit = 30) {
     refetchInterval: 15000,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Position surveillance alerts
+// ---------------------------------------------------------------------------
+export type AlertType =
+  | "goplus_critical_flag"
+  | "liquidity_drain"
+  | "price_dump_velocity"
+  | "holder_concentration"
+  | "tax_spike"
+  | "timeout_approaching"
+  | "price_anomaly";
+
+export type AlertSeverity = "info" | "warning" | "critical";
+
+export interface SurveillanceAlertRow {
+  id: number;
+  positionId: string;
+  symbol: string;
+  type: AlertType;
+  severity: AlertSeverity;
+  message: string;
+  context: Record<string, unknown>;
+  detectedAt: string;
+  resolvedAt: string | null;
+  resolution: string | null;
+}
+
+export interface SurveillanceData {
+  alerts: SurveillanceAlertRow[];
+  counts: {
+    critical: number;
+    warning: number;
+    info: number;
+    total: number;
+  };
+}
+
+export function useSurveillance(limit = 50, onlyOpen = false) {
+  return useQuery<SurveillanceData>({
+    queryKey: ["surveillance", limit, onlyOpen],
+    queryFn: async () => {
+      const params = new URLSearchParams({ limit: String(limit) });
+      if (onlyOpen) params.set("open", "1");
+      const r = await fetch(`/api/surveillance?${params}`);
+      if (!r.ok) throw new Error("surveillance failed");
+      return r.json();
+    },
+    refetchInterval: 5000,
+  });
+}

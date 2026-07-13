@@ -23,10 +23,13 @@ import {
 } from "./risk-manager";
 import { analyzeToken } from "./scam-detector";
 import { selectCandidates } from "./token-selector";
+import { getRisingCandidates } from "./rising-tokens";
 import { fetchPricesBatch } from "./price-feed";
 import { scanTokenWithGoPlus } from "./goplus-scanner";
 import { analyzeMarket } from "./market-analysis";
 import { runAgentSquad } from "./ai-agent";
+import { runSurveillance, resolveAlertsForPosition } from "./position-surveillance";
+import { planExit, applyExitPlan } from "./exit-planner";
 import {
   ensureInitialized,
   openPosition,
@@ -179,6 +182,8 @@ class Engine {
 
   // -------------------------------------------------------------------------
   // MONITOR + EXIT — check TP/SL/timeout for all open positions
+  // + run surveillance (GoPlus re-scan, liquidity drain, price anomaly)
+  // + run exit planner (AI-driven exit decision for flagged positions)
   // -------------------------------------------------------------------------
   private async monitorAndExit(cfg: EngineConfig): Promise<number> {
     const openPositions = await db.position.findMany({
@@ -196,12 +201,15 @@ class Engine {
       }))
     );
 
+    // ---- Phase 1: Standard mechanical exits (TP/SL/timeout) ----
     let closed = 0;
     const now = new Date();
+    const stillOpen: typeof openPositions = [];
     for (const pos of openPositions) {
       const price = prices.get(pos.id) ?? 0;
       if (price <= 0) {
         logger.warn("engine", `Sem preço para ${pos.symbol}, pulando`);
+        stillOpen.push(pos);
         continue;
       }
 
@@ -212,13 +220,95 @@ class Engine {
 
       if (reason) {
         await closePosition(cfg, pos.id, price, reason);
+        await resolveAlertsForPosition(pos.id, "exited_position");
         closed++;
+      } else {
+        stillOpen.push(pos);
       }
     }
 
     if (closed > 0) {
-      logger.info("engine", `MONITOR fechou ${closed} posições`);
+      logger.info("engine", `MONITOR fechou ${closed} posições (mecânico)`);
     }
+
+    if (stillOpen.length === 0) return closed;
+
+    // ---- Phase 2: Surveillance (re-scan for emerging risks) ----
+    // Run surveillance only every ~5min to limit GoPlus + DexScreener API calls
+    const SURVEILLANCE_INTERVAL_MS = 5 * 60_000;
+    const surveillanceResults = [] as Awaited<ReturnType<typeof runSurveillance>>;
+    const lastSurveillanceKey = "__lastSurveillanceAt";
+    const lastSurveillanceAt = (this as unknown as Record<string, number | undefined>)[lastSurveillanceKey] ?? 0;
+    if (Date.now() - lastSurveillanceAt >= SURVEILLANCE_INTERVAL_MS) {
+      try {
+        const results = await runSurveillance(
+          stillOpen.map((p) => ({
+            id: p.id,
+            symbol: p.symbol,
+            tokenId: p.tokenId,
+            chain: p.chain,
+            source: p.source,
+            entryPriceUsd: p.entryPriceUsd,
+            entryAmountUsd: p.entryAmountUsd,
+            entryAt: p.entryAt,
+            takeProfitPrice: p.takeProfitPrice,
+            stopLossPrice: p.stopLossPrice,
+            maxExitAt: p.maxExitAt,
+          }))
+        );
+        surveillanceResults.push(...results);
+        (this as unknown as Record<string, number>)[lastSurveillanceKey] = Date.now();
+        const totalAlerts = results.reduce((s, r) => s + r.alerts.length, 0);
+        if (totalAlerts > 0) {
+          logger.info("surveillance", `${totalAlerts} alerta(s) em ${results.length} posições`);
+        }
+      } catch (err) {
+        logger.warn("surveillance", `Erro runSurveillance: ${String(err)}`);
+      }
+    }
+
+    // ---- Phase 3: AI exit planner (only for positions with active alerts) ----
+    for (const pos of stillOpen) {
+      const surveillance = surveillanceResults.find((r) => r.positionId === pos.id);
+      if (!surveillance || surveillance.alerts.length === 0) continue;
+
+      // Run exit planner (LLM call) — only if there are alerts
+      const currentPrice = prices.get(pos.id) ?? pos.entryPriceUsd;
+      try {
+        const plan = await planExit({
+          positionId: pos.id,
+          symbol: pos.symbol,
+          source: pos.source as "cex" | "dex",
+          chain: pos.chain,
+          tokenId: pos.tokenId,
+          entryPriceUsd: pos.entryPriceUsd,
+          currentPriceUsd: currentPrice,
+          entryAmountUsd: pos.entryAmountUsd,
+          takeProfitPrice: pos.takeProfitPrice,
+          stopLossPrice: pos.stopLossPrice,
+          entryAt: pos.entryAt,
+          maxExitAt: pos.maxExitAt,
+          scamScoreAtEntry: pos.scamScore,
+          surveillance,
+        });
+
+        // Apply the plan (may update TP/SL or signal full exit)
+        const shouldExit = await applyExitPlan(plan);
+        if (shouldExit && (plan.action === "exit_now" || plan.action === "scale_out_50")) {
+          // For now, scale_out_50 escalates to full exit (no partial close yet)
+          await closePosition(cfg, pos.id, currentPrice, "manual");
+          await resolveAlertsForPosition(pos.id, "exited_position");
+          closed++;
+          logger.info(
+            "exit_planner",
+            `${pos.symbol} fechada por AI plan (action=${plan.action} conf=${plan.confidence}% sev=${plan.alertSeverity})`
+          );
+        }
+      } catch (err) {
+        logger.warn("exit_planner", `Erro planExit ${pos.symbol}: ${String(err)}`);
+      }
+    }
+
     return closed;
   }
 
@@ -241,6 +331,7 @@ class Engine {
     for (const pos of openPositions) {
       const price = prices.get(pos.id) ?? pos.entryPriceUsd;
       await closePosition(cfg, pos.id, price, reason);
+      await resolveAlertsForPosition(pos.id, "exited_position");
     }
   }
 
@@ -265,8 +356,28 @@ class Engine {
     logger.info("engine", `Round ${round.id} iniciado (saldo $${tb.balanceUsd.toFixed(2)})`);
 
     // SCOUT
+    // Merge standard watchlist candidates + rising tokens discovered via
+    // DexScreener boosted/trending + CoinGecko trending + per-chain gainers.
     this.currentLoopState = "scout";
-    const candidates = await selectCandidates(cfg, cfg.maxPositionsPerRound * 3);
+    const [standard, rising] = await Promise.all([
+      selectCandidates(cfg, cfg.maxPositionsPerRound * 3),
+      getRisingCandidates(cfg, cfg.maxPositionsPerRound * 2, 30).catch((err) => {
+        logger.warn("rising", `Erro discovery rising tokens: ${String(err)}`);
+        return [];
+      }),
+    ]);
+    // Dedupe by tokenId/symbol and prefer rising tokens (they have momentum)
+    const seenKeys = new Set<string>();
+    const candidates: typeof standard = [];
+    for (const c of [...rising, ...standard]) {
+      const key = c.tokenId
+        ? `${c.chain}:${c.tokenId.toLowerCase()}`
+        : `cex:${c.symbol}`;
+      if (seenKeys.has(key)) continue;
+      seenKeys.add(key);
+      candidates.push(c);
+    }
+    logger.info("scout", `Candidatos: ${candidates.length} (${rising.length} rising + ${standard.length} standard)`);
     await db.round.update({
       where: { id: round.id },
       data: { tokensScanned: candidates.length },

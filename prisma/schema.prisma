@@ -309,3 +309,31 @@ model SiteAudit {
   @@index([symbol])
   @@index([auditedAt])
 }
+
+// ---------------------------------------------------------------------------
+// Position surveillance alerts. One row per detected risk on an OPEN position.
+// Multiple alerts can be active per position; they auto-resolve when the
+// position closes (resolvedAt + resolution set by the engine).
+// ---------------------------------------------------------------------------
+model PositionAlert {
+  id                  Int      @id @default(autoincrement())
+  positionId          String   // references Position.id (no FK constraint to keep migrations simple)
+  symbol              String
+  // Alert type
+  //   "goplus_critical_flag" | "liquidity_drain" | "price_dump_velocity"
+  //   | "holder_concentration" | "tax_spike" | "timeout_approaching"
+  //   | "price_anomaly"
+  type                String
+  severity            String   @default("info") // "info" | "warning" | "critical"
+  message             String
+  context             String?  // JSON with extra details
+  detectedAt          DateTime @default(now())
+  // Resolution (set when alert is cleared)
+  resolvedAt          DateTime?
+  resolution          String?  // "dismissed" | "exited_position" | "false_positive" | "auto_resolved"
+
+  @@index([positionId])
+  @@index([severity])
+  @@index([detectedAt])
+  @@index([resolvedAt])
+}

@@ -81,3 +81,41 @@ Stage Summary:
 - AI veto tunado: só rejeita com consensus=avoid AND confidence>=70% (não bloqueia por skeptisismo genérico)
 - Dev server estável em /home/z/my-project porta 3000
 - Screenshots em /home/z/my-project/download/01-09*.png
+
+---
+Task ID: enhancement-v3
+Agent: main
+Task: Implementar pipeline autônomo completo: descoberta de tokens em ascensão, vigilância contínua de posições abertas (re-scan GoPlus + liquidity drain + price anomaly + holder concentration), e exit planner com IA que decide hold/tighten_sl/raise_tp/scale_out/exit_now.
+
+Work Log:
+- Criado rising-tokens.ts: descoberta de tokens em ascensão via 4 fontes gratuitas — DexScreener boosted (deprecado, no-op graceful), DexScreener trending (deprecado, no-op graceful), CoinGecko /search/trending (15 tokens globais), CoinGecko /coins/markets top gainers (top 250 por market cap com >5% gain 24h e momentum 1h positivo). Composite rising score 0-100 baseado em price change 24h (35%) + 1h (15%) + volume log-scaled (20%) + trending rank (15%) + boosted bonus (5%) + txns log-scaled (10%). Função getRisingCandidates retorna TokenCandidate[] para injetar no pipeline analyze.
+- Criado position-surveillance.ts: 7 detectores de risco emergente em posições abertas — goplus_critical_flag (re-scan GoPlus busca flags críticas novas), liquidity_drain (DEX liquidity <$50k = crítico), price_dump_velocity (>12% drop desde entrada mas ainda acima do SL = warning), price_anomaly (>10% drop em 1h via DexScreener OU >80% sells em 1h = warning/critical), holder_concentration (GoPlus finding com top holders >50%), tax_spike (GoPlus sell tax >10%), timeout_approaching (<30min até maxExitAt = info). Dedupe de alertas: não cria novo alerta do mesmo tipo se já existe um não-resolvido nos últimos 30min. Persiste em PositionAlert table.
+- Criado exit-planner.ts: agente LLM (z-ai-web-dev-sdk) com role "risk_advisor" que recebe position metrics + surveillance alerts + market snapshot (RSI/MACD/Bollinger/Fear&Greed) e decide entre 5 ações: hold, tighten_sl, raise_tp, scale_out_50, exit_now. Output parseado via ACTION:/CONFIDENCE:/SUGGESTED_NEW_SL:/SUGGESTED_NEW_TP:/REASONING:/KEY SIGNALS:. Quick path: sem alertas → hold sem chamar LLM. Ações só executam se alertSeverity=critical OU confidence>=70%. Persiste como AIInsight (agentRole=risk_advisor) para audit trail.
+- Atualizado Prisma schema com novo model PositionAlert (positionId, symbol, type, severity, message, context JSON, detectedAt, resolvedAt, resolution). Índices em positionId, severity, detectedAt, resolvedAt. db push + prisma generate executados com sucesso.
+- Atualizado engine.ts SCOUT phase: agora faz Promise.all de selectCandidates (standard watchlist) + getRisingCandidates (rising tokens) e faz merge dedup por tokenId/symbol preferindo rising (têm momentum). Log mostra composição "X rising + Y standard".
+- Atualizado engine.ts monitorAndExit: agora tem 3 fases sequenciais — (1) mechanical exits TP/SL/timeout + resolveAlertsForPosition, (2) surveillance run a cada 5min (throttle para não queimar GoPlus/DexScreener API), (3) AI exit planner apenas para posições com alertas ativos. Exit planner pode fechar posição com reason="manual" (logged como AI-driven exit) ou atualizar TP/SL in-place.
+- Atualizado forceExitAll para resolver alerts de todas as posições fechadas pelo kill switch.
+- Criado API route /api/surveillance: GET retorna alerts recentes + counts por severity para badge do dashboard. POST com action=scan_now dispara surveillance imediato em todas as posições abertas (bypassa 5min throttle). POST com action=resolve resolve manualmente alertas de uma positionId.
+- Adicionado hook useSurveillance(limit, onlyOpen) em use-trading-data.ts com refetch 5s. Tipos AlertType, AlertSeverity, SurveillanceAlertRow, SurveillanceData exportados.
+- Criado componente SurveillancePanel em src/components/dashboard/surveillance-panel.tsx: 4 stat cards (Críticos/Avisos/Informativos/Total ativos), botão "Scan agora" que chama POST /api/surveillance, lista scrollável de alertas com ícone por tipo (ShieldAlert/Droplets/TrendingDown/Users/Percent/Clock/Bug), badge de severity colorido, expandable contexto JSON, badge de resolução quando resolvido, timeAgo em PT-BR.
+- Atualizado page.tsx: adicionado import useSurveillance + SurveillancePanel + ShieldAlert icon, declarado hook surveillance, adicionado 9º TabsTrigger "Vigilância" com badge dinâmico mostrando count de alertas ativos, adicionado TabsContent com SurveillancePanel. TabsList agora grid-cols-9.
+- Adicionado 3 novos LogSource no logger.ts: surveillance, exit_planner, rising, scout.
+- Validado via Agent Browser:
+  - Dashboard renderiza com 9 tabs (Posições, Histórico, Mercado, AI Agents, Scam Audit, Site Audit, Vigilância, Rounds, Logs)
+  - Tab Vigilância mostra 4 stat cards zerados + mensagem "Nenhum alerta de vigilância ativo. Posições sob controle." + botão "Scan agora"
+  - Botão "Scan agora" executa POST /api/surveillance com action=scan_now — retorna "Scan executado: 0 alerta(s) em 6 posições"
+  - Engine iniciada: 6 posições abertas (BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, XRP/USDT, ARB) com $150 cada, $100 restantes
+  - Round 13 criado, candidates: 7 (1 rising + 6 standard) — rising token da CoinGecko trending foi injetado no pipeline
+  - AI insights: 5 insights persistidos (thesis + news_sentiment) com recomendações hold e confidence 75-85%
+  - GoPlus re-scan funcionando para ARB (DEX token, score 50, liquidity $3.8M)
+  - CEX tokens (BTC, ETH, SOL, BNB, XRP) corretamente não passam por GoPlus (apenas DEX)
+
+Stage Summary:
+- Pipeline autônomo completo: SCOUT (rising + standard) → ANALYZE (4-layer scam/GoPlus/market/AI) → EXECUTE → MONITOR (mecânico TP/SL/timeout + surveillance + AI exit planner) → EXIT → REBALANCE
+- 100% gratuito: Binance REST, DexScreener, CoinGecko trending+markets, GoPlus, alternative.me, z-ai-web-dev-sdk LLM
+- Vigilância contínua: 7 detectores de risco emergente rodando a cada 5min em todas as posições abertas
+- Exit planner IA: decide hold/tighten_sl/raise_tp/scale_out/exit_now baseado em alerts + market snapshot, só executa com confiança alta (>=70%) ou severidade crítica
+- 9 tabs no dashboard (adicionado Vigilância com badge dinâmico de alertas ativos)
+- 6 screenshots em /home/z/my-project/download/: vigilancia-tab.png, vigilancia-after-scan.png, vigilancia-final.png, dashboard-full-v3.png, dashboard-final-v3.png, mercado-tab.png, ai-agents-tab.png
+- Dev server estável em /home/z/my-project porta 3000
+- TypeScript compila sem erros
