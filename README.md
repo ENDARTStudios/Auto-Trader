@@ -1,4 +1,4 @@
-# CryptoBot Autonomous — Paper Trading Dashboard
+# Auto Trader — Autonomous Crypto Paper Trading
 
 Sistema autônomo de trade de criptomoedas com **scam detection multicamada**, **circuit breakers**, e **split 50/50 de lucro** (50% para reserva cold em USDC, 50% reinvestido). Modo **paper trading** como default — live mode só libera após N ciclos paper lucrativos (graduação).
 

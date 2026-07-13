@@ -30,6 +30,7 @@ import {
   Globe,
   BarChart3,
   ShieldAlert,
+  Building2,
 } from "lucide-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -46,6 +47,7 @@ import {
   useAIInsights,
   useSiteAudits,
   useSurveillance,
+  usePlatforms,
 } from "@/hooks/use-trading-data";
 import { PositionsTable } from "@/components/dashboard/positions-table";
 import { HistoryTable } from "@/components/dashboard/history-table";
@@ -57,6 +59,7 @@ import { MarketPanel } from "@/components/dashboard/market-panel";
 import { AIInsightsPanel } from "@/components/dashboard/ai-insights-panel";
 import { SiteAuditPanel } from "@/components/dashboard/site-audit-panel";
 import { SurveillancePanel } from "@/components/dashboard/surveillance-panel";
+import { PlatformScannerPanel } from "@/components/dashboard/platform-scanner-panel";
 
 function fmtUsd(n: number, decimals = 2): string {
   return n.toLocaleString("en-US", {
@@ -96,6 +99,7 @@ export default function Home() {
   const aiInsights = useAIInsights(50);
   const siteAudits = useSiteAudits(30);
   const surveillance = useSurveillance(80, false);
+  const platforms = usePlatforms();
 
   const [reserveWithdrawAmount, setReserveWithdrawAmount] = useState("");
 
@@ -210,7 +214,7 @@ export default function Home() {
                 <Coins className="size-5 text-primary" />
               </div>
               <div>
-                <h1 className="text-lg font-bold leading-none">CryptoBot Autonomous</h1>
+                <h1 className="text-lg font-bold leading-none">Auto Trader</h1>
                 <p className="text-xs text-muted-foreground leading-tight mt-0.5">
                   Paper trading • Self-custody • Scam-resistente
                 </p>
@@ -433,7 +437,7 @@ export default function Home() {
 
         {/* Main tabs */}
         <Tabs defaultValue="positions" className="space-y-4">
-          <TabsList className="grid grid-cols-2 md:grid-cols-9 w-full">
+          <TabsList className="grid grid-cols-2 md:grid-cols-10 w-full">
             <TabsTrigger value="positions" className="gap-1">
               <Activity className="size-3" /> Posições
             </TabsTrigger>
@@ -451,6 +455,14 @@ export default function Home() {
             </TabsTrigger>
             <TabsTrigger value="site" className="gap-1">
               <Globe className="size-3" /> Site Audit
+            </TabsTrigger>
+            <TabsTrigger value="platforms" className="gap-1 relative">
+              <Building2 className="size-3" /> Plataformas
+              {(platforms.data?.pending ?? 0) > 0 && (
+                <Badge variant="secondary" className="ml-1 h-4 px-1 text-[9px]">
+                  {platforms.data?.pending}
+                </Badge>
+              )}
             </TabsTrigger>
             <TabsTrigger value="surveillance" className="gap-1 relative">
               <ShieldAlert className="size-3" /> Vigilância
@@ -505,6 +517,10 @@ export default function Home() {
               audits={siteAudits.data ?? []}
               isLoading={siteAudits.isLoading}
             />
+          </TabsContent>
+
+          <TabsContent value="platforms" className="space-y-4">
+            <PlatformScannerPanel />
           </TabsContent>
 
           <TabsContent value="surveillance" className="space-y-4">
@@ -584,7 +600,7 @@ export default function Home() {
 
         <footer className="text-xs text-muted-foreground text-center py-6 space-y-1">
           <p>
-            CryptoBot Autonomous — Paper trading MVP • Stack: Next.js 16 + Prisma/SQLite + Binance REST + DexScreener + GoPlus + z-ai-web-dev-sdk LLM
+            Auto Trader — Paper trading MVP • Stack: Next.js 16 + Prisma/SQLite + Binance REST + DexScreener + GoPlus + z-ai-web-dev-sdk LLM
           </p>
           <p>
             ⚠️ Sistema reduz risco, não elimina. Operações em capital real apenas após graduação

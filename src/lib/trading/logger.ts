@@ -20,7 +20,8 @@ export type LogSource =
   | "surveillance"
   | "exit_planner"
   | "rising"
-  | "scout";
+  | "scout"
+  | "platform";
 
 const MAX_LOG_ROWS = 500;
 

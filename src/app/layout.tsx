@@ -15,10 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CryptoBot Autonomous — Paper Trading Dashboard",
+  title: "Auto Trader — Autonomous Crypto Paper Trading",
   description:
-    "Sistema autônomo de trade com scam detection multicamada, circuit breakers e split 50/50 de lucro. Paper mode default, live mode após graduação.",
-  keywords: ["crypto", "trading bot", "autonomous", "scam detection", "paper trading"],
+    "Auto Trader: sistema autônomo de trade com scam detection multicamada, circuit breakers e split 50/50 de lucro. Paper mode default, live mode após graduação.",
+  keywords: ["auto trader", "crypto", "trading bot", "autonomous", "scam detection", "paper trading"],
   icons: {
     icon: "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
   },

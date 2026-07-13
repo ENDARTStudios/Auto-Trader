@@ -119,3 +119,71 @@ Stage Summary:
 - 6 screenshots em /home/z/my-project/download/: vigilancia-tab.png, vigilancia-after-scan.png, vigilancia-final.png, dashboard-full-v3.png, dashboard-final-v3.png, mercado-tab.png, ai-agents-tab.png
 - Dev server estável em /home/z/my-project porta 3000
 - TypeScript compila sem erros
+
+---
+Task ID: enhancement-v4
+Agent: main
+Task: Renomear app para "Auto Trader" e adicionar platform scanner completo (pesquisar principais plataformas + verificar integridade).
+
+Work Log:
+- Renomeado app em todos os touchpoints:
+  - package.json name: "nextjs_tailwind_shadcn_ts" → "auto-trader"
+  - layout.tsx metadata.title: "CryptoBot Autonomous — Paper Trading Dashboard" → "Auto Trader — Autonomous Crypto Paper Trading"
+  - layout.tsx metadata.description: prefixado com "Auto Trader:"
+  - layout.tsx keywords: adicionado "auto trader"
+  - page.tsx h1 header: "CryptoBot Autonomous" → "Auto Trader"
+  - page.tsx footer: "CryptoBot Autonomous — Paper trading MVP" → "Auto Trader — Paper trading MVP"
+  - site-integrity.ts User-Agent: "CryptoBot-SafetyScanner/1.0" → "AutoTrader-SafetyScanner/1.0"
+  - site-integrity.ts Safe Browsing clientId: "cryptobot" → "auto-trader"
+  - README.md título: "CryptoBot Autonomous — Paper Trading Dashboard" → "Auto Trader — Autonomous Crypto Paper Trading"
+- Criado src/lib/trading/platform-scanner.ts (339 linhas):
+  - Registry curada de 26 plataformas (8 CEXs: Binance/Coinbase/Kraken/OKX/Bybit/KuCoin/Gate.io/MEXC; 8 DEXs: Uniswap/SushiSwap/Curve/Balancer/PancakeSwap/Aerodrome/Velodrome/Camelot; 4 agregadores: 1inch/ParaSwap/Odos/0x; 6 data providers: DexScreener/CoinGecko/GoPlus/Etherscan/Arbiscan/Basescan)
+  - Cada entry: id, name, url, kind (cex/dex/aggregator/data), chains, notes
+  - Função scanPlatform(id, opts): lê cache (SiteAudit com age <24h) ou dispara auditSite() fresh
+  - Função scanAllPlatforms(opts): processa em batches de 3-6 plataformas em paralelo (Promise.all) para não inundar RDAP/SSL endpoints
+  - Função getCachedPlatformScan(): retorna resumos sem disparar auditorias (instantâneo)
+  - Função getApprovedPlatformIds(): retorna Set de IDs aprovados (para gate do engine SCOUT)
+  - Logging via logger com source="platform" (novo LogSource adicionado)
+  - Persistência: reutiliza tabela SiteAudit existente (sem migration) — symbol=platform name
+- Criado src/app/api/platforms/route.ts (3 handlers):
+  - GET /api/platforms: retorna cached scan (default), refresh=1 força fresh audit, approved=1 retorna apenas IDs aprovados
+  - POST /api/platforms: action=scan_one + platformId para uma plataforma, action=scan_all para todas (force opcional)
+- Adicionado hook usePlatforms() em use-trading-data.ts (refetch 30s) com tipos PlatformKind, PlatformScanResult, PlatformScanSummary
+- Criado src/components/dashboard/platform-scanner-panel.tsx (300 linhas):
+  - 4 stat cards: Total / Aprovadas (verde) / Rejeitadas (vermelho) / Pendentes (amarelo)
+  - Botão "Escanear todas (forçado)" que dispara POST scan_all com force=true
+  - 3 seções agrupadas: Aprovadas / Rejeitadas / Não auditadas ainda
+  - Cada platform card: nome (link externo), kind badge (CEX/DEX/Aggregator/Data com ícone), chains badges, sub-scores (SSL/domínio/HSTS/CSP/XFO), score 0-100 em destaque, badge APPROVED/REJECTED/PENDING, red flags list (se houver), timestamp do último scan
+- Atualizado src/app/page.tsx:
+  - Importado Building2 icon, usePlatforms hook, PlatformScannerPanel component
+  - TabsList agora grid-cols-10 (era 9)
+  - Adicionado 10º TabsTrigger "Plataformas" com badge dinâmico mostrando count de pendentes (background refetch 30s)
+  - Adicionado TabsContent correspondente renderizando PlatformScannerPanel
+- Atualizado src/lib/trading/logger.ts: adicionado "platform" ao LogSource union type
+- Validado via curl + agent-browser:
+  - GET /api/platforms retorna 26 plataformas corretamente (JSON bem-formado)
+  - POST /api/platforms scan_one platformId=binance force=true executa end-to-end (SSL ✓ 180d, score 67/100 — rejeitado porque Cloudflare bloqueou HTML fetch resultando em 0 bytes e red flag)
+  - POST persiste em SiteAudit table (confirmado via queries Prisma no dev.log)
+  - Dashboard renderiza com 10 tabs, h1 mostra "Auto Trader", document.title mostra "Auto Trader — Autonomous Crypto Paper Trading"
+  - Tab Plataformas ativa mostra 4 stat cards + botão de scan + seção "Não auditadas ainda" com 26 entries
+  - Badge no tab Plataformas mostra "25" (1 plataforma já auditada = Binance, 25 pendentes)
+- Disparado scan_all em background (nohup curl) para popular cache — usuário verá resultados reais quando abrir o dashboard
+- Screenshots salvos em /home/z/my-project/download/:
+  - auto-trader-platforms.png (viewport 1280x577 — view inicial)
+  - auto-trader-platforms-full.png (full page 1280x6696 — tudo renderizado)
+  - auto-trader-header.png (header com h1 "Auto Trader")
+- TypeScript: npx tsc --noEmit compila sem erros em src/ (apenas warnings em examples/ e skills/ externos)
+- Dev server estável em /home/z/my-project porta 3000 (PID 11482, 11495)
+
+Stage Summary:
+- App oficialmente renomeado para "Auto Trader" em todos os 8 touchpoints (package.json, layout, page header/footer, README, site-integrity UA/clientId, log source, dashboard title)
+- Workflow completo de "pesquisar plataformas → verificar integridade" agora operacional:
+  1. Registry curado de 26 plataformas principais (CEX/DEX/aggregator/data) — sem API discovery, hardcodeado de conhecimento público
+  2. Para cada plataforma, auditSite() executa 5 camadas: SSL/TLS + domain age (RDAP) + security headers + Safe Browsing (opcional) + content red flags
+  3. Resultados persistidos em SiteAudit table (reutilizado, sem migration)
+  4. Cache 24h por plataforma, force refresh disponível
+  5. Engine SCOUT pode usar getApprovedPlatformIds() como gate (próximo passo)
+- 100% gratuito/open-source: Node tls + RDAP + HTML fetch + (opcional) Google Safe Browsing v4 (qualquer Google API key serve)
+- Dashboard agora tem 10 tabs (era 9): Posições / Histórico / Mercado / AI Agents / Scam Audit / Site Audit / **Plataformas** (novo) / Vigilância / Rounds / Logs
+- Badge dinâmico no tab Plataformas mostra count de pendentes — facilita ver quantas faltam auditar
+- Próximos passos sugeridos: integrar getApprovedPlatformIds() no engine.ts SCOUT phase para rejeitar candidatos de plataformas não-aprovadas; tunar User-Agent do site-integrity para não ser bloqueado por Cloudflare (Binance retornou 0 bytes); configurar GOOGLE_SAFE_BROWSING_KEY para ativar 4ª camada

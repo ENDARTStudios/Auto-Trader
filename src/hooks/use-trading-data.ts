@@ -412,3 +412,59 @@ export function useSurveillance(limit = 50, onlyOpen = false) {
     refetchInterval: 5000,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Platform scanner
+// ---------------------------------------------------------------------------
+export type PlatformKind = "cex" | "dex" | "aggregator" | "data";
+
+export interface PlatformScanResult {
+  id: string;
+  name: string;
+  url: string;
+  kind: PlatformKind;
+  chains?: string[];
+  notes?: string;
+  audit: {
+    url: string;
+    score: number;
+    passed: boolean;
+    sslScore: number;
+    domainAgeScore: number;
+    headersScore: number;
+    safeBrowsingScore: number;
+    contentScore: number;
+    sslValid: boolean;
+    sslDaysToExpiry: number | null;
+    domainAgeDays: number | null;
+    hstsPresent: boolean;
+    cspPresent: boolean;
+    xfoPresent: boolean;
+    safeBrowsingFlagged: boolean;
+    redFlags: string[];
+    findings: Record<string, string[]>;
+  } | null;
+  approved: boolean;
+  rejectionReason?: string;
+  scannedAt: string | null;
+}
+
+export interface PlatformScanSummary {
+  total: number;
+  approved: number;
+  rejected: number;
+  pending: number;
+  results: PlatformScanResult[];
+}
+
+export function usePlatforms() {
+  return useQuery<PlatformScanSummary>({
+    queryKey: ["platforms"],
+    queryFn: async () => {
+      const r = await fetch("/api/platforms");
+      if (!r.ok) throw new Error("platforms failed");
+      return r.json();
+    },
+    refetchInterval: 30000,
+  });
+}

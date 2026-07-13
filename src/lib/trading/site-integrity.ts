@@ -145,7 +145,7 @@ async function checkHeadersAndContent(
       signal: AbortSignal.timeout(10000),
       headers: {
         "User-Agent":
-          "Mozilla/5.0 (compatible; CryptoBot-SafetyScanner/1.0; +https://example.com/bot)",
+          "Mozilla/5.0 (compatible; AutoTrader-SafetyScanner/1.0; +https://example.com/bot)",
       },
     });
     const headers: Record<string, string> = {};
@@ -200,7 +200,7 @@ async function checkSafeBrowsing(url: string): Promise<{
   try {
     const endpoint = `https://safebrowsing.googleapis.com/v4/threatMatches:find?key=${apiKey}`;
     const body = {
-      client: { clientId: "cryptobot", clientVersion: "1.0.0" },
+      client: { clientId: "auto-trader", clientVersion: "1.0.0" },
       threatInfo: {
         threatTypes: ["MALWARE", "SOCIAL_ENGINEERING", "UNWANTED_SOFTWARE", "POTENTIALLY_HARMFUL_APPLICATION"],
         platformTypes: ["ANY_PLATFORM"],
