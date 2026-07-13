@@ -32,6 +32,12 @@ export interface TokenCandidate {
   // Optional extra metadata
   ageHours?: number;
   holderCount?: number;
+  // Platform this candidate was discovered on / would route through.
+  // Used by engine SCOUT to gate against getApprovedPlatformIds().
+  // For CEX tokens: "binance" | "coinbase" | "kraken" | ...
+  // For DEX tokens: "uniswap" | "sushiswap" | "aerodrome" | "camelot" | ...
+  // For aggregator-discovered tokens: "1inch" | "oneinch" | "paraswap" | ...
+  platformId?: string;
 }
 
 export interface ScamSubScore {

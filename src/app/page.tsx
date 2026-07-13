@@ -334,7 +334,7 @@ export default function Home() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
               <div>
                 <p className="text-muted-foreground">Último tick</p>
                 <p className="font-medium">{timeAgo(s.lastLoopAt)}</p>
@@ -352,6 +352,22 @@ export default function Home() {
                 <p className="font-medium">
                   {s.paperCyclesPassed}/{s.paperCyclesRequired}
                   {s.graduatedToLive && <span className="text-green-500 ml-1">✓</span>}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Platform gate</p>
+                <p className="font-medium">
+                  <span className={(() => {
+                    const ap = platforms.data?.approved ?? 0;
+                    const tot = platforms.data?.total ?? 0;
+                    if (tot === 0) return "text-muted-foreground";
+                    if (ap === tot) return "text-emerald-500";
+                    if (ap < tot / 2) return "text-red-500";
+                    return "text-yellow-500";
+                  })()}>
+                    {platforms.data?.approved ?? "?"}/{platforms.data?.total ?? "?"}
+                  </span>
+                  <span className="text-muted-foreground text-xs ml-1">aprovadas</span>
                 </p>
               </div>
             </div>

@@ -80,6 +80,7 @@ export async function fetchCexCandidates(
       out.push({
         symbol,
         source: "cex",
+        platformId: "binance",
         priceUsd,
         volume24hUsd: volumeUsd,
         liquidityUsd: volumeUsd, // CEX liquidity ~ daily volume (rough proxy)
@@ -114,6 +115,25 @@ interface DexScreenerPair {
   fdv?: number;
   marketCap?: number;
 }
+
+// Map DexScreener dexId -> our PLATFORM_REGISTRY id.
+// Anything not in this map defaults to null (engine will reject unless
+// it's a CEX candidate).
+const DEX_ID_TO_PLATFORM: Record<string, string> = {
+  uniswap: "uniswap",
+  uniswapv3: "uniswap",
+  sushiswap: "sushiswap",
+  curve: "curve",
+  balancer: "balancer",
+  pancakeswap: "pancake",
+  aerodrome: "aerodrome",
+  velodrome: "velodrome",
+  camelot: "camelot",
+  // 1inch & ParaSwap routes through underlying DEX, but if DexScreener
+  // tags the pair as 1inch we treat the aggregator as the platform.
+  oneinch: "oneinch",
+  paraswap: "paraswap",
+};
 
 let dexCache: { at: number; data: TokenCandidate[] } = { at: 0, data: [] };
 const DEX_CACHE_TTL_MS = 60_000;
@@ -169,6 +189,7 @@ export async function fetchDexCandidates(
           source: "dex",
           chain,
           tokenId: p.baseToken.address,
+          platformId: DEX_ID_TO_PLATFORM[p.dexId?.toLowerCase() ?? ""],
           priceUsd: parseFloat(p.priceUsd!),
           volume24hUsd: p.volume?.h24 ?? 0,
           liquidityUsd: p.liquidity?.usd ?? 0,

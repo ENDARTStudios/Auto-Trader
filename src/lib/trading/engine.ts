@@ -30,6 +30,7 @@ import { analyzeMarket } from "./market-analysis";
 import { runAgentSquad } from "./ai-agent";
 import { runSurveillance, resolveAlertsForPosition } from "./position-surveillance";
 import { planExit, applyExitPlan } from "./exit-planner";
+import { getApprovedPlatformIds } from "./platform-scanner";
 import {
   ensureInitialized,
   openPosition,
@@ -387,6 +388,65 @@ class Engine {
       await db.round.update({
         where: { id: round.id },
         data: { status: "aborted", notes: "Nenhum candidato", endedAt: new Date() },
+      });
+      this.currentRoundId = null;
+      return;
+    }
+
+    // ---- PLATFORM GATE ----
+    // Reject any candidate whose platformId refers to a platform that failed
+    // our integrity audit. Candidates without platformId (e.g. CoinGecko DEX
+    // discovery) are allowed through but logged — they still go through the
+    // full 4-layer analyze pipeline (scam → GoPlus → market → AI) before any
+    // position is opened.
+    let rejectedPlatform = 0;
+    let platformGateSkipped = false;
+    let approvedPlatformIds: Set<string> | null = null;
+    try {
+      approvedPlatformIds = await getApprovedPlatformIds();
+    } catch (err) {
+      logger.warn("platform", `Erro lendo approved platforms — gate desativado: ${String(err)}`);
+      platformGateSkipped = true;
+    }
+    const gatedCandidates: typeof candidates = [];
+    for (const c of candidates) {
+      if (!c.platformId) {
+        // No platform info — allow but log (CEX majors from CoinGecko or unknown DEX)
+        gatedCandidates.push(c);
+        continue;
+      }
+      if (platformGateSkipped || approvedPlatformIds === null) {
+        gatedCandidates.push(c);
+        continue;
+      }
+      if (approvedPlatformIds.has(c.platformId)) {
+        gatedCandidates.push(c);
+      } else {
+        rejectedPlatform++;
+        logger.info(
+          "platform",
+          `${c.symbol} rejeitado pelo platform gate — plataforma '${c.platformId}' não aprovada`
+        );
+      }
+    }
+    if (rejectedPlatform > 0) {
+      logger.info(
+        "platform",
+        `Platform gate: ${rejectedPlatform}/${candidates.length} candidatos rejeitados (plataforma não-aprovada). ${gatedCandidates.length} restantes.`
+      );
+    } else if (!platformGateSkipped && approvedPlatformIds) {
+      logger.info(
+        "platform",
+        `Platform gate OK: ${approvedPlatformIds.size} plataformas aprovadas, ${gatedCandidates.length} candidatos passaram`
+      );
+    }
+    candidates.length = 0;
+    candidates.push(...gatedCandidates);
+    if (candidates.length === 0) {
+      logger.warn("engine", "Todos candidatos rejeitados pelo platform gate — round abortado");
+      await db.round.update({
+        where: { id: round.id },
+        data: { status: "aborted", notes: "Platform gate bloqueou todos", endedAt: new Date() },
       });
       this.currentRoundId = null;
       return;

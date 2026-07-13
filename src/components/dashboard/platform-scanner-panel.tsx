@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
-import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   usePlatforms,
@@ -58,7 +59,16 @@ function kindLabel(kind: PlatformKind): string {
   }
 }
 
-function PlatformRow({ p }: { p: PlatformScanResult }) {
+function PlatformRow({
+  p,
+  onReaudit,
+  reauditingId,
+}: {
+  p: PlatformScanResult;
+  onReaudit: (id: string) => void;
+  reauditingId: string | null;
+}) {
+  const isReauditing = reauditingId === p.id;
   return (
     <Card
       className={`border-l-4 ${
@@ -172,7 +182,7 @@ function PlatformRow({ p }: { p: PlatformScanResult }) {
             )}
           </div>
 
-          <div className="text-right shrink-0">
+          <div className="text-right shrink-0 flex flex-col items-end gap-1">
             {p.audit ? (
               <>
                 <div className={`text-2xl font-bold ${scoreColor(p.audit.score)}`}>
@@ -198,6 +208,19 @@ function PlatformRow({ p }: { p: PlatformScanResult }) {
                 PENDING
               </Badge>
             )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 px-2 text-[10px] gap-1"
+              onClick={() => onReaudit(p.id)}
+              disabled={isReauditing}
+              title="Re-auditar agora"
+            >
+              <RefreshCw
+                className={`size-3 ${isReauditing ? "animate-spin" : ""}`}
+              />
+              {isReauditing ? "..." : "Re-audit"}
+            </Button>
           </div>
         </div>
       </CardContent>
@@ -208,6 +231,7 @@ function PlatformRow({ p }: { p: PlatformScanResult }) {
 export function PlatformScannerPanel() {
   const qc = useQueryClient();
   const { data, isLoading } = usePlatforms();
+  const [reauditingId, setReauditingId] = useState<string | null>(null);
 
   const scanAllMutation = useMutation({
     mutationFn: async () => {
@@ -234,6 +258,7 @@ export function PlatformScannerPanel() {
 
   const scanOneMutation = useMutation({
     mutationFn: async (platformId: string) => {
+      setReauditingId(platformId);
       const r = await fetch("/api/platforms", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -251,8 +276,12 @@ export function PlatformScannerPanel() {
       );
       qc.invalidateQueries({ queryKey: ["platforms"] });
       qc.invalidateQueries({ queryKey: ["site-audits"] });
+      setReauditingId(null);
     },
-    onError: (e) => toast.error(`Erro: ${String(e)}`),
+    onError: (e) => {
+      toast.error(`Erro: ${String(e)}`);
+      setReauditingId(null);
+    },
   });
 
   const summary = data ?? { total: 0, approved: 0, rejected: 0, pending: 0, results: [] };
@@ -363,7 +392,12 @@ export function PlatformScannerPanel() {
           <CardContent>
             <div className="space-y-2">
               {approved.map((p) => (
-                <PlatformRow key={p.id} p={p} />
+                <PlatformRow
+                  key={p.id}
+                  p={p}
+                  onReaudit={(id) => scanOneMutation.mutate(id)}
+                  reauditingId={reauditingId}
+                />
               ))}
             </div>
           </CardContent>
@@ -382,7 +416,12 @@ export function PlatformScannerPanel() {
           <CardContent>
             <div className="space-y-2">
               {rejected.map((p) => (
-                <PlatformRow key={p.id} p={p} />
+                <PlatformRow
+                  key={p.id}
+                  p={p}
+                  onReaudit={(id) => scanOneMutation.mutate(id)}
+                  reauditingId={reauditingId}
+                />
               ))}
             </div>
           </CardContent>
@@ -401,7 +440,12 @@ export function PlatformScannerPanel() {
           <CardContent>
             <div className="space-y-2">
               {pending.map((p) => (
-                <PlatformRow key={p.id} p={p} />
+                <PlatformRow
+                  key={p.id}
+                  p={p}
+                  onReaudit={(id) => scanOneMutation.mutate(id)}
+                  reauditingId={reauditingId}
+                />
               ))}
             </div>
             <Button

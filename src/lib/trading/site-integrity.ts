@@ -144,8 +144,21 @@ async function checkHeadersAndContent(
       redirect: "follow",
       signal: AbortSignal.timeout(10000),
       headers: {
+        // Use a real-browser User-Agent so Cloudflare/Akamai WAFs don't return
+        // a 0-byte challenge page (which we'd incorrectly flag as "drainer stub").
         "User-Agent":
-          "Mozilla/5.0 (compatible; AutoTrader-SafetyScanner/1.0; +https://example.com/bot)",
+          "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept":
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9,pt-BR;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
       },
     });
     const headers: Record<string, string> = {};

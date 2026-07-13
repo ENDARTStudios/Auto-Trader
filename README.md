@@ -109,10 +109,29 @@ bun install
 # Push do schema Prisma → SQLite
 bun run db:push
 
+# Copiar variáveis de ambiente (opcional — tem defaults)
+cp .env.example .env
+# Edite .env se quiser configurar GOOGLE_SAFE_BROWSING_KEY, Etherscan keys, etc.
+
 # Iniciar dev server
 bun run dev
 # → http://localhost:3000
 ```
+
+## Variáveis de ambiente (todas opcionais)
+
+O app funciona out-of-the-box com paper trading + APIs 100% gratuitas. As variáveis abaixo desbloqueiam camadas extras de segurança:
+
+| Variável | Default | Descrição |
+|----------|---------|-----------|
+| `DATABASE_URL` | `file:.../db/custom.db` | Caminho do SQLite |
+| `GOOGLE_SAFE_BROWSING_KEY` | (vazio) | Ativa 4ª camada do site-integrity (Google Safe Browsing v4). Qualquer Google API key serve. Free tier: 10k req/dia. |
+| `ETHERSCAN_API_KEY` | (vazio) | Aumenta rate limit do contract source verification no Ethereum mainnet |
+| `ARBISCAN_API_KEY` | (vazio) | Mesmo para Arbitrum |
+| `BASESCAN_API_KEY` | (vazio) | Mesmo para Base |
+| `OPTIMISM_ETHERSCAN_API_KEY` | (vazio) | Mesmo para Optimism |
+
+Veja `.env.example` para referência.
 
 ## Como usar
 
@@ -123,12 +142,41 @@ bun run dev
 5. Em emergência, clique **KILL SWITCH** — engine para e posições fecham no próximo tick
 6. Após rounds completarem, reserve accumulation aparece no card "Reserva USDC (cold)"
 
+## Workflow autônomo completo
+
+Cada tick do engine executa o pipeline de 7 passos pedido pelo usuário:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  1. PESQUISAR plataformas      → PLATFORM_REGISTRY (26 plataformas)     │
+│  2. VERIFICAR integridade       → auditSite() em cada plataforma        │
+│     └─ resultado: SiteAudit table, getApprovedPlatformIds() Set         │
+│  3. IDENTIFICAR tokens em alta  → getRisingCandidates() (CoinGecko)     │
+│     └─ merge com selectCandidates() (Binance + DexScreener)             │
+│  4. PLATFORM GATE              → rejeita tokens de plataforma não-aprovada │
+│  5. ANALISAR (4 camadas):                                                │
+│     a. scam-detector (regex + Etherscan source)                         │
+│     b. GoPlus (honeypot/tax/holders on-chain real)                      │
+│     c. market-analysis (RSI/MACD/EMA/Bollinger + Fear&Greed)            │
+│     d. AI agent squad (LLM thesis + news sentiment + contract audit)    │
+│  6. EXECUTE                     → openPosition() com TP/SL/timeout      │
+│  7. MONITOR + VIGILÂNCIA:                                                 │
+│     a. mecânico: TP/SL/timeout                                           │
+│     b. surveillance: 7 detectores (GoPlus re-scan, liquidity drain,     │
+│        price dump, holder concentration, tax spike, price anomaly,      │
+│        timeout approaching) — roda a cada 5min por posição              │
+│     c. AI exit planner: hold/tighten_sl/raise_tp/scale_out/exit_now     │
+│  8. REBALANCE                   → split 50/50 (50% reserve USDC, 50%    │
+│                                  reinvestido) quando round fecha        │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
 ## Estrutura do projeto
 
 ```
 src/
 ├── app/
-│   ├── page.tsx                       # Dashboard principal
+│   ├── page.tsx                       # Dashboard principal (10 tabs)
 │   ├── layout.tsx                     # Root layout + Providers
 │   ├── providers.tsx                  # QueryClient provider
 │   └── api/                           # REST endpoints
@@ -143,20 +191,33 @@ src/
 │       ├── reserve/                   # GET/POST: balance + manual withdraw
 │       ├── scam-reports/              # GET: recent scam analyses
 │       ├── rounds/                    # GET: round history
+│       ├── market/                    # GET/POST: market snapshots + on-demand analysis
+│       ├── ai-insights/               # GET: AI agent outputs
+│       ├── site-audit/                # GET/POST: site integrity audits
+│       ├── platforms/                 # GET/POST: platform scanner (26 curated)
+│       ├── surveillance/              # GET/POST: position alerts + scan_now
 │       └── initialize/                # POST: init DB singletons
 ├── lib/
 │   ├── db.ts                          # Prisma client
 │   └── trading/
-│       ├── types.ts                   # Shared types
+│       ├── types.ts                   # Shared types (TokenCandidate.platformId)
 │       ├── config.ts                  # Config manager (wraps Prisma Config)
-│       ├── logger.ts                  # AppLog persistence
-│       ├── risk-manager.ts            # Circuit breakers
-│       ├── scam-detector.ts           # 6 sub-scorers
-│       ├── token-selector.ts          # CEX (Binance) + DEX (DexScreener)
-│       ├── price-feed.ts              # Live price fetching
+│       ├── logger.ts                  # AppLog persistence (15 LogSources)
+│       ├── risk-manager.ts            # Circuit breakers (5)
+│       ├── scam-detector.ts           # 6 sub-scorers (regex + Etherscan)
+│       ├── goplus-scanner.ts          # GoPlus Security API (honeypot/tax/holders)
+│       ├── site-integrity.ts          # 5-layer site audit (SSL/RDAP/headers/SafeBrowsing/content)
+│       ├── platform-scanner.ts        # 26-platform registry + scanAll/getApprovedPlatformIds
+│       ├── token-selector.ts          # CEX (Binance) + DEX (DexScreener) with platformId
+│       ├── rising-tokens.ts           # CoinGecko trending + gainers discovery
+│       ├── price-feed.ts              # Live price fetching (Binance + DexScreener)
+│       ├── market-analysis.ts         # RSI/MACD/EMA/Bollinger + Fear&Greed
+│       ├── ai-agent.ts                # LLM squad (thesis + news + contract audit)
+│       ├── exit-planner.ts            # LLM risk advisor (hold/tighten/raise/scale/exit)
+│       ├── position-surveillance.ts   # 7 risk detectors for open positions
 │       ├── paper-trader.ts            # Simulated order execution
 │       ├── portfolio.ts               # Position lifecycle + 50/50 split
-│       └── engine.ts                  # Main loop state machine
+│       └── engine.ts                  # Main loop state machine (with platform gate)
 ├── components/
 │   └── dashboard/
 │       ├── positions-table.tsx        # Open positions table
@@ -164,14 +225,20 @@ src/
 │       ├── scam-reports.tsx           # Scam audit cards
 │       ├── rounds-table.tsx           # Round history
 │       ├── logs-feed.tsx              # Activity logs
-│       └── config-editor.tsx          # Config form
+│       ├── config-editor.tsx          # Config form
+│       ├── market-panel.tsx           # Technical indicators + sentiment
+│       ├── ai-insights-panel.tsx      # AI agent outputs (4 roles)
+│       ├── site-audit-panel.tsx       # Manual URL audit + history
+│       ├── platform-scanner-panel.tsx # 26-platform scanner with re-audit button
+│       └── surveillance-panel.tsx     # Position alerts + scan_now button
 └── hooks/
-    └── use-trading-data.ts            # TanStack Query hooks
+    └── use-trading-data.ts            # TanStack Query hooks (11)
 
 prisma/
-└── schema.prisma                      # 8 models: Config, Position, Reserve,
+└── schema.prisma                      # 10 models: Config, Position, Reserve,
                                         #   TradingBalance, RiskEvent, ScamReport,
-                                        #   Round, AppLog
+                                        #   Round, AppLog, MarketSnapshot, AIInsight,
+                                        #   SiteAudit, PositionAlert
 
 scripts/
 └── reset-db.js                        # Reset DB for testing
