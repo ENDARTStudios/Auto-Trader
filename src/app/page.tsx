@@ -31,6 +31,7 @@ import {
   BarChart3,
   ShieldAlert,
   Building2,
+  FlaskConical,
 } from "lucide-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -61,6 +62,7 @@ import { SiteAuditPanel } from "@/components/dashboard/site-audit-panel";
 import { SurveillancePanel } from "@/components/dashboard/surveillance-panel";
 import { PlatformScannerPanel } from "@/components/dashboard/platform-scanner-panel";
 import { PortfolioSummaryCard } from "@/components/dashboard/portfolio-summary-card";
+import { BacktestPanel } from "@/components/dashboard/backtest-panel";
 
 function fmtUsd(n: number, decimals = 2): string {
   return n.toLocaleString("en-US", {
@@ -469,7 +471,7 @@ export default function Home() {
 
         {/* Main tabs */}
         <Tabs defaultValue="positions" className="space-y-4">
-          <TabsList className="grid grid-cols-2 md:grid-cols-10 w-full">
+          <TabsList className="grid grid-cols-2 md:grid-cols-11 w-full">
             <TabsTrigger value="positions" className="gap-1">
               <Activity className="size-3" /> Posições
             </TabsTrigger>
@@ -503,6 +505,9 @@ export default function Home() {
                   {surveillance.data?.counts.total}
                 </Badge>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="backtest" className="gap-1">
+              <FlaskConical className="size-3" /> Backtest
             </TabsTrigger>
             <TabsTrigger value="rounds" className="gap-1">
               <Coins className="size-3" /> Rounds
@@ -561,6 +566,10 @@ export default function Home() {
               counts={surveillance.data?.counts ?? { critical: 0, warning: 0, info: 0, total: 0 }}
               isLoading={surveillance.isLoading}
             />
+          </TabsContent>
+
+          <TabsContent value="backtest" className="space-y-4">
+            <BacktestPanel />
           </TabsContent>
 
           <TabsContent value="rounds" className="space-y-4">

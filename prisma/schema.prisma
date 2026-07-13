@@ -337,3 +337,46 @@ model PositionAlert {
   @@index([detectedAt])
   @@index([resolvedAt])
 }
+
+// Resultado de um backtest — simula a estratégia (TA + TP/SL/timeout) sobre
+// candles históricos do Binance para validar thresholds antes de live trading.
+model BacktestResult {
+  id                  Int      @id @default(autoincrement())
+  // Parâmetros de entrada
+  symbols             String   // JSON array, ex: ["BTC/USDT","ETH/USDT"]
+  interval            String   // "1h" | "4h" | "1d" | "15m" etc
+  periodDays          Int      // janela histórica em dias
+  initialCapitalUsd   Float
+  perTradeUsd         Float
+  takeProfitPct       Float
+  stopLossPct         Float
+  maxHoldBars         Int      // equivalente a maxHoldMinutes em barras
+  rsiEntryMax         Float    // entra se RSI < este valor (ex: 70)
+  rsiExitMin          Float    // sai se RSI > este valor (ex: 75) — bypass TP
+  // Métricas de resultado
+  totalTrades         Int
+  wins                Int
+  losses              Int
+  winRate             Float    // %
+  profitFactor        Float    // sum wins / |sum losses| (∞ se losses=0)
+  totalPnlUsd         Float
+  totalPnlPct         Float    // % do capital inicial
+  maxDrawdownPct      Float    // maior queda do equity curve
+  sharpeRatio         Float    // risk-adjusted return (por trade)
+  avgTradePnlUsd      Float
+  avgHoldBars         Float
+  bestTradeUsd        Float
+  worstTradeUsd       Float
+  equityCurve         String   // JSON array of {bar, equityUsd}
+  tradesJson          String   // JSON array of {symbol, entryBar, exitBar, entryPrice, exitPrice, pnlUsd, pnlPct, reason}
+  // Metadados
+  startedAt           DateTime @default(now())
+  finishedAt          DateTime?
+  durationMs          Int?
+  status              String   @default("running") // "running" | "completed" | "failed"
+  error               String?
+
+  @@index([status])
+  @@index([startedAt])
+}
+

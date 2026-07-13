@@ -468,3 +468,102 @@ export function usePlatforms() {
     refetchInterval: 30000,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Backtest
+// ---------------------------------------------------------------------------
+export interface BacktestParams {
+  symbols: string[];
+  interval: string;
+  periodDays: number;
+  initialCapitalUsd: number;
+  perTradeUsd: number;
+  takeProfitPct: number;
+  stopLossPct: number;
+  maxHoldBars: number;
+  rsiEntryMax: number;
+  rsiExitMin: number;
+}
+
+export interface BacktestSummary {
+  id: number;
+  symbols: string[];
+  interval: string;
+  periodDays: number;
+  initialCapitalUsd: number;
+  perTradeUsd: number;
+  takeProfitPct: number;
+  stopLossPct: number;
+  maxHoldBars: number;
+  rsiEntryMax: number;
+  rsiExitMin: number;
+  totalTrades: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  profitFactor: number;
+  totalPnlUsd: number;
+  totalPnlPct: number;
+  maxDrawdownPct: number;
+  sharpeRatio: number;
+  avgTradePnlUsd: number;
+  avgHoldBars: number;
+  bestTradeUsd: number;
+  worstTradeUsd: number;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number | null;
+  status: string;
+  error: string | null;
+}
+
+export function useBacktests(limit = 20) {
+  return useQuery<{ backtests: BacktestSummary[] }>({
+    queryKey: ["backtests", limit],
+    queryFn: async () => {
+      const r = await fetch(`/api/backtest?limit=${limit}`);
+      if (!r.ok) throw new Error("backtests failed");
+      return r.json();
+    },
+    refetchInterval: 5000,
+  });
+}
+
+export interface BacktestTrade {
+  symbol: string;
+  entryBar: number;
+  exitBar: number;
+  entryPrice: number;
+  exitPrice: number;
+  qty: number;
+  pnlUsd: number;
+  pnlPct: number;
+  holdBars: number;
+  reason: "take_profit" | "stop_loss" | "timeout" | "rsi_exit";
+}
+
+export interface BacktestEquityPoint {
+  bar: number;
+  equityUsd: number;
+  cashUsd: number;
+  openTradeUnrealizedUsd: number;
+}
+
+export interface BacktestDetail extends BacktestSummary {
+  equityCurve: BacktestEquityPoint[];
+  trades: BacktestTrade[];
+}
+
+export function useBacktest(id: number | null) {
+  return useQuery<BacktestDetail>({
+    queryKey: ["backtest", id],
+    queryFn: async () => {
+      if (id === null) throw new Error("no id");
+      const r = await fetch(`/api/backtest?id=${id}`);
+      if (!r.ok) throw new Error("backtest failed");
+      return r.json();
+    },
+    enabled: id !== null,
+    refetchInterval: 3000,
+  });
+}

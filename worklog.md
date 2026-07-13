@@ -293,3 +293,43 @@ Stage Summary:
 - Dashboard tem novo PortfolioSummaryCard com 8 métricas consolidadas (patrimônio, P&L total, win rate, profit factor, capital utilization, rounds recentes, vigilância, plataformas) + barra visual de composição do P&L
 - Dev server estável em /home/z/my-project porta 3000
 - TypeScript compila sem erros no src/
+
+---
+Task ID: enhancement-v7
+Agent: main
+Task: Implementar módulo de backtesting completo — simula estratégia (RSI entry + TP/SL/timeout + RSI exit) sobre candles históricos do Binance para validar thresholds antes de live trading.
+
+Work Log:
+- Criado src/lib/trading/backtest.ts (680 linhas): engine de backtest completo com fetch de klines Binance (paginado até 5000 candles), simulação interleaved bar-a-bar com múltiplos símbolos em paralelo, métricas (total trades, win rate, profit factor, P&L total, max drawdown, Sharpe ratio, avg hold, best/worst), equity curve, per-symbol breakdown, persistência em BacktestResult table.
+- Estratégia simulada: RSI(14) entry quando RSI < rsiEntryMax, exit em 4 condições (TP hit, SL hit, timeout bars, RSI overbought). Múltiplas posições abertas simultâneas (até 1 por símbolo, conforme cash disponível). Ordem de prioridade exit: TP > SL > timeout > RSI exit.
+- Adicionado model BacktestResult ao Prisma schema (23 campos: params de entrada + métricas + equityCurve JSON + tradesJson JSON + status/durationMs/error). db push + prisma generate executados.
+- Criado /api/backtest route: GET /api/backtest?limit=20 lista recentes, GET /api/backtest?id=42 retorna detail com equity curve + trades, POST /api/backtest dispara novo backtest com validação de params (symbols max 20, periodDays 1-365, takeProfitPct 0.001-1, etc.).
+- Adicionado hooks useBacktests(limit) e useBacktest(id) em use-trading-data.ts com tipos BacktestSummary, BacktestDetail, BacktestTrade, BacktestEquityPoint, BacktestParams. Refetch 5s para lista, 3s para detail (atualiza enquanto backtest roda).
+- Criado src/components/dashboard/backtest-panel.tsx (430 linhas): form completo (symbols, interval 15m/1h/4h/1d, periodDays, initialCapital, perTrade, TP%, SL%, maxHoldBars, rsiEntryMax, rsiExitMin) + lista scrollável de backtests recentes com badges de status/P&L/métricas + detail card com 4 stat cards (Win Rate, Profit Factor, Max Drawdown, Avg Trade) + equity curve SVG inline (sem chart library) + tabela de trades com reason badges coloridos.
+- Adicionado LogSource "backtest" em logger.ts.
+- Adicionado 11ª tab "Backtest" no dashboard (TabsList agora grid-cols-11), com ícone FlaskConical.
+- Bug fix durante desenvolvimento: primeira versão processava símbolos sequencialmente (cada símbolo completamente antes do próximo), resultando em apenas 6 trades de BTC. Corrigido para simulação interleaved: walk bar-a-bar, processa todos os símbolos em cada bar, mantém Map<symbol, OpenTrade>. Resultado: 6 trades → 100 trades (16x mais), todos os 5 símbolos ativos.
+- Bug fix: interface OpenTrade estava duplicada (definida em escopo global e dentro de runBacktest). Removida a duplicada.
+- Validado via curl + agent-browser:
+  - POST /api/backtest com 3 símbolos + 7 dias: 6 trades, 50% win, P&L -$1.27, 83ms
+  - POST /api/backtest com 5 símbolos + 30 dias: 100 trades, 50% win, P&L +$18.93, profit factor 1.09, max DD 9%, Sharpe 0.04, 170ms
+  - POST /api/backtest com 3 símbolos + 90 dias + 4h interval: 81 trades, 38.3% win, P&L -$86.51, profit factor 0.70, max DD 17.1%, Sharpe -0.15 — mostra que TP 8%/SL 5% assimétrico perde, útil para tuning
+  - GET /api/backtest?id=2 retorna detail com equity curve + trades JSON
+  - Dashboard renderiza com 11 tabs (adicionado Backtest com ícone FlaskConical)
+  - Tab Backtest: form completo renderiza com todos os campos, lista 4 backtests recentes com badges de P&L/métricas
+  - Detail card: 4 stat cards (Win Rate, Profit Factor, Max Drawdown, Avg Trade) + equity curve SVG inline + tabela de 50 trades com reason badges
+- Atualizado README.md: seção "Backtesting" com exemplo curl, estratégia simulada, métricas calculadas, limitações. Workflow diagram atualizado de 26 → 35 plataformas.
+- Screenshots em /home/z/my-project/download/: v7-dashboard-with-backtest-tab.png, v7-backtest-tab-form.png, v7-backtest-detail-with-equity-curve.png
+
+Stage Summary:
+- Sistema agora tem módulo de backtest completo para validar estratégia antes de live trading
+- 11 tabs no dashboard (Posições, Histórico, Mercado, AI Agents, Scam Audit, Site Audit, Plataformas, Vigilância, Backtest, Rounds, Logs)
+- Backtest cobre: fetch candles Binance (até 5000), simulação interleaved multi-símbolo, 4 condições de saída, 11 métricas, equity curve SVG, per-symbol breakdown, persistência
+- Performance: 100 trades em 5 símbolos/30 dias executam em ~170ms
+- 100% gratuito: apenas Binance public REST klines (no auth, no rate limit issue para uso normal)
+- Dev server estável em /home/z/my-project porta 3000
+- TypeScript compila sem erros no src/
+- 11 Prisma models (adicionado BacktestResult)
+- 17 API routes (adicionado /api/backtest)
+- 20 lib/trading files (adicionado backtest.ts)
+- 13 dashboard components (adicionado backtest-panel.tsx)

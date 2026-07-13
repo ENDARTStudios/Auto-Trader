@@ -21,7 +21,8 @@ export type LogSource =
   | "exit_planner"
   | "rising"
   | "scout"
-  | "platform";
+  | "platform"
+  | "backtest";
 
 const MAX_LOG_ROWS = 500;
 

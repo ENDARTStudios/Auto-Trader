@@ -148,7 +148,7 @@ Cada tick do engine executa o pipeline de 7 passos pedido pelo usuário:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  1. PESQUISAR plataformas      → PLATFORM_REGISTRY (26 plataformas)     │
+│  1. PESQUISAR plataformas      → PLATFORM_REGISTRY (35 plataformas)     │
 │  2. VERIFICAR integridade       → auditSite() em cada plataforma        │
 │     └─ resultado: SiteAudit table, getApprovedPlatformIds() Set         │
 │  3. IDENTIFICAR tokens em alta  → getRisingCandidates() (CoinGecko)     │
@@ -170,6 +170,51 @@ Cada tick do engine executa o pipeline de 7 passos pedido pelo usuário:
 │                                  reinvestido) quando round fecha        │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
+
+## Backtesting
+
+Antes de ir para live trading, valide os thresholds da estratégia (TP/SL/RSI
+entry/exit/max hold) rodando um backtest sobre candles históricos do Binance.
+
+```bash
+# API: POST /api/backtest
+curl -X POST http://localhost:3000/api/backtest \
+  -H "Content-Type: application/json" \
+  -d '{
+    "symbols": ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
+    "interval": "1h",
+    "periodDays": 30,
+    "initialCapitalUsd": 1000,
+    "perTradeUsd": 150,
+    "takeProfitPct": 0.05,
+    "stopLossPct": 0.04,
+    "maxHoldBars": 48,
+    "rsiEntryMax": 70,
+    "rsiExitMin": 75
+  }'
+```
+
+**Estratégia simulada:**
+1. Para cada candle (1h, 4h, ou 1d), calcula RSI(14)
+2. Se RSI < `rsiEntryMax` e há cash disponível → abre LONG
+3. Em candles subsequentes, checa 4 condições de saída em ordem:
+   - TP: high ≥ entry × (1 + TP%) → win
+   - SL: low ≤ entry × (1 − SL%) → loss
+   - Timeout: bars held ≥ maxHoldBars → exit at close
+   - RSI overbought: RSI ≥ `rsiExitMin` → exit at close
+
+**Métricas calculadas:** total trades, win rate, profit factor, P&L total,
+max drawdown, Sharpe ratio per trade, avg hold bars, best/worst trade,
+equity curve (SVG no dashboard), per-symbol breakdown.
+
+**Limitações:**
+- Não modela fees/slippage (could add 0.1% per side)
+- Não simula scam-filter (tokens históricos precisariam de GoPlus histórico)
+- Apenas LONG positions (matches paper-trading engine)
+- Múltiplas posições abertas simultâneas (até 1 por símbolo, conforme cash disponível)
+
+**Dashboard → tab "Backtest"** tem form completo + lista de backtests recentes
++ detail card com equity curve SVG e tabela de trades.
 
 ## Estrutura do projeto
 
