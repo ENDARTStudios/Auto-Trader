@@ -25,7 +25,9 @@ export type LogSource =
   | "scout"
   | "platform"
   | "backtest"
-  | "notifier";
+  | "notifier"
+  | "schedule"
+  | "system";
 
 const MAX_LOG_ROWS = 500;
 

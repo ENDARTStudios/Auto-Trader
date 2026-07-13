@@ -1,0 +1,837 @@
+     1→// Engine — main loop. Runs in-process (singleton) inside the Next.js dev server.
+     2→//
+     3→// State machine:
+     4→//   SCOUT     → discover candidates via token-selector
+     5→//   ANALYZE   → run scam-detector on each candidate, filter by score
+     6→//   EXECUTE   → for each approved candidate (up to maxPositionsPerRound),
+     7→//               run risk-manager, open position via portfolio
+     8→//   MONITOR   → fetch current prices for open positions, check TP/SL/timeout
+     9→//   EXIT      → close positions that hit TP/SL/timeout/kill-switch
+    10→//   REBALANCE → when round has zero open positions, split profit 50/50
+    11→//
+    12→// The engine runs on a setInterval. Each tick advances the state machine
+    13→// by one logical step. Real production would run this in a separate worker.
+    14→
+    15→import { db } from "@/lib/db";
+    16→import { getConfig, setEngineRunning, EngineConfig } from "./config";
+    17→import { logger } from "./logger";
+    18→import {
+    19→  assessTradeRisk,
+    20→  triggerKillSwitch,
+    21→  updatePeakBalance,
+    22→  recordRiskEvent,
+    23→} from "./risk-manager";
+    24→import { analyzeToken } from "./scam-detector";
+    25→import { selectCandidates } from "./token-selector";
+    26→import { getRisingCandidates } from "./rising-tokens";
+    27→import { fetchPricesBatch } from "./price-feed";
+    28→import { scanTokenWithGoPlus } from "./goplus-scanner";
+    29→import { analyzeMarket } from "./market-analysis";
+    30→import { runAgentSquad } from "./ai-agent";
+    31→import { runSurveillance, resolveAlertsForPosition } from "./position-surveillance";
+    32→import { planExit, applyExitPlan } from "./exit-planner";
+    33→import { getApprovedPlatformIds } from "./platform-scanner";
+    34→import { eventBus } from "./event-bus";
+    35→import { recordSnapshotIfDue } from "./performance-snapshot";
+    36→import { notifyEvent } from "./notifier";
+    37→import {
+    38→  ensureInitialized,
+    39→  openPosition,
+    40→  closePosition,
+    41→  rebalanceRound,
+    42→} from "./portfolio";
+    43→import type { EngineSnapshot, ExitReason, LoopState } from "./types";
+    44→
+    45→// ---------------------------------------------------------------------------
+    46→// Singleton state
+    47→// ---------------------------------------------------------------------------
+    48→
+    49→class Engine {
+    50→  private intervalId: NodeJS.Timeout | null = null;
+    51→  private currentLoopState: LoopState = "scout";
+    52→  private lastLoopAt: Date | null = null;
+    53→  private loopIteration = 0;
+    54→  private currentRoundId: number | null = null;
+    55→  private busy = false;
+    56→
+    57→  async start(): Promise<void> {
+    58→    await ensureInitialized();
+    59→    const cfg = await getConfig();
+    60→    if (cfg.killSwitchActive) {
+    61→      logger.warn("engine", "Start bloqueado: kill switch ativo");
+    62→      return;
+    63→    }
+    64→    if (this.intervalId) {
+    65→      logger.warn("engine", "Engine já está rodando");
+    66→      return;
+    67→    }
+    68→    await setEngineRunning(true);
+    69→    logger.info("engine", `Engine iniciada (modo ${cfg.mode}, intervalo ${cfg.loopIntervalSec}s)`);
+    70→    // External notification
+    71→    notifyEvent({
+    72→      eventType: "engine_started",
+    73→      title: "Engine Iniciada",
+    74→      message: `Engine de trading iniciada em modo *${cfg.mode}* com intervalo de ${cfg.loopIntervalSec}s. Saldo: $${cfg.initialCapitalUsd.toFixed(2)}.`,
+    75→      context: {
+    76→        mode: cfg.mode,
+    77→        loopIntervalSec: cfg.loopIntervalSec,
+    78→        killSwitchActive: cfg.killSwitchActive,
+    79→      },
+    80→    }).catch(() => { /* fire-and-forget */ });
+    81→    // Run first tick immediately, then setInterval.
+    82→    this.tick();
+    83→    this.intervalId = setInterval(
+    84→      () => this.tick(),
+    85→      Math.max(5, cfg.loopIntervalSec) * 1000
+    86→    );
+    87→  }
+    88→
+    89→  async stop(): Promise<void> {
+    90→    if (this.intervalId) {
+    91→      clearInterval(this.intervalId);
+    92→      this.intervalId = null;
+    93→    }
+    94→    await setEngineRunning(false);
+    95→    logger.info("engine", "Engine parada");
+    96→    // External notification
+    97→    notifyEvent({
+    98→      eventType: "engine_stopped",
+    99→      title: "Engine Parada",
+   100→      message: `Engine de trading foi parada. Nenhuma nova posição será aberta. Posições abertas existentes continuam sendo monitoradas manualmente.`,
+   101→      context: {
+   102→        loopIteration: this.loopIteration,
+   103→        currentRoundId: this.currentRoundId,
+   104→      },
+   105→    }).catch(() => { /* fire-and-forget */ });
+   106→  }
+   107→
+   108→  isRunning(): boolean {
+   109→    return this.intervalId !== null;
+   110→  }
+   111→
+   112→  getLoopState(): LoopState {
+   113→    return this.currentLoopState;
+   114→  }
+   115→
+   116→  getIteration(): number {
+   117→    return this.loopIteration;
+   118→  }
+   119→
+   120→  getCurrentRoundId(): number | null {
+   121→    return this.currentRoundId;
+   122→  }
+   123→
+   124→  getLastLoopAt(): Date | null {
+   125→    return this.lastLoopAt;
+   126→  }
+   127→
+   128→  // -------------------------------------------------------------------------
+   129→  // Main tick — runs one full state machine cycle.
+   130→  // -------------------------------------------------------------------------
+   131→  private async tick(): Promise<void> {
+   132→    if (this.busy) {
+   133→      logger.debug("engine", "Tick pulado (busy)");
+   134→      return;
+   135→    }
+   136→    this.busy = true;
+   137→    try {
+   138→      const cfg = await getConfig();
+   139→
+   140→      // Hard stop on kill switch
+   141→      if (cfg.killSwitchActive) {
+   142→        logger.warn("engine", "Kill switch ativo — forçando EXIT de posições abertas");
+   143→        await this.forceExitAll(cfg, "kill_switch");
+   144→        await this.stop();
+   145→        return;
+   146→      }
+   147→
+   148→      this.loopIteration++;
+   149→      this.lastLoopAt = new Date();
+   150→
+   151→      // 1. MONITOR/EXIT first — close positions that need closing
+   152→      this.currentLoopState = "monitor";
+   153→      const closedThisTick = await this.monitorAndExit(cfg);
+   154→
+   155→      // 2. Check if current round is complete (no open positions)
+   156→      const openCount = await db.position.count({ where: { status: "open" } });
+   157→      if (openCount === 0) {
+   158→        if (this.currentRoundId !== null) {
+   159→          this.currentLoopState = "rebalance";
+   160→          await rebalanceRound(cfg, this.currentRoundId);
+   161→          // Increment paper cycles if in paper mode and round was profitable
+   162→          if (cfg.mode === "paper") {
+   163→            const round = await db.round.findUnique({
+   164→              where: { id: this.currentRoundId },
+   165→            });
+   166→            if (round && (round.roundPnlUsd ?? 0) > 0) {
+   167→              await db.config.update({
+   168→                where: { id: "singleton" },
+   169→                data: { paperCyclesPassed: { increment: 1 } },
+   170→              });
+   171→              const updated = await getConfig();
+   172→              if (
+   173→                updated.paperCyclesPassed >= updated.paperCyclesRequired &&
+   174→                !updated.graduatedToLive
+   175→              ) {
+   176→                logger.info(
+   177→                  "engine",
+   178→                  `🎓 Graduação atingida! ${updated.paperCyclesPassed} ciclos paper aprovados. Live mode disponível.`
+   179→                );
+   180→                await recordRiskEvent(
+   181→                  "kill_switch",
+   182→                  "info",
+   183→                  `Graduação paper → live disponível`,
+   184→                  { cycles: updated.paperCyclesPassed }
+   185→                );
+   186→                // External notification — graduation milestone
+   187→                notifyEvent({
+   188→                  eventType: "graduation",
+   189→                  title: "🎓 Graduação Paper → Live",
+   190→                  message: `Bot completou ${updated.paperCyclesPassed} ciclos paper aprovados (mínimo: ${updated.paperCyclesRequired}). Modo *live trading* agora disponível para ativação manual.`,
+   191→                  context: {
+   192→                    paperCyclesPassed: updated.paperCyclesPassed,
+   193→                    paperCyclesRequired: updated.paperCyclesRequired,
+   194→                  },
+   195→                }).catch(() => { /* fire-and-forget */ });
+   196→              }
+   197→            }
+   198→            this.currentRoundId = null;
+   199→          }
+   200→        }
+   201→        // 3. SCOUT — start a new round
+   202→        this.currentLoopState = "scout";
+   203→        await this.scoutAndExecute(cfg);
+   204→      } else {
+   205→        // Round still has open positions — just continue monitoring.
+   206→        logger.debug("engine", `Round em andamento, ${openCount} posições abertas`);
+   207→      }
+   208→
+   209→      // Update peak balance after each tick
+   210→      await updatePeakBalance();
+   211→      // Record performance snapshot (throttled to 1/min)
+   212→      await recordSnapshotIfDue();
+   213→    } catch (err) {
+   214→      logger.error("engine", "Erro no tick", { error: String(err), stack: (err as Error).stack });
+   215→    } finally {
+   216→      this.busy = false;
+   217→    }
+   218→  }
+   219→
+   220→  // -------------------------------------------------------------------------
+   221→  // MONITOR + EXIT — check TP/SL/timeout for all open positions
+   222→  // + run surveillance (GoPlus re-scan, liquidity drain, price anomaly)
+   223→  // + run exit planner (AI-driven exit decision for flagged positions)
+   224→  // -------------------------------------------------------------------------
+   225→  private async monitorAndExit(cfg: EngineConfig): Promise<number> {
+   226→    const openPositions = await db.position.findMany({
+   227→      where: { status: "open" },
+   228→    });
+   229→    if (openPositions.length === 0) return 0;
+   230→
+   231→    const prices = await fetchPricesBatch(
+   232→      openPositions.map((p) => ({
+   233→        id: p.id,
+   234→        symbol: p.symbol,
+   235→        source: p.source as "cex" | "dex",
+   236→        chain: p.chain,
+   237→        tokenId: p.tokenId,
+   238→      }))
+   239→    );
+   240→
+   241→    // ---- Phase 1: Standard mechanical exits (TP/SL/timeout) ----
+   242→    let closed = 0;
+   243→    const now = new Date();
+   244→    const stillOpen: typeof openPositions = [];
+   245→    for (const pos of openPositions) {
+   246→      const price = prices.get(pos.id) ?? 0;
+   247→      if (price <= 0) {
+   248→        logger.warn("engine", `Sem preço para ${pos.symbol}, pulando`);
+   249→        stillOpen.push(pos);
+   250→        continue;
+   251→      }
+   252→
+   253→      let reason: ExitReason | null = null;
+   254→      if (price >= pos.takeProfitPrice) reason = "take_profit";
+   255→      else if (price <= pos.stopLossPrice) reason = "stop_loss";
+   256→      else if (now >= pos.maxExitAt) reason = "timeout";
+   257→
+   258→      if (reason) {
+   259→        await closePosition(cfg, pos.id, price, reason);
+   260→        await resolveAlertsForPosition(pos.id, "exited_position");
+   261→        closed++;
+   262→        eventBus.push({
+   263→          type: "position",
+   264→          level: reason === "take_profit" ? "info" : reason === "stop_loss" ? "warn" : "info",
+   265→          source: "engine",
+   266→          title: `Posição ${pos.symbol} fechada (${reasonLabel(reason)})`,
+   267→          message: `${pos.symbol} saiu em ${reasonLabel(reason)} @ $${price.toFixed(price < 1 ? 6 : 2)}`,
+   268→          context: {
+   269→            positionId: pos.id,
+   270→            symbol: pos.symbol,
+   271→            reason,
+   272→            exitPrice: price,
+   273→            entryPrice: pos.entryPriceUsd,
+   274→            entryAmountUsd: pos.entryAmountUsd,
+   275→          },
+   276→        });
+   277→        // External notification — fetch fresh position to compute P&L
+   278→        try {
+   279→          const fresh = await db.position.findUnique({ where: { id: pos.id } });
+   280→          const pnlUsd = fresh?.pnlUsd ?? 0;
+   281→          const pnlPct = fresh?.pnlPct ?? 0;
+   282→          notifyEvent({
+   283→            eventType: "position_closed",
+   284→            title: `Posição Fechada: ${pos.symbol} (${reasonLabel(reason)})`,
+   285→            message: `${pos.symbol} saiu em *${reasonLabel(reason)}* @ $${price.toFixed(price < 1 ? 6 : 2)}. P&L: ${pnlUsd >= 0 ? "+" : ""}$${pnlUsd.toFixed(2)} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%).`,
+   286→            context: {
+   287→              symbol: pos.symbol,
+   288→              reason,
+   289→              exitPrice: price,
+   290→              entryPrice: pos.entryPriceUsd,
+   291→              pnlUsd: pnlUsd.toFixed(2),
+   292→              pnlPct: pnlPct.toFixed(2) + "%",
+   293→              positionId: pos.id,
+   294→            },
+   295→          }).catch(() => { /* fire-and-forget */ });
+   296→        } catch {
+   297→          // ignore
+   298→        }
+   299→      } else {
+   300→        stillOpen.push(pos);
+   301→      }
+   302→    }
+   303→
+   304→    if (closed > 0) {
+   305→      logger.info("engine", `MONITOR fechou ${closed} posições (mecânico)`);
+   306→    }
+   307→
+   308→    if (stillOpen.length === 0) return closed;
+   309→
+   310→    // ---- Phase 2: Surveillance (re-scan for emerging risks) ----
+   311→    // Run surveillance only every ~5min to limit GoPlus + DexScreener API calls
+   312→    const SURVEILLANCE_INTERVAL_MS = 5 * 60_000;
+   313→    const surveillanceResults = [] as Awaited<ReturnType<typeof runSurveillance>>;
+   314→    const lastSurveillanceKey = "__lastSurveillanceAt";
+   315→    const lastSurveillanceAt = (this as unknown as Record<string, number | undefined>)[lastSurveillanceKey] ?? 0;
+   316→    if (Date.now() - lastSurveillanceAt >= SURVEILLANCE_INTERVAL_MS) {
+   317→      try {
+   318→        const results = await runSurveillance(
+   319→          stillOpen.map((p) => ({
+   320→            id: p.id,
+   321→            symbol: p.symbol,
+   322→            tokenId: p.tokenId,
+   323→            chain: p.chain,
+   324→            source: p.source,
+   325→            entryPriceUsd: p.entryPriceUsd,
+   326→            entryAmountUsd: p.entryAmountUsd,
+   327→            entryAt: p.entryAt,
+   328→            takeProfitPrice: p.takeProfitPrice,
+   329→            stopLossPrice: p.stopLossPrice,
+   330→            maxExitAt: p.maxExitAt,
+   331→          }))
+   332→        );
+   333→        surveillanceResults.push(...results);
+   334→        (this as unknown as Record<string, number>)[lastSurveillanceKey] = Date.now();
+   335→        const totalAlerts = results.reduce((s, r) => s + r.alerts.length, 0);
+   336→        if (totalAlerts > 0) {
+   337→          logger.info("surveillance", `${totalAlerts} alerta(s) em ${results.length} posições`);
+   338→        }
+   339→      } catch (err) {
+   340→        logger.warn("surveillance", `Erro runSurveillance: ${String(err)}`);
+   341→      }
+   342→    }
+   343→
+   344→    // ---- Phase 3: AI exit planner (only for positions with active alerts) ----
+   345→    for (const pos of stillOpen) {
+   346→      const surveillance = surveillanceResults.find((r) => r.positionId === pos.id);
+   347→      if (!surveillance || surveillance.alerts.length === 0) continue;
+   348→
+   349→      // Run exit planner (LLM call) — only if there are alerts
+   350→      const currentPrice = prices.get(pos.id) ?? pos.entryPriceUsd;
+   351→      try {
+   352→        const plan = await planExit({
+   353→          positionId: pos.id,
+   354→          symbol: pos.symbol,
+   355→          source: pos.source as "cex" | "dex",
+   356→          chain: pos.chain,
+   357→          tokenId: pos.tokenId,
+   358→          entryPriceUsd: pos.entryPriceUsd,
+   359→          currentPriceUsd: currentPrice,
+   360→          entryAmountUsd: pos.entryAmountUsd,
+   361→          takeProfitPrice: pos.takeProfitPrice,
+   362→          stopLossPrice: pos.stopLossPrice,
+   363→          entryAt: pos.entryAt,
+   364→          maxExitAt: pos.maxExitAt,
+   365→          scamScoreAtEntry: pos.scamScore,
+   366→          surveillance,
+   367→        });
+   368→
+   369→        // Apply the plan (may update TP/SL or signal full exit)
+   370→        const shouldExit = await applyExitPlan(plan);
+   371→        if (shouldExit && (plan.action === "exit_now" || plan.action === "scale_out_50")) {
+   372→          // For now, scale_out_50 escalates to full exit (no partial close yet)
+   373→          await closePosition(cfg, pos.id, currentPrice, "manual");
+   374→          await resolveAlertsForPosition(pos.id, "exited_position");
+   375→          closed++;
+   376→          logger.info(
+   377→            "exit_planner",
+   378→            `${pos.symbol} fechada por AI plan (action=${plan.action} conf=${plan.confidence}% sev=${plan.alertSeverity})`
+   379→          );
+   380→        }
+   381→      } catch (err) {
+   382→        logger.warn("exit_planner", `Erro planExit ${pos.symbol}: ${String(err)}`);
+   383→      }
+   384→    }
+   385→
+   386→    return closed;
+   387→  }
+   388→
+   389→  // -------------------------------------------------------------------------
+   390→  // Force-exit all open positions (used by kill switch)
+   391→  // -------------------------------------------------------------------------
+   392→  private async forceExitAll(cfg: EngineConfig, reason: ExitReason): Promise<void> {
+   393→    const openPositions = await db.position.findMany({
+   394→      where: { status: "open" },
+   395→    });
+   396→    const prices = await fetchPricesBatch(
+   397→      openPositions.map((p) => ({
+   398→        id: p.id,
+   399→        symbol: p.symbol,
+   400→        source: p.source as "cex" | "dex",
+   401→        chain: p.chain,
+   402→        tokenId: p.tokenId,
+   403→      }))
+   404→    );
+   405→    for (const pos of openPositions) {
+   406→      const price = prices.get(pos.id) ?? pos.entryPriceUsd;
+   407→      await closePosition(cfg, pos.id, price, reason);
+   408→      await resolveAlertsForPosition(pos.id, "exited_position");
+   409→      eventBus.push({
+   410→        type: "position",
+   411→        level: "critical",
+   412→        source: "engine",
+   413→        title: `Force-exit: ${pos.symbol} (${reasonLabel(reason)})`,
+   414→        message: `${pos.symbol} forçadamente fechado @ $${price.toFixed(price < 1 ? 6 : 2)} — motivo: ${reasonLabel(reason)}`,
+   415→        context: {
+   416→          positionId: pos.id,
+   417→          symbol: pos.symbol,
+   418→          reason,
+   419→          exitPrice: price,
+   420→          entryPrice: pos.entryPriceUsd,
+   421→        },
+   422→      });
+   423→    }
+   424→  }
+   425→
+   426→  // -------------------------------------------------------------------------
+   427→  // SCOUT + ANALYZE + EXECUTE
+   428→  // -------------------------------------------------------------------------
+   429→  private async scoutAndExecute(cfg: EngineConfig): Promise<void> {
+   430→    // Create round record
+   431→    const tb = await db.tradingBalance.findUnique({ where: { id: "singleton" } });
+   432→    const rb = await db.reserve.findUnique({ where: { id: "singleton" } });
+   433→    if (!tb || !rb) return;
+   434→
+   435→    const round = await db.round.create({
+   436→      data: {
+   437→        startedAt: new Date(),
+   438→        tradingBalanceUsd: tb.balanceUsd,
+   439→        reserveBalanceUsd: rb.balanceUsd,
+   440→        status: "running",
+   441→      },
+   442→    });
+   443→    this.currentRoundId = round.id;
+   444→    logger.info("engine", `Round ${round.id} iniciado (saldo $${tb.balanceUsd.toFixed(2)})`);
+   445→
+   446→    // SCOUT
+   447→    // Merge standard watchlist candidates + rising tokens discovered via
+   448→    // DexScreener boosted/trending + CoinGecko trending + per-chain gainers.
+   449→    this.currentLoopState = "scout";
+   450→    const [standard, rising] = await Promise.all([
+   451→      selectCandidates(cfg, cfg.maxPositionsPerRound * 3),
+   452→      getRisingCandidates(cfg, cfg.maxPositionsPerRound * 2, 30).catch((err) => {
+   453→        logger.warn("rising", `Erro discovery rising tokens: ${String(err)}`);
+   454→        return [];
+   455→      }),
+   456→    ]);
+   457→    // Dedupe by tokenId/symbol and prefer rising tokens (they have momentum)
+   458→    const seenKeys = new Set<string>();
+   459→    const candidates: typeof standard = [];
+   460→    for (const c of [...rising, ...standard]) {
+   461→      const key = c.tokenId
+   462→        ? `${c.chain}:${c.tokenId.toLowerCase()}`
+   463→        : `cex:${c.symbol}`;
+   464→      if (seenKeys.has(key)) continue;
+   465→      seenKeys.add(key);
+   466→      candidates.push(c);
+   467→    }
+   468→    logger.info("scout", `Candidatos: ${candidates.length} (${rising.length} rising + ${standard.length} standard)`);
+   469→    await db.round.update({
+   470→      where: { id: round.id },
+   471→      data: { tokensScanned: candidates.length },
+   472→    });
+   473→    if (candidates.length === 0) {
+   474→      logger.warn("engine", "Nenhum candidato encontrado — round abortado");
+   475→      await db.round.update({
+   476→        where: { id: round.id },
+   477→        data: { status: "aborted", notes: "Nenhum candidato", endedAt: new Date() },
+   478→      });
+   479→      this.currentRoundId = null;
+   480→      return;
+   481→    }
+   482→
+   483→    // ---- PLATFORM GATE ----
+   484→    // Reject any candidate whose platformId refers to a platform that failed
+   485→    // our integrity audit. Candidates without platformId (e.g. CoinGecko DEX
+   486→    // discovery) are allowed through but logged — they still go through the
+   487→    // full 4-layer analyze pipeline (scam → GoPlus → market → AI) before any
+   488→    // position is opened.
+   489→    let rejectedPlatform = 0;
+   490→    let platformGateSkipped = false;
+   491→    let approvedPlatformIds: Set<string> | null = null;
+   492→    try {
+   493→      approvedPlatformIds = await getApprovedPlatformIds();
+   494→    } catch (err) {
+   495→      logger.warn("platform", `Erro lendo approved platforms — gate desativado: ${String(err)}`);
+   496→      platformGateSkipped = true;
+   497→    }
+   498→    const gatedCandidates: typeof candidates = [];
+   499→    for (const c of candidates) {
+   500→      if (!c.platformId) {
+   501→        // No platform info — allow but log (CEX majors from CoinGecko or unknown DEX)
+   502→        gatedCandidates.push(c);
+   503→        continue;
+   504→      }
+   505→      if (platformGateSkipped || approvedPlatformIds === null) {
+   506→        gatedCandidates.push(c);
+   507→        continue;
+   508→      }
+   509→      if (approvedPlatformIds.has(c.platformId)) {
+   510→        gatedCandidates.push(c);
+   511→      } else {
+   512→        rejectedPlatform++;
+   513→        logger.info(
+   514→          "platform",
+   515→          `${c.symbol} rejeitado pelo platform gate — plataforma '${c.platformId}' não aprovada`
+   516→        );
+   517→      }
+   518→    }
+   519→    if (rejectedPlatform > 0) {
+   520→      logger.info(
+   521→        "platform",
+   522→        `Platform gate: ${rejectedPlatform}/${candidates.length} candidatos rejeitados (plataforma não-aprovada). ${gatedCandidates.length} restantes.`
+   523→      );
+   524→    } else if (!platformGateSkipped && approvedPlatformIds) {
+   525→      logger.info(
+   526→        "platform",
+   527→        `Platform gate OK: ${approvedPlatformIds.size} plataformas aprovadas, ${gatedCandidates.length} candidatos passaram`
+   528→      );
+   529→    }
+   530→    candidates.length = 0;
+   531→    candidates.push(...gatedCandidates);
+   532→    if (candidates.length === 0) {
+   533→      logger.warn("engine", "Todos candidatos rejeitados pelo platform gate — round abortado");
+   534→      await db.round.update({
+   535→        where: { id: round.id },
+   536→        data: { status: "aborted", notes: "Platform gate bloqueou todos", endedAt: new Date() },
+   537→      });
+   538→      this.currentRoundId = null;
+   539→      return;
+   540→    }
+   541→
+   542→    // ANALYZE
+   543→    // Multi-layer analysis: scam-detector (regex on contract source) +
+   544→    // GoPlus (real honeypot/tax/holder data via API) + market indicators +
+   545→    // AI agent squad (LLM thesis, news sentiment, contract audit).
+   546→    //
+   547→    // A token must pass ALL layers to be approved:
+   548→    //   1. scam-detector score >= cfg.scamScoreMin
+   549→    //   2. GoPlus has no criticalFlags
+   550→    //   3. AI consensus is NOT "avoid" or "investigate"
+   551→    //   4. Market signal is not "strong_sell"
+   552→    this.currentLoopState = "analyze";
+   553→    const approved: {
+   554→      candidate: (typeof candidates)[0];
+   555→      report: Awaited<ReturnType<typeof analyzeToken>>;
+   556→      market: Awaited<ReturnType<typeof analyzeMarket>>;
+   557→    }[] = [];
+   558→    let rejectedScam = 0;
+   559→    let rejectedAI = 0;
+   560→    let rejectedMarket = 0;
+   561→
+   562→    // Process candidates sequentially to avoid burning rate limits on
+   563→    // GoPlus + LLM APIs. We analyze up to (maxPositions * 3) candidates.
+   564→    for (const c of candidates) {
+   565→      // Layer 1: scam-detector (regex + Etherscan source check)
+   566→      const report = await analyzeToken(cfg, c);
+   567→      if (!report.passed) {
+   568→        rejectedScam++;
+   569→        continue;
+   570→      }
+   571→
+   572→      // Layer 2: GoPlus (real on-chain honeypot/tax check)
+   573→      if (c.source === "dex" && c.tokenId && c.chain) {
+   574→        try {
+   575→          const goplus = await scanTokenWithGoPlus(c.chain, c.tokenId);
+   576→          if (goplus.criticalFlags.length > 0) {
+   577→            rejectedScam++;
+   578→            logger.warn(
+   579→              "goplus",
+   580→              `${c.symbol} rejeitado por GoPlus: ${goplus.criticalFlags.join("; ")}`
+   581→            );
+   582→            continue;
+   583→          }
+   584→        } catch (err) {
+   585→          // GoPlus failure shouldn't hard-block — log and continue
+   586→          logger.warn("goplus", `Erro scan ${c.symbol}: ${String(err)}`);
+   587→        }
+   588→      }
+   589→
+   590→      // Layer 3: market analysis (TA + sentiment)
+   591→      let market: Awaited<ReturnType<typeof analyzeMarket>>;
+   592→      try {
+   593→        market = await analyzeMarket(c);
+   594→      } catch (err) {
+   595→        logger.warn("market", `Erro analisando ${c.symbol}: ${String(err)}`);
+   596→        market = {
+   597→          symbol: c.symbol,
+   598→          source: c.source,
+   599→          chain: c.chain,
+   600→          tokenId: c.tokenId,
+   601→          priceUsd: c.priceUsd,
+   602→          rsi14: null,
+   603→          macdHist: null,
+   604→          ema20: null,
+   605→          ema50: null,
+   606→          bollUpper: null,
+   607→          bollLower: null,
+   608→          bollPercent: null,
+   609→          fearGreedIndex: null,
+   610→          fearGreedClass: null,
+   611→          trendingRank: null,
+   612→          signalScore: 50,
+   613→          signalLabel: "neutral",
+   614→          raw: {},
+   615→        };
+   616→      }
+   617→      if (market.signalLabel === "strong_sell") {
+   618→        rejectedMarket++;
+   619→        logger.info("market", `${c.symbol} rejeitado — signal=strong_sell`);
+   620→        continue;
+   621→      }
+   622→
+   623→      // Layer 4: AI agent squad (LLM thesis + news + contract audit)
+   624→      // Only run on the first maxPositions candidates that pass layers 1-3
+   625→      // to limit LLM API spend.
+   626→      if (approved.length < cfg.maxPositionsPerRound) {
+   627→        try {
+   628→          const goplusForAI =
+   629→            c.source === "dex" && c.tokenId && c.chain
+   630→              ? await scanTokenWithGoPlus(c.chain, c.tokenId)
+   631→              : null;
+   632→          const squad = await runAgentSquad(c, market, report, goplusForAI);
+   633→          // AI veto only when consensus is "avoid" AND confidence is high
+   634→          // (>=70%). "investigate" alone doesn't veto — just logs.
+   635→          if (
+   636→            squad.consensus === "avoid" &&
+   637→            squad.consensusConfidence >= 70
+   638→          ) {
+   639→            rejectedAI++;
+   640→            logger.info(
+   641→              "ai",
+   642→              `${c.symbol} rejeitado pela AI squad: ${squad.consensus} (conf ${squad.consensusConfidence}%)`
+   643→            );
+   644→            continue;
+   645→          }
+   646→          if (squad.consensus === "investigate") {
+   647→            logger.info(
+   648→              "ai",
+   649→              `${c.symbol} marcado para investigação pela AI (conf ${squad.consensusConfidence}%) — prosseguindo com cautela`
+   650→            );
+   651→          }
+   652→        } catch (err) {
+   653→          // AI failure shouldn't block — log and proceed with the token
+   654→          logger.warn("ai", `Erro squad ${c.symbol}: ${String(err)} — prosseguindo sem AI veto`);
+   655→        }
+   656→      }
+   657→
+   658→      approved.push({ candidate: c, report, market });
+   659→      if (approved.length >= cfg.maxPositionsPerRound) break;
+   660→    }
+   661→
+   662→    await db.round.update({
+   663→      where: { id: round.id },
+   664→      data: {
+   665→        tokensPassedFilter: approved.length,
+   666→        tokensRejectedScam: rejectedScam + rejectedAI + rejectedMarket,
+   667→      },
+   668→    });
+   669→    logger.info(
+   670→      "engine",
+   671→      `ANALYZE: ${approved.length} aprovados, ${rejectedScam} scam, ${rejectedMarket} market, ${rejectedAI} AI-vetoed`
+   672→    );
+   673→
+   674→    if (approved.length === 0) {
+   675→      logger.warn("engine", "Nenhum token passou no scam filter — round abortado");
+   676→      await db.round.update({
+   677→        where: { id: round.id },
+   678→        data: { status: "aborted", notes: "Scam filter bloqueou todos", endedAt: new Date() },
+   679→      });
+   680→      this.currentRoundId = null;
+   681→      return;
+   682→    }
+   683→
+   684→    // EXECUTE
+   685→    this.currentLoopState = "execute";
+   686→    const maxPositions = Math.min(cfg.maxPositionsPerRound, approved.length);
+   687→    // Allocate capital across the N approved tokens, capped by BOTH:
+   688→    //   - capitalPctPerRound of trading balance (round cap)
+   689→    //   - maxExposurePerTokenPct of trading balance (per-token cap)
+   690→    // If per-token cap binds first, we deploy less than 100% this round — that's
+   691→    // intentional. Capital preservation > full deployment.
+   692→    const freshCfg = await getConfig(); // reload in case balance changed
+   693→    const balance = await db.tradingBalance.findUnique({
+   694→      where: { id: "singleton" },
+   695→    });
+   696→    if (!balance) return;
+   697→    const roundAllocation =
+   698→      (freshCfg.capitalPctPerRound / 100) * balance.balanceUsd;
+   699→    const maxPerTokenFromCap =
+   700→      (freshCfg.maxExposurePerTokenPct / 100) * balance.balanceUsd;
+   701→    // Ideal per-token = roundAllocation / maxPositions, but never exceed cap.
+   702→    const perToken = Math.min(
+   703→      roundAllocation / Math.max(maxPositions, 1),
+   704→      maxPerTokenFromCap
+   705→    );
+   706→
+   707→    let opened = 0;
+   708→    for (const { candidate, report } of approved.slice(0, maxPositions)) {
+   709→      const risk = await assessTradeRisk(cfg, candidate.symbol, perToken);
+   710→      if (!risk.allowed) {
+   711→        logger.warn(
+   712→          "engine",
+   713→          `Risk manager bloqueou ${candidate.symbol}: ${risk.reasons.join("; ")}`
+   714→        );
+   715→        continue;
+   716→      }
+   717→      const pos = await openPosition(cfg, candidate, perToken, report, round.id);
+   718→      if (pos) {
+   719→        opened++;
+   720→        eventBus.push({
+   721→          type: "position",
+   722→          level: "info",
+   723→          source: "engine",
+   724→          title: `Posição aberta: ${candidate.symbol}`,
+   725→          message: `Comprou ${candidate.symbol} @ $${candidate.priceUsd.toFixed(candidate.priceUsd < 1 ? 6 : 2)} ($${perToken.toFixed(2)} alocado, score ${report.score}/100)`,
+   726→          context: {
+   727→            positionId: pos.id,
+   728→            symbol: candidate.symbol,
+   729→            source: candidate.source,
+   730→            chain: candidate.chain,
+   731→            entryPrice: candidate.priceUsd,
+   732→            entryAmountUsd: perToken,
+   733→            scamScore: report.score,
+   734→            roundId: round.id,
+   735→          },
+   736→        });
+   737→        // External notification — new position opened
+   738→        notifyEvent({
+   739→          eventType: "position_opened",
+   740→          title: `Posição Aberta: ${candidate.symbol}`,
+   741→          message: `Comprou *${candidate.symbol}* @ $${candidate.priceUsd.toFixed(candidate.priceUsd < 1 ? 6 : 2)} — $${perToken.toFixed(2)} alocado (score anti-scam: ${report.score}/100, source: ${candidate.source}${candidate.chain ? "/" + candidate.chain : ""}).`,
+   742→          context: {
+   743→            symbol: candidate.symbol,
+   744→            source: candidate.source,
+   745→            chain: candidate.chain ?? "",
+   746→            entryPrice: candidate.priceUsd.toFixed(candidate.priceUsd < 1 ? 6 : 2),
+   747→            entryAmountUsd: perToken.toFixed(2),
+   748→            scamScore: report.score,
+   749→            roundId: round.id,
+   750→            positionId: pos.id,
+   751→          },
+   752→        }).catch(() => { /* fire-and-forget */ });
+   753→      }
+   754→    }
+   755→
+   756→    await db.round.update({
+   757→      where: { id: round.id },
+   758→      data: { positionsOpened: opened },
+   759→    });
+   760→    logger.info("engine", `EXECUTE: ${opened} posições abertas no round ${round.id}`);
+   761→  }
+   762→}
+   763→
+   764→// ---------------------------------------------------------------------------
+   765→// Singleton export
+   766→// ---------------------------------------------------------------------------
+   767→export const engine = new Engine();
+   768→
+   769→// -------------------------------------------------------------------------
+   770→// Snapshot for API / dashboard
+   771→// -------------------------------------------------------------------------
+   772→export async function getEngineSnapshot(): Promise<EngineSnapshot> {
+   773→  const cfg = await getConfig();
+   774→  const tb = await db.tradingBalance.findUnique({ where: { id: "singleton" } });
+   775→  const openCount = await db.position.count({ where: { status: "open" } });
+   776→
+   777→  const status: EngineSnapshot["status"] = cfg.killSwitchActive
+   778→    ? "killed"
+   779→    : engine.isRunning()
+   780→    ? "running"
+   781→    : "stopped";
+   782→
+   783→  const winRate =
+   784→    tb && tb.tradesClosed > 0 ? (tb.wins / tb.tradesClosed) * 100 : 0;
+   785→
+   786→  return {
+   787→    status,
+   788→    mode: cfg.mode,
+   789→    loopState: engine.getLoopState(),
+   790→    lastLoopAt: engine.getLastLoopAt()?.toISOString() ?? null,
+   791→    nextLoopAt: engine.isRunning()
+   792→      ? new Date(
+   793→          (engine.getLastLoopAt()?.getTime() ?? Date.now()) +
+   794→            cfg.loopIntervalSec * 1000
+   795→        ).toISOString()
+   796→      : null,
+   797→    tradingBalanceUsd: tb?.balanceUsd ?? 0,
+   798→    reserveBalanceUsd:
+   799→      (await db.reserve.findUnique({ where: { id: "singleton" } }))?.balanceUsd ?? 0,
+   800→    peakBalanceUsd: tb?.peakBalanceUsd ?? 0,
+   801→    realizedPnlUsd: tb?.realizedPnlUsd ?? 0,
+   802→    openPositionsCount: openCount,
+   803→    totalPositionsOpened: tb?.tradesOpened ?? 0,
+   804→    totalPositionsClosed: tb?.tradesClosed ?? 0,
+   805→    wins: tb?.wins ?? 0,
+   806→    losses: tb?.losses ?? 0,
+   807→    winRate,
+   808→    paperCyclesPassed: cfg.paperCyclesPassed,
+   809→    paperCyclesRequired: cfg.paperCyclesRequired,
+   810→    graduatedToLive: cfg.graduatedToLive,
+   811→    killSwitchActive: cfg.killSwitchActive,
+   812→    killSwitchReason: cfg.killSwitchReason,
+   813→    currentRoundId: engine.getCurrentRoundId(),
+   814→    loopIteration: engine.getIteration(),
+   815→  };
+   816→}
+   817→
+   818→// ---------------------------------------------------------------------------
+   819→// Helpers
+   820→// ---------------------------------------------------------------------------
+   821→function reasonLabel(r: ExitReason): string {
+   822→  switch (r) {
+   823→    case "take_profit":
+   824→      return "TP";
+   825→    case "stop_loss":
+   826→      return "SL";
+   827→    case "timeout":
+   828→      return "timeout";
+   829→    case "kill_switch":
+   830→      return "kill switch";
+   831→    case "manual":
+   832→      return "manual";
+   833→    default:
+   834→      return r;
+   835→  }
+   836→}
+   837→

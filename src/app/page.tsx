@@ -34,6 +34,7 @@ import {
   FlaskConical,
   LineChart,
   Bell,
+  Server,
 } from "lucide-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -68,6 +69,7 @@ import { AlertsToast } from "@/components/dashboard/alerts-toast";
 import { BacktestPanel } from "@/components/dashboard/backtest-panel";
 import { AnalyticsPanel } from "@/components/dashboard/analytics-panel";
 import { NotificationsPanel } from "@/components/dashboard/notifications-panel";
+import { SystemPanel } from "@/components/dashboard/system-panel";
 
 function fmtUsd(n: number, decimals = 2): string {
   return n.toLocaleString("en-US", {
@@ -477,7 +479,7 @@ export default function Home() {
 
         {/* Main tabs */}
         <Tabs defaultValue="positions" className="space-y-4">
-          <TabsList className="grid grid-cols-2 md:grid-cols-[repeat(13,minmax(0,1fr))] w-full">
+          <TabsList className="grid grid-cols-2 md:grid-cols-[repeat(14,minmax(0,1fr))] w-full">
             <TabsTrigger value="positions" className="gap-1">
               <Activity className="size-3" /> Posições
             </TabsTrigger>
@@ -526,6 +528,9 @@ export default function Home() {
             </TabsTrigger>
             <TabsTrigger value="notifications" className="gap-1">
               <Bell className="size-3" /> Notificações
+            </TabsTrigger>
+            <TabsTrigger value="system" className="gap-1">
+              <Server className="size-3" /> Sistema
             </TabsTrigger>
           </TabsList>
 
@@ -598,6 +603,10 @@ export default function Home() {
 
           <TabsContent value="notifications" className="space-y-4">
             <NotificationsPanel />
+          </TabsContent>
+
+          <TabsContent value="system" className="space-y-4">
+            <SystemPanel />
           </TabsContent>
         </Tabs>
 

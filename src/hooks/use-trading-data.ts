@@ -749,3 +749,68 @@ export function useNotificationLogs(limit = 100) {
     refetchInterval: 5000,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Trading Schedule + System (backup/info/maintenance)
+// ---------------------------------------------------------------------------
+
+export interface TradingScheduleData {
+  enabled: boolean;
+  daysOfWeek: number[];
+  startTime: string;
+  endTime: string;
+  timezone: string;
+  forceCloseAtEnd: boolean;
+  updatedAt: string;
+}
+
+export interface ScheduleStatusData {
+  enabled: boolean;
+  within: boolean;
+  weekday: number;
+  localTime: string;
+  startTime: string;
+  endTime: string;
+  nextChange: "open" | "close" | null;
+  reason: string;
+}
+
+export function useSchedule() {
+  return useQuery<{ schedule: TradingScheduleData; status: ScheduleStatusData }>({
+    queryKey: ["schedule"],
+    queryFn: async () => {
+      const r = await fetch("/api/schedule");
+      if (!r.ok) throw new Error("schedule failed");
+      return r.json();
+    },
+    refetchInterval: 10000,
+  });
+}
+
+export interface SystemInfoData {
+  tables: Record<string, number>;
+  db: { path: string; sizeBytes: number; sizeMb: number };
+  runtime: {
+    uptimeSec: number;
+    rssMb: number;
+    heapUsedMb: number;
+    heapTotalMb: number;
+    nodeVersion: string;
+    platform: string;
+    pid: number;
+  };
+  schema: { prismaModels: number };
+  timestamp: string;
+}
+
+export function useSystemInfo() {
+  return useQuery<SystemInfoData>({
+    queryKey: ["system-info"],
+    queryFn: async () => {
+      const r = await fetch("/api/system/info");
+      if (!r.ok) throw new Error("system info failed");
+      return r.json();
+    },
+    refetchInterval: 15000,
+  });
+}

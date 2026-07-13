@@ -442,3 +442,24 @@ model NotificationLog {
   @@index([eventType])
   @@index([sentAt])
 }
+
+// ---------------------------------------------------------------------------
+// Trading schedule — restrict engine to trading hours/days.
+// Singleton row. When `enabled=true`, the engine will skip SCOUT (new rounds)
+// outside the configured window but will still MONITOR/EXIT open positions.
+// ---------------------------------------------------------------------------
+model TradingSchedule {
+  id                  String   @id @default("singleton")
+  enabled             Boolean  @default(false)
+  // JSON array of weekday numbers 0-6 (0 = Sunday, 6 = Saturday). Empty = every day.
+  daysOfWeek          String   @default("[1,2,3,4,5]")
+  // 24h format "HH:MM" in the configured timezone. e.g. "09:00" / "21:00".
+  startTime           String   @default("09:00")
+  endTime             String   @default("21:00")
+  // IANA tz name, e.g. "America/Sao_Paulo", "UTC", "America/New_York".
+  timezone            String   @default("America/Sao_Paulo")
+  // If true, engine will close all open positions at endTime. If false, just
+  // stop opening new ones — existing positions follow normal TP/SL/timeout.
+  forceCloseAtEnd     Boolean  @default(false)
+  updatedAt           DateTime @updatedAt
+}

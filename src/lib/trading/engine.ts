@@ -34,6 +34,7 @@ import { getApprovedPlatformIds } from "./platform-scanner";
 import { eventBus } from "./event-bus";
 import { recordSnapshotIfDue } from "./performance-snapshot";
 import { notifyEvent } from "./notifier";
+import { canScoutNow, forceCloseAllIfOutsideWindow } from "./schedule";
 import {
   ensureInitialized,
   openPosition,
@@ -198,9 +199,17 @@ class Engine {
             this.currentRoundId = null;
           }
         }
-        // 3. SCOUT — start a new round
+        // 3. SCOUT — start a new round (gated by trading schedule if enabled)
         this.currentLoopState = "scout";
-        await this.scoutAndExecute(cfg);
+        const allowed = await canScoutNow();
+        if (allowed) {
+          await this.scoutAndExecute(cfg);
+        } else {
+          logger.info("engine", "Fora da janela de trading — SCOUT pulado (MONITOR/EXIT continua)");
+        }
+        // If forceCloseAtEnd is set and we're outside the window, force-close
+        // any remaining open positions.
+        await forceCloseAllIfOutsideWindow();
       } else {
         // Round still has open positions — just continue monitoring.
         logger.debug("engine", `Round em andamento, ${openCount} posições abertas`);

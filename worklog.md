@@ -569,3 +569,82 @@ Stage Summary:
 - Dev server estável em /home/z/my-project porta 3000
 - Dashboard agora tem 13 tabs: Posições, Histórico, Mercado, AI Agents, Scam Audit, Site Audit, Plataformas, Vigilância, Backtest, Analytics, Rounds, Logs, Notificações
 - Validação end-to-end: kill switch trigger → notifyEvent → 3 transports dispatched → NotificationLog persisted → dashboard logs table atualizada em tempo real
+
+---
+Task ID: enhancement-v11
+Agent: main
+Task: Adicionar 14ª tab "Sistema" com 4 sub-panels: Agenda de Trading (restrict engine a janela de dias/horas), Sistema (DB info + table counts + uptime + memória), Backup (export/import JSON), Manutenção (clear logs/snapshots/alertas + VACUUM SQLite).
+
+Work Log:
+- Adicionado model TradingSchedule ao prisma/schema.prisma (6 campos: enabled, daysOfWeek JSON, startTime, endTime, timezone IANA, forceCloseAtEnd). Singleton via id="singleton". db push + prisma generate executados.
+- Criado src/lib/trading/schedule.ts (268 linhas):
+  - Tipos: TradingSchedule, ScheduleStatus
+  - getSchedule(): lê singleton, fallback DEFAULT_SCHEDULE (Mon-Fri 09:00-21:00 America/Sao_Paulo)
+  - updateSchedule(patch): valida HH:MM regex para startTime/endTime, valida IANA tz via Intl.DateTimeFormat, upsert no DB
+  - getLocalParts(now, tz): usa Intl.DateTimeFormat com weekday+hour+minute+timeZone para extrair weekday (0-6 Sun=0) e minutos desde meia-noite no tz local — solução cross-runtime sem libs externas
+  - getScheduleStatus(now): retorna {enabled, within, weekday, localTime, startTime, endTime, nextChange, reason} — dentro/fora da janela + label human-readable
+  - Suporta janelas overnight (startTime > endTime, ex: 23:00-05:00) com lógica de wrap
+  - canScoutNow(): wrapper para getScheduleStatus().within
+  - forceCloseAllIfOutsideWindow(): se enabled && forceCloseAtEnd && outside window, marca posições abertas como status="killed" exitReason="schedule_force_close" — safety net para o forceCloseAtEnd
+- Modificado src/lib/trading/engine.ts:
+  - Import de canScoutNow e forceCloseAllIfOutsideWindow
+  - Antes de chamar scoutAndExecute(cfg) no tick (após openCount===0), checa canScoutNow(). Se false, loga "Fora da janela de trading — SCOUT pulado (MONITOR/EXIT continua)" e pula scouting
+  - Após o scout (ou skip), chama forceCloseAllIfOutsideWindow() para fechar posições se forceCloseAtEnd estiver ativo
+  - MONITOR/EXIT (TP/SL/timeout/surveillance) continua 24/7 independente da agenda — apenas SCOUT é gated
+- Criadas 4 API routes:
+  - GET /api/schedule: retorna {schedule, status} completo
+  - POST /api/schedule: valida daysOfWeek (array 0-6), chama updateSchedule
+  - GET /api/system/info: retorna tables (15 counts), db (path, sizeBytes, sizeMb), runtime (uptimeSec, rssMb, heapUsedMb, heapTotalMb, nodeVersion, platform, pid), schema (prismaModels=15)
+  - GET /api/system/backup: exporta JSON com _meta (version, exportedAt, app="auto-trader", tables counts) + data (config, positions, rounds, appLogs limit 5000, scamReports, marketSnapshots limit 5000, aiInsights, siteAudits, positionAlerts, backtestResults, performanceSnapshots, notificationChannels, notificationLogs limit 5000, reserve, tradingBalance, riskEvents, tradingSchedule). Content-Disposition: attachment; filename="backup-{ISO timestamp}.json"
+  - POST /api/system/backup: restaura APENAS config, tradingBalance, reserve, tradingSchedule, notificationChannels (UPSERT por PK). Posições/rounds/logs NÃO sobrescritos (append-only). Retorna {ok, restored: {table: count}, note}
+  - POST /api/system/maintenance: 8 ações: clear_logs (>7d), clear_notification_logs (>7d), clear_market_snapshots (>30d), clear_performance_snapshots (>7d), clear_old_alerts (resolvidos >7d), clear_scam_reports (>30d), clear_ai_insights (>7d), vacuum (VACUUM SQLite). Retorna {ok, action, label, deleted, timestamp}
+- Adicionados 2 hooks em use-trading-data.ts:
+  - useSchedule() com tipos TradingScheduleData e ScheduleStatusData, refetch 10s
+  - useSystemInfo() com tipo SystemInfoData, refetch 15s
+- Criado src/components/dashboard/system-panel.tsx (~620 linhas) com 4 sub-tabs:
+  - "Agenda" (SchedulePanel): card de status (live within/outside badge, hora local, janela, próxima mudança), card editor (switch enabled, 7 checkboxes para dias da semana Dom-Sáb em grid, inputs time para startTime/endTime, select de timezone com 8 commons + opção atual, switch forceCloseAtEnd, alert de aviso)
+  - "Sistema" (SystemInfoPanel): 4 stat cards (Tamanho DB, Uptime, Memória RSS, Prisma Models), card com grid de table counts (17 tabelas em badges mono)
+  - "Backup" (BackupPanel): card exportar (botão baixar JSON que faz fetch + cria Blob + trigger <a> download), card importar (input file, parse JSON, valida _meta.app="auto-trader", preview das table counts, botão confirmar que faz POST + invalida queries)
+  - "Manutenção" (MaintenancePanel): grid de 8 cards de ações (clear_logs, clear_notification_logs, clear_market_snapshots, clear_performance_snapshots, clear_old_alerts, clear_scam_reports, clear_ai_insights, vacuum) com ícone, label, descrição, botão Executar, badge "Último: N removidos" após execução
+- Adicionada 14ª tab "Sistema" no page.tsx com ícone Server do lucide-react. TabsList atualizado de grid-cols-[repeat(13,...)] para grid-cols-[repeat(14,minmax(0,1fr))].
+- Adicionados "schedule" e "system" ao tipo LogSource em logger.ts.
+- TypeScript compila sem erros em src/ (apenas skills/ com erro pré-existente).
+- Validado via curl:
+  - GET /api/schedule: retorna schedule default (enabled=false, daysOfWeek=[1,2,3,4,5], 09:00-21:00 America/Sao_Paulo) + status (within=true pois desativada, reason="Agenda desativada — engine pode operar 24/7")
+  - POST /api/schedule {enabled:true, startTime:"23:00", endTime:"05:00"}: status retorna within=false (fora da janela noturna às 12:41 local), reason="Fora da janela — antes/after do horário permitido"
+  - POST /api/schedule {enabled:true, startTime:"00:00", endTime:"23:59"}: status retorna within=true, reason="Dentro da janela (00:00-23:59, America/Sao_Paulo (GMT-3))"
+  - GET /api/system/info: retorna 15 table counts (config=1, positionsOpen=8, positionsClosed=6, rounds=2, appLogs=501, scamReports=5, marketSnapshots=39, aiInsights=65, siteAudits=77, positionAlerts=9, backtestResults=4, performanceSnapshots=4, notificationChannels=1, notificationLogs=21, tradingSchedules=0), db size 0.51 MB, uptime 23s, rss 1004 MB, node v24.18.0, prismaModels=15
+  - GET /api/system/backup: retorna JSON 469 KB com 17 tabelas (positions=14, appLogs=501, marketSnapshots=39, aiInsights=65, siteAudits=77, etc.), Content-Disposition com filename ISO timestamp
+  - POST /api/system/backup (com backup JSON): retorna {ok:true, restored:{config:1, tradingBalance:1, reserve:1, tradingSchedule:1, notificationChannels:1}, note} — restauração parcial como projetado
+  - POST /api/system/maintenance {action:"clear_old_alerts"}: retorna {ok:true, deleted:0, label:"Alertas resolvidos > 7 dias removidos"}
+  - POST /api/system/maintenance {action:"vacuum"}: retorna {ok:true, label:"VACUUM executado"}
+  - POST /api/system/maintenance {action:"invalid_xyz"}: retorna 400 {error:"Ação desconhecida: invalid_xyz"}
+- Validado via agent-browser:
+  - Dashboard renderiza com 14 tabs (Sistema é a última, ícone Server)
+  - Tab Sistema: 4 sub-tabs (Agenda, Sistema, Backup, Manutenção)
+  - Sub-tab Agenda: card de status com badge "Fora da janela" (quando disabled mostra "Dentro" pois within=true), card editor com switch enabled, 7 checkboxes Dom-Sáb (todos marcados por default), inputs time 09:00/21:00, select timezone America/Sao_Paulo, switch forceCloseAtEnd desligado
+  - Click no switch enabled + click Salvar: agenda ativada, status muda para "Dentro da janela (00:00-23:59)" — verificado via curl que POST foi bem-sucedido
+  - Sub-tab Sistema: 4 stat cards (Tamanho DB 0.51 MB, Uptime, Memória RSS 1004 MB, Prisma Models 15) + grid com 17 table counts em badges mono
+  - Sub-tab Backup: card exportar com botão "Baixar backup JSON", card importar com alert destrutivo + input file + área de preview (após selecionar arquivo)
+  - Sub-tab Manutenção: grid de 8 cards de ações (clear_logs, clear_notification_logs, clear_market_snapshots, clear_performance_snapshots, clear_old_alerts, clear_scam_reports, clear_ai_insights, vacuum) cada um com ícone + label + descrição + botão Executar
+- Screenshots em /home/z/my-project/download/:
+  - v11-system-tab-schedule.png (sub-tab Agenda com status + editor)
+  - v11-system-info.png (sub-tab Sistema com 4 stat cards + table counts)
+  - v11-system-backup.png (sub-tab Backup com export + import)
+  - v11-system-maintenance.png (sub-tab Manutenção com 8 ações)
+  - v11-schedule-enabled.png (agenda após ativar via UI)
+  - v11-system-tab-full.png (full page screenshot da tab Sistema)
+
+Stage Summary:
+- 14ª tab "Sistema" adicionada ao dashboard com 4 sub-panels (Agenda, Sistema, Backup, Manutenção)
+- TradingSchedule model (15º Prisma model) restringe SCOUT a janela configurável de dias/horas no timezone do operador — MONITOR/EXIT continua 24/7
+- Sistema de backup export/import JSON: export baixa snapshot completo (469 KB com 17 tabelas), import restaura config + balances + schedule + channels via UPSERT (posições/rounds/logs preservados como append-only)
+- 8 ações de manutenção: clear_logs/notif_logs/market_snapshots/perf_snapshots/old_alerts/scam_reports/ai_insights (>7d ou >30d conforme tipo) + VACUUM SQLite para compactar DB
+- 24 API routes (adicionadas /api/schedule, /api/system/info, /api/system/backup, /api/system/maintenance)
+- 24 lib/trading files (adicionado schedule.ts)
+- 17 dashboard components (adicionado system-panel.tsx)
+- 15 Prisma models (adicionado TradingSchedule)
+- TypeScript compila sem erros em src/
+- Dev server estável em /home/z/my-project porta 3000
+- Dashboard agora tem 14 tabs: Posições, Histórico, Mercado, AI Agents, Scam Audit, Site Audit, Plataformas, Vigilância, Backtest, Analytics, Rounds, Logs, Notificações, Sistema
+- Validação end-to-end: schedule POST → engine tick pula SCOUT quando fora da janela → logs confirmam "Fora da janela de trading — SCOUT pulado"
