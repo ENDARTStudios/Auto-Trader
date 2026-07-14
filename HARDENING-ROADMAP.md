@@ -295,11 +295,57 @@ principle above):
 - Each subphase ships with at least one adversarial test per the
   permanent principle.
 
-### H2: Contract interaction hardening (Layer 2) — highest-risk token-fraud gap
-- Exact-amount approvals + auto-revoke
-- Extended scam-detector (sell-simulation, on-chain LP lock verification, mint authority)
-- Pre-trade simulation (fork-based)
-- Acceptance criteria: 3 structural tests (exact-amount approval, honeypot rejection, simulation rejection)
+### H2: Contract interaction hardening (Layer 2) — IN PROGRESS
+After H1 hardened the transaction lifecycle (RPC, simulation, approvals,
+MEV baseline) as pure primitives, H2 hardens the **on-chain read path**
+that runs BEFORE any transaction is built: every contract the bot is
+about to interact with must be verified, every liquidity pool must be
+checked structurally, every token's authority model must be inspected,
+and every buy must be paired with a sell simulation. The criterion is
+the operator's:
+
+> nenhum contrato desconhecido entra no pipeline.
+
+H2 deliberately does NOT introduce real broadcast, real signing,
+Flashbots, MEV Blocker, SUAVE, bundles, or private mempool — those
+belong to M3/M4 when a real execution path exists. H2 keeps the
+operational surface minimal while each contract-interaction defense is
+validated independently.
+
+H2 subphases (per operator mandate):
+- **H2.1 — Contract Verification**: bytecode expected; ABI expected;
+  owner/admin known; proxy detection; upgradeability detection. No
+  unknown contract enters the pipeline.
+- **H2.2 — Liquidity Verification**: LP locked; lock duration; locked
+  percentage; multiple pools; liquidity removable.
+- **H2.3 — Token Authority Verification**: mint authority; freeze
+  authority; blacklist; pausability; ownership transfer; renounce real.
+- **H2.4 — Sell Simulation**: buy succeeds; sell succeeds; taxes
+  expected vs. observed; exit possible; slippage acceptable. Covers
+  most modern honeypots.
+- **H2.5 — Adversarial Tests** (per permanent principle): LP removed
+  between blocks; owner changes during execution; proxy changes
+  implementation; sell passes on first simulation and fails on the
+  second; taxes change after buy; contract changes behavior per caller.
+
+Acceptance criteria (structural + adversarial, per permanent principle):
+- Contract verification: an unknown bytecode / unknown ABI / unknown
+  owner / proxy / upgradeable contract is rejected before any
+  interaction.
+- Liquidity verification: a pool with unlocked LP, LP locked for < min
+  duration, LP removable by an unknown account, or duplicated shallow
+  pools is rejected.
+- Token authority verification: a token with active mint / freeze /
+  blacklist / pause authority, fake renounce (owner set to address(0)
+  via custom logic, not real Ownable.renounceOwnership), or ownership
+  transferable to an arbitrary address is rejected.
+- Sell simulation: a token where buy succeeds but sell reverts, taxes
+  differ from expected, exit is blocked, or slippage exceeds the
+  dynamic limit is rejected.
+- Each subphase ships with at least one adversarial test per the
+  permanent principle; H2.5 enumerates the cross-cutting adversarial
+  scenarios that span multiple subphases (proxy swap affects both H2.1
+  and H2.4; owner change affects both H2.2 and H2.3; etc.).
 
 ### H3: Signature hygiene (Layer 3)
 - EIP-712 typed-data display
