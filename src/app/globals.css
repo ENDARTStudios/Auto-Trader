@@ -79,6 +79,15 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Semantic color tokens — workspace V3 (fixed color map per operator spec) */
+  --color-buy: oklch(0.55 0.18 152);
+  --color-sell: oklch(0.50 0.22 25);
+  --color-chain: oklch(0.55 0.16 200);
+  --color-ai: oklch(0.50 0.18 290);
+  --color-system: oklch(0.50 0.16 230);
+  --color-warn: oklch(0.65 0.16 85);
+  --color-critical: oklch(0.45 0.26 25);
 }
 
 /* ---------------------------------------------------------------------------
@@ -142,6 +151,17 @@
   --sidebar-accent-foreground: oklch(0.96 0.002 264);
   --sidebar-border: oklch(1 0 0 / 6%);
   --sidebar-ring: oklch(0.78 0.18 152 / 50%);
+
+  /* Semantic color tokens — workspace V3 (fixed color map per operator spec).
+     Buy/Lucro = emerald, Sell/Perda = red, Blockchain = cyan,
+     IA = violet, Sistema = blue, Aviso = amber, Crítico = intense red. */
+  --color-buy: oklch(0.78 0.18 152);
+  --color-sell: oklch(0.66 0.22 25);
+  --color-chain: oklch(0.74 0.16 200);
+  --color-ai: oklch(0.70 0.18 290);
+  --color-system: oklch(0.70 0.16 230);
+  --color-warn: oklch(0.82 0.16 85);
+  --color-critical: oklch(0.58 0.26 25);
 }
 
 @layer base {
@@ -816,5 +836,500 @@
       linear-gradient(oklch(1 0 0 / 0.020) 1px, transparent 1px),
       linear-gradient(90deg, oklch(1 0 0 / 0.020) 1px, transparent 1px);
     background-size: 32px 32px;
+  }
+
+  /* ============================================================
+     WORKSPACE V3 — institutional terminal workspace
+     Three-tier card hierarchy + console logs + telemetry bars
+     + screener rows + AI decision panel + system health grid
+     ============================================================ */
+
+  /* Workspace panel — base surface used for all main panels in the grid.
+     Three depth tiers: L1 hero, L2 standard, L3 compact. */
+  .ws-panel {
+    background:
+      linear-gradient(180deg, oklch(1 0 0 / 0.05) 0%, transparent 6%),
+      linear-gradient(135deg, oklch(0.195 0.007 264) 0%, oklch(0.150 0.005 264) 100%);
+    border: 1px solid oklch(1 0 0 / 0.06);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.06),
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.28),
+      0 1px 2px 0 oklch(0 0 0 / 0.50),
+      0 8px 20px -8px oklch(0 0 0 / 0.70);
+    transition: border-color 200ms ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .ws-panel:hover {
+    border-color: oklch(1 0 0 / 0.10);
+  }
+
+  /* L1 — hero panels (Equity, Portfolio Value, P&L). Highest contrast, accent ribbon. */
+  .ws-panel-l1 {
+    background:
+      linear-gradient(180deg, oklch(1 0 0 / 0.08) 0%, transparent 5%),
+      linear-gradient(135deg, oklch(0.215 0.009 264) 0%, oklch(0.150 0.005 264) 100%);
+    border: 1px solid oklch(1 0 0 / 0.09);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.09),
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.32),
+      0 2px 6px 0 oklch(0 0 0 / 0.60),
+      0 14px 32px -8px oklch(0 0 0 / 0.80),
+      0 32px 64px -20px oklch(0 0 0 / 0.95);
+  }
+
+  /* L3 — compact panels (Logs, Health, Alerts). Lowest visual weight. */
+  .ws-panel-l3 {
+    background: linear-gradient(135deg, oklch(0.180 0.006 264) 0%, oklch(0.145 0.005 264) 100%);
+    border: 1px solid oklch(1 0 0 / 0.05);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.05),
+      0 1px 2px 0 oklch(0 0 0 / 0.45),
+      0 6px 16px -8px oklch(0 0 0 / 0.65);
+  }
+
+  /* Panel header — slim title bar inside each workspace panel */
+  .ws-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.5rem 0.875rem;
+    border-bottom: 1px solid oklch(1 0 0 / 0.05);
+    background: linear-gradient(180deg, oklch(1 0 0 / 0.025) 0%, transparent 100%);
+  }
+  .ws-panel-title {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: oklch(0.96 0.002 264);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .ws-panel-subtitle {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: oklch(0.55 0.008 264);
+  }
+
+  /* Panel body */
+  .ws-panel-body {
+    padding: 0.75rem 0.875rem;
+  }
+
+  /* ============================================================
+     COLOR SYSTEM — fixed semantic color map (per operator spec)
+     Buy/Lucro = emerald, Sell/Perda = red, Blockchain = cyan,
+     IA = violet, Sistema = blue, Aviso = amber, Crítico = intense red
+     ============================================================ */
+
+  /* Color helpers — text */
+  .text-buy { color: var(--color-buy); }
+  .text-sell { color: var(--color-sell); }
+  .text-chain { color: var(--color-chain); }
+  .text-ai { color: var(--color-ai); }
+  .text-system { color: var(--color-system); }
+  .text-warn { color: var(--color-warn); }
+  .text-critical { color: var(--color-critical); }
+
+  /* Color helpers — bg subtle */
+  .bg-buy-10 { background-color: color-mix(in oklch, var(--color-buy) 10%, transparent); }
+  .bg-sell-10 { background-color: color-mix(in oklch, var(--color-sell) 10%, transparent); }
+  .bg-chain-10 { background-color: color-mix(in oklch, var(--color-chain) 10%, transparent); }
+  .bg-ai-10 { background-color: color-mix(in oklch, var(--color-ai) 10%, transparent); }
+  .bg-system-10 { background-color: color-mix(in oklch, var(--color-system) 10%, transparent); }
+  .bg-warn-10 { background-color: color-mix(in oklch, var(--color-warn) 10%, transparent); }
+  .bg-critical-10 { background-color: color-mix(in oklch, var(--color-critical) 12%, transparent); }
+
+  /* Color helpers — borders */
+  .border-buy-30 { border-color: color-mix(in oklch, var(--color-buy) 30%, transparent); }
+  .border-sell-30 { border-color: color-mix(in oklch, var(--color-sell) 30%, transparent); }
+  .border-chain-30 { border-color: color-mix(in oklch, var(--color-chain) 30%, transparent); }
+  .border-ai-30 { border-color: color-mix(in oklch, var(--color-ai) 30%, transparent); }
+  .border-system-30 { border-color: color-mix(in oklch, var(--color-system) 30%, transparent); }
+  .border-warn-30 { border-color: color-mix(in oklch, var(--color-warn) 30%, transparent); }
+  .border-critical-30 { border-color: color-mix(in oklch, var(--color-critical) 35%, transparent); }
+
+  /* Accent var setters — use on parent to color child elements via var(--accent) */
+  .accent-buy { --accent: var(--color-buy); }
+  .accent-sell { --accent: var(--color-sell); }
+  .accent-chain { --accent: var(--color-chain); }
+  .accent-ai { --accent: var(--color-ai); }
+  .accent-system { --accent: var(--color-system); }
+  .accent-warn { --accent: var(--color-warn); }
+  .accent-critical { --accent: var(--color-critical); }
+  .accent-neutral { --accent: oklch(0.65 0.005 264); }
+
+  /* ============================================================
+     TELEMETRY BAR — horizontal state bar with qualitative label
+     e.g. RPC: █████████░ 92% / Healthy
+     ============================================================ */
+  .telemetry-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0;
+  }
+  .telemetry-bar-track {
+    flex: 1;
+    height: 6px;
+    background: oklch(1 0 0 / 0.05);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+    box-shadow: inset 0 1px 1px oklch(0 0 0 / 0.4);
+  }
+  .telemetry-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--accent, oklch(0.78 0.18 152));
+    box-shadow: 0 0 6px color-mix(in oklch, var(--accent, oklch(0.78 0.18 152)) 60%, transparent);
+    transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+  }
+  .telemetry-bar-fill::after {
+    /* Inner subtle highlight stripe */
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, oklch(1 0 0 / 0.20), transparent);
+    border-radius: 3px 3px 0 0;
+  }
+  .telemetry-bar-label {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: oklch(0.65 0.008 264);
+    min-width: 28px;
+  }
+  .telemetry-bar-value {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent, oklch(0.96 0.002 264));
+    min-width: 38px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .telemetry-bar-state {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--accent, oklch(0.65 0.008 264));
+    min-width: 56px;
+    text-align: right;
+  }
+
+  /* Segmented bar — for things like MEV LOW: ■■■■□□□□□□ */
+  .seg-bar {
+    display: inline-flex;
+    gap: 1px;
+    align-items: center;
+  }
+  .seg-bar-cell {
+    width: 6px;
+    height: 10px;
+    background: oklch(1 0 0 / 0.08);
+    border-radius: 1px;
+  }
+  .seg-bar-cell.on {
+    background: var(--accent, oklch(0.78 0.18 152));
+    box-shadow: 0 0 4px color-mix(in oklch, var(--accent, oklch(0.78 0.18 152)) 60%, transparent);
+  }
+
+  /* ============================================================
+     CONSOLE — monospace log stream with level colorization
+     ============================================================ */
+  .console {
+    font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+    font-size: 11px;
+    line-height: 1.55;
+    background:
+      linear-gradient(180deg, oklch(0 0 0 / 0.20) 0%, transparent 8%),
+      oklch(0.105 0.004 264);
+    border: 1px solid oklch(1 0 0 / 0.05);
+    border-radius: 4px;
+    padding: 0.5rem 0.625rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+    height: 100%;
+    box-shadow: inset 0 1px 3px oklch(0 0 0 / 0.50);
+  }
+  .console::-webkit-scrollbar {
+    width: 4px;
+  }
+  .console-line {
+    display: grid;
+    grid-template-columns: auto auto 1fr;
+    gap: 0.5rem;
+    align-items: baseline;
+    padding: 0.0625rem 0;
+    border-bottom: 1px solid oklch(1 0 0 / 0.025);
+    animation: console-enter 240ms ease-out;
+  }
+  @keyframes console-enter {
+    from { opacity: 0; transform: translateY(-2px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .console-time {
+    color: oklch(0.50 0.008 264);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .console-source {
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 0 0.25rem;
+    border-radius: 2px;
+    font-size: 9px;
+    align-self: center;
+  }
+  .console-msg {
+    color: oklch(0.92 0.005 264);
+    word-break: break-word;
+    min-width: 0;
+  }
+  .console-line.level-debug .console-msg { color: oklch(0.50 0.008 264); }
+  .console-line.level-info .console-msg { color: oklch(0.88 0.005 264); }
+  .console-line.level-warn .console-msg { color: var(--color-warn); }
+  .console-line.level-error .console-msg { color: var(--color-sell); font-weight: 500; }
+
+  /* ============================================================
+     SCREENER — watchlist row with PAIR|PRICE|1m|5m|VOL
+     ============================================================ */
+  .screener-row {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr 0.7fr 0.7fr 0.9fr;
+    gap: 0.5rem;
+    padding: 0.4rem 0.625rem;
+    border-bottom: 1px solid oklch(1 0 0 / 0.04);
+    align-items: center;
+    transition: background 160ms ease;
+    font-variant-numeric: tabular-nums;
+  }
+  .screener-row:hover {
+    background: oklch(1 0 0 / 0.03);
+  }
+  .screener-row-header {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: oklch(0.55 0.008 264);
+    padding: 0.3rem 0.625rem;
+    border-bottom: 1px solid oklch(1 0 0 / 0.06);
+    background: oklch(1 0 0 / 0.015);
+  }
+  .screener-pair {
+    font-weight: 600;
+    color: oklch(0.96 0.002 264);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+  .screener-price {
+    color: oklch(0.88 0.005 264);
+    font-size: 11px;
+    text-align: right;
+  }
+  .screener-chg {
+    font-size: 10px;
+    text-align: right;
+    font-weight: 600;
+  }
+  .screener-vol {
+    color: oklch(0.65 0.008 264);
+    font-size: 10px;
+    text-align: right;
+  }
+
+  /* ============================================================
+     AI DECISION PANEL — permanent "LATEST DECISION" display
+     ============================================================ */
+  .ai-decision-action {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 36px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1;
+  }
+  .ai-decision-confidence {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .ai-decision-reason {
+    border-top: 1px solid oklch(1 0 0 / 0.05);
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .ai-decision-check {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0;
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border-bottom: 1px dashed oklch(1 0 0 / 0.04);
+  }
+  .ai-decision-check:last-child {
+    border-bottom: 0;
+  }
+
+  /* ============================================================
+     HEALTH BAR (top status) — colored dot + label + value
+     ============================================================ */
+  .health-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    background: oklch(1 0 0 / 0.02);
+    border: 1px solid oklch(1 0 0 / 0.04);
+    transition: background 160ms ease, border-color 160ms ease;
+  }
+  .health-bar:hover {
+    background: oklch(1 0 0 / 0.04);
+    border-color: oklch(1 0 0 / 0.08);
+  }
+  .health-bar-label {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 8.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: oklch(0.55 0.008 264);
+  }
+  .health-bar-value {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent, oklch(0.96 0.002 264));
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ============================================================
+     ORDER FLOW TICK — vertical execution tick stream
+     ============================================================ */
+  .order-tick {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.5rem;
+    padding: 0.3rem 0.5rem;
+    border-left: 2px solid var(--accent, oklch(0.78 0.18 152));
+    background: linear-gradient(90deg, color-mix(in oklch, var(--accent, oklch(0.78 0.18 152)) 6%, transparent), transparent);
+    margin-bottom: 0.25rem;
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 10px;
+    align-items: center;
+    animation: console-enter 240ms ease-out;
+  }
+  .order-tick-side {
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+  }
+  .order-tick-meta {
+    color: oklch(0.70 0.008 264);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .order-tick-time {
+    color: oklch(0.50 0.008 264);
+    font-variant-numeric: tabular-nums;
+    font-size: 9px;
+    white-space: nowrap;
+  }
+
+  /* ============================================================
+     PORTFOLIO ROW — positions table styled as portfolio cards
+     ============================================================ */
+  .portfolio-row {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr 0.9fr 0.9fr 0.7fr 0.9fr;
+    gap: 0.5rem;
+    padding: 0.45rem 0.625rem;
+    border-bottom: 1px solid oklch(1 0 0 / 0.04);
+    align-items: center;
+    font-variant-numeric: tabular-nums;
+    transition: background 160ms ease;
+  }
+  .portfolio-row:hover {
+    background: oklch(1 0 0 / 0.03);
+  }
+  .portfolio-row-header {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 9px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: oklch(0.55 0.008 264);
+    padding: 0.3rem 0.625rem;
+    border-bottom: 1px solid oklch(1 0 0 / 0.06);
+    background: oklch(1 0 0 / 0.015);
+  }
+
+  /* ============================================================
+     STAT MINI — compact mini-stat for inside panels
+     ============================================================ */
+  .stat-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    padding: 0.4rem 0.5rem;
+    background: oklch(1 0 0 / 0.02);
+    border: 1px solid oklch(1 0 0 / 0.04);
+    border-radius: 4px;
+  }
+  .stat-mini-label {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 8.5px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: oklch(0.55 0.008 264);
+  }
+  .stat-mini-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--accent, oklch(0.96 0.002 264));
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .stat-mini-sub {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 8.5px;
+    color: oklch(0.55 0.008 264);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ============================================================
+     SECTION DIVIDER — slim horizontal accent rule
+     ============================================================ */
+  .ws-divider {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      oklch(1 0 0 / 0.10) 20%,
+      oklch(1 0 0 / 0.10) 80%,
+      transparent 100%
+    );
+    margin: 0.25rem 0;
   }
 }

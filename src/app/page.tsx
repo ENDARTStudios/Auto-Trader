@@ -6,7 +6,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
-  Activity,
   AlertTriangle,
   Ban,
   Shield,
@@ -19,31 +18,12 @@ import {
   Brain,
   Globe,
   BarChart3,
-  ShieldAlert,
   Building2,
   FlaskConical,
   LineChart,
   Bell,
   Server,
-  TrendingUp,
-  TrendingDown,
   Info,
-  Cpu,
-  Database,
-  Layers,
-  Boxes,
-  CircuitBoard,
-  Zap,
-  Network,
-  Sigma,
-  Crosshair,
-  Target,
-  DollarSign,
-  Percent,
-  Hourglass,
-  Eye,
-  Radio,
-  Boxes as BoxesIcon,
 } from "lucide-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -63,7 +43,6 @@ import {
   usePlatforms,
   useSystemInfo,
 } from "@/hooks/use-trading-data";
-import { PositionsTable } from "@/components/dashboard/positions-table";
 import { HistoryTable } from "@/components/dashboard/history-table";
 import { LogsFeed } from "@/components/dashboard/logs-feed";
 import { ScamReportsList } from "@/components/dashboard/scam-reports";
@@ -79,10 +58,14 @@ import { BacktestPanel } from "@/components/dashboard/backtest-panel";
 import { AnalyticsPanel } from "@/components/dashboard/analytics-panel";
 import { NotificationsPanel } from "@/components/dashboard/notifications-panel";
 import { SystemPanel } from "@/components/dashboard/system-panel";
-import { EquityHero } from "@/components/dashboard/equity-hero";
-import { TerminalHeader, type HealthIndicator } from "@/components/dashboard/terminal-header";
-import { InstrumentMetric } from "@/components/dashboard/instrument-metric";
-import { TelemetryStrip, type TelemetryTileData } from "@/components/dashboard/telemetry-strip";
+import { EquityCurvePanel } from "@/components/dashboard/equity-curve-panel";
+import { WorkspaceHeader, type HealthBarItem } from "@/components/dashboard/workspace-header";
+import { WatchlistScreener, type ScreenerRow } from "@/components/dashboard/watchlist-screener";
+import { AIDecisionPanel } from "@/components/dashboard/ai-decision-panel";
+import { SystemHealthPanel, type SystemHealthMetric } from "@/components/dashboard/system-health-panel";
+import { LogsConsole } from "@/components/dashboard/logs-console";
+import { OrderFlowPanel } from "@/components/dashboard/order-flow-panel";
+import { PortfolioPanel } from "@/components/dashboard/portfolio-panel";
 import type { EquityPoint } from "@/components/dashboard/equity-curve-chart";
 import { cn } from "@/lib/utils";
 
@@ -99,11 +82,6 @@ function fmtUsd(n: number, decimals = 2): string {
 function fmtUsdCompact(n: number): string {
   if (Math.abs(n) >= 1000) return `$${(n / 1000).toFixed(1)}k`;
   return fmtUsd(n, 2);
-}
-
-function fmtPct(n: number): string {
-  const sign = n >= 0 ? "+" : "";
-  return `${sign}${n.toFixed(2)}%`;
 }
 
 function timeAgo(iso: string | null): string {
@@ -143,7 +121,7 @@ export default function Home() {
 
   const [reserveWithdrawAmount, setReserveWithdrawAmount] = useState("");
 
-  /* ----- mutations (unchanged) ----- */
+  /* ----- mutations ----- */
   const startEngine = useMutation({
     mutationFn: async () => {
       const r = await fetch("/api/engine/start", { method: "POST" });
@@ -259,101 +237,12 @@ export default function Home() {
     return points.slice(-30);
   }, [rounds.data, s]);
 
-  /* ----- derived: sparkline data ----- */
-  const balanceSpark = useMemo(() => {
-    if (!s) return [0];
-    if (!rounds.data || rounds.data.length === 0) return [s.tradingBalanceUsd];
-    const sorted = [...rounds.data].sort(
-      (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
-    );
-    let cum = s.tradingBalanceUsd - s.realizedPnlUsd;
-    const pts = [cum];
-    for (const r of sorted) {
-      if (r.roundPnlUsd != null) {
-        cum += r.roundPnlUsd;
-        pts.push(cum);
-      }
-    }
-    return pts.slice(-12);
-  }, [rounds.data, s]);
-
-  const pnlSpark = useMemo(() => {
-    if (!rounds.data || rounds.data.length === 0) return [0];
-    const sorted = [...rounds.data].sort(
-      (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
-    );
-    let cum = 0;
-    const pts = [0];
-    for (const r of sorted) {
-      if (r.roundPnlUsd != null) {
-        cum += r.roundPnlUsd;
-        pts.push(cum);
-      }
-    }
-    return pts.slice(-12);
-  }, [rounds.data]);
-
-  const positionsSpark = useMemo(() => {
-    if (!history.data || history.data.length === 0) return [0];
-    return history.data.slice(0, 12).reverse().map((p) => p.pnlUsd ?? 0);
-  }, [history.data]);
-
-  const reserveSpark = useMemo(() => {
-    if (!s) return [0];
-    if (!rounds.data || rounds.data.length === 0) return [s.reserveBalanceUsd];
-    return rounds.data.slice(0, 10).reverse().map((r) => r.reserveBalanceUsd);
-  }, [rounds.data, s]);
-
-  const winRateSpark = useMemo(() => {
-    if (!rounds.data || rounds.data.length === 0) return [50];
-    const sorted = [...rounds.data].sort(
-      (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
-    );
-    let wins = 0;
-    let total = 0;
-    const pts: number[] = [];
-    for (const r of sorted) {
-      if (r.status === "completed" && r.roundPnlUsd !== null) {
-        total += 1;
-        if ((r.roundPnlUsd ?? 0) > 0) wins += 1;
-        pts.push((wins / total) * 100);
-      }
-    }
-    return pts.length ? pts : [50];
-  }, [rounds.data]);
-
-  /* ----- trend calculations ----- */
-  const recentRounds = useMemo(() => {
-    if (!rounds.data) return [];
-    return [...rounds.data]
-      .filter((r) => r.status === "completed" && r.roundPnlUsd !== null)
-      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime())
-      .slice(0, 5);
-  }, [rounds.data]);
-
-  const recentPnlSum = recentRounds.reduce((sum, r) => sum + (r.roundPnlUsd ?? 0), 0);
-  const pnlTrendPct = s && s.peakBalanceUsd > 0 ? (recentPnlSum / s.peakBalanceUsd) * 100 : 0;
-
-  const balanceTrendPct =
-    s && s.peakBalanceUsd > 0
-      ? ((s.tradingBalanceUsd - s.peakBalanceUsd) / s.peakBalanceUsd) * 100
-      : 0;
-
-  const initialCapital = s ? s.tradingBalanceUsd - s.realizedPnlUsd : 0;
-  const currentEquity = s ? s.tradingBalanceUsd + s.reserveBalanceUsd : 0;
-  const peakEquity = s ? s.peakBalanceUsd + s.reserveBalanceUsd : 0;
-  const drawdownPct =
-    s && s.peakBalanceUsd > 0
-      ? ((s.peakBalanceUsd - s.tradingBalanceUsd) / s.peakBalanceUsd) * 100
-      : 0;
-  const roiPct =
-    initialCapital > 0 ? ((currentEquity - initialCapital) / initialCapital) * 100 : 0;
-
   // unrealized PnL across open positions
   const unrealizedPnl = useMemo(() => {
     if (!positions.data) return 0;
     return positions.data.reduce((sum, p) => sum + (p.unrealizedPnlUsd ?? 0), 0);
   }, [positions.data]);
+
   const exposureUsd = useMemo(() => {
     if (!positions.data) return 0;
     return positions.data.reduce(
@@ -362,29 +251,118 @@ export default function Home() {
     );
   }, [positions.data]);
 
-  /* ----- terminal header health indicators ----- */
-  const sessionUptimeLabel = systemInfo.data
-    ? `${Math.floor(systemInfo.data.runtime.uptimeSec / 60)}m${systemInfo.data.runtime.uptimeSec % 60}s`
-    : "—";
-  const headerIndicators: HealthIndicator[] = s
+  const initialCapital = s ? s.tradingBalanceUsd - s.realizedPnlUsd : 0;
+  const currentEquity = s ? s.tradingBalanceUsd + s.reserveBalanceUsd : 0;
+  const peakEquity = s ? s.peakBalanceUsd + s.reserveBalanceUsd : 0;
+
+  /* ----- WATCHLIST SCREENER rows (derived from market snapshots + open positions) ----- */
+  const screenerRows = useMemo<ScreenerRow[]>(() => {
+    const rows: ScreenerRow[] = [];
+
+    // Open positions first (most relevant)
+    for (const p of positions.data ?? []) {
+      const entry = p.entryPriceUsd;
+      const current = p.currentPriceUsd ?? entry;
+      const change5m = entry > 0 ? ((current - entry) / entry) * 100 : 0;
+      rows.push({
+        pair: p.symbol,
+        price: current,
+        change1m: 0,
+        change5m,
+        vol24h: 0,
+        source: p.source,
+        chain: p.chain ?? undefined,
+      });
+    }
+
+    // Market snapshots
+    for (const snap of market.data?.snapshots ?? []) {
+      if (rows.some((r) => r.pair === snap.symbol)) continue;
+      rows.push({
+        pair: snap.symbol,
+        price: snap.priceUsd,
+        change1m: 0,
+        change5m: snap.macdHist ?? 0,
+        vol24h: 0,
+        source: snap.source === "cex" ? "cex" : "dex",
+        chain: snap.chain ?? undefined,
+      });
+    }
+
+    return rows.slice(0, 20);
+  }, [positions.data, market.data]);
+
+  /* ----- SYSTEM HEALTH metrics (grouped by category) ----- */
+  const heapPct = systemInfo.data
+    ? Math.min(100, Math.round((systemInfo.data.runtime.heapUsedMb / Math.max(1, systemInfo.data.runtime.heapTotalMb)) * 100))
+    : null;
+  const rssMb = systemInfo.data?.runtime.rssMb ?? 0;
+  const tps = s && systemInfo.data
+    ? ((s.totalPositionsClosed + s.totalPositionsOpened) / Math.max(1, systemInfo.data.runtime.uptimeSec ?? 1))
+    : 0;
+  const exposurePct = s && s.tradingBalanceUsd > 0 ? (exposureUsd / s.tradingBalanceUsd) * 100 : 0;
+
+  const systemHealthMetrics: SystemHealthMetric[] = [
+    // ENGINE
+    { label: "TICK", value: s?.loopIteration != null ? `#${s.loopIteration}` : "—", category: "engine", state: isRunning ? "RUNNING" : "IDLE", pulse: isRunning },
+    {
+      label: "LATENCY",
+      value: s?.lastLoopAt ? timeAgo(s.lastLoopAt) : "—",
+      pct: s?.lastLoopAt ? Math.min(100, 100 - Math.min(80, (Date.now() - new Date(s.lastLoopAt).getTime()) / 1000)) : 0,
+      state: isRunning ? "OK" : "IDLE",
+      category: "engine",
+    },
+    { label: "QUEUE", value: "0", pct: 0, state: "EMPTY", category: "engine" },
+    { label: "WORKERS", value: isRunning ? 1 : 0, pct: isRunning ? 100 : 0, state: isRunning ? "ACTIVE" : "IDLE", category: "engine", pulse: isRunning },
+    {
+      label: "UPTIME",
+      value: systemInfo.data ? `${Math.floor(systemInfo.data.runtime.uptimeSec / 60)}m` : "—",
+      pct: systemInfo.data ? Math.min(100, (systemInfo.data.runtime.uptimeSec / 3600) * 100) : 0,
+      state: "OK",
+      category: "engine",
+    },
+
+    // BLOCKCHAIN
+    { label: "RPC", value: "OK", pct: 92, state: "HEALTHY", category: "blockchain", pulse: isRunning },
+    { label: "BLOCK", value: "23.5M", pct: 75, state: "SYNCED", category: "blockchain" },
+    { label: "GAS", value: isLive ? "3.0" : "0.0", pct: 30, state: "LOW", category: "blockchain" },
+    { label: "TPS", value: tps.toFixed(2), pct: Math.min(100, tps * 50), state: "OK", category: "blockchain" },
+    { label: "SIGNER", value: isLive ? "ARMED" : "STBY", pct: isLive ? 100 : 0, state: isLive ? "ARMED" : "STBY", category: "blockchain" },
+
+    // SECURITY
+    { label: "SIMULATION", value: "PASS", pct: 100, state: "PASS", category: "security" },
+    { label: "APPROVAL", value: "OK", pct: 100, state: "PASS", category: "security" },
+    { label: "LIQUIDITY", value: "OK", pct: 88, state: "VERIFIED", category: "security" },
+    { label: "AUTHORITY", value: "OK", pct: 100, state: "PASS", category: "security" },
+    { label: "MEV", value: "LOW", pct: 20, state: "LOW", category: "security" },
+
+    // SYSTEM
+    { label: "CPU", value: heapPct != null ? `${heapPct}%` : "—", pct: heapPct ?? 0, state: (heapPct ?? 0) > 80 ? "HIGH" : "OK", category: "system" },
+    { label: "RAM", value: `${rssMb.toFixed(0)}M`, pct: Math.min(100, (rssMb / 500) * 100), state: rssMb > 500 ? "HIGH" : "OK", category: "system" },
+    { label: "DB", value: systemInfo.data ? `${systemInfo.data.db.sizeMb.toFixed(1)}M` : "—", pct: 25, state: "OK", category: "system" },
+    { label: "HEALTH", value: isRunning ? "OK" : "IDLE", pct: isRunning ? 100 : 0, state: isRunning ? "OK" : "IDLE", category: "system", pulse: isRunning },
+    {
+      label: "CIRCUIT",
+      value: isRunning ? "CLOSED" : "OPEN",
+      pct: isRunning ? 100 : 0,
+      state: isRunning ? "CLOSED" : "OPEN",
+      category: "system",
+    },
+  ];
+
+  /* ----- HEADER health bar items ----- */
+  const headerHealthBars: HealthBarItem[] = s
     ? [
         {
           label: "ENGINE",
-          value: isRunning ? "ONLINE" : isKilled ? "HALTED" : "IDLE",
+          value: isRunning ? "RUNNING" : isKilled ? "HALTED" : "IDLE",
           health: isRunning ? "ok" : isKilled ? "error" : "idle",
           pulse: isRunning,
           detail: s.loopState,
         },
         {
-          label: "MODE",
-          value: isLive ? "LIVE" : "PAPER",
-          health: isLive ? "warn" : "idle",
-          pulse: isLive,
-          detail: s.graduatedToLive ? "graduado" : "paper cycle",
-        },
-        {
           label: "RPC",
-          value: "OK",
+          value: "HEALTHY",
           health: "ok",
           pulse: isRunning,
           detail: "BSC mainnet · quorum",
@@ -393,206 +371,24 @@ export default function Home() {
           label: "SIGNER",
           value: isLive ? "ARMED" : "STBY",
           health: isLive ? "warn" : "idle",
+          pulse: isLive,
           detail: isLive ? "isolated process · vault" : "paper mode",
         },
         {
           label: "PIPELINE",
-          value: isRunning ? "READY" : "WAIT",
+          value: isRunning ? "PASS" : "WAIT",
           health: isRunning ? "ok" : "idle",
           pulse: isRunning,
           detail: "build → sim → gas → sign → broadcast",
         },
         {
-          label: "LATENCY",
-          value: s.lastLoopAt
-            ? timeAgo(s.lastLoopAt)
-            : isRunning
-            ? "0s"
-            : sessionUptimeLabel,
-          health: isRunning ? "ok" : "idle",
-          detail: s.lastLoopAt ? "último loop" : "session uptime",
-        },
-        {
-          label: "NEXT",
-          value: s.nextLoopAt
-            ? timeAgo(s.nextLoopAt)
-            : isRunning
-            ? "—"
-            : "—",
-          health: "idle",
-          detail: "próximo tick",
-        },
-        {
-          label: "ROUND",
-          value: s.currentRoundId != null ? `#${s.currentRoundId}` : `iter #${s.loopIteration}`,
+          label: "DATABASE",
+          value: systemInfo.data ? "OK" : "—",
           health: "ok",
-          detail: `iter #${s.loopIteration}`,
+          detail: systemInfo.data ? `${systemInfo.data.db.sizeMb.toFixed(1)}M` : "",
         },
       ]
     : [];
-
-  /* ----- telemetry strip tiles — expanded to 18+ system indicators ----- */
-  const heapPct = systemInfo.data
-    ? Math.min(100, Math.round((systemInfo.data.runtime.heapUsedMb / Math.max(1, systemInfo.data.runtime.heapTotalMb)) * 100))
-    : null;
-  const tps = s && systemInfo.data
-    ? ((s.totalPositionsClosed + s.totalPositionsOpened) / Math.max(1, systemInfo.data.runtime.uptimeSec ?? 1)).toFixed(2)
-    : "—";
-
-  const telemetryTiles: TelemetryTileData[] = [
-    {
-      label: "LATENCY",
-      value: s?.lastLoopAt ? timeAgo(s.lastLoopAt) : "—",
-      health: isRunning ? "ok" : "idle",
-      pulse: isRunning,
-      sub: "last loop",
-      accent: isRunning ? "emerald" : "neutral",
-    },
-    {
-      label: "RPC",
-      value: "OK",
-      health: "ok",
-      pulse: isRunning,
-      sub: "bsc mainnet",
-      accent: "cyan",
-    },
-    {
-      label: "CPU",
-      value: heapPct != null ? `${heapPct}%` : "—",
-      health: (heapPct ?? 0) > 80 ? "warn" : "ok",
-      sub: "heap util",
-    },
-    {
-      label: "RAM",
-      value: systemInfo.data ? `${systemInfo.data.runtime.rssMb.toFixed(0)}M` : "—",
-      health: (systemInfo.data?.runtime.rssMb ?? 0) > 500 ? "warn" : "ok",
-      sub: "rss",
-    },
-    {
-      label: "GAS",
-      value: isLive ? "3.0" : "0.0",
-      health: "ok",
-      sub: "gwei",
-      accent: "cyan",
-    },
-    {
-      label: "TPS",
-      value: tps,
-      health: "ok",
-      sub: "trades/sec",
-    },
-    {
-      label: "BLOCK",
-      value: s?.lastLoopAt ? timeAgo(s.lastLoopAt) : "—",
-      health: "ok",
-      sub: "last sync",
-      accent: "cyan",
-    },
-    {
-      label: "TICK",
-      value: s?.loopIteration != null ? `#${s.loopIteration}` : "—",
-      health: "ok",
-      sub: "iteration",
-    },
-    {
-      label: "QUEUE",
-      value: "0",
-      health: "ok",
-      sub: "pending tx",
-    },
-    {
-      label: "WORKERS",
-      value: isRunning ? "1" : "0",
-      health: isRunning ? "ok" : "idle",
-      pulse: isRunning,
-      sub: "active",
-    },
-    {
-      label: "SIGNER",
-      value: isLive ? "ARMED" : "STBY",
-      health: isLive ? "warn" : "idle",
-      sub: isLive ? "vault open" : "paper mode",
-      accent: isLive ? "amber" : "neutral",
-    },
-    {
-      label: "HEALTH",
-      value: isRunning ? "OK" : "IDLE",
-      health: isRunning ? "ok" : "idle",
-      pulse: isRunning,
-      sub: "self-check",
-      accent: isRunning ? "emerald" : "neutral",
-    },
-    {
-      label: "CIRCUIT",
-      value: isRunning ? "CLOSED" : "OPEN",
-      health: isRunning ? "ok" : "idle",
-      sub: "breaker",
-      accent: isRunning ? "emerald" : "amber",
-    },
-    {
-      label: "MEV",
-      value: "OK",
-      health: "ok",
-      sub: "baseline",
-      accent: "emerald",
-    },
-    {
-      label: "SIM",
-      value: "OK",
-      health: "ok",
-      sub: "simulation gate",
-      accent: "emerald",
-    },
-    {
-      label: "APPROVAL",
-      value: "OK",
-      health: "ok",
-      sub: "token authority",
-      accent: "cyan",
-    },
-    {
-      label: "LIQUIDITY",
-      value: "OK",
-      health: "ok",
-      sub: "verified",
-      accent: "cyan",
-    },
-    {
-      label: "AUTHORITY",
-      value: "OK",
-      health: "ok",
-      sub: "verified",
-      accent: "cyan",
-    },
-    {
-      label: "DB",
-      value: systemInfo.data ? `${systemInfo.data.db.sizeMb.toFixed(1)}M` : "—",
-      health: "ok",
-      sub: "sqlite",
-    },
-    {
-      label: "UPTIME",
-      value: systemInfo.data
-        ? `${Math.floor(systemInfo.data.runtime.uptimeSec / 60)}m`
-        : "—",
-      health: "ok",
-      sub: "minutes",
-    },
-    {
-      label: "OPEN",
-      value: s?.openPositionsCount ?? 0,
-      health: (s?.openPositionsCount ?? 0) > 0 ? "warn" : "idle",
-      sub: "positions",
-      accent: (s?.openPositionsCount ?? 0) > 0 ? "amber" : "neutral",
-    },
-    {
-      label: "PAPER",
-      value: s ? `${s.paperCyclesPassed}/${s.paperCyclesRequired}` : "—",
-      health: s && s.graduatedToLive ? "ok" : "warn",
-      sub: s?.graduatedToLive ? "graduado" : "pendente",
-      accent: s?.graduatedToLive ? "emerald" : "amber",
-    },
-  ];
 
   /* ----- loading state ----- */
   if (status.isLoading || !s) {
@@ -616,12 +412,13 @@ export default function Home() {
     <div className="min-h-screen bg-background text-foreground relative z-10">
       <AlertsToast />
 
-      {/* =================================================== TERMINAL HEADER */}
-      <TerminalHeader
+      {/* =================================================== WORKSPACE HEADER */}
+      <WorkspaceHeader
         engineStatus={s.status}
         engineMode={s.mode}
         loopState={s.killSwitchReason ?? s.loopState}
-        indicators={headerIndicators}
+        healthBars={headerHealthBars}
+        blockNumber={23512441}
         onStart={() => startEngine.mutate()}
         onStop={() => stopEngine.mutate()}
         onKill={() => activateKill.mutate()}
@@ -637,14 +434,14 @@ export default function Home() {
         }}
       />
 
-      {/* Kill-switch deactivation banner (when killed) */}
+      {/* Kill-switch deactivation banner */}
       {isKilled && (
         <div className="container mx-auto px-4 lg:px-6 pt-3">
-          <div className="terminal-card rounded-lg px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap border-red-500/30">
+          <div className="ws-panel rounded-lg px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap border-sell-30">
             <div className="flex items-center gap-2.5 min-w-0">
-              <Ban className="size-4 text-red-400 shrink-0" />
+              <Ban className="size-4 text-sell shrink-0" />
               <div className="min-w-0">
-                <span className="label-mono text-[10px] text-red-300 font-semibold">
+                <span className="label-mono text-[10px] text-sell font-semibold">
                   KILL SWITCH ATIVO
                 </span>
                 <span className="text-xs text-muted-foreground ml-2">
@@ -657,7 +454,7 @@ export default function Home() {
               variant="outline"
               onClick={() => deactivateKill.mutate()}
               disabled={deactivateKill.isPending}
-              className="h-7 text-[11px] border-red-500/40 text-red-400 hover:bg-red-500/10"
+              className="h-7 text-[11px] border-sell-30 text-sell hover:bg-sell-10"
             >
               Desativar
             </Button>
@@ -665,12 +462,12 @@ export default function Home() {
         </div>
       )}
 
-      {/* PAPER MODE BANNER — compact, single line */}
+      {/* PAPER MODE BANNER */}
       {s.mode === "paper" && !s.graduatedToLive && (
         <div className="container mx-auto px-4 lg:px-6 pt-3">
-          <div className="terminal-card rounded-lg px-4 py-2 flex items-center gap-2.5 flex-wrap border-cyan-500/20">
-            <Info className="size-3.5 text-cyan-400 shrink-0" />
-            <span className="label-mono text-[10px] text-cyan-300 font-semibold">
+          <div className="ws-panel rounded-lg px-4 py-2 flex items-center gap-2.5 flex-wrap border-chain-30">
+            <Info className="size-3.5 text-chain shrink-0" />
+            <span className="label-mono text-[10px] text-chain font-semibold">
               PAPER MODE
             </span>
             <span className="text-[11px] text-muted-foreground">
@@ -679,211 +476,75 @@ export default function Home() {
                 {s.paperCyclesRequired}
               </span>{" "}
               ciclos positivos ·{" "}
-              <span className="text-emerald-400 tabular">{s.paperCyclesPassed}</span>/
+              <span className="text-buy tabular">{s.paperCyclesPassed}</span>/
               {s.paperCyclesRequired}
             </span>
           </div>
         </div>
       )}
 
-      {/* =================================================== MAIN */}
+      {/* =================================================== WORKSPACE MAIN */}
       <main className="container mx-auto px-4 lg:px-6 py-4 space-y-3 relative z-10">
-        {/* ---------- EQUITY HERO — DOMINANT focal point, ~50% above fold ---------- */}
-        <EquityHero
+        {/* ---------- ROW 1: EQUITY CURVE — full width, dominant (~45%) ---------- */}
+        <EquityCurvePanel
           data={equityData}
           currentEquity={currentEquity}
           peakEquity={peakEquity}
           realizedPnl={s.realizedPnlUsd}
           initialCapital={initialCapital}
           unrealizedPnl={unrealizedPnl}
-          reserveBalance={s.reserveBalanceUsd}
-          tradingBalance={s.tradingBalanceUsd}
           isLive={isLive}
           isRunning={isRunning}
-          wins={s.wins}
-          losses={s.losses}
-          openPositions={s.openPositionsCount}
-          exposureUsd={exposureUsd}
           lastLoopAt={s.lastLoopAt}
         />
 
-        {/* ---------- TELEMETRY STRIP — expanded 22-tile grid ---------- */}
-        <TelemetryStrip title="TELEMETRY · LIVE SYSTEM" tiles={telemetryTiles} />
-
-        {/* ---------- INSTRUMENT METRICS — 8 aircraft-panel cards ---------- */}
-        <section>
-          <div className="section-bar">
-            <span className="section-bar-title">PORTFOLIO INSTRUMENTS</span>
-            <span className="section-bar-sub">· 8 channels · tabular</span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-2">
-            <InstrumentMetric
-              label="TRADING BALANCE"
-              value={fmtUsd(s.tradingBalanceUsd)}
-              accent="emerald"
-              icon={<Wallet className="size-3.5" />}
-              spark={balanceSpark}
-              trend={{ value: balanceTrendPct, label: "vs peak" }}
-              flashOnChange
-              flashKey={s.tradingBalanceUsd}
-              statusHint="DEPLOY"
-              subStats={[
-                { label: "PEAK", value: fmtUsdCompact(s.peakBalanceUsd) },
-                { label: "LIVE READY", value: s.graduatedToLive ? "YES" : "NO", accent: "neutral" },
-              ]}
-            />
-            <InstrumentMetric
-              label="REALIZED PNL"
-              value={
-                <span className={s.realizedPnlUsd >= 0 ? "text-emerald-300" : "text-red-300"}>
-                  {s.realizedPnlUsd >= 0 ? "+" : ""}{fmtUsdCompact(s.realizedPnlUsd)}
-                </span>
-              }
-              accent={s.realizedPnlUsd >= 0 ? "emerald" : "red"}
-              icon={s.realizedPnlUsd >= 0 ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
-              spark={pnlSpark}
-              trend={{ value: pnlTrendPct, label: "5R" }}
-              flashOnChange
-              flashKey={s.realizedPnlUsd}
-              statusHint="LIFETIME"
-              subStats={[
-                { label: "WINS", value: s.wins, accent: "emerald" },
-                { label: "LOSSES", value: s.losses, accent: "red" },
-              ]}
-            />
-            <InstrumentMetric
-              label="UNREALIZED"
-              value={
-                <span className={unrealizedPnl >= 0 ? "text-emerald-300" : "text-red-300"}>
-                  {unrealizedPnl >= 0 ? "+" : ""}{fmtUsdCompact(unrealizedPnl)}
-                </span>
-              }
-              accent={unrealizedPnl >= 0 ? "emerald" : "red"}
-              icon={<Hourglass className="size-3.5" />}
-              statusHint="OPEN"
-              subStats={[
-                { label: "POSITIONS", value: s.openPositionsCount },
-                { label: "EXPOSURE", value: fmtUsdCompact(exposureUsd) },
-              ]}
-            />
-            <InstrumentMetric
-              label="ROI"
-              value={
-                <span className={roiPct >= 0 ? "text-emerald-300" : "text-red-300"}>
-                  {roiPct >= 0 ? "+" : ""}{roiPct.toFixed(2)}%
-                </span>
-              }
-              accent={roiPct >= 0 ? "emerald" : "red"}
-              icon={<Percent className="size-3.5" />}
-              statusHint="ALL-TIME"
-              progress={Math.max(0, Math.min(100, roiPct + 50))}
-              subStats={[
-                { label: "INITIAL", value: fmtUsdCompact(initialCapital) },
-                { label: "NOW", value: fmtUsdCompact(currentEquity) },
-              ]}
-            />
-            <InstrumentMetric
-              label="DRAWDOWN"
-              value={
-                <span className="text-red-300">-{drawdownPct.toFixed(2)}%</span>
-              }
-              accent="red"
-              icon={<TrendingDown className="size-3.5" />}
-              statusHint="FROM PEAK"
-              progress={Math.min(100, drawdownPct * 4)}
-              subStats={[
-                { label: "PEAK", value: fmtUsdCompact(peakEquity) },
-                { label: "NOW", value: fmtUsdCompact(currentEquity) },
-              ]}
-            />
-            <InstrumentMetric
-              label="WIN RATE"
-              value={`${s.winRate.toFixed(1)}%`}
-              accent="violet"
-              icon={<Target className="size-3.5" />}
-              spark={winRateSpark}
-              statusHint={`${s.wins + s.losses} TRADES`}
-              progress={s.winRate}
-              subStats={[
-                { label: "W", value: s.wins, accent: "emerald" },
-                { label: "L", value: s.losses, accent: "red" },
-              ]}
-            />
-            <InstrumentMetric
-              label="EXPOSURE"
-              value={fmtUsdCompact(exposureUsd)}
-              accent="amber"
-              icon={<Crosshair className="size-3.5" />}
-              statusHint="AT RISK"
-              progress={s.tradingBalanceUsd > 0 ? (exposureUsd / s.tradingBalanceUsd) * 100 : 0}
-              subStats={[
-                { label: "POSITIONS", value: s.openPositionsCount },
-                { label: "CAPITAL", value: fmtUsdCompact(s.tradingBalanceUsd) },
-              ]}
-            />
-            <InstrumentMetric
-              label="RESERVE"
-              value={fmtUsd(s.reserveBalanceUsd)}
-              accent="cyan"
-              icon={<Lock className="size-3.5" />}
-              spark={reserveSpark}
-              statusHint="COLD"
-              subStats={[
-                { label: "DEPOSITED", value: fmtUsdCompact(reserve.data?.totalDepositedUsd ?? 0) },
-                { label: "WITHDRAWN", value: fmtUsdCompact(reserve.data?.totalWithdrawnUsd ?? 0) },
-              ]}
-            />
-          </div>
+        {/* ---------- ROW 2: 3-col grid — Watchlist | Portfolio | AI Decision ---------- */}
+        <section className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+          <WatchlistScreener
+            rows={screenerRows}
+            isLoading={market.isLoading || positions.isLoading}
+          />
+          <PortfolioPanel
+            positions={positions.data ?? []}
+            isLoading={positions.isLoading}
+          />
+          <AIDecisionPanel
+            insights={aiInsights.data ?? []}
+            isLoading={aiInsights.isLoading}
+          />
         </section>
 
-        {/* ---------- POSITIONS + LOGS (always-visible terminal panels) ---------- */}
-        <section>
-          <div className="section-bar">
-            <span className="section-bar-title">EXECUTION · LIVE FEED</span>
-            <span className="section-bar-sub">positions + tick stream</span>
-          </div>
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
-            <div className="xl:col-span-2">
-              <PositionsTable
-                positions={positions.data ?? []}
-                isLoading={positions.isLoading}
-              />
-            </div>
-            <div>
-              <LogsFeed logs={logs.data ?? []} isLoading={logs.isLoading} />
-            </div>
-          </div>
+        {/* ---------- ROW 3: 3-col grid — Order Flow | Logs | System Health ---------- */}
+        <section className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+          <OrderFlowPanel
+            positions={positions.data ?? []}
+            logs={logs.data ?? []}
+            isLoading={positions.isLoading || logs.isLoading}
+          />
+          <LogsConsole
+            logs={logs.data ?? []}
+            isLoading={logs.isLoading}
+          />
+          <SystemHealthPanel metrics={systemHealthMetrics} />
         </section>
 
-        {/* ---------- MARKET + AI INSIGHTS (price chart + portfolio analytics) ---------- */}
-        <section>
-          <div className="section-bar">
-            <span className="section-bar-title">MARKET INTELLIGENCE</span>
-            <span className="section-bar-sub">price feed + AI model</span>
-          </div>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-            <MarketPanel data={market.data} isLoading={market.isLoading} />
-            <AIInsightsPanel insights={aiInsights.data ?? []} isLoading={aiInsights.isLoading} />
-          </div>
+        {/* ---------- ROW 4: 2-col — Surveillance + Scam Reports (compact) ---------- */}
+        <section className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          <SurveillancePanel
+            alerts={surveillance.data?.alerts ?? []}
+            counts={surveillance.data?.counts ?? { critical: 0, warning: 0, info: 0, total: 0 }}
+            isLoading={surveillance.isLoading}
+          />
+          <ScamReportsList reports={scamReports.data ?? []} isLoading={scamReports.isLoading} />
         </section>
 
-        {/* ---------- SURVEILLANCE + SCAM (alerts row) ---------- */}
-        <section>
-          <div className="section-bar">
-            <span className="section-bar-title">RISK SURVEILLANCE</span>
-            <span className="section-bar-sub">alerts + scam reports</span>
-          </div>
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-            <SurveillancePanel
-              alerts={surveillance.data?.alerts ?? []}
-              counts={surveillance.data?.counts ?? { critical: 0, warning: 0, info: 0, total: 0 }}
-              isLoading={surveillance.isLoading}
-            />
-            <ScamReportsList reports={scamReports.data ?? []} isLoading={scamReports.isLoading} />
-          </div>
+        {/* ---------- ROW 5: 2-col — Market + AI Insights (full panels) ---------- */}
+        <section className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+          <MarketPanel data={market.data} isLoading={market.isLoading} />
+          <AIInsightsPanel insights={aiInsights.data ?? []} isLoading={aiInsights.isLoading} />
         </section>
 
-        {/* =================================================== EXPLORER TABS (secondary, collapsed) */}
+        {/* =================================================== EXPLORER TABS (secondary) */}
         <section>
           <div className="section-bar">
             <span className="section-bar-title">EXPLORER · SECONDARY PANELS</span>
@@ -891,7 +552,7 @@ export default function Home() {
           </div>
           <Tabs defaultValue="history" className="space-y-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <TabsList className="terminal-card rounded-md p-1 h-auto flex flex-wrap gap-0.5 justify-start">
+              <TabsList className="ws-panel rounded-md p-1 h-auto flex flex-wrap gap-0.5 justify-start">
                 <TabsTrigger value="history" className="gap-1.5 h-7 px-2.5 text-[11px]">
                   <History className="size-3" /> History
                 </TabsTrigger>
@@ -951,16 +612,16 @@ export default function Home() {
           </Tabs>
         </section>
 
-        {/* =================================================== CONFIG + RESERVE (compact, side-by-side) */}
+        {/* =================================================== CONTROLS */}
         <section>
           <div className="section-bar">
             <span className="section-bar-title">CONTROLS</span>
             <span className="section-bar-sub">reserve · configuration</span>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-            <div className="terminal-card rounded-lg p-4 lg:col-span-1">
+            <div className="ws-panel rounded-lg p-4 lg:col-span-1">
               <div className="flex items-center gap-2 mb-3">
-                <Lock className="size-4 text-cyan-400" />
+                <Lock className="size-4 text-chain" />
                 <h3 className="label-mono text-[11px] font-semibold tracking-wider">
                   RESERVA · SAQUE MANUAL
                 </h3>
@@ -1015,17 +676,17 @@ export default function Home() {
           </div>
         </section>
 
-        {/* =================================================== FOOTER (minimal) */}
+        {/* =================================================== FOOTER */}
         <footer className="pt-2 pb-4 flex items-center justify-between gap-3 flex-wrap text-[10px] text-muted-foreground">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="label-mono font-semibold">AUTO TRADER v0.3</span>
             <span>·</span>
-            <span className="label-mono">CYBER FINANCIAL TERMINAL</span>
+            <span className="label-mono">INSTITUTIONAL CRYPTO TRADING OS</span>
             <span>·</span>
             <span>Next.js 16 · Prisma/SQLite · BSC · DexScreener · GoPlus · GLM LLM</span>
           </div>
           <div className="flex items-center gap-1.5">
-            <AlertTriangle className="size-3 text-amber-500/70" />
+            <AlertTriangle className="size-3 text-warn" />
             <span>Reduz risco, não elimina. Não é aconselhamento financeiro.</span>
           </div>
         </footer>

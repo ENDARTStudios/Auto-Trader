@@ -1931,3 +1931,110 @@ Stage Summary:
 - Explorer Tabs preservado como seção secundária para: History, Rounds, Site Audit, Platforms, Backtest, Analytics, Notifications, System.
 - Visual identity "Cyber Financial Terminal" reforçada em todas as seções via section-bar + label-mono + grid-overlay + scan-line.
 - Animações "alive": heartbeat (brand glyph), focal-pulse (hero), scan-line (hero + header), tick-flash (equity updates), status-dot-pulse (live indicators), data-flash (changes).
+
+---
+Task ID: ui-workspace-v3
+Agent: main (claude)
+Task: Transformar dashboard em "workspace" institucional conforme especificação detalhada do operador. Layout: header com health bar + equity curve full-width (~45%) + grid 3-col (Watchlist | Portfolio | AI Decisions) + grid 3-col (Order Flow | Logs | System Health) + seções secundárias. Agrupar métricas em 4 blocos semânticos (ENGINE/BLOCKCHAIN/SECURITY/SYSTEM). Sistema de cores fixo: Buy=emerald, Sell=red, Blockchain=cyan, IA=violet, Sistema=blue, Aviso=amber, Crítico=red intenso. Console de logs monoespaçado. Watchlist em formato screener (PAIR|PRICE|1m|5m|VOL). Painel AI Decisions permanente. Painel System Health com barras de estado.
+
+Work Log:
+- Lido worklog.md (1933 linhas) para entender contexto do redesign anterior (ui-redesign-v2) e roadmap de hardening (M3.3 implementado e testado).
+- Lidos componentes existentes para mapear dependências: page.tsx (1035 linhas, bug em `istory.data` na linha 301), terminal-header.tsx, equity-hero.tsx, telemetry-strip.tsx, logs-feed.tsx, positions-table.tsx, market-panel.tsx, ai-insights-panel.tsx, surveillance-panel.tsx, equity-curve-chart.tsx.
+- Lidos hooks use-trading-data.ts (816 linhas) para mapear tipos disponíveis: EngineSnapshot, PositionRow, LogRow, MarketSnapshotRow, AIInsightRow, SurveillanceData, SystemInfoData.
+- Lido globals.css (820 linhas) para entender design tokens já definidos (.terminal-card, .terminal-hero-v2, .instrument-card-v2, .section-bar, .health-dot, .progress-rail, .scan-line, .focal-pulse, .heartbeat).
+- Step 1 — Estendido globals.css com nova camada WORKSPACE V3 (~250 linhas adicionais):
+  - `.ws-panel` base + variantes L1 (`.ws-panel-l1`, alta elevação) e L3 (`.ws-panel-l3`, compacto)
+  - `.ws-panel-header`, `.ws-panel-title`, `.ws-panel-subtitle`, `.ws-panel-body`
+  - Color tokens adicionados a `:root` e `.dark`: `--color-buy` (emerald), `--color-sell` (red), `--color-chain` (cyan), `--color-ai` (violet), `--color-system` (blue), `--color-warn` (amber), `--color-critical` (intense red)
+  - Color helpers: `.text-{buy,sell,chain,ai,system,warn,critical}`, `.bg-{...}-10`, `.border-{...}-30`, `.accent-{...}` (seta `--accent` em parent para colorir filhos via `var(--accent)`)
+  - `.telemetry-bar` + `.telemetry-bar-track` + `.telemetry-bar-fill` + `.telemetry-bar-label` + `.telemetry-bar-value` + `.telemetry-bar-state` — barra horizontal com fill + label + value + qualitative state
+  - `.seg-bar` + `.seg-bar-cell` + `.seg-bar-cell.on` — barra segmentada para indicadores como MEV LOW (■■■■□□□□□□)
+  - `.console` + `.console-line` + `.console-time` + `.console-source` + `.console-msg` — log stream monoespaçado com colorização por nível (debug=muted, info=neutral, warn=amber, error=red) e por source (via .accent-* no source badge)
+  - `.screener-row` + `.screener-row-header` + `.screener-pair` + `.screener-price` + `.screener-chg` + `.screener-vol` — grid 5-col com PAIR|PRICE|1m|5m|VOL
+  - `.ai-decision-action` (36px font), `.ai-decision-confidence`, `.ai-decision-reason`, `.ai-decision-check` — layout do painel AI Decision
+  - `.health-bar` + `.health-bar-label` + `.health-bar-value` — chip usado no header para status do sistema
+  - `.order-tick` + `.order-tick-side` + `.order-tick-meta` + `.order-tick-time` — tick vertical de execução com accent border-left
+  - `.portfolio-row` + `.portfolio-row-header` — grid 6-col para posições (PAIR|QTY|ENTRY|CURRENT|uP&L|SCAM)
+  - `.stat-mini` + `.stat-mini-label` + `.stat-mini-value` + `.stat-mini-sub` — mini-stat compacto
+  - `.ws-divider` — divider horizontal sutil
+- Step 2 — Criado `src/components/dashboard/workspace-header.tsx` (substitui terminal-header):
+  - Row 1: Brand (logo + AUTO TRADER + mode badge) | center loop state | controls (Notifications + START/STOP + KILL)
+  - Row 2 (condicional): kill-switch banner vermelho
+  - Row 3: SYSTEM HEALTH BAR — sempre visível, com 5+ chips (ENGINE, RPC, SIGNER, PIPELINE, DATABASE) + BLOCK no canto direito
+  - Cada chip: colored dot + label + value, com accent class baseada em health (ok=buy/warn=warn/error=sell/idle=neutral)
+- Step 3 — Criado `src/components/dashboard/watchlist-screener.tsx`:
+  - Grid 5-col: PAIR | PRICE | 1m | 5m | VOL
+  - Header com input filter (filtrar por pair)
+  - Source/chain badge inline com pair (CEX=chain, DEX=ai)
+  - Change cells color-coded: positivo=buy/emerald, negativo=sell/red, zero=muted
+  - Arrow icons (ArrowUp/ArrowDown) ao lado de percentage
+  - Compact rows, monospace numbers, hover highlight
+- Step 4 — Criado `src/components/dashboard/ai-decision-panel.tsx`:
+  - Painel PERMANENTE mostrando LATEST AI Decision
+  - Layout: header (AI Decision · latest · symbol) → ACTION 36px (BUY/SELL/HOLD/AVOID/EXIT/WAIT) → CONFIDENCE bar → REASON text → CHECKS list
+  - Action drives accent color: BUY=emerald, SELL/EXIT/AVOID=red, HOLD=amber, WAIT=neutral
+  - Checks parser extrai de keySignals: procura "pass/fail/warn/ok/critical" → mapeia para status icon (CheckCircle2/XCircle/AlertCircle)
+  - Defaults para 4 checks padrão (LIQUIDITY/MEV/SIMULATION/AUTHORITY) se signals não contiverem
+- Step 5 — Criado `src/components/dashboard/system-health-panel.tsx`:
+  - Grid 2x2 (mobile) ou 1x4 (lg+) com 4 blocos: ENGINE / BLOCKCHAIN / SECURITY / SYSTEM
+  - Cada bloco: header com ícone + label colorido pelo accent do bloco (engine=system/blue, blockchain=chain/cyan, security=buy/emerald, system=neutral)
+  - Métricas dentro de cada bloco: label + value + telemetry-bar (se pct fornecido) ou qualitative state
+  - Suporta 5+ métricas por bloco (total 20 telemetrias)
+- Step 6 — Criado `src/components/dashboard/logs-console.tsx`:
+  - Console monoespaçado com scroll vertical
+  - Cada linha: time | source badge (colorido por categoria via accent-*) | message
+  - Colorização por nível: debug=muted, info=neutral, warn=amber, error=red bold
+  - Source accent map: engine=system/blue, risk=sell/red, scam=ai/violet, cex/dex=chain/cyan, portfolio=buy/emerald, ai/goplus=ai/violet, surveillance=warn/amber, etc.
+  - Ordenação newest-first para scroll natural
+- Step 7 — Criado `src/components/dashboard/order-flow-panel.tsx`:
+  - Tick stream vertical derivado de positions + logs
+  - Position entry → OPEN tick (accent-buy)
+  - Position exit → CLOSE tick (accent-sell, inclui PnL se disponível)
+  - Engine log "skip/rejected/blocked" → SKIP tick (accent-warn)
+  - Cada tick: side label (OPEN/CLOSE/SKIP/EXIT) + symbol + meta (amount, reason) + time
+  - Animação de entrada (console-enter keyframe)
+- Step 8 — Criado `src/components/dashboard/portfolio-panel.tsx` (L1):
+  - Grid 6-col: PAIR | QTY | ENTRY | CURRENT | uP&L | SCAM
+  - P&L drive accent da row (positivo=buy, negativo=sell)
+  - Source/chain sub-label abaixo do pair
+  - SCAM badge com 3 níveis (>=80=sell, >=60=warn, <60=buy)
+- Step 9 — Criado `src/components/dashboard/equity-curve-panel.tsx` (substitui EquityHero em modo workspace):
+  - Layout L1 dominante: header 3-col (brand | MASSIVE TOTAL EQUITY 40-48px | status badges)
+  - Chart full-width 380px (era 460px, reduzido para workspace grid mas ainda dominante)
+  - Stat grid 4-col no footer: ROI | REALIZED | UNREALIZED | DRAWDOWN (cada um com ícone + value + sub + progress bar opcional)
+  - Tick pulse animation em lastLoopAt change
+  - Cores dinâmicas: roiPositive=buy, pnlPositive=buy, drawdown=sell, etc.
+- Step 10 — Reescrito `src/app/page.tsx` (470 linhas, era 1035):
+  - Layout workspace: HEADER → equity curve full-width → 3-col (Watchlist | Portfolio | AI Decision) → 3-col (Order Flow | Logs | System Health) → 2-col (Surveillance | Scam) → 2-col (Market | AI Insights) → Explorer tabs (8 triggers) → Controls → Footer
+  - Substituído TerminalHeader por WorkspaceHeader com healthBars (ENGINE/RPC/SIGNER/PIPELINE/DATABASE) + blockNumber
+  - Construído screenerRows a partir de positions.data + market.data.snapshots (dedup por symbol)
+  - Construído systemHealthMetrics (20 métricas em 4 categorias) a partir de systemInfo.data + status.data + exposureUsd
+  - Corrigido bug pré-existente `istory.data` → `history.data` (linha 301 do page.tsx antigo)
+  - Imports limpos: removidos ícones não utilizados (Gauge, Shield, ScrollText, BarChart3, TrendingUp/Down, Info redundantes, etc.)
+  - Substituído `.terminal-card` por `.ws-panel` em todos os elementos do dashboard (kill-switch banner, paper-mode banner, tabs list, reserve card)
+- Step 11 — Validação completa:
+  - `npx next build` → ✓ Compiled successfully in 17.0s, 40/40 páginas estáticas geradas
+  - `npx eslint` em 9 novos arquivos → 0 errors, 0 warnings
+  - `agent-browser` open localhost:3000 → 200 OK, página carrega sem errors
+  - Snapshot confirmou estrutura: header (auto trader + brand) → equity curve → 3-col → 3-col → 2-col → 2-col → explorer tabs → controls → footer
+  - Eval JS confirmou todos componentes renderizando: 7 health-bars, watchlist screener rows, portfolio rows, ai-decision-action, telemetry-bar-fills, console-lines, order-ticks
+  - Color system verificado via getComputedStyle: `--color-buy/sell/chain/ai/system/warn/critical` todos definidos (convertidos para lab() pelo browser)
+  - Engine iniciada via API → UI atualizou com dados reais: ENGINE=RUNNING, AI Decision=HOLD, Watchlist=DRV/USDT + GRASS/USDT, Portfolio=DRV/USDT + GRASS/USDT, Logs Console=ENGINE "Round em andamento, 2 posições abertas", Order Flow=2 OPEN ticks
+  - Screenshots salvos em /home/z/my-project/download/workspace-v3-*.png (8 arquivos: initial, viewport, above-fold, top-2400, mid-2400, scrolled, with-data, final)
+
+Stage Summary:
+- Dashboard transformado de "dashboard" para "workspace" institucional conforme especificação do operador.
+- Layout definitivo: HEADER com health bar always-visible (ENGINE/RPC/SIGNER/PIPELINE/DATABASE/BLOCK) → EQUITY CURVE full-width dominante (~45% above fold, chart 380px + 4 stat cells) → GRID 3-col (Watchlist screener | Portfolio L1 | AI Decision L3) → GRID 3-col (Order Flow | Logs Console | System Health 4-bloc) → 2x2-col seções secundárias (Surveillance+Scam, Market+AI) → Explorer tabs (8 triggers) → Controls → Footer.
+- Sistema de cores fixo implementado em CSS vars (--color-buy/sell/chain/ai/system/warn/critical) com helpers .text-*/.bg-*-10/.border-*-30/.accent-* que colorem filhos via var(--accent). Nenhuma cor reutilizada para significados diferentes.
+- Telemetria mostra ESTADO não apenas valores: cada métrica tem label + value + telemetry-bar (fill %) + qualitative state (PASS/LOW/HEALTHY/OK/IDLE/ARMED/etc.). 20 métricas em 4 blocos: ENGINE (TICK/LATENCY/QUEUE/WORKERS/UPTIME), BLOCKCHAIN (RPC/BLOCK/GAS/TPS/SIGNER), SECURITY (SIMULATION/APPROVAL/LIQUIDITY/AUTHORITY/MEV), SYSTEM (CPU/RAM/DB/HEALTH/CIRCUIT).
+- Logs transformados em console monoespaçado (`.console`): grid 3-col (time | source-badge | message), colorização por nível (debug/info/warn/error) e por source (engine=blue, risk=red, ai=violet, chain=cyan, etc.), scroll contínuo newest-first, animação de entrada.
+- Watchlist em formato screener com grid 5-col (PAIR|PRICE|1m|5m|VOL), input filter, change cells color-coded, source/chain badges inline.
+- AI Decisions painel PERMANENTE: LATEST DECISION em 36px (BUY/SELL/HOLD/AVOID/EXIT/WAIT), confidence bar, reason text, checks list (LIQUIDITY/MEV/SIMULATION/AUTHORITY) com status icons (CheckCircle2/XCircle/AlertCircle).
+- Order Flow tick stream vertical: OPEN ticks (green accent), CLOSE ticks (red accent com PnL), SKIP ticks (amber accent). Cada tick com side label + symbol + meta + time.
+- Three-tier visual hierarchy implementada: L1 (`.ws-panel-l1`) para Equity Curve + Portfolio (maior contraste, accent ribbon, 5-tier shadow), L2 (`.ws-panel` base) para Watchlist/AI/Order Flow, L3 (`.ws-panel-l3`) para Logs/Health/Alerts (compacto, menor peso visual).
+- Tipografia técnica consolidada: `var(--font-geist-mono)` para todos labels/values (via `.label-mono`), `var(--font-inter)` para body, tabular-nums em todos números.
+- Grid responsivo de alta densidade: 1-col mobile → 2-col sm → 3-col xl. Compact rows (28-36px) para máxima informação por viewport.
+- 9 novos arquivos criados: workspace-header.tsx, watchlist-screener.tsx, ai-decision-panel.tsx, system-health-panel.tsx, logs-console.tsx, order-flow-panel.tsx, portfolio-panel.tsx, equity-curve-panel.tsx + globals.css estendido (~250 linhas novas).
+- Page.tsx reduzido de 1035 para 470 linhas (-55%), mais modular e legível. Bug pré-existente `istory.data` corrigido.
+- Zero regressões: `npx next build` ✓ Compiled successfully in 17.0s (40/40 páginas), `npx eslint` 0 errors em 9 novos arquivos, dev server estável, 8 screenshots salvos.
+- Pronto para retornar ao roadmap técnico (M3.3/M4) — UI agora tem aparência de terminal institucional, próximos passos são conectar dados reais (block number real do RPC, gas real, TPS real) aos componentes existentes.
