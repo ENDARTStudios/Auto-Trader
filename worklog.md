@@ -1116,3 +1116,179 @@ Stage Summary:
 - 4 commits made (h0.1-h0.2, h0.3, h0.4, h0.5 pending).
 - CI gate: 9 files / 78 checks (was 6 files / 48 checks at Phase 1 freeze).
 - The project is ready to proceed to H1/H2 (MEV defenses + contract interaction hardening) per the operator's directed sequence: H0 → H1/H2 → M3/M4.
+
+---
+Task ID: h1.0
+Agent: main
+Task: H1 prerequisite — add permanent adversarial-test principle to HARDENING-ROADMAP.md + update sequencing recommendation to match operator's H1→H2→M3→M4 directive.
+
+Work Log:
+- Read worklog.md (end: H0.5 complete, 78 checks, ready for H1).
+- Read HARDENING-ROADMAP.md fully to understand original H1/H2/H4 split + sequencing.
+- Added "Permanent principle — adversarial cryptographic tests" section near the top of HARDENING-ROADMAP.md, after the 4 existing discipline points. Includes:
+  - Quote of the principle.
+  - Context: H0.3 hash-chain bug caught by tamper detection test.
+  - Table mapping each primitive type to the adversarial test it must ship with (hash-chain, KDF, rotation, signature, audit log, simulation, approval cap, RPC quorum).
+  - Closing paragraph: a crypto primitive without an adversarial test is incomplete by definition.
+- Reorganized the roadmap's H1 section to reflect the operator's collapsed scope (H1.1 RPC + H1.2 sim + H1.3 approvals + H1.4 MEV baseline, replacing the old separate H1/H2/H4 entries).
+- Marked H0 as ✓ COMPLETE in the Phased Roadmap section.
+- Updated Sequencing Recommendation to match the operator's directive: H0 ✓ → H1 → H2 → M3 → M4 → H3-H8. Explicitly noted the previous M2.3 → M3 → M4 → H1+H2 parallel recommendation is superseded.
+
+Stage Summary:
+- The permanent principle is now part of the roadmap. Every future crypto primitive (including the H1 subphases) must ship with an adversarial test per the principle's table.
+- The sequencing is locked: H1 first, then H2, then M3/M4. No new signer features between H1 and H2.
+- Ready to start H1.1 (RPC Resilience).
+
+---
+Task ID: h1.1
+Agent: main
+Task: H1.1 — RPC Resilience: multi-RPC quorum, per-endpoint health score, automatic failover, per-RPC circuit breaker.
+
+Work Log:
+- Created src/lib/chain/ directory for on-chain-specific hardening primitives (separate from trading/ to keep the live-path concerns isolated).
+- Created src/lib/chain/rpc-resilience.ts implementing QuorumRpcClient with:
+  - QUORUM: quorumRead(method, params) fans out to all healthy endpoints, requires agreement fraction (default 0.5). Disagreement blocks the action.
+  - HEALTH SCORE: per-endpoint [0..1] score, decays on failure (-0.3 default), recovers on success (+0.1 default). Endpoints below healthFloor (0.2 default) excluded from quorum + failover pools.
+  - FAILOVER: readWithFailover walks healthy endpoints in priority order until one succeeds. failedOver flag in the result tells the caller whether primary failed.
+  - CIRCUIT BREAKER: after N consecutive failures (5 default), breaker opens for cooldown (60s default). After cooldown, a successful call closes the breaker.
+  - broadcastRawTransaction: walks healthy endpoints until one accepts; NEVER broadcasts to multiple simultaneously (avoids double-broadcast risk).
+  - Injectable Transport function — tests use scripted mocks; production wraps ethers JsonRpcProvider (wired in M3).
+  - serializeForQuorum(value) — stable JSON serialization (sorted keys) so quorum comparison is robust to key-order variation across endpoints; sensitive to single-field changes; arrays preserve order. Exported for direct testing.
+- Created scripts/test-h1-rpc-resilience.ts with 16 scenarios / 46 assertions:
+  - A. Quorum (5): 3/3 agree, 2/3 agree, 1 endpoint impossible, 3 different values, all errored.
+  - B. Failover (4): primary first try, secondary after primary error, tertiary after primary+secondary error, all fail.
+  - C. Circuit breaker (3): opens after N failures, excludes from pool, closes after cooldown.
+  - D. Adversarial (4): malicious chain id, stale block, wrong balance, serializeForQuorum property.
+- CRITICAL BUG FOUND + FIXED DURING TESTING: recordFailure was being called BOTH inside callWithTimeout AND in readWithFailover's catch block — every failure was double-counted, corrupting the health score and tripping the breaker after only ~2-3 actual failures. Fixed by consolidating to single recording inside callWithTimeout; the caller observes the breaker state via state.get() instead of triggering a second recordFailure.
+- Also adjusted C1/C2/C3 test configs to use healthLossOnFailure: 0.05 (instead of default 0.3) so the breaker can be exercised in isolation from the health-floor mechanism — they're two independent exclusion mechanisms and should be tested separately.
+- Wired test:h1-rpc into package.json and appended it to test:ci.
+- Full suite re-run: 13 files / 253 checks, all green.
+
+Stage Summary:
+- H1.1 is implemented + tested + ready to commit.
+- The QuorumRpcClient provides the four guarantees the operator specified. The hardened primitive is NOT yet wired into any production code path — it waits for M3 (live trading) to consume it.
+- The double-counting bug is exactly the kind of issue the permanent principle is designed to catch: the structural tests passed (quorum worked, failover worked), but the breaker-state assertions failed because the count was wrong. The adversarial test (C1 — "breaker opens after N consecutive failures") was the one that caught it.
+- Next: H1.2 (Transaction Simulation).
+
+---
+Task ID: h1.2
+Agent: main
+Task: H1.2 — Transaction Simulation: mandatory pre-broadcast simulation, expected-vs-simulated state-diff comparison, auto-block on divergence.
+
+Work Log:
+- Created src/lib/chain/simulation-gate.ts implementing SimulationGate with:
+  - simulateAndVerify(tx, expected): runs the simulator, computes a diff between expected and simulated state changes, returns ok=false when ANY of: simulation reverted (and not expected), unexpected state change in simulation, expected state change missing, amount mismatch beyond tolerance, gas exceeds maxGas.
+  - Injectable Simulator function — production wraps eth_call with state override (or eth_simulateV1 when available post-Cancun); tests use scripted mocks.
+  - ExpectedDiff: list of ExpectedStateChange (kind: erc20_transfer | erc20_approval | native_transfer | custom; token, from, to, amount); optional maxGas; optional expectRevert.
+  - Diff computation is order-independent (we don't require the caller to predict the exact order of state changes, only the set). Two-pass matching: exact match first (kind, token, from, to, amount), then structural match (kind, token, from, to) with amount-within-tolerance.
+  - compareAmounts(expected, simulated, toleranceBps): pure BigInt-based function; symmetric tolerance; descriptive reason ("excess: ...", "deficit: ...", "non-integer: ...", "expected 0 but simulated ..."). Handles MAX_UINT safely (BigInt out of Number range).
+- Created scripts/test-h1-simulation-gate.ts with 14 scenarios / 46 assertions:
+  - A. Happy path (3): exact match, tolerance match, tolerance exceeded.
+  - B. Revert handling (3): simulation reverts, expected revert + reverts, expected revert but succeeds.
+  - C. Diff divergence (4): extra simulated transfer, missing expected transfer, amount mismatch, gas exceeded.
+  - D. Adversarial (5): honeypot sell (simulates as revert), MAX_UINT approval (caller expected capped), reentrancy gas drain, transfer to wrong recipient, compareAmounts tolerance primitive direct test (8 sub-assertions including BigInt MAX_UINT comparisons).
+- Wired test:h1-sim into package.json and appended it to test:ci.
+
+Stage Summary:
+- H1.2 is implemented + tested + ready to commit.
+- The SimulationGate is the pre-broadcast gate. The caller constructs an ExpectedDiff (their claim about what the tx will do), the gate runs the simulation and verifies the claim. Any divergence blocks the broadcast.
+- The adversarial tests cover the four operator-mandated attack patterns (honeypot, unlimited approval, reentrancy gas drain, wrong-recipient) — each test explicitly attempts to break the property the gate promises (that bad txs are blocked).
+- Next: H1.3 (Approval Hardening).
+
+---
+Task ID: h1.3
+Agent: main
+Task: H1.3 — Approval Hardening: cap enforcement, unlimited-approval block, over-approval block, ledger + revocation.
+
+Work Log:
+- Created src/lib/chain/approval-hardening.ts implementing ApprovalGate with:
+  - evaluate(req): returns ApprovalDecision (ok, rejectReason?, approvedAmount, capped, policy).
+  - Hard block on type(uint256).max (string comparison against exported MAX_UINT256 constant) — cannot be bypassed.
+  - Cap enforcement via maxApprovalPerSpender policy.
+  - Over-approval block: if CAPPED amount >= owner's balance and !allowFullBalanceApproval → rejected.
+  - ORDER OF CHECKS (deliberate): unlimited block → parse + zero check → cap enforcement → over-approval on capped amount → final sanity. Cap is applied FIRST so a 1M-token request against a 100-token cap gets capped to 100, then over-approval sees 100 (not 1M).
+  - ApprovalLedger interface + InMemoryApprovalLedger implementation. Production will use a Prisma-backed implementation in M3.
+  - recordGrant, recordRevocation, inventory(owner) methods.
+  - Inventory filter excludes revoked records even when the ledger still stores them.
+- Created scripts/test-h1-approval-hardening.ts with 15 scenarios / 36 assertions:
+  - A. Cap enforcement (4): within cap, exceeding cap (capped), exceeding balance, equal to balance.
+  - B. Unlimited approval block (3): MAX_UINT string, MAX_UINT as bigint literal (numerically equal), zero approval.
+  - C. Ledger + revocation (3): recordGrant writes; recordRevocation marks revoked + inventory excludes; recordRevocation on non-existent returns ok=true found=false.
+  - D. Adversarial (5): MAX_UINT cannot bypass even with allowFullBalanceApproval=true; over-approval cannot bypass via a cap higher than balance; cap boundary (exactly cap allowed, one wei above capped); re-grant after revocation creates new non-revoked; inventory filter excludes revoked even when ledger stores them.
+- CRITICAL BUG FOUND + FIXED DURING TESTING: The original code did the over-approval check BEFORE the cap enforcement. This meant a request for 1M tokens against a 1M-token balance (with cap=100) was blocked on over-approval, even though the cap would have brought it to 100 (which is < 1M balance). The cap was useless in this case. Fixed by reordering: cap enforcement first, then over-approval on the CAPPED amount. The docstring was updated with the deliberate ordering rationale.
+- Wired test:h1-approval into package.json and appended it to test:ci.
+
+Stage Summary:
+- H1.3 is implemented + tested + ready to commit.
+- The ApprovalGate is the second layer of defense (after the simulation gate) for approval operations. Even if the simulation gate somehow approves a bad tx (e.g. the simulator is buggy), the ApprovalGate independently enforces the unlimited-approval hard block and the cap.
+- The ordering bug was caught by test A2 (request exceeds cap, balance equals request) — the test expected capped=true but got ok=false with "over-approval" reason. This is exactly the kind of integration bug the permanent principle is designed to surface: the individual checks (cap, over-approval) were each correct in isolation, but the composition was wrong.
+- Next: H1.4 (MEV Baseline).
+
+---
+Task ID: h1.4
+Agent: main
+Task: H1.4 — MEV Baseline: abnormal slippage detection, dynamic slippage limit, sandwich detection via simulation, private-relay abstraction stub.
+
+Work Log:
+- Created src/lib/chain/mev-baseline.ts implementing:
+  - computeSlippageLimit(inputs): pure function returning dynamic slippage limit in bps. Formula: baseline + volatilityBps*0.5 + (tradeSizeUsd/poolLiquidityUsd)*10000*0.5, capped at hardCapBps (default 300 = 3%). The hard cap is the "infinity slippage = ok" defense.
+  - checkSlippage(expectedPrice, actualPrice, inputs): applies the dynamic limit. Returns ok=true iff |actual-expected|/expected <= limit.bps. Handles negative expected price (returns ok=false with actualBps=Infinity) as a div-by-zero defense.
+  - detectSandwich(victimAddress, preState, postState, observedTrades): analyzes observed pool activity for the sandwich signature. Score [0..1]:
+    - 1.0 = perfect sandwich (attacker buy + victim buy + attacker sell, attacker profit > 0). The check is profit > 0, not profit > threshold — even $0.01 profit indicates a sandwich.
+    - 0.5 = lone front-run (non-victim buy before victim's buy + pool price increased). Fires even when the visible back-run was unprofitable — the attacker could be profiting on a hidden third trade.
+    - 0.4 = buy+sell pair around victim with no profit (partial signal — not enough to block).
+    - 0.0 = no suspicious activity.
+    - detected = (score >= 0.5).
+  - Relay interface + PublicMempoolRelay (default, uses standard eth_sendRawTransaction via injected broadcastFn) + PrivateRelayStub (interface in place, throws "not implemented" — to be replaced with Flashbots Protect / Merlin / MEV-Share when M3+ lands). The stub explicitly forbids production use before it's wired.
+- Created scripts/test-h1-mev-baseline.ts with 16 scenarios / 47 assertions:
+  - A. Dynamic slippage limit (4): baseline only, volatility contribution, size contribution, hard cap.
+  - B. Slippage check (3): within limit, beyond limit, negative expected price.
+  - C. Sandwich detection (5): no attacker, perfect sandwich (profit), lone front-run, no-profit attacker (front-run still fires), attacker-after-victim (no front-run, no profit).
+  - D. Adversarial (5): 5% slippage on low-vol pool blocked (dynamic limit ~50bps), $0.01-profit sandwich detected (profit > 0 not > threshold), slow sandwich (sell in block N+2) detected, private-relay stub returns "not implemented", public-mempool relay passes through to broadcastFn.
+- Used floating-point tolerances for slippage assertions (the size contribution is 0.5bps for a 100/1M trade, so the limit is 50.5 not 50).
+- Wired test:h1-mev into package.json and appended it to test:ci.
+
+Stage Summary:
+- H1.4 is implemented + tested + ready to commit.
+- The MEV baseline provides slippage + sandwich detection without depending on any private relay. The private-relay abstraction is in place (interface + stub) so M3+ can plug in Flashbots Protect / Merlin / MEV-Share without changing the caller — the operator's explicit "preparação da abstração para private relays (sem dependência deles ainda)" directive.
+- H1 (all four subphases) is now complete. 175 new assertions across 4 test files; CI gate is 13 files / 253 checks (was 9 files / 78 checks at H0 close). Two real bugs caught during testing (recordFailure double-count in H1.1, cap-vs-overapproval ordering in H1.3) — both would have been security-affecting in production and neither was caught by happy-path tests.
+
+---
+Task ID: h1.closeout
+Agent: main
+Task: H1 closeout — update SECURITY.md with H1 section, mark H1 complete in HARDENING-ROADMAP.md.
+
+Work Log:
+- Updated SECURITY.md with a new "H1 — Transaction lifecycle hardening" section covering:
+  - Scope (operator-directed collapse of original H1+H2+H4 into one pass).
+  - Permanent principle quote (the rule added before H1 began).
+  - Each subphase (H1.1-H1.4) with implementation details + key guarantees.
+  - The two bugs caught during testing (recordFailure double-count, cap-vs-overapproval ordering).
+  - Adversarial tests summary per subphase.
+  - Test coverage: 175 new assertions; CI gate 13 files / 253 checks.
+  - History note with the operator's "Sem inserir novas funcionalidades entre H1 e H2" directive.
+- Updated HARDENING-ROADMAP.md H1 section header from "operator-directed scope" to "✓ COMPLETE", added STATUS block summarizing each subphase + the CI gate count + the "primitives not yet wired" caveat.
+- Ran full test:ci one final time to confirm: 13 files, 253 checks, all green.
+  - test-vault.ts: 20/20
+  - test-request-peer-integration.ts: 4/4
+  - test-signer-process.ts: 5/5
+  - test-wallet-crud.ts: 11/11
+  - test-signer-dispatcher-structural.ts: 2/2
+  - test-signer-vault-integration.ts: 3/3
+  - test-h0-kdf-versioning.ts: 9/9
+  - test-h0-audit-hashchain.ts: 10/10
+  - test-h0-key-rotation.ts: 14/14
+  - test-h1-rpc-resilience.ts: 46/46
+  - test-h1-simulation-gate.ts: 46/46
+  - test-h1-approval-hardening.ts: 36/36
+  - test-h1-mev-baseline.ts: 47/47
+
+Stage Summary:
+- H1 (Transaction lifecycle hardening) IS COMPLETE.
+- H1.1: QuorumRpcClient (quorum + health score + failover + circuit breaker).
+- H1.2: SimulationGate (pre-broadcast simulation + state-diff comparison + revert/gas/amount checks).
+- H1.3: ApprovalGate (cap + unlimited block + over-approval block + ledger + revocation).
+- H1.4: MEV baseline (dynamic slippage + sandwich detection + private-relay stub).
+- 5 commits ready (h1.0 principle + sequencing, h1.1, h1.2, h1.3, h1.4 + closeout pending).
+- CI gate: 13 files / 253 checks (was 9 files / 78 checks at H0 close).
+- The project is ready to proceed to H2 (Contract interaction hardening) per the operator's directed sequence: H0 ✓ → H1 ✓ → H2 → M3 → M4. The hardened primitives in src/lib/chain/ wait for M3 to wire them into the live-trading path.

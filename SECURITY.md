@@ -794,3 +794,146 @@ freeze. The operator's directed sequence was H0 → H1/H2 → M3/M4 (NOT
 M3/M4 first), to consolidate the cryptographic foundation before expanding
 the signer's functional surface. Each H0 subphase followed:
 implement → test → fix → document → commit.
+
+---
+
+## H1 — Transaction lifecycle hardening (Jul 15 2026)
+
+H1 hardens the entire transaction lifecycle: from RPC fan-out, through
+pre-broadcast simulation, to approval hygiene and MEV baseline. H1
+deliberately collapses what the original roadmap had as separate H1
+(MEV), H2 (simulation + approvals), and H4 (RPC failover) into a
+single hardening pass — the rationale is to keep the entire on-chain
+communication + execution layer hardened as one perimeter before any
+new signer feature (M3/M4) lands on top of it. The hardened primitives
+exist alongside the paper-trading path; they will be WIRED into the
+live-trading path when M3 lands, not before.
+
+**Permanent principle added to HARDENING-ROADMAP.md before H1 began:**
+> Every new cryptographic implementation must ship with at least one
+> test that explicitly attempts to break the promised security property.
+
+This principle was added after H0.3 revealed that `JSON.stringify(entry,
+sortedKeysArray)` was silently dropping payload keys from the hash. The
+H1 subphases each ship with explicit adversarial tests (per the
+principle's table of examples).
+
+### H1 subphases
+
+**H1.1 — RPC Resilience (`src/lib/chain/rpc-resilience.ts`):**
+- New module `QuorumRpcClient` providing four guarantees:
+  - QUORUM — fan out to N healthy endpoints, require agreement fraction
+    (default 0.5). Disagreement blocks the action.
+  - HEALTH SCORE — per-endpoint [0..1] score; decays on failure,
+    recovers on success. Endpoints below `healthFloor` (default 0.2)
+    excluded from quorum.
+  - FAILOVER — `readWithFailover` walks the healthy endpoint list in
+    priority order until one succeeds; failover is observable
+    (`failedOver` flag in the result).
+  - CIRCUIT BREAKER — after N consecutive failures (default 5), the
+    breaker opens for `breakerCooldownMs` (default 60s). After cooldown,
+    a successful probe call closes the breaker.
+- Injectable `Transport` function — tests use scripted mocks (including
+  malicious endpoints returning wrong chain id, stale block, wrong
+  balance); production wraps ethers' JsonRpcProvider (wired in M3).
+- `serializeForQuorum(value)` — stable JSON serialization (sorted keys)
+  so quorum comparison is robust to key-order variation across
+  endpoints; sensitive to single-field changes; arrays preserve order.
+- **CRITICAL BUG CAUGHT DURING H1.1 TESTING:** `recordFailure` was
+  being called BOTH inside `callWithTimeout` AND in the caller's catch
+  block, double-counting every failure and corrupting the health score.
+  Fixed by consolidating to single recording inside `callWithTimeout`.
+
+**H1.2 — Transaction Simulation (`src/lib/chain/simulation-gate.ts`):**
+- New module `SimulationGate` providing the pre-broadcast gate:
+  - Caller provides an `ExpectedDiff` (list of expected state changes +
+    optional `maxGas` + optional `expectRevert`).
+  - Gate calls an injectable `Simulator` function (production wraps
+    `eth_call` with state override or `eth_simulateV1` when available).
+  - Gate computes a diff between expected and simulated state changes.
+    Returns `ok=false` (block broadcast) when:
+      (a) simulation reverted (and caller didn't expect revert),
+      (b) simulation produced state changes not in expected,
+      (c) expected state changes missing from simulation,
+      (d) amount mismatch beyond `amountToleranceBps` (default 50 = 0.5%),
+      (e) gas used > `maxGas`.
+- `compareAmounts(expected, simulated, toleranceBps)` — pure function
+  using BigInt for safe comparison of atomic-unit amounts; symmetric
+  tolerance; descriptive reason for any mismatch ("excess: ...",
+  "deficit: ...", "non-integer: ...").
+
+**H1.3 — Approval Hardening (`src/lib/chain/approval-hardening.ts`):**
+- New module `ApprovalGate` enforcing four guarantees:
+  - CAP ENFORCEMENT — every approval capped at min(requested, cap, balance).
+    `maxApprovalPerSpender` is a per-spender hard cap.
+  - UNLIMITED APPROVAL HARD BLOCK — `type(uint256).max` (and any
+    numerically-equal value) is REJECTED regardless of policy. This
+    cannot be bypassed by `allowFullBalanceApproval=true`.
+  - OVER-APPROVAL BLOCK — if the CAPPED amount >= owner's balance
+    (and `allowFullBalanceApproval=false`), rejected. Cap is applied
+    FIRST so a 1M-token request against a 100-token cap gets capped to
+    100 first, then over-approval sees 100 (not 1M).
+  - LEDGER + REVOCATION — `ApprovalLedger` interface (in-memory impl
+    for tests; Prisma-backed impl for production in M3) tracks every
+    grant; `recordRevocation` marks revoked; `inventory(owner)` lists
+    active (non-revoked) approvals.
+- `MAX_UINT256` exported as a decimal string for comparison use.
+
+**H1.4 — MEV Baseline (`src/lib/chain/mev-baseline.ts`):**
+- New module providing:
+  - `computeSlippageLimit(inputs)` — dynamic slippage limit in bps.
+    Formula: baseline + volatilityBps*0.5 + (tradeSize/poolLiquidity)*10000*0.5,
+    capped at `hardCapBps` (default 300 = 3%). The hard cap is the
+    "infinity slippage = ok" defense.
+  - `checkSlippage(expected, actual, inputs)` — applies the dynamic
+    limit to an actual execution price; returns ok=true iff within
+    tolerance.
+  - `detectSandwich(victim, preState, postState, trades)` — analyzes
+    observed pool activity for the sandwich signature (attacker BUY
+    before victim BUY, attacker SELL after, with profit). Returns a
+    score [0..1]; score >= 0.5 blocks the action. Score 1.0 =
+    perfect sandwich (profit > 0); 0.5 = lone front-run (buy before
+    victim, no profit yet); 0.4 = buy+sell pair around victim with no
+    profit; 0.0 = no suspicious activity.
+  - `Relay` interface + `PublicMempoolRelay` (default, uses standard
+    `eth_sendRawTransaction`) + `PrivateRelayStub` (interface in place,
+    throws "not implemented" — to be replaced with Flashbots Protect /
+    Merlin / MEV-Share when M3+ lands). The stub explicitly forbids
+    production use before it's wired.
+
+### Adversarial tests (per the permanent principle)
+
+Each H1 subphase ships with explicit adversarial tests that attempt to
+break the property the primitive promises:
+
+- **H1.1:** malicious endpoint returning wrong chain id is detected by
+  quorum; stale block number detected; wrong balance detected.
+- **H1.2:** honeypot sell (simulates as revert) is blocked; MAX_UINT
+  approval (caller expected capped) is blocked; reentrancy gas drain
+  is blocked; transfer to wrong recipient is blocked.
+- **H1.3:** MAX_UINT cannot bypass even with `allowFullBalanceApproval=true`;
+  over-approval cannot bypass via a cap higher than balance; cap boundary
+  is exact (one wei above is capped); re-grant after revocation creates
+  a new non-revoked record; inventory filter correctly excludes revoked.
+- **H1.4:** 5% slippage on low-vol pool is blocked (dynamic limit ~50bps);
+  sandwich with attacker profit of $0.01 is still detected (profit > 0,
+  not > threshold); slow sandwich (sell in block N+2) is still detected;
+  private-relay stub returns "not implemented" (no accidental production use).
+
+**Test coverage:** 175 new assertions across 4 test files
+(`test-h1-rpc-resilience.ts` 46,
+`test-h1-simulation-gate.ts` 46,
+`test-h1-approval-hardening.ts` 36,
+`test-h1-mev-baseline.ts` 47). CI gate is now **13 files / 253 checks**
+(was 9 files / 78 checks at H0 close).
+
+**History:** Jul 15 2026 — H1 implemented immediately after H0 closure,
+following the operator's mandated sequence H0 → H1 → H2 → M3 → M4. The
+operator's directive was explicit: "Sem inserir novas funcionalidades
+entre H1 e H2. Isso mantém a superfície de ataque mínima até que toda a
+camada de comunicação e execução esteja endurecida." Each H1 subphase
+followed: implement → test → fix → document → commit. Two real bugs
+were caught during testing (the `recordFailure` double-count in H1.1,
+and the cap-vs-overapproval ordering in H1.3) — both would have been
+security-affecting in production and neither was caught by happy-path
+tests.
