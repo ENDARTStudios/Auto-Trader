@@ -6,7 +6,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter), var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -43,9 +43,12 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* ---------------------------------------------------------------------------
+   LIGHT (kept for completeness, but dashboard forces dark via <html class="dark">)
+--------------------------------------------------------------------------- */
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  --background: oklch(0.99 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -78,45 +81,525 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+/* ---------------------------------------------------------------------------
+   DARK — Bloomberg / TradingView / Hyperliquid inspired terminal palette
+   - Deep, near-black canvas with subtle warm-cool tint
+   - Two-tier surface elevation (card / popover)
+   - Sharp accent (emerald) for primary positive deltas
+   - Muted neutral border, no hard pure-white lines
+--------------------------------------------------------------------------- */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  /* Canvas — slightly cool near-black */
+  --background: oklch(0.13 0.005 264);
+  /* Foreground — high-contrast off-white (not pure #fff, easier on eyes) */
+  --foreground: oklch(0.96 0.002 264);
+
+  /* Card — first elevation tier, "lifted" panel */
+  --card: oklch(0.165 0.006 264);
+  --card-foreground: oklch(0.96 0.002 264);
+
+  /* Popover — second elevation tier, "above" card */
+  --popover: oklch(0.19 0.006 264);
+  --popover-foreground: oklch(0.96 0.002 264);
+
+  /* Primary — emerald accent (gains / live / positive action) */
+  --primary: oklch(0.78 0.18 152);
+  --primary-foreground: oklch(0.13 0.005 264);
+
+  /* Secondary — neutral panel */
+  --secondary: oklch(0.22 0.006 264);
+  --secondary-foreground: oklch(0.96 0.002 264);
+
+  /* Muted — recessed text and bars */
+  --muted: oklch(0.20 0.005 264);
+  --muted-foreground: oklch(0.68 0.008 264);
+
+  /* Accent — soft cyan-blue for hover / focus */
+  --accent: oklch(0.24 0.008 264);
+  --accent-foreground: oklch(0.96 0.002 264);
+
+  /* Destructive — vivid red for losses / kill switch */
+  --destructive: oklch(0.66 0.22 25);
+
+  /* Border — subtle, never pure white */
+  --border: oklch(1 0 0 / 6%);
+  --input: oklch(1 0 0 / 10%);
+  --ring: oklch(0.78 0.18 152 / 50%);
+
+  /* Chart palette — emerald, cyan, amber, magenta, violet */
+  --chart-1: oklch(0.78 0.18 152);    /* emerald  */
+  --chart-2: oklch(0.74 0.16 200);    /* cyan     */
+  --chart-3: oklch(0.82 0.16 85);     /* amber    */
+  --chart-4: oklch(0.68 0.21 350);    /* magenta  */
+  --chart-5: oklch(0.70 0.18 290);    /* violet   */
+
+  /* Sidebar — slightly recessed vs canvas */
+  --sidebar: oklch(0.15 0.005 264);
+  --sidebar-foreground: oklch(0.96 0.002 264);
+  --sidebar-primary: oklch(0.78 0.18 152);
+  --sidebar-primary-foreground: oklch(0.13 0.005 264);
+  --sidebar-accent: oklch(0.22 0.006 264);
+  --sidebar-accent-foreground: oklch(0.96 0.002 264);
+  --sidebar-border: oklch(1 0 0 / 6%);
+  --sidebar-ring: oklch(0.78 0.18 152 / 50%);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    /* Crisp font rendering on dark backgrounds */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv11", "ss01", "ss03";
+  }
   body {
     @apply bg-background text-foreground;
+    /* Layered background — institutional terminal depth.
+       - Top cool glow (lifts the header area)
+       - Bottom warm radial (anchors the eye to focal point)
+       - Subtle dot grid overlay (Bloomberg/Linear style) */
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, oklch(0.78 0.18 152 / 0.04), transparent 60%),
+      radial-gradient(ellipse 70% 50% at 100% 100%, oklch(0.74 0.16 200 / 0.035), transparent 60%),
+      radial-gradient(ellipse 50% 40% at 0% 80%, oklch(0.68 0.21 350 / 0.025), transparent 60%);
+    background-attachment: fixed;
+    background-color: oklch(0.13 0.005 264);
+  }
+  /* Body dot-grid overlay — adds "terminal screen" texture without competing with content */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background-image: radial-gradient(oklch(1 0 0 / 0.012) 1px, transparent 1px);
+    background-size: 24px 24px;
+    mask-image: linear-gradient(180deg, black 0%, black 60%, transparent 100%);
+  }
+  /* Custom thin scrollbar — Bloomberg/TradingView style */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(1 0 0 / 0.10);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: oklch(1 0 0 / 0.20);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Utility classes — premium card depth & micro-interactions
+--------------------------------------------------------------------------- */
+@layer components {
+  /* Premium "glass" card — used for primary metric panels.
+     Strong elevation + dual-gradient surface + inner top highlight. */
+  .glass-card {
+    background:
+      /* Top-edge inner highlight (1px white at 6% — gives "lit from above" feel) */
+      linear-gradient(180deg, oklch(1 0 0 / 0.04) 0%, transparent 8%),
+      /* Main surface: subtle diagonal lift */
+      linear-gradient(135deg, oklch(0.20 0.007 264) 0%, oklch(0.16 0.005 264) 100%);
+    border: 1px solid oklch(1 0 0 / 0.08);
+    box-shadow:
+      /* Inner top highlight */
+      inset 0 1px 0 0 oklch(1 0 0 / 0.05),
+      /* Inner bottom subtle shadow */
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.20),
+      /* Drop shadow tier 1 — close, soft */
+      0 1px 2px 0 oklch(0 0 0 / 0.40),
+      /* Drop shadow tier 2 — wider, deeper */
+      0 12px 32px -12px oklch(0 0 0 / 0.70),
+      /* Outer ring — defines edge against dark bg */
+      0 0 0 1px oklch(0 0 0 / 0.40);
+    transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+  }
+  .glass-card:hover {
+    border-color: oklch(1 0 0 / 0.14);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.07),
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.20),
+      0 2px 6px 0 oklch(0 0 0 / 0.50),
+      0 16px 40px -12px oklch(0 0 0 / 0.80),
+      0 0 0 1px oklch(0 0 0 / 0.40);
+  }
+
+  /* Accent left-border — used to give each metric card its own identity.
+     3px thick with soft glow for stronger visual signature. */
+  .accent-border-emerald {
+    border-left: 3px solid oklch(0.78 0.18 152);
+    box-shadow: inset 3px 0 8px -3px oklch(0.78 0.18 152 / 0.4),
+                inset 0 1px 0 0 oklch(1 0 0 / 0.05),
+                inset 0 -1px 0 0 oklch(0 0 0 / 0.20),
+                0 1px 2px 0 oklch(0 0 0 / 0.40),
+                0 12px 32px -12px oklch(0 0 0 / 0.70);
+  }
+  .accent-border-cyan {
+    border-left: 3px solid oklch(0.74 0.16 200);
+    box-shadow: inset 3px 0 8px -3px oklch(0.74 0.16 200 / 0.4),
+                inset 0 1px 0 0 oklch(1 0 0 / 0.05),
+                inset 0 -1px 0 0 oklch(0 0 0 / 0.20),
+                0 1px 2px 0 oklch(0 0 0 / 0.40),
+                0 12px 32px -12px oklch(0 0 0 / 0.70);
+  }
+  .accent-border-amber {
+    border-left: 3px solid oklch(0.82 0.16 85);
+    box-shadow: inset 3px 0 8px -3px oklch(0.82 0.16 85 / 0.4),
+                inset 0 1px 0 0 oklch(1 0 0 / 0.05),
+                inset 0 -1px 0 0 oklch(0 0 0 / 0.20),
+                0 1px 2px 0 oklch(0 0 0 / 0.40),
+                0 12px 32px -12px oklch(0 0 0 / 0.70);
+  }
+  .accent-border-magenta {
+    border-left: 3px solid oklch(0.68 0.21 350);
+    box-shadow: inset 3px 0 8px -3px oklch(0.68 0.21 350 / 0.4),
+                inset 0 1px 0 0 oklch(1 0 0 / 0.05),
+                inset 0 -1px 0 0 oklch(0 0 0 / 0.20),
+                0 1px 2px 0 oklch(0 0 0 / 0.40),
+                0 12px 32px -12px oklch(0 0 0 / 0.70);
+  }
+  .accent-border-violet {
+    border-left: 3px solid oklch(0.70 0.18 290);
+    box-shadow: inset 3px 0 8px -3px oklch(0.70 0.18 290 / 0.4),
+                inset 0 1px 0 0 oklch(1 0 0 / 0.05),
+                inset 0 -1px 0 0 oklch(0 0 0 / 0.20),
+                0 1px 2px 0 oklch(0 0 0 / 0.40),
+                0 12px 32px -12px oklch(0 0 0 / 0.70);
+  }
+  .accent-border-red {
+    border-left: 3px solid oklch(0.66 0.22 25);
+    box-shadow: inset 3px 0 8px -3px oklch(0.66 0.22 25 / 0.4),
+                inset 0 1px 0 0 oklch(1 0 0 / 0.05),
+                inset 0 -1px 0 0 oklch(0 0 0 / 0.20),
+                0 1px 2px 0 oklch(0 0 0 / 0.40),
+                0 12px 32px -12px oklch(0 0 0 / 0.70);
+  }
+  .accent-border-neutral {
+    border-left: 3px solid oklch(1 0 0 / 0.14);
+    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.05),
+                inset 0 -1px 0 0 oklch(0 0 0 / 0.20),
+                0 1px 2px 0 oklch(0 0 0 / 0.40),
+                0 12px 32px -12px oklch(0 0 0 / 0.70);
+  }
+
+  /* Numeric font feature — tabular numbers for metrics */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  /* Subtle glow for live/active indicators */
+  .glow-emerald {
+    box-shadow: 0 0 0 1px oklch(0.78 0.18 152 / 0.4),
+                0 0 12px oklch(0.78 0.18 152 / 0.25);
+  }
+  .glow-red {
+    box-shadow: 0 0 0 1px oklch(0.66 0.22 25 / 0.4),
+                0 0 12px oklch(0.66 0.22 25 / 0.25);
+  }
+  .glow-amber {
+    box-shadow: 0 0 0 1px oklch(0.82 0.16 85 / 0.4),
+                0 0 12px oklch(0.82 0.16 85 / 0.25);
+  }
+
+  /* Live status pulse dot */
+  .status-dot-pulse {
+    position: relative;
+  }
+  .status-dot-pulse::before {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 9999px;
+    background: currentColor;
+    opacity: 0.4;
+    animation: status-pulse 2s ease-in-out infinite;
+  }
+  @keyframes status-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.4; }
+    50%      { transform: scale(1.6); opacity: 0; }
+  }
+
+  /* Mono label — for tickers, status chips */
+  .label-mono {
+    font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  /* -----------------------------------------------------------------
+     INSTITUTIONAL TERMINAL — extended design language
+     Adds deeper elevation tiers, instrument-style metric panels,
+     telemetry tiles, and "alive" animations.
+  ----------------------------------------------------------------- */
+
+  /* Terminal card — primary surface used for panels, tables, headers.
+     Maximum depth: 4-tier shadow + dual inner highlights + 1px top edge. */
+  .terminal-card {
+    background:
+      /* Top-edge 1px white highlight (lit from above) */
+      linear-gradient(180deg, oklch(1 0 0 / 0.07) 0%, transparent 5%),
+      /* Diagonal surface lift */
+      linear-gradient(135deg, oklch(0.215 0.008 264) 0%, oklch(0.155 0.005 264) 100%);
+    border: 1px solid oklch(1 0 0 / 0.07);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.08),
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.30),
+      inset 1px 0 0 0 oklch(1 0 0 / 0.03),
+      inset -1px 0 0 0 oklch(1 0 0 / 0.03),
+      0 2px 4px 0 oklch(0 0 0 / 0.55),
+      0 12px 32px -8px oklch(0 0 0 / 0.75),
+      0 32px 64px -24px oklch(0 0 0 / 0.95);
+    transition: border-color 200ms ease, box-shadow 200ms ease, transform 200ms ease;
+  }
+  .terminal-card:hover {
+    border-color: oklch(1 0 0 / 0.14);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.10),
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.30),
+      inset 1px 0 0 0 oklch(1 0 0 / 0.04),
+      inset -1px 0 0 0 oklch(1 0 0 / 0.04),
+      0 4px 8px 0 oklch(0 0 0 / 0.65),
+      0 16px 40px -8px oklch(0 0 0 / 0.85),
+      0 40px 80px -24px oklch(0 0 0 / 1);
+  }
+
+  /* Hero card — for the dominant focal element (Equity Curve).
+     Maximum elevation, wider aura, subtle accent line on top. */
+  .terminal-hero {
+    background:
+      linear-gradient(180deg, oklch(1 0 0 / 0.06) 0%, transparent 6%),
+      linear-gradient(135deg, oklch(0.215 0.008 264) 0%, oklch(0.150 0.005 264) 100%);
+    border: 1px solid oklch(1 0 0 / 0.08);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.07),
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.30),
+      0 2px 8px 0 oklch(0 0 0 / 0.55),
+      0 16px 48px -8px oklch(0 0 0 / 0.75),
+      0 40px 80px -32px oklch(0 0 0 / 0.95);
+  }
+
+  /* Instrument card — aircraft-panel style metric.
+     Deep multi-tier shadow + accent top edge + 1px inner highlights.
+     The accent top bar (from --instrument-accent) gives each card its identity. */
+  .instrument-card {
+    background:
+      linear-gradient(180deg, oklch(1 0 0 / 0.07) 0%, transparent 8%),
+      linear-gradient(135deg, oklch(0.205 0.008 264) 0%, oklch(0.150 0.005 264) 100%);
+    border: 1px solid oklch(1 0 0 / 0.07);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.07),
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.28),
+      inset 1px 0 0 0 oklch(1 0 0 / 0.03),
+      inset -1px 0 0 0 oklch(1 0 0 / 0.03),
+      0 2px 4px 0 oklch(0 0 0 / 0.55),
+      0 8px 20px -4px oklch(0 0 0 / 0.75),
+      0 20px 40px -16px oklch(0 0 0 / 0.95);
+    transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .instrument-card::before {
+    /* Accent top edge — 2px gradient bar that uses the accent color via CSS var --instrument-accent */
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--instrument-accent, oklch(0.78 0.18 152)) 20%,
+      var(--instrument-accent, oklch(0.78 0.18 152)) 80%,
+      transparent 100%
+    );
+    opacity: 0.85;
+    box-shadow: 0 0 8px var(--instrument-accent, oklch(0.78 0.18 152 / 0.5));
+  }
+  .instrument-card::after {
+    /* Inner top-edge glow — soft accent halo right below the 2px bar */
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 0;
+    right: 0;
+    height: 32px;
+    background: linear-gradient(
+      180deg,
+      var(--instrument-accent, oklch(0.78 0.18 152 / 0.06)) 0%,
+      transparent 100%
+    );
+    pointer-events: none;
+  }
+  .instrument-card:hover {
+    border-color: oklch(1 0 0 / 0.12);
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.09),
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.28),
+      inset 1px 0 0 0 oklch(1 0 0 / 0.04),
+      inset -1px 0 0 0 oklch(1 0 0 / 0.04),
+      0 4px 8px 0 oklch(0 0 0 / 0.65),
+      0 14px 28px -6px oklch(0 0 0 / 0.85),
+      0 28px 56px -16px oklch(0 0 0 / 1);
+  }
+
+  /* Telemetry tile — tiny system indicator used in dense telemetry strips.
+     Compact dot + label + value, fits ~140px width. */
+  .telemetry-tile {
+    background: linear-gradient(180deg, oklch(1 0 0 / 0.025) 0%, transparent 100%);
+    border: 1px solid oklch(1 0 0 / 0.04);
+    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.04);
+    transition: background 160ms ease, border-color 160ms ease;
+  }
+  .telemetry-tile:hover {
+    background: linear-gradient(180deg, oklch(1 0 0 / 0.05) 0%, transparent 100%);
+    border-color: oklch(1 0 0 / 0.08);
+  }
+
+  /* Health indicator dot — 6px dot with optional pulse animation */
+  .health-dot {
+    position: relative;
+    width: 6px;
+    height: 6px;
+    border-radius: 9999px;
+    flex-shrink: 0;
+  }
+  .health-dot.ok { background: oklch(0.78 0.18 152); }
+  .health-dot.warn { background: oklch(0.82 0.16 85); }
+  .health-dot.error { background: oklch(0.66 0.22 25); }
+  .health-dot.idle { background: oklch(0.50 0.005 264); }
+  .health-dot.pulse::after {
+    content: "";
+    position: absolute;
+    inset: -3px;
+    border-radius: 9999px;
+    background: inherit;
+    opacity: 0.5;
+    animation: health-pulse 1.8s ease-in-out infinite;
+  }
+  @keyframes health-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.5; }
+    50%      { transform: scale(1.8); opacity: 0; }
+  }
+
+  /* Number tick — micro animation when a metric value updates.
+     Apply to a numeric span and toggle class when the value changes. */
+  .tick-flash {
+    animation: tick-flash 480ms ease-out;
+  }
+  @keyframes tick-flash {
+    0%   { color: var(--tick-color, oklch(0.78 0.18 152)); text-shadow: 0 0 8px var(--tick-color, oklch(0.78 0.18 152 / 0.5)); }
+    100% { color: inherit; text-shadow: none; }
+  }
+
+  /* Heartbeat — slow "system alive" pulse for header logo / engine dot */
+  .heartbeat {
+    animation: heartbeat 3.2s ease-in-out infinite;
+  }
+  @keyframes heartbeat {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    20%      { opacity: 0.85; transform: scale(0.96); }
+    40%      { opacity: 1; transform: scale(1.06); }
+    60%      { opacity: 0.92; transform: scale(0.98); }
+    80%      { opacity: 1; transform: scale(1.02); }
+  }
+
+  /* Scan line — subtle "live" sweep for hero panels (Bloomberg/CRT vibe) */
+  .scan-line {
+    position: relative;
+    overflow: hidden;
+  }
+  .scan-line::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 60%;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      oklch(1 0 0 / 0.012) 50%,
+      transparent 100%
+    );
+    animation: scan-sweep 6s linear infinite;
+    pointer-events: none;
+  }
+  @keyframes scan-sweep {
+    0%   { transform: translateY(-100%); }
+    100% { transform: translateY(220%); }
+  }
+
+  /* Progress rail — denser, finer progress bar used in instrument cards */
+  .progress-rail {
+    height: 4px;
+    width: 100%;
+    background: oklch(1 0 0 / 0.06);
+    border-radius: 9999px;
+    overflow: hidden;
+    position: relative;
+  }
+  .progress-rail-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 600ms cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--instrument-accent, oklch(0.78 0.18 152));
+    box-shadow: 0 0 8px var(--instrument-accent, oklch(0.78 0.18 152 / 0.5));
+  }
+
+  /* Color tokens for semantic states — used by health indicators & badges */
+  .text-profit  { color: oklch(0.78 0.18 152); }
+  .text-loss    { color: oklch(0.66 0.22 25); }
+  .text-sys     { color: oklch(0.70 0.16 230); }   /* blue = system */
+  .text-warn    { color: oklch(0.82 0.16 85); }    /* amber = warning */
+  .text-ai      { color: oklch(0.70 0.18 290); }   /* violet = AI */
+  .text-chain   { color: oklch(0.74 0.16 200); }   /* cyan = blockchain */
+  .bg-profit\/10  { background-color: oklch(0.78 0.18 152 / 0.10); }
+  .bg-loss\/10    { background-color: oklch(0.66 0.22 25 / 0.10); }
+  .bg-sys\/10     { background-color: oklch(0.70 0.16 230 / 0.10); }
+  .bg-warn\/10    { background-color: oklch(0.82 0.16 85 / 0.10); }
+  .bg-ai\/10      { background-color: oklch(0.70 0.18 290 / 0.10); }
+  .bg-chain\/10   { background-color: oklch(0.74 0.16 200 / 0.10); }
+  .border-profit\/30 { border-color: oklch(0.78 0.18 152 / 0.30); }
+  .border-loss\/30   { border-color: oklch(0.66 0.22 25 / 0.30); }
+  .border-sys\/30    { border-color: oklch(0.70 0.16 230 / 0.30); }
+  .border-warn\/30   { border-color: oklch(0.82 0.16 85 / 0.30); }
+  .border-ai\/30     { border-color: oklch(0.70 0.18 290 / 0.30); }
+  .border-chain\/30  { border-color: oklch(0.74 0.16 200 / 0.30); }
+
+  /* Subtle inner divider used in instrument cards to separate "main value"
+     from "sub-stats" — adds panel-like feel without a hard border */
+  .panel-divider {
+    border-top: 1px solid oklch(1 0 0 / 0.05);
+    box-shadow: inset 0 1px 0 0 oklch(0 0 0 / 0.20);
+  }
+
+  /* Focal pulse — applied to the equity hero outline to subtly signal "primary" */
+  .focal-pulse {
+    animation: focal-pulse 4s ease-in-out infinite;
+  }
+  @keyframes focal-pulse {
+    0%, 100% { box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.07),
+                           inset 0 -1px 0 0 oklch(0 0 0 / 0.30),
+                           0 2px 8px 0 oklch(0 0 0 / 0.55),
+                           0 16px 48px -8px oklch(0 0 0 / 0.75),
+                           0 40px 80px -32px oklch(0 0 0 / 0.95),
+                           0 0 0 0 oklch(0.78 0.18 152 / 0); }
+    50%      { box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.07),
+                           inset 0 -1px 0 0 oklch(0 0 0 / 0.30),
+                           0 2px 8px 0 oklch(0 0 0 / 0.55),
+                           0 16px 48px -8px oklch(0 0 0 / 0.75),
+                           0 40px 80px -32px oklch(0 0 0 / 0.95),
+                           0 0 0 1px oklch(0.78 0.18 152 / 0.18); }
   }
 }

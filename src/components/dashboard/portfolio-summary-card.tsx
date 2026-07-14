@@ -1,7 +1,5 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import {
   Wallet,
@@ -13,6 +11,7 @@ import {
   Activity,
   Coins,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type {
   EngineSnapshot,
   PositionRow,
@@ -43,9 +42,48 @@ function fmtUsd(n: number, decimals = 2): string {
   });
 }
 
+function fmtUsdCompact(n: number): string {
+  if (Math.abs(n) >= 1000) return `$${(n / 1000).toFixed(1)}k`;
+  return fmtUsd(n, 2);
+}
+
 function fmtPct(n: number, decimals = 2): string {
   const sign = n >= 0 ? "+" : "";
   return `${sign}${n.toFixed(decimals)}%`;
+}
+
+interface StatBlockProps {
+  label: string;
+  value: React.ReactNode;
+  sub?: React.ReactNode;
+  icon?: React.ReactNode;
+  accent?: "emerald" | "red" | "cyan" | "amber" | "violet" | "neutral";
+}
+
+const statAccentMap: Record<NonNullable<StatBlockProps["accent"]>, string> = {
+  emerald: "text-emerald-400",
+  red: "text-red-400",
+  cyan: "text-cyan-400",
+  amber: "text-amber-400",
+  violet: "text-violet-400",
+  neutral: "text-foreground",
+};
+
+function StatBlock({ label, value, sub, icon, accent = "neutral" }: StatBlockProps) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1.5">
+        {icon && <span className="size-3 opacity-70">{icon}</span>}
+        <p className="label-mono text-[10px] text-muted-foreground">{label}</p>
+      </div>
+      <p className={cn("text-lg font-semibold tabular leading-none", statAccentMap[accent])}>
+        {value}
+      </p>
+      {sub && (
+        <p className="text-[10px] text-muted-foreground leading-tight">{sub}</p>
+      )}
+    </div>
+  );
 }
 
 export function PortfolioSummaryCard({
@@ -55,40 +93,31 @@ export function PortfolioSummaryCard({
   surveillanceCounts,
   platforms,
 }: PortfolioSummaryCardProps) {
-  // --- Compute derived metrics ---
+  /* ----- derived ----- */
   const unrealizedPnlUsd = positions.reduce(
     (sum, p) => sum + (p.unrealizedPnlUsd ?? 0),
     0
   );
-  const unrealizedPnlPct =
-    positions.length > 0
-      ? positions.reduce((sum, p) => sum + (p.unrealizedPnlPct ?? 0), 0) /
-        positions.length
-      : 0;
   const totalPnlUsd = status.realizedPnlUsd + unrealizedPnlUsd;
+  const pnlPositive = totalPnlUsd >= 0;
+  const unrealizedPositive = unrealizedPnlUsd >= 0;
 
-  // Capital utilization: how much of trading balance is deployed in open positions
   const deployedCapital = positions.reduce(
     (sum, p) => sum + (p.entryAmountUsd ?? 0),
     0
   );
+  const deployedCurrentValue = deployedCapital + unrealizedPnlUsd;
   const capitalUtilizationPct =
     status.tradingBalanceUsd + deployedCapital > 0
-      ? (deployedCapital /
-          (status.tradingBalanceUsd + deployedCapital)) *
-        100
+      ? (deployedCapital / (status.tradingBalanceUsd + deployedCapital)) * 100
       : 0;
 
-  // Total equity = trading balance + deployed capital (current value) + reserve
-  // Deployed capital's current value = entry + unrealized PnL
-  const deployedCurrentValue = deployedCapital + unrealizedPnlUsd;
   const totalEquity =
     status.tradingBalanceUsd + deployedCurrentValue + status.reserveBalanceUsd;
   const peakEquity = status.peakBalanceUsd + status.reserveBalanceUsd;
   const drawdownPct =
     peakEquity > 0 ? ((peakEquity - totalEquity) / peakEquity) * 100 : 0;
 
-  // Recent rounds (last 5 completed) for trend
   const completedRounds = rounds
     .filter((r) => r.status === "completed" && r.roundPnlUsd !== null)
     .slice(0, 5);
@@ -104,7 +133,6 @@ export function PortfolioSummaryCard({
       ? (winningRounds / completedRounds.length) * 100
       : 0;
 
-  // Profit factor: sum of wins / |sum of losses|
   const winsSum = positions
     .filter((p) => (p.pnlUsd ?? 0) > 0)
     .reduce((sum, p) => sum + (p.pnlUsd ?? 0), 0);
@@ -114,244 +142,177 @@ export function PortfolioSummaryCard({
       .reduce((sum, p) => sum + (p.pnlUsd ?? 0), 0)
   );
   const profitFactor = lossesSum > 0 ? winsSum / lossesSum : winsSum > 0 ? 99 : 0;
-
-  // Avg hold time for closed positions in this set
-  // (rounds doesn't give us this, but we can approximate from history not
-  // available here — leaving as 'n/a' for now)
   const totalPlatformApprovals =
     platforms.total > 0 ? (platforms.approved / platforms.total) * 100 : 0;
 
-  const pnlPositive = totalPnlUsd >= 0;
-  const unrealizedPositive = unrealizedPnlUsd >= 0;
+  const realizedPct =
+    Math.abs(status.realizedPnlUsd) + Math.abs(unrealizedPnlUsd) > 0
+      ? (Math.abs(status.realizedPnlUsd) /
+          (Math.abs(status.realizedPnlUsd) + Math.abs(unrealizedPnlUsd))) *
+        100
+      : 0;
+  const unrealizedPct = 100 - realizedPct;
 
   return (
-    <Card className="border-primary/20">
-      <CardHeader className="pb-3">
-        <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
-          <span className="flex items-center gap-2">
-            <PieChart className="size-5 text-primary" />
-            Resumo do Portfólio
-          </span>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge variant={pnlPositive ? "default" : "destructive"} className="gap-1">
-              {pnlPositive ? (
-                <TrendingUp className="size-3" />
-              ) : (
-                <TrendingDown className="size-3" />
-              )}
-              {fmtPct(
-                status.peakBalanceUsd > 0
-                  ? (totalPnlUsd / status.peakBalanceUsd) * 100
-                  : 0
-              )}{" "}
-              ROI
-            </Badge>
-            {drawdownPct > 0 && (
-              <Badge variant="outline" className="gap-1 text-red-500 border-red-500/30">
-                <TrendingDown className="size-3" />
-                -{drawdownPct.toFixed(1)}% DD
-              </Badge>
+    <section className="glass-card rounded-lg overflow-hidden">
+      {/* Header bar */}
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border/40 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <PieChart className="size-4 text-emerald-400" />
+          <h3 className="text-sm font-semibold tracking-tight">Resumo do Portfólio</h3>
+        </div>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span
+            className={cn(
+              "inline-flex items-center gap-1 px-2 py-0.5 rounded border label-mono text-[10px] font-medium",
+              pnlPositive
+                ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                : "bg-red-500/10 border-red-500/30 text-red-300"
             )}
-            {surveillanceCounts.critical > 0 && (
-              <Badge variant="destructive" className="gap-1 animate-pulse">
-                <ShieldAlert className="size-3" />
-                {surveillanceCounts.critical} crítico(s)
-              </Badge>
-            )}
-          </div>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {/* Top row: equity + P&L breakdown */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Wallet className="size-3" />
-              Patrimônio Total
-            </p>
-            <p className="text-xl font-bold">{fmtUsd(totalEquity)}</p>
-            <p className="text-[10px] text-muted-foreground">
-              Pico: {fmtUsd(peakEquity)}
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
+          >
+            {pnlPositive ? (
               <TrendingUp className="size-3" />
-              P&L Total
-            </p>
-            <p
-              className={`text-xl font-bold ${
-                pnlPositive ? "text-green-500" : "text-red-500"
-              }`}
-            >
-              {fmtUsd(totalPnlUsd)}
-            </p>
-            <p className="text-[10px] text-muted-foreground">
-              Realizado: {fmtUsd(status.realizedPnlUsd)} • Aberto:{" "}
-              <span
-                className={
-                  unrealizedPositive ? "text-green-500" : "text-red-500"
-                }
-              >
+            ) : (
+              <TrendingDown className="size-3" />
+            )}
+            {fmtPct(status.peakBalanceUsd > 0 ? (totalPnlUsd / status.peakBalanceUsd) * 100 : 0)} ROI
+          </span>
+          {drawdownPct > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-red-500/30 bg-red-500/10 text-red-300 label-mono text-[10px] font-medium">
+              <TrendingDown className="size-3" />
+              -{drawdownPct.toFixed(1)}% DD
+            </span>
+          )}
+          {surveillanceCounts.critical > 0 && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded border border-red-500/40 bg-red-500/15 text-red-300 label-mono text-[10px] font-medium animate-pulse">
+              <ShieldAlert className="size-3" />
+              {surveillanceCounts.critical} CRÍTICO
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Body: primary stats grid */}
+      <div className="px-5 py-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatBlock
+          label="Patrimônio Total"
+          value={fmtUsd(totalEquity)}
+          sub={`Pico ${fmtUsd(peakEquity)}`}
+          icon={<Wallet className="size-3" />}
+        />
+        <StatBlock
+          label="P&L Total"
+          value={fmtUsd(totalPnlUsd)}
+          accent={pnlPositive ? "emerald" : "red"}
+          sub={
+            <>
+              Realizado {fmtUsd(status.realizedPnlUsd)} · Aberto{" "}
+              <span className={unrealizedPositive ? "text-emerald-400" : "text-red-400"}>
                 {fmtUsd(unrealizedPnlUsd)}
               </span>
-            </p>
-          </div>
+            </>
+          }
+          icon={pnlPositive ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+        />
+        <StatBlock
+          label="Win Rate"
+          value={`${status.winRate.toFixed(1)}%`}
+          sub={`${status.wins}W / ${status.losses}L · PF ${profitFactor === 99 ? "∞" : profitFactor.toFixed(2)}`}
+          icon={<Target className="size-3" />}
+        />
+        <StatBlock
+          label="Capital Alocado"
+          value={`${capitalUtilizationPct.toFixed(0)}%`}
+          sub={`${fmtUsdCompact(deployedCurrentValue)} em ${positions.length} pos.`}
+          icon={<Activity className="size-3" />}
+        />
+      </div>
 
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Target className="size-3" />
-              Win Rate
-            </p>
-            <p className="text-xl font-bold">{status.winRate.toFixed(1)}%</p>
-            <p className="text-[10px] text-muted-foreground">
-              {status.wins}W / {status.losses}L • Profit Factor:{" "}
-              {profitFactor === 99 ? "∞" : profitFactor.toFixed(2)}
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Activity className="size-3" />
-              Capital Alocado
-            </p>
-            <p className="text-xl font-bold">{capitalUtilizationPct.toFixed(0)}%</p>
-            <p className="text-[10px] text-muted-foreground">
-              {fmtUsd(deployedCurrentValue)} em {positions.length} pos.
-            </p>
-          </div>
+      {/* Capital utilization bar */}
+      <div className="px-5 pb-4 space-y-1.5">
+        <div className="flex items-center justify-between text-[10px] label-mono">
+          <span className="text-muted-foreground">Utilização de Capital</span>
+          <span className="text-muted-foreground tabular">
+            {fmtUsdCompact(deployedCapital)} deployed · {fmtUsdCompact(status.tradingBalanceUsd)} livre · {fmtUsdCompact(status.reserveBalanceUsd)} reserva
+          </span>
         </div>
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div
+            className="h-full bg-gradient-to-r from-emerald-500/80 to-emerald-400 rounded-full transition-all duration-500"
+            style={{ width: `${Math.min(capitalUtilizationPct, 100)}%` }}
+          />
+        </div>
+      </div>
 
-        {/* Capital utilization bar */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-muted-foreground">Utilização de Capital</span>
-            <span className="font-medium">
-              {fmtUsd(deployedCapital)} deployed • {fmtUsd(status.tradingBalanceUsd)} livre •{" "}
-              {fmtUsd(status.reserveBalanceUsd)} reserva
+      {/* P&L composition bar */}
+      {(Math.abs(status.realizedPnlUsd) > 0 || Math.abs(unrealizedPnlUsd) > 0) && (
+        <div className="px-5 pb-4 space-y-1.5">
+          <div className="flex items-center justify-between text-[10px] label-mono">
+            <span className="text-muted-foreground">Composição P&L · {fmtUsdCompact(totalPnlUsd)}</span>
+            <span className="text-muted-foreground">
+              {realizedPct.toFixed(0)}% realizado · {unrealizedPct.toFixed(0)}% aberto
             </span>
           </div>
-          <Progress value={capitalUtilizationPct} className="h-2" />
-        </div>
-
-        {/* Secondary metrics row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Coins className="size-3" />
-              Rounds (5 últimos)
-            </p>
-            <p className="text-sm font-medium">
-              {fmtUsd(recentRoundsPnl)}{" "}
-              <span className={recentRoundsPnl >= 0 ? "text-green-500" : "text-red-500"}>
-                ({fmtPct(roundWinRate)} win)
-              </span>
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <Activity className="size-3" />
-              P&L médio por posição
-            </p>
-            <p className="text-sm font-medium">
-              {status.totalPositionsClosed > 0
-                ? fmtUsd(status.realizedPnlUsd / status.totalPositionsClosed)
-                : "—"}
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <ShieldAlert className="size-3" />
-              Vigilância
-            </p>
-            <p className="text-sm font-medium">
-              {surveillanceCounts.total === 0 ? (
-                <span className="text-green-500">Tudo sob controle</span>
-              ) : (
-                <span className="text-yellow-500">
-                  {surveillanceCounts.total} alerta(s) ativos
-                </span>
-              )}
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <PieChart className="size-3" />
-              Plataformas aprovadas
-            </p>
-            <p className="text-sm font-medium">
-              {platforms.approved}/{platforms.total}{" "}
-              <span className="text-muted-foreground text-xs">
-                ({totalPlatformApprovals.toFixed(0)}%)
-              </span>
-            </p>
+          <div className="flex h-1.5 rounded-full overflow-hidden bg-muted">
+            <div
+              className={status.realizedPnlUsd >= 0 ? "bg-emerald-500" : "bg-red-500"}
+              style={{ width: `${realizedPct}%` }}
+            />
+            <div
+              className={unrealizedPnlUsd >= 0 ? "bg-emerald-400/70" : "bg-red-400/70"}
+              style={{ width: `${unrealizedPct}%` }}
+            />
           </div>
         </div>
+      )}
 
-        {/* P&L breakdown bar — visual ratio of realized vs unrealized */}
-        {(Math.abs(status.realizedPnlUsd) > 0 || Math.abs(unrealizedPnlUsd) > 0) && (
-          <div className="space-y-1.5 pt-2 border-t">
-            <p className="text-xs text-muted-foreground">
-              Composição do P&L Total ({fmtUsd(totalPnlUsd)})
-            </p>
-            <div className="flex h-3 rounded overflow-hidden bg-muted">
-              {(() => {
-                const totalAbs =
-                  Math.abs(status.realizedPnlUsd) + Math.abs(unrealizedPnlUsd);
-                if (totalAbs === 0) return null;
-                const realizedPct =
-                  (Math.abs(status.realizedPnlUsd) / totalAbs) * 100;
-                const unrealizedPct =
-                  (Math.abs(unrealizedPnlUsd) / totalAbs) * 100;
-                return (
-                  <>
-                    <div
-                      className={
-                        status.realizedPnlUsd >= 0
-                          ? "bg-green-500"
-                          : "bg-red-500"
-                      }
-                      style={{ width: `${realizedPct}%` }}
-                      title={`Realizado: ${fmtUsd(status.realizedPnlUsd)}`}
-                    />
-                    <div
-                      className={
-                        unrealizedPnlUsd >= 0
-                          ? "bg-green-400"
-                          : "bg-red-400"
-                      }
-                      style={{ width: `${unrealizedPct}%` }}
-                      title={`Não-realizado: ${fmtUsd(unrealizedPnlUsd)}`}
-                    />
-                  </>
-                );
-              })()}
-            </div>
-            <div className="flex gap-3 text-[10px] text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <span className="size-2 rounded-sm bg-green-500" />
-                Realizado (+)
+      {/* Secondary metrics row */}
+      <div className="px-5 py-3 border-t border-border/40 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatBlock
+          label="Rounds (5R)"
+          value={
+            <span className={recentRoundsPnl >= 0 ? "text-emerald-400" : "text-red-400"}>
+              {fmtUsd(recentRoundsPnl)}
+            </span>
+          }
+          sub={`${fmtPct(roundWinRate)} win rate`}
+          icon={<Coins className="size-3" />}
+        />
+        <StatBlock
+          label="P&L médio / posição"
+          value={
+            status.totalPositionsClosed > 0
+              ? fmtUsd(status.realizedPnlUsd / status.totalPositionsClosed)
+              : "—"
+          }
+          icon={<Activity className="size-3" />}
+        />
+        <StatBlock
+          label="Vigilância"
+          value={
+            surveillanceCounts.total === 0 ? (
+              <span className="text-emerald-400">OK</span>
+            ) : (
+              <span className="text-amber-400">
+                {surveillanceCounts.total} alerta(s)
               </span>
-              <span className="flex items-center gap-1">
-                <span className="size-2 rounded-sm bg-green-400" />
-                Não-realizado (+)
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="size-2 rounded-sm bg-red-500" />
-                Realizado (−)
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="size-2 rounded-sm bg-red-400" />
-                Não-realizado (−)
-              </span>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            )
+          }
+          sub={
+            surveillanceCounts.total > 0
+              ? `${surveillanceCounts.critical} crítico · ${surveillanceCounts.warning} warn`
+              : "Tudo sob controle"
+          }
+          icon={<ShieldAlert className="size-3" />}
+          accent={surveillanceCounts.total > 0 ? "amber" : "emerald"}
+        />
+        <StatBlock
+          label="Plataformas"
+          value={`${platforms.approved}/${platforms.total}`}
+          sub={`${totalPlatformApprovals.toFixed(0)}% aprovadas`}
+          icon={<PieChart className="size-3" />}
+        />
+      </div>
+    </section>
   );
 }
