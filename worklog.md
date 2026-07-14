@@ -870,3 +870,43 @@ Stage Summary:
 - Phase 1 (signer isolation) is now FUNCTIONALLY COMPLETE: the signer process boots, accepts connections, dispatches RPCs through the allowlist, handles all 5 wallet methods (unlock/lock/getVaultStatus/clearRateLimit/getRateLimitStatus), zeroizes the vault on parent disconnect (with audit-log proof), and crashes loudly (never silently) on unexpected handler exceptions.
 - The SIGNER_PROTOCOL_VERSION is now "1.1.0-m2". The web-side RPC client (M6) will need to speak this version. The version bump is documented in signer-protocol.ts.
 - Next: Phase 1 closure (validate all acceptance criteria green, update docs) → then H0 of the HARDENING-ROADMAP.
+
+---
+Task ID: phase1-closure (Phase 1 signer isolation — final validation + closure)
+Agent: engineering (main session)
+Task: Validate that all Phase 1 acceptance criteria remain green after the REG-006 fix and the M2.3 implementation. Update documentation if needed. Mark Phase 1 as complete.
+
+Work Log:
+- Validated full test:ci: 45/45 PASS across 6 suites (20 vault + 4 peer-integration + 5 signer-process + 11 wallet-crud + 2 signer-structural + 3 signer-vault-integration).
+- Validated readonly-container test: 3/3 PASS (install-git-hooks.sh graceful no-op on read-only .git/hooks).
+- Validated git working tree: clean except db/custom.db (the SQLite dev DB, modified by test CRUD operations — expected, not a regression).
+- Verified all 7 REG entries are present in SECURITY.md:
+  - REG-001: enteredHandler sentinel in request-peer-capture.ts (§7.3.7 closure).
+  - REG-002: per-IP rate limiter fallback is req.socket.remoteAddress, never a fixed sentinel.
+  - REG-003: test suite self-cleanup via hardCleanupBeforeSuite, not manual DB intervention.
+  - REG-004: pre-push git hook runs test:ci before any push + graceful no-op on read-only containers.
+  - REG-005: commit discipline — no milestone stays working-tree-only.
+  - REG-006: schema reconstruction MUST be validated against the CRUD layer, not just the direct-DB test path.
+  - REG-007: dispatcher LAYER 2 discipline — handler exceptions propagate, never swallowed.
+- Verified all 4 Phase 1 milestones are committed to git:
+  - M1 (signer process skeleton): restored in d4dc0c0.
+  - M2.1 (allowlist forward-declaration + M2 method schemas): restored in d4dc0c0.
+  - M2.2 (dispatcher sentinel pattern — LAYER 1/LAYER 2 discipline): restored in d4dc0c0.
+  - M2.3 (wallet handlers + structural dispatcher test + vault integration test): committed in 6f7eb6b.
+- Verified the SIGNER_PROTOCOL_VERSION is "1.1.0-m2" (bumped from "1.0.0-m1" in M2.3 to reflect the wire-protocol change from adding wallet methods to the allowlist). The web-side RPC client (M6, future) will need to speak this version.
+- Verified the prisma/migrations/ directory exists with migration_lock.toml (provider=sqlite) and the baseline migration 20260714000001_wallet_exchange_recon_fix/migration.sql (430 lines, captures the full 19-model schema at the post-recovery state). Future schema changes go through `prisma migrate dev --name <desc>` instead of silent db push writes.
+- Verified the pre-push git hook is installed and executable (.git/hooks/pre-push, mode 755). The hook runs `npm run test:ci` (45 tests) before any push. The postinstall script (scripts/install-git-hooks.sh) is wired in package.json and handles 3 scenarios: .git absent, .git/hooks read-only, .git/hooks writable.
+- No documentation changes needed beyond what's already in the M2.3 commit. The signer-isolation-design.md (committed in d4dc0c0) remains accurate for the M1-M2.2 design; the M2.3 implementation matches the design's LAYER 1/LAYER 2 discipline and adds the wallet handlers + zeroize-on-disconnect as designed.
+
+Stage Summary:
+- PHASE 1 (SIGNER ISOLATION) IS COMPLETE.
+- All acceptance criteria met:
+  - M1: signer process boots, creates Unix socket, accepts connections, handles health_check, exits on parent disconnect. 5/5 integration tests pass.
+  - M2.1: M2 method types forward-declared in signer-protocol.ts.
+  - M2.2: LAYER 1/LAYER 2 discipline documented as 75-line comment block in dispatchRpc.
+  - M2.3: wallet handlers wired, dispatcher async, zeroize-on-disconnect with audit log. 5-assertion structural test + real integration test both pass.
+- 7 REG entries in SECURITY.md guard against regression of the key disciplines.
+- 45/45 test:ci + 3/3 readonly-container test = 48/48 total passing.
+- Git history is clean: 4 substantive commits since the PolarFS recovery (d4dc0c0 restore, 2495049 worklog+REG-005, 5b382f5 recovery docs, cdfd58f REG-006 fix, 6f7eb6b M2.3).
+- The project is ready to begin H0 of the HARDENING-ROADMAP (foundational hardening: key management, encryption, parallel to M3/M4). H0 depends on the signer isolation that Phase 1 just completed — specifically, the wallet handlers from M2.3 are the integration point for H0's key-derivation review and the audit-log hash chain (M5, also part of H0).
+- Next steps for the operator: review the M2.3 commit (6f7eb6b) — particularly the test hook infrastructure (SIGNER_TEST_HOOKS env var) and the LAYER 2 discipline implementation. If approved, the project can proceed to H0 (or to M3/M4 if the operator prefers to complete the signer isolation fully before starting hardening).
