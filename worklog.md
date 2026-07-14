@@ -1771,3 +1771,45 @@ Stage Summary:
 - Writer lease precondition is a documented SEAM (`checkWriterLease()` in sign-methods.ts) — returns null for M3.2, will be replaced with a real check when M4 lands. The seam is a single function replacement; no handler body changes will be needed.
 - Wallet-by-address lookup uses a DB query + `walletVault.getWalletKey(walletId)` + ethers address derivation verification — avoids modifying the frozen wallet-crypto.ts while still providing defense in depth against DB corruption.
 - Next: M3.3 — Broadcaster. Sits downstream of the signer. Takes the signed tx (rawSignedTx from signTransaction) and broadcasts via `broadcastRawTransaction` from frozen rpc-resilience.ts (H1). M3.3 will fill in the placeholder nonce/gas with real values BEFORE signing (or re-sign with real values after the placeholder signing — design decision for M3.3). The M3.2 signTransaction handler returns rawSignedTx specifically so M3.3 can consume it.
+
+---
+Task ID: m3.3.architecture
+Agent: main
+Task: Record the M3.3 architectural decision (Option A: sign after nonce/gas) and pin REG-014 (post-signature immutability) before implementation begins.
+
+Work Log:
+- Read worklog.md to confirm M3.2 is complete and the M3.3 entry in the roadmap is currently a brief placeholder.
+- Read src/signer/main.ts to confirm dispatchRpc routes `signTransaction` / `signTypedData` / `signMessage` to `handleSignMethod` (M3.2 wired correctly, LAYER 2 discipline preserved — no try/catch around the handler call).
+- Read src/signer/sign-methods.ts (full) to confirm `handleSignTransaction` returns `rawSignedTx` in the SignHandlerResult (line 425: `wallet.signTransaction(tx)`; line 445: `rawSignedTx` field in result). This is the seam M3.3 will consume — the signer already produces the bytes the Broadcaster needs to transmit.
+- Read src/lib/chain/rpc-resilience.ts (H1.1, FROZEN) to confirm `broadcastRawTransaction` (line 332) walks healthy endpoints in priority order, returns `{ ok, txHash, broadcastBy, failedOver, error }`, and never broadcasts to multiple endpoints simultaneously (avoids double-broadcast risk). 0 callers today — M3.3 will be the first consumer.
+- Read src/lib/chain/pipeline.ts (H2.6, FROZEN) to confirm: (1) the `SignerSink` interface (line 157) requires only `submit(req): Promise<SignerResult>`; (2) `SignerResult` (line 149) has only `{ ok, txHash?, error? }` — NO `rawSignedTx` field; (3) the pipeline's `succeed()` helper (line 340) records `signerResult.txHash` in the audit log; (4) the pipeline does NOT resolve nonce or gas — `req.tx` is passed verbatim to the signer.
+- Read src/lib/chain/signer-adapter.ts (M3.1) to confirm: (1) the adapter maps `SignerRequest → SignerWireRequest` with `operation: "signTransaction"` hardcoded (line 400); (2) the adapter parses the wire response but discards `rawSignedTx` when mapping to `SignerResult` (line 481 returns only `{ ok, txHash }`); (3) the adapter is NOT in the REG-009 frozen list — it can be extended.
+- Read src/lib/signer-protocol.ts to confirm the M3.1 two-point protocol validation is in place (adapter pre-flight + signer per-request).
+- Read SECURITY.md REG-011 (signer-side payload re-verification) + REG-012 (key-derived address verification) + REG-013 (writer lease hard precondition — M4 SEAM) to confirm the regression-entry pattern and identify the next REG number (REG-014).
+- Validated the operator's Option A architectural decision:
+  - Option A (sign after nonce/gas): signature covers exactly the bytes transmitted; no re-signing; eliminates simulation-vs-send divergence. CONSISTENT with the M3.2/M3.3 decoupling principle already in the roadmap ("a broadcast failure doesn't invalidate the signature, and a re-sign isn't forced on every retry").
+  - Option B (sign before + re-sign): two signatures, more intermediate states, divergence risk between first and second signature. REJECTED — would violate the immutability property the operator is pinning as REG-014.
+- Identified the architectural seam for M3.3: a NEW module `BroadcastingSignerSink` (implements `SignerSink`) wraps `SignerAdapter` + a NEW `Broadcaster` module. The pipeline (FROZEN) continues to call `signer.submit(req)` and receive `SignerResult`. The Broadcaster consumes the H1.1 `broadcastRawTransaction` primitive (FROZEN, 0 callers today). The M3.1 adapter needs a thin extension — a new method `signAndReturnRaw()` that exposes the `rawSignedTx` field already present in the M3.2 wire response. The existing `submit()` method stays unchanged.
+- Identified the closed integrity loop formed by REG-011 + REG-014:
+    build payload → hash(payload) → sign(payload)              [REG-011 guards: signer recomputes payloadHash]
+                                    ↓
+                          rawSignedTx (immutable)
+                                    ↓
+                  hash(rawSignedTx) → broadcast → verify hash  [REG-014 guards: broadcaster recomputes keccak256]
+- Updated HARDENING-ROADMAP.md: replaced the brief M3.3 placeholder (lines 686-698) with the full closed-scope spec — Option A decision rationale, 6 responsibilities, 7 explicit exclusions, 8-category adversarial test matrix, structural immutability test diagram, planned files, frozen-base-respected declaration.
+- Updated SECURITY.md: added REG-014 (post-signature immutability) after REG-013. Pinned BEFORE implementation per the operator's directive. The entry documents: the rule (Broadcaster MUST compute hashBefore locally and verify against broadcast-returned hash), why it's load-bearing (signature must cover exactly the transmitted bytes), relationship to REG-011 (closed integrity loop), what it forbids (re-signing, mutating rawSignedTx, trusting RPC hash without local recomputation, patching signed tx for stale nonce), regression test references (M3.3 scenarios #4 and #8).
+
+Stage Summary:
+- M3.3 architectural decision RECORDED. Option A (sign after filling nonce/gas) is confirmed as the chosen ordering, with technical justification aligned to the existing M3.2/M3.3 decoupling principle.
+- REG-014 (post-signature immutability) is PINNED in SECURITY.md before any M3.3 code is written — this is the same "pin the regression entry before implementation" discipline used for REG-011/012/013 in M3.2.
+- The frozen base is documented as untouched: H0/H1/H2/H2.6 (10 files, REG-009), the H2.6 pipeline, the H1.1 rpc-resilience module, and the M3.2 sign-methods module all remain UNCHANGED. The M3.1 signer-adapter will receive a thin extension (one new method) — the existing `submit()` method stays unchanged.
+- The M3.2 signer already returns `rawSignedTx` in `SignHandlerResult` — M3.3 does NOT need to modify the signer. The seam is clean.
+- The H1.1 `broadcastRawTransaction` primitive is FROZEN and ready to consume — M3.3 will be its first caller.
+- Adversarial test matrix is defined (8 categories + structural immutability test), matching the operator's directive.
+- Next step: await operator's go-ahead to begin M3.3 implementation. The implementation plan is:
+    1. Write `scripts/test-m3-broadcaster.ts` first (adversarial-first discipline — 8 categories + immutability structural test).
+    2. Write `src/lib/chain/broadcaster.ts` (the Broadcaster module — nonce resolution, gas resolution, tx assembly, immutability check, broadcast invocation, hash verification).
+    3. Extend `src/lib/chain/signer-adapter.ts` with `signAndReturnRaw()` (thin extension — expose rawSignedTx from the wire response; existing submit() unchanged).
+    4. Wire the BroadcastingSignerSink (implements SignerSink) as the integration point the pipeline calls.
+    5. Re-run the full CI suite (21 files / 716 checks today) + the new M3.3 tests. Confirm zero regressions in H0/H1/H2/H2.6/M3.1/M3.2.
+    6. Update HARDENING-ROADMAP.md M3.3 section with implementation results + bug count + CI gate count. Update SECURITY.md REG-014 with the realized test scenario numbers.

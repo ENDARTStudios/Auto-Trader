@@ -1730,6 +1730,68 @@ structural check) confirms the precondition check IS invoked in the
 will verify that a missing lease → `PRECONDITION_FAILED` and NO signing
 occurs.
 
+### REG-014: Post-signature immutability (M3.3 — pinned before implementation)
+
+**Pin date:** Jul 15 2026 (M3.3 architectural decision — recorded BEFORE
+implementation, per the operator's directive).
+
+**Rule:** Once a transaction has been signed by the signer, the signed
+bytes (`rawSignedTx`) MUST be treated as immutable by the Broadcaster.
+The Broadcaster MUST compute `hashBefore = keccak256(rawSignedTx)`
+locally BEFORE invoking `broadcastRawTransaction`, and MUST verify that
+the broadcast-accepted hash matches `hashBefore`. Any divergence is a
+critical integrity failure — the Broadcaster MUST fail closed and NOT
+report a successful broadcast.
+
+**Why this is load-bearing:** The whole point of the M3.2/M3.3
+decoupling is that the signature covers EXACTLY the bytes that will be
+transmitted. If the Broadcaster were allowed to modify the signed bytes
+between signing and broadcast (e.g., "patch the nonce", "bump gas",
+"adjust calldata"), the signature would no longer cover the actual
+transmitted bytes — defeating the REG-011 signer-side payload
+reverification and creating a trust gap between what the signer signed
+and what the chain received.
+
+**Relationship to REG-011:** REG-011 protects the payload BEFORE
+signing (the signer recomputes `payloadHash` and rejects on mismatch).
+REG-014 protects the signed bytes BEFORE broadcast (the broadcaster
+recomputes `keccak256(rawSignedTx)` and rejects on mismatch with the
+broadcast-returned hash). Together they form a closed integrity loop:
+
+```
+build payload → hash(payload) → sign(payload)         [REG-011 guards this]
+                                     ↓
+                          rawSignedTx (immutable)
+                                     ↓
+                  hash(rawSignedTx) → broadcast → verify hash   [REG-014 guards this]
+```
+
+**What this rule forbids:**
+
+- Re-signing after nonce/gas resolution (Option B — rejected by the
+  operator in the M3.3 architectural decision).
+- Mutating `rawSignedTx` between signing and broadcast (any field).
+- Trusting the RPC's returned hash without local recomputation.
+- "Patching" a signed transaction to fix a stale nonce or insufficient
+  gas — instead, the Broadcaster MUST fail closed and let M4's retry
+  logic (when it lands) build a fresh transaction from scratch.
+
+**Regression test:** M3.3 test suite, scenario #4 (RPC returns a hash
+different from the locally-computed `hashBefore` → fail closed) and
+scenario #8 (raw transaction altered after signature → MUST fail BEFORE
+broadcast). The structural immutability test verifies the sequence:
+`buildTransaction → sign → hashBefore → broadcast → hashAfter ==
+hashBefore`.
+
+**Why this is a regression entry:** A future maintainer might be
+tempted to "optimize" by skipping the local hash recomputation ("the
+RPC already returns the hash, why compute it twice?") or to "fix" a
+stale-nonce broadcast by patching the signed transaction ("just bump
+the nonce in the signed bytes and re-broadcast"). Both patterns would
+violate the immutability guarantee and create a trust gap. This entry
+documents that the local hash recomputation is load-bearing — it is
+the only thing that proves the bytes broadcast are the bytes signed.
+
 ### Test coverage
 
 M3.2 added **80 new assertions** across **1 new test file**:

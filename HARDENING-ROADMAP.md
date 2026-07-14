@@ -683,19 +683,123 @@ The M3.1 adapter computes `payloadHash = SHA-256(canonical JSON of payload)` and
 
 **Frozen base respected:** Zero modifications to the 10 files listed in REG-009. The M3.1 adapter (`src/lib/chain/signer-adapter.ts`) is also unchanged — only the M3.1 TEST FILE had its D.2 assertion updated to reflect post-M3.2 behavior.
 
-### M3.3 — Broadcaster (after M3.2 stable)
+### M3.3 — Broadcaster (architectural decision recorded Jul 15 2026)
 
-Sits downstream of the signer:
+Sits downstream of the signer. Consumes the H1.1 RPC resilience
+primitive (`QuorumRpcClient.broadcastRawTransaction` — already
+implemented, FROZEN, 0 callers today) and the signature produced by
+M3.2. Introduces NO new security decisions in the frozen layers.
 
 ```
-Pipeline → SignerAdapter → Signer RPC → Broadcaster → on-chain
+Pipeline (FROZEN) → SignerSink.submit(req)
+                          ↓
+                  BroadcastingSignerSink (NEW, M3.3)
+                          ↓
+                  1. resolve nonce      (QuorumRpcClient.quorumRead)
+                  2. resolve gas params (QuorumRpcClient.quorumRead)
+                  3. build final tx    (fill nonce + gas into req.tx)
+                  4. request signature (SignerAdapter → Signer RPC)
+                  5. hash(rawSignedTx) → hashBefore
+                  6. broadcast          (QuorumRpcClient.broadcastRawTransaction)
+                  7. verify broadcastHash == hashBefore  (immutability — REG-014)
+                  8. return { ok, txHash: broadcastHash }
 ```
 
-The broadcaster sends the signed transaction via the H1.1 RPC
-resilience layer (`QuorumRpcClient.broadcastRawTransaction` — already
-implemented, 0 callers today). Signing and broadcast remain decoupled
-so a broadcast failure doesn't invalidate the signature, and a
-re-sign isn't forced on every retry.
+**Architectural decision — Option A (sign AFTER filling nonce/gas):**
+
+The operator reviewed two ordering options before closing M3.3 scope:
+
+- **Option A (CHOSEN)** — Resolve nonce + gas BEFORE signing. The
+  signature covers exactly the bytes that will be transmitted. No
+  re-signing. Eliminates simulation-vs-send divergence.
+- **Option B (REJECTED)** — Sign a partial tx, resolve nonce + gas,
+  re-sign. Two signatures, more intermediate states, risk of
+  divergence between the first and second signature.
+
+Option A is consistent with the M3.2/M3.3 decoupling principle: the
+signer signs a fully-formed transaction; the broadcaster transmits
+the exact bytes that were signed. A broadcast failure does NOT
+invalidate the signature, and a re-sign is NOT forced on every retry.
+
+**Closed scope — 6 responsibilities:**
+
+1. Resolve nonce (`eth_getTransactionCount` via quorum).
+2. Resolve gas parameters (`eth_feeHistory` / `eth_gasPrice` / EIP-1559
+   fields via quorum).
+3. Build the final transaction (fill nonce + gas into `req.tx`).
+4. Request signature from the signer (via `SignerAdapter`).
+5. Transmit via `QuorumRpcClient.broadcastRawTransaction`.
+6. Return hash + initial receipt.
+
+**Explicit exclusions (belong to M4 or later):**
+
+- NO automatic retries (M4 — writer lease serializes access).
+- NO replacement transaction (M4+).
+- NO cancel transaction (M4+).
+- NO mempool management (out of scope for now).
+- NO bundle / private relay (Flashbots / MEV-Blocker — future phase).
+- NO fee bumping (M4+).
+- NO block confirmation (M3.3 returns the broadcast hash only;
+   confirmation monitoring is a separate concern).
+
+**Adversarial test matrix (per operator's M3.3 directive):**
+
+| # | Category | Property verified |
+|---|----------|-------------------|
+| 1 | nonce already used | broadcast rejected (RPC returns "nonce too low" → fail closed) |
+| 2 | stale nonce | broadcast rejected or surfaced as a recoverable error (no silent success) |
+| 3 | insufficient gas | broadcast rejected (RPC returns "intrinsic gas too low" → fail closed) |
+| 4 | RPC returns hash different from signed-tx hash | REG-014 violation → fail closed, NO broadcast claimed |
+| 5 | broadcast partial + timeout | endpoint accepted but response lost → fail closed (no double-broadcast assumption) |
+| 6 | error in one endpoint, success in another (quorum) | H1.1 failover honored; broadcaster reports `failedOver=true` |
+| 7 | malformed RPC response | adapter-style structural validation; fail closed as `BROADCAST_INVALID_RESPONSE` |
+| 8 | raw transaction altered after signature | MUST fail BEFORE broadcast (REG-014 immutability check fires pre-broadcast) |
+
+**Structural immutability test (REG-014):**
+
+```
+buildTransaction()
+      ↓
+sign()
+      ↓
+hash(rawTx)           ← hashBefore
+      ↓
+broadcast()
+      ↓
+hash(rawTx) == hashBefore   ← MUST hold; any divergence → fail closed
+```
+
+This complements REG-011 (signer-side payload reverification) and
+guarantees the Broadcaster NEVER transmits bytes different from those
+actually signed. The check is computed locally (keccak256 of the raw
+signed tx bytes) — it does NOT trust the RPC's returned hash.
+
+**Files (planned):**
+
+- NEW: `src/lib/chain/broadcaster.ts` — the Broadcaster module.
+  Owns: nonce resolution, gas resolution, tx assembly, immutability
+  check, broadcast invocation, hash verification.
+- NEW: `scripts/test-m3-broadcaster.ts` — adversarial test suite
+  (8 categories + structural immutability test).
+- UPDATE: `src/lib/chain/signer-adapter.ts` — thin extension to
+  expose `rawSignedTx` from the wire response (M3.2 already returns
+  it in `SignHandlerResult`; the adapter currently discards it when
+  mapping to `SignerResult`). The existing `submit()` method stays
+  unchanged — a new method (e.g. `signAndReturnRaw()`) is added for
+  the Broadcaster to call. The adapter remains a thin translation
+  layer; no broadcast logic enters it.
+
+**Frozen base respected:**
+
+- H0/H1/H2/H2.6 (10 files, REG-009) — UNCHANGED.
+- `src/lib/chain/pipeline.ts` (H2.6) — UNCHANGED. The pipeline still
+  calls `SignerSink.submit(req)` and receives `SignerResult`.
+- `src/lib/chain/rpc-resilience.ts` (H1.1) — UNCHANGED. The
+  Broadcaster CONSUMES `broadcastRawTransaction` without modifying it.
+- `src/signer/sign-methods.ts` (M3.2) — UNCHANGED. The signer still
+  signs only; the Broadcaster is on the web-process side.
+- `src/lib/chain/signer-adapter.ts` (M3.1) — extended with one new
+  method; existing `submit()` unchanged.
 
 Each phase produces:
 - Code (the defense)
