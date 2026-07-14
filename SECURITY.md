@@ -937,3 +937,250 @@ were caught during testing (the `recordFailure` double-count in H1.1,
 and the cap-vs-overapproval ordering in H1.3) — both would have been
 security-affecting in production and neither was caught by happy-path
 tests.
+
+## H2 — Contract interaction hardening (Jul 15 2026)
+
+H2 hardens the on-chain read path that runs BEFORE any transaction is
+built. Every contract the bot is about to interact with must be
+verified (H2.1), every liquidity pool must be checked structurally
+(H2.2), every token's authority model must be inspected (H2.3), and
+every buy must be paired with a sell simulation (H2.4). The
+operator's criterion is the load-bearing property:
+
+> nenhum contrato desconhecido entra no pipeline.
+
+H2 deliberately does NOT introduce real broadcast, real signing,
+Flashbots, MEV Blocker, SUAVE, bundles, or private mempool — those
+belong to M3/M4 when a real execution path exists. H2 keeps the
+operational surface minimal while each contract-interaction defense
+is validated independently.
+
+### H2.1 — Contract Verification (`src/lib/chain/contract-verification.ts`)
+
+`ContractVerifier` enforces 5 checks before any contract enters the
+pipeline:
+
+1. **Bytecode hash** — keccak256 of deployed bytecode must match
+   `expectedBytecodeHash`. Refuses unknown bytecode by default;
+   `allowBytecodeDrift` is the explicit opt-out (security smell,
+   used only during initial onboarding).
+2. **Selector allowlist** — every 4-byte selector extracted from
+   the bytecode (via the `PUSH4 <sel> EQ` pattern) must be a subset
+   of `expectedSelectors`. An extra `sweep()` / `setFee()` /
+   `mint()` introduced by an upgrade is rejected.
+3. **Owner/admin allowlist** — `owner()` return value must be in
+   `allowedOwners`. `owner()=0x0` on a contract that exposes the
+   `owner()` selector is treated as fake renounce (the contract
+   kept privileged functions but reports no owner).
+4. **Proxy detection** — EIP-1967 (transparent + minimal + beacon),
+   EIP-1822 (UUPS), Diamond, custom. Proxy rejected unless
+   `allowProxy=true`; when allowed, the IMPLEMENTATION contract is
+   verified recursively with its own manifest (`maxProxyDepth`
+   default 3).
+5. **Upgradeability detection** — `upgradeTo` /
+   `upgradeToAndCall` / `upgradeBeaconToAndCall` selectors, or
+   proxy-with-non-zero-admin. Rejected unless `allowUpgradeable=true`.
+
+Injectable `ChainReader` (getCode / getStorageAt / call) so tests
+use deterministic mocks; production wraps `ethers.Provider` in M3.
+
+Adversarial tests (per the permanent principle):
+- D4: proxy impl swapped between two verifications (impl slot
+  repointed; manifest pins impl address; second verify fails).
+- D5: extra `sweep()` selector introduced post-upgrade (both the
+  bytecode-hash gate AND the selector gate fire independently).
+- D6: fake renounce with privileged selectors present (`mint` /
+  `pause` / `setFee` + `owner()=0x0`).
+- D7: caller-dependent owner (verifier-as-0x0 sees real owner and
+  accepts; flipped contract returns 0x0 to verifier → fake-renounce
+  detection fires).
+- D8: beacon proxy with `upgradeBeaconToAndCall` selector rejected
+  even with `allowProxy=true` (because `allowUpgradeable=false` by
+  default).
+
+### H2.2 — Liquidity Verification (`src/lib/chain/liquidity-verification.ts`)
+
+`LiquidityVerifier` verifies liquidity STRUCTURALLY from on-chain
+state (not from third-party APIs like DexScreener, which can lag or
+be deceived). Five checks per pool:
+
+1. **LP lock** — LP tokens held by a trusted lock contract (allowlist).
+2. **Lock duration** — `unlockEpoch >= minLockEndEpoch` (default
+   now + 7 days).
+3. **Locked percentage** — `lockedAmount / lpTotalSupply >=
+   minLockedFractionBps` (default 9500 = 95%).
+4. **Multi-pool consistency** — every pool containing the token is
+   verified; extra pools on-chain not in the manifest are rejected
+   (strict by default; `allowExtraPools` is the opt-out).
+5. **Removable liquidity** — unlocked LP tokens must be held by
+   allowlisted addresses; the "locked 95%, unknown address holding
+   the other 5%" pattern is rejected.
+
+Adversarial tests:
+- D1: "permanent lock that isn't" — `unlockTime=type(uint256).max`
+  but `withdraw()` permissionless. The duration check alone is
+  insufficient; the `withdrawPermissioned` check fires independently.
+- D2: look-alike lock contract (off-by-one hex) rejected by exact
+  match.
+- D3: boundary test — 95.00% accepted, 94.99% rejected.
+- D4: "rug between blocks" — verifier never caches state; first
+  verify passes, deployer transfers LP to unknown address, second
+  verify fails.
+
+### H2.3 — Token Authority Verification (`src/lib/chain/token-authority.ts`)
+
+`TokenAuthorityVerifier` checks every authority surface the contract
+exposes — not just `owner()`. Per operator directive:
+
+1. **Mint authority** — `mint(address,uint256)` selector present.
+   Blocked unless `allowMintIfAllowlisted=true` AND access control
+   recognized (`hasRole` selector) AND current owner in allowlist.
+2. **Freeze authority** — `freeze(address)` / `freezeAccount(address)`.
+3. **Blacklist authority** — `blacklist(address)` / `blockAccount(address)`.
+4. **Pausability** — `pause()` / `setPaused(bool)`. Currently-paused
+   contracts fail regardless of allowlist.
+5. **Ownership transfer** — `transferOwnership(address)`. Live
+   unless owner is allowlisted (trusted to manage ownership) or
+   real-renounced (dead code).
+6. **Real renounce** — verified via `OwnershipTransferred(_,0x0)`
+   event AND current `owner()=0x0`. Either alone is insufficient
+   (fake renounce).
+
+Adversarial tests:
+- D1: hidden mint (no `hasRole` selector, custom role system) →
+  fail-closed by default.
+- D2: two-step renounce trick — real renounce of Ownable but mint
+  gated by separate role kept by deployer. Real renounce of Ownable
+  ≠ real renounce of all authority.
+- D3: paused renounce — real renounce + `pause()` present +
+  unpaused. Fails by default; pause authority is independent of
+  Ownable.
+- D4: blacklist escape — `blacklist()` present, currently empty.
+  Verifier rejects on selector presence alone; doesn't wait for
+  the bot's address to actually be blacklisted.
+- D5: caller-dependent owner — documented limitation; production
+  source must `eth_call` with `from: <actual caller>`.
+
+Implementation bugs caught + fixed during testing:
+- `ownerIsZero` was initialized `true`, applying the renounce logic
+  to contracts with NO `owner()` selector at all (would have
+  blocked vanilla ERC-20s). Fixed by tracking `hasOwnerSelector`
+  explicitly.
+- `transferOwnership` "live" verdict was blocking when owner was
+  allowlisted. Fixed: allowlisted owner is trusted to manage
+  ownership.
+- `mint()` with unrecognizable access control was only blocked via
+  `failClosedOnHidden`; `allowMintIfAllowlisted=false` (default)
+  wasn't independently blocking. Refactored: mint policy is now
+  "block unless explicitly opted in" regardless of hidden flag.
+
+### H2.4 — Sell Simulation (`src/lib/chain/sell-simulation.ts`)
+
+`SellSimVerifier` closes the honeypot gap that H1.2 alone cannot:
+H1.2 catches any single tx that reverts, but a honeypot lets the
+BUY succeed (so the buy-side simulation passes) and reverts only
+the SELL. H2.4 runs a PAIRED simulation: simulate the buy, then
+simulate the sell from the post-buy state.
+
+Five properties enforced:
+1. Buy succeeds (does not revert).
+2. Sell succeeds (does not revert) — the canonical honeypot catch.
+3. Taxes match — observed buy/sell tax within `taxToleranceBps` of
+   expected.
+4. Exit possible — sell output >= `minExitAmount` (catches the
+   "sell succeeds but returns 0" honeypot variant).
+5. Slippage acceptable — measured AFTER expected tax; uses H1.4's
+   `computeSlippageLimit` / `checkSlippage` primitives.
+
+Adversarial tests:
+- D1: classic honeypot (buy ok, sell reverts).
+- D2: tax bait (buy tax 0%, sell tax 100%; sell "succeeds" but
+  returns 0). Caught by BOTH tax-deviation AND exit-amount checks.
+- D3: tax shift (first sell sim 5% tax, second 50% tax). Verifier
+  never caches across calls; second `verify()` fails.
+- D4: front-loaded exit (sell succeeds for 1 wei, reverts for the
+  full position). Manifest's SellSpec uses the full position so the
+  simulation reverts. Documents that dust-amount sell simulation
+  can't substitute for full-position simulation.
+- D5: slippage trap (sell at 50% below expected price). The dynamic
+  slippage limit (hard cap 300 bps) catches it.
+- D6: caller-dependent sell (sell succeeds for caller=0x0, reverts
+  for caller=buyer). Verifier's simulator must use the seller from
+  the manifest; caller-blind simulation is a vuln.
+
+Implementation bug caught + fixed during testing:
+- Slippage was measured against raw `expectedAmountOut`, not
+  expected-after-tax. A caller expecting 5% tax would be flagged
+  for 500 bps slippage even when the actual tax matched exactly.
+  Fixed: slippage is now measured against
+  `(expectedAmountOut * (1 - expectedTaxBps/10000))`, separating
+  tax-tolerance from slippage-tolerance.
+
+### H2.5 — Cross-cutting adversarial scenarios (`scripts/test-h2-adversarial.ts`)
+
+Enumerates the six adversarial scenarios the operator mandated for
+H2, maps each to the specific test(s) that cover it within H2.1-H2.4,
+and adds the one scenario not previously covered:
+
+1. LP removida entre blocos → h2.2 D4 + this file §1.
+2. Owner muda durante execução → this file §2 (NEW).
+3. Proxy muda implementação → h2.1 D4 + this file §3.
+4. Sell passa 1a sim, falha 2a → h2.4 D3 + this file §4.
+5. Taxas mudam após buy → h2.4 D3 + this file §5.
+6. Contrato muda comportamento caller → h2.1 D7, h2.3 D5, h2.4 D6 + §6.
+
+NEW scenario — "owner muda durante execução":
+A contract that returns `OWNER_REAL` on the first `owner()` call and
+`OWNER_OTHER` on subsequent calls. The H2.3 verifier calls `owner()`
+ONCE per `verify()` flow and uses that single observation throughout
+(test asserts `ownerCallCount === 1`). The verifier is internally
+consistent but the test documents the residual vulnerability: a
+malicious contract that knows the verifier calls `owner()` at time T
+can be allowlisted at T and switch to a malicious owner at T+1 —
+between `verify()` returning and the actual broadcast landing
+on-chain. Mitigation is operator-side: bound the verify-to-broadcast
+gap to one block + re-verify immediately before broadcast (the
+pre-broadcast simulation gate from H1.2 + this verifier run together
+at broadcast time).
+
+### Test coverage
+
+H2 added **205 new assertions** across **5 new test files**:
+
+| File | Scenarios | Assertions |
+|---|---|---|
+| `test-h2-contract-verification.ts` | 18 | 59 |
+| `test-h2-liquidity-verification.ts` | 16 | 46 |
+| `test-h2-token-authority.ts` | 16 | 41 |
+| `test-h2-sell-simulation.ts` | 16 | 42 |
+| `test-h2-adversarial.ts` | 6 (cross-cutting) | 17 |
+| **total** | **72** | **205** |
+
+CI gate is now **18 files / 458 checks** (was 13 files / 253 checks
+at H1 close — H2 added 5 files and 205 checks).
+
+Three real bugs were caught during H2 testing:
+1. H2.3 — `ownerIsZero` initialization applying renounce logic to
+   contracts with no `owner()` selector (would have blocked vanilla
+   ERC-20s).
+2. H2.3 — `transferOwnership` "live" verdict blocking allowlisted
+   owners.
+3. H2.4 — slippage measured against raw expected instead of
+   expected-after-tax, breaking the separation between tax-tolerance
+   and slippage-tolerance.
+
+All three would have been security-affecting in production. None
+were caught by happy-path tests — each was caught by adversarial
+tests that explicitly tried to break the property the verifier
+promised, validating the permanent principle.
+
+**History:** Jul 15 2026 — H2 implemented immediately after H1
+closure, following the operator's mandated sequence H0 → H1 → H2 →
+M3 → M4. The operator's directive was explicit: "Eu manteria H2
+restrito ao endurecimento da interação on-chain, sem introduzir
+envio real de transações." Each H2 subphase followed the same
+discipline as H1: implement → test → fix → document → commit. The
+hardened primitives in `src/lib/chain/` (now 9 files: 4 from H1, 5
+from H2) are NOT yet wired into any production code path — they
+wait for M3 to consume them, ensuring the live-trading path is born
+hardened rather than retrofitted.

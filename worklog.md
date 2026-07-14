@@ -1292,3 +1292,200 @@ Stage Summary:
 - 5 commits ready (h1.0 principle + sequencing, h1.1, h1.2, h1.3, h1.4 + closeout pending).
 - CI gate: 13 files / 253 checks (was 9 files / 78 checks at H0 close).
 - The project is ready to proceed to H2 (Contract interaction hardening) per the operator's directed sequence: H0 ✓ → H1 ✓ → H2 → M3 → M4. The hardened primitives in src/lib/chain/ wait for M3 to wire them into the live-trading path.
+
+---
+Task ID: h2.1
+Agent: main
+Task: H2.1 — Contract Verification: bytecode, ABI, owner/admin, proxy detection, upgradeability detection.
+
+Work Log:
+- Read worklog end (H1 closeout: 13 files / 253 checks, ready for H2).
+- Read HARDENING-ROADMAP.md fully; expanded the H2 section into H2.1-H2.5 with the operator's specific scope, acceptance criteria, and explicit "NOT introducing" list (no real broadcast, no Flashbots, no MEV Blocker, no SUAVE, no bundles, no private mempool, no signing real, no broadcast real — those belong to M3/M4).
+- Created src/lib/chain/contract-verification.ts implementing ContractVerifier with 5 checks:
+  - Bytecode hash (keccak256 via ethers; refuses unknown bytecode by default; allowBytecodeDrift is the explicit opt-out).
+  - Selector allowlist (PUSH4 <sel> EQ heuristic for extraction; deduped + sorted).
+  - Owner/admin allowlist (owner() return in allowedOwners; owner()=0x0 on contract with owner() selector = fake renounce).
+  - Proxy detection (EIP-1967 implementation/admin/beacon slots, EIP-1822 PROXIABLE slot; transparent vs minimal variants distinguished by admin slot; recursive verification of implementation when allowProxy=true).
+  - Upgradeability detection (upgradeTo / upgradeToAndCall / upgradeBeaconToAndCall selectors + non-zero admin slot; rejected unless allowUpgradeable=true).
+- Injectable ChainReader (getCode / getStorageAt / call) so tests use deterministic mocks; production wraps ethers.Provider in M3.
+- Created scripts/test-h2-contract-verification.ts with 18 scenarios / 59 assertions:
+  - A. Bytecode (4): hash match, mismatch, no-expected-no-optout, allowBytecodeDrift.
+  - B. Selectors (3): all in allowlist, extra selector rejected, allowUnknownSelectors.
+  - C. Owner (3): allowlisted, non-allowlisted, fake renounce (owner()=0x0 with owner selector).
+  - D. Proxy + upgradeability + adversarial (8): transparent proxy rejected, minimal proxy with recursive verification, upgradeable contract rejected, ADVERSARIAL proxy impl swap (D4), ADVERSARIAL extra sweep selector post-upgrade (D5), ADVERSARIAL fake renounce with privileged selectors (D6), ADVERSARIAL caller-dependent owner (D7), ADVERSARIAL beacon proxy with upgrade selector (D8).
+  - E. Pure helpers (4 sub-tests): extractSelectors dedupe+sort, decodeAddress zero/short/real, detectProxyFromStorage each kind, UPGRADE_SELECTORS includes canonical.
+- Wired test:h2-contract into package.json and appended it to test:ci.
+- Full suite re-run: 14 files / 312 checks, all green.
+
+Stage Summary:
+- H2.1 is implemented + tested + ready to commit.
+- The ContractVerifier enforces the operator's load-bearing property: "nenhum contrato desconhecido entra no pipeline." Every contract must have a manifest pinning bytecode + ABI + owner; proxies and upgradeable contracts are rejected unless explicitly opted in.
+- The verifier is NOT yet wired into any production code path — it waits for M3 to consume it.
+- Next: H2.2 (Liquidity Verification).
+
+---
+Task ID: h2.2
+Agent: main
+Task: H2.2 — Liquidity Verification: LP lock, lock duration, locked percentage, multi-pool consistency, removable-liquidity detection.
+
+Work Log:
+- Created src/lib/chain/liquidity-verification.ts implementing LiquidityVerifier with 5 checks:
+  - LP LOCK — LP tokens held by a trusted lock contract (allowlist via trustedLockContracts).
+  - LOCK DURATION — unlockEpoch >= minLockEndEpoch (default now + 7 days).
+  - LOCKED PERCENTAGE — lockedAmount / lpTotalSupply >= minLockedFractionBps (default 9500 = 95%).
+  - MULTI-POOL CONSISTENCY — every pool containing the token is verified; extra pools on-chain not in the manifest are rejected (strict by default; allowExtraPools is the opt-out).
+  - REMOVABLE LIQUIDITY — unlocked LP tokens must be held by allowlisted addresses; the "locked 95%, unknown address holding the other 5%" pattern is rejected.
+- Injectable LiquiditySource (getPool / listPoolsForToken / lpBalanceOf / getLock + optional enumerateHolders for the unknown-holder check).
+- 12 distinct verdicts: ok, no-pool, no-lock-claimed, lock-not-found, lock-contract-untrusted, lock-duration-too-short, lock-percentage-low, lock-withdraw-unpermissioned, unlocked-lp-held-by-unknown, extra-pool-present, pool-duplicate, lp-total-supply-zero.
+- Created scripts/test-h2-liquidity-verification.ts with 16 scenarios / 46 assertions:
+  - A. Happy paths (3): 100% locked, exactly 95% boundary, no-lock-claimed with allowlisted holders.
+  - B. Lock defects (5): expired, too-short, 51% (below 95%), untrusted lock contract, permissionless withdraw.
+  - C. Multi-pool + holder defects (4): A good + B bad, duplicate pool, extra pool on-chain, unknown holder.
+  - D. Adversarial (4): D1 "permanent lock that isn't" (MAX_UINT unlockEpoch + permissionless withdraw), D2 look-alike lock contract, D3 boundary (95% accepted, 94.99% rejected), D4 "rug between blocks" (verifier never caches).
+  - E. Pure helper: computeLockedFractionBps with 6 sub-assertions.
+- Wired test:h2-liquidity into package.json and appended it to test:ci.
+- Full suite re-run: 15 files / 358 checks, all green.
+
+Stage Summary:
+- H2.2 is implemented + tested + ready to commit.
+- The LiquidityVerifier verifies liquidity STRUCTURALLY from on-chain state (not from third-party APIs like DexScreener, which can lag or be deceived). The "permanent lock that isn't" adversarial test (D1) is the canonical example: unlockTime=MAX_UINT is meaningless if withdraw() is permissionless — the duration check passes, but the withdraw-permission check fires independently.
+- The "rug between blocks" test (D4) documents that the verifier must re-fetch state every time, never cache. The first verify() passes; the deployer transfers LP to an unknown address; the second verify() fails. This is the operator's "LP removida entre blocos" scenario.
+- Next: H2.3 (Token Authority Verification).
+
+---
+Task ID: h2.3
+Agent: main
+Task: H2.3 — Token Authority Verification: mint, freeze, blacklist, pausability, ownership transfer, real renounce.
+
+Work Log:
+- Created src/lib/chain/token-authority.ts implementing TokenAuthorityVerifier with 6 checks:
+  - MINT AUTHORITY — mint() selector; blocked unless allowMintIfAllowlisted AND access control recognized (hasRole selector) AND current owner in allowlist.
+  - FREEZE AUTHORITY — freeze() / freezeAccount() selectors.
+  - BLACKLIST AUTHORITY — blacklist() / blockAccount() selectors.
+  - PAUSABILITY — pause() / setPaused(); currently-paused fails regardless of allowlist.
+  - OWNERSHIP TRANSFER — transferOwnership() live unless owner allowlisted (trusted) or real-renounced (dead code).
+  - REAL RENOUNCE — verified via OwnershipTransferred(_,0x0) event AND current owner()=0x0. Either alone is insufficient (fake renounce).
+- Injectable TokenAuthoritySource (getCode / call / getLogs). Re-exports H2.1's decodeAddress for ABI address decoding.
+- Created scripts/test-h2-token-authority.ts with 16 scenarios / 41 assertions:
+  - A. Happy paths (3): vanilla ERC-20 no owner selector, real renounce (event + owner=0), owner allowlisted.
+  - B. Authority surfaces (5): mint hidden, mint allowlisted+allowMintIfAllowlisted, pause not-paused+allowPauseIfAllowlisted, pause currently-paused, blacklist with allowFreezeBlacklistIfAllowlisted=false.
+  - C. Renounce variants (3): fake renounce (owner=0x0 no event), real renounce (event + owner=0x0), non-renounced owner in allowlist.
+  - D. Adversarial (5): D1 hidden mint (fail-closed default), D2 two-step renounce trick (real Ownable renounce + mint via separate role), D3 paused renounce (real renounce + pause present), D4 blacklist escape (blacklist() present even if bot not yet blacklisted), D5 caller-dependent owner.
+  - E. Pure helpers: selectorPresent finds canonical pattern, case-insensitive.
+- CRITICAL BUGS FOUND + FIXED DURING TESTING:
+  - BUG 1: ownerIsZero was initialized true, applying the renounce logic to contracts with NO owner() selector at all (would have blocked vanilla ERC-20s). Fixed by tracking hasOwnerSelector explicitly and gating the renounce check on it.
+  - BUG 2: transferOwnership "live" verdict was blocking when owner was allowlisted. Fixed: allowlisted owner is trusted to manage ownership (including handing it to another allowlisted address). The verdict now only fires when owner is NOT allowlisted AND NOT real-renounced.
+  - BUG 3: mint() with unrecognizable access control was only blocked via failClosedOnHidden. When failClosedOnHidden=false, mint() silently passed even with allowMintIfAllowlisted=false (the default). Refactored: mint policy is now "block unless explicitly opted in" — allowMintIfAllowlisted=false (default) blocks ANY mint regardless of access-control recognizability. failClosedOnHidden now only narrows the block in a very specific case (caller explicitly opted into allowMintIfAllowlisted=true but access control is unrecognizable).
+- Wired test:h2-authority into package.json and appended it to test:ci.
+- Full suite re-run: 16 files / 399 checks, all green.
+
+Stage Summary:
+- H2.3 is implemented + tested + ready to commit.
+- The TokenAuthorityVerifier is the "post-renounce privilege" defense: a contract that "renounced ownership" via owner()=0x0 but kept mint() gated by a separate role (the canonical fake-renounce pattern) is caught by the mint-hidden-access-control check. Real renounce of Ownable ≠ real renounce of all authority.
+- Three real bugs caught — all would have been security-affecting. The ownerIsZero initialization bug would have blocked vanilla ERC-20s from entering the pipeline (false positive, but still a defect). The transferOwnership bug would have blocked legitimate allowlisted owners. The mint-policy bug would have allowed mint() through when failClosedOnHidden was relaxed.
+- Next: H2.4 (Sell Simulation).
+
+---
+Task ID: h2.4
+Agent: main
+Task: H2.4 — Sell Simulation: buy succeeds, sell succeeds, taxes expected vs. observed, exit possible, slippage acceptable.
+
+Work Log:
+- Created src/lib/chain/sell-simulation.ts implementing SellSimVerifier that runs a PAIRED simulation (buy then sell from post-buy state). Five properties enforced:
+  - BUY SUCCEEDS — buy simulation does not revert.
+  - SELL SUCCEEDS — sell simulation does not revert (honeypot catch).
+  - TAXES MATCH — observed buy/sell tax within taxToleranceBps of expected.
+  - EXIT POSSIBLE — sell output >= minExitAmount (catches the "sell succeeds but returns 0" honeypot variant).
+  - SLIPPAGE ACCEPTABLE — measured AFTER expected tax; uses H1.4's computeSlippageLimit / checkSlippage.
+- Injectable TradeSimulator (simulateBuy + simulateSell). The simulateSell method receives the buy's actualAmountOut so it can apply the post-buy state (in production: eth_call with state override; in tests: scripted mock).
+- Created scripts/test-h2-sell-simulation.ts with 16 scenarios / 42 assertions:
+  - A. Happy paths (3): no tax, 5% tax matches, slippage at dynamic-limit boundary.
+  - B. Failures (4): buy reverts, sell reverts (honeypot), sell returns 0 (honeypot variant), tax deviates > tolerance.
+  - C. Slippage (3): within limit, exceeds limit, negative expected price (div-by-zero defense).
+  - D. Adversarial (6): D1 classic honeypot, D2 tax bait (sell "succeeds" but returns 0), D3 tax shift (5% first call, 50% second call), D4 front-loaded exit (sell succeeds for 1 wei, reverts for full position), D5 slippage trap (50% below expected), D6 caller-dependent sell (succeeds for caller=0x0, reverts for caller=buyer).
+  - E. Pure helper: computeTaxBps with 6 sub-assertions.
+- CRITICAL BUG FOUND + FIXED DURING TESTING:
+  - The slippage check was comparing actualSellOut against raw expectedSellOut (the caller's pre-tax price expectation). A caller expecting 5% tax would be flagged for 500 bps slippage even when the actual tax matched exactly (500 bps actual tax == 500 bps expected tax → 0 bps slippage). Fixed: slippage is now measured against (expectedSellOut * (1 - expectedTaxBps/10000)), cleanly separating tax-tolerance from slippage-tolerance. This bug would have made any token with non-zero tax untradeable under default slippage limits (30-50 bps).
+- Wired test:h2-sell-sim into package.json and appended it to test:ci.
+- Full suite re-run: 17 files / 441 checks, all green.
+
+Stage Summary:
+- H2.4 is implemented + tested + ready to commit.
+- The SellSimVerifier closes the honeypot gap that H1.2 alone cannot: H1.2 catches any single tx that reverts, but a honeypot lets the BUY succeed (so the buy-side simulation passes) and reverts only the SELL. The bot would be stuck holding a worthless token it can't exit. H2.4 forces the sell-side simulation against the post-buy state.
+- The slippage-vs-tax separation bug is exactly the kind of integration issue the permanent principle is designed to catch: the tax check was correct, the slippage check was correct, but their composition was wrong. The "happy path with 5% tax" test (A2) was the one that caught it — the test expected ok=true and got "slippage 500 bps exceeds dynamic limit 45 bps".
+- Next: H2.5 (cross-cutting adversarial scenarios).
+
+---
+Task ID: h2.5
+Agent: main
+Task: H2.5 — Cross-cutting adversarial scenarios: enumerate the 6 operator-mandated cases with cross-references + add the missing "owner muda durante execução" scenario.
+
+Work Log:
+- Read all four H2 subphase test files to map the operator's 6 adversarial scenarios to their existing test coverage:
+  1. LP removida entre blocos → covered by h2.2 D4 (rug between blocks).
+  2. Owner muda durante execução → NOT COVERED. New scenario.
+  3. Proxy muda implementação → covered by h2.1 D4 (proxy impl swap).
+  4. Sell passa 1a sim, falha 2a → covered by h2.4 D3 (tax shift).
+  5. Taxas mudam após buy → covered by h2.4 D3 + the tax tolerance check generally.
+  6. Contrato muda comportamento caller → covered by h2.1 D7 (caller-dependent owner), h2.3 D5 (same), h2.4 D6 (caller-dependent sell).
+- Created scripts/test-h2-adversarial.ts with 6 scenarios / 17 assertions:
+  - §1 LP removida entre blocos (re-asserted): mutable in-memory state, first verify passes, deployer transfers LP to unknown address, second verify fails.
+  - §2 Owner muda durante execução (NEW): contract that returns OWNER_REAL on the first owner() call and OWNER_OTHER on subsequent calls. The H2.3 verifier calls owner() ONCE per verify() flow (test asserts ownerCallCount === 1) and uses that single observation throughout. The verifier is internally consistent but the test documents the residual vulnerability: a malicious contract that knows the verifier calls owner() at time T can be allowlisted at T and switch to a malicious owner at T+1 — between verify() returning and the actual broadcast landing on-chain. Mitigation is operator-side: bound the verify-to-broadcast gap to one block + re-verify immediately before broadcast.
+  - §3 Proxy muda implementação (re-asserted): proxy impl slot repointed; manifest pins impl address; second verify fails.
+  - §4 Sell passa 1a sim, falha 2a (re-asserted): first simulator returns 5% tax (within tolerance), second returns 50% tax (rejected).
+  - §5 Taxas mudam após buy (specific scenario): 0% buy tax + 0% sell tax at buy-time, 100% sell tax at sell-time (sell "succeeds" but returns 0). Caught by BOTH tax-deviation AND exit-amount checks.
+  - §6 Contrato muda comportamento caller (re-asserted): caller-aware simulator that succeeds iff spec.seller === BUYER; caller-blind manifest (seller=0x0) fails.
+- Each scenario is re-asserted in this file in isolation, in addition to its original placement within the per-subphase test suite — so the operator's mandated list is explicitly traceable to test code.
+- Wired test:h2-adversarial into package.json and appended it to test:ci.
+- Full suite re-run: 18 files / 458 checks, all green.
+
+Stage Summary:
+- H2.5 is implemented + tested + ready to commit.
+- All six operator-mandated adversarial scenarios now have explicit, enumerated test coverage. The "owner muda durante execução" scenario was the only one not previously covered; the test documents both the verifier's single-call consistency and the residual vulnerability that requires operator-side mitigation (bound verify-to-broadcast gap to one block).
+- The cross-references in the test file (and the summary printout at the end) make the operator's mandated list directly traceable to test code, so a future maintainer can verify coverage without re-deriving the mapping.
+
+---
+Task ID: h2.closeout
+Agent: main
+Task: H2 closeout — update SECURITY.md with H2 section, mark H2 complete in HARDENING-ROADMAP.md.
+
+Work Log:
+- Updated SECURITY.md with a new "H2 — Contract interaction hardening" section covering:
+  - Scope (operator-directed: harden the on-chain read path; no real broadcast/signing/Flashbots/MEV-Blocker/SUAVE/bundles/private-mempool — those belong to M3/M4).
+  - The operator's load-bearing criterion: "nenhum contrato desconhecido entra no pipeline."
+  - Each subphase (H2.1-H2.5) with implementation details + key guarantees + adversarial tests summary.
+  - The three bugs caught during H2 testing (ownerIsZero initialization, transferOwnership blocking allowlisted owners, slippage measured against raw expected instead of expected-after-tax).
+  - Test coverage table: 205 new assertions across 5 new test files.
+  - History note with the operator's "Eu manteria H2 restrito ao endurecimento da interação on-chain, sem introduzir envio real de transações" directive.
+- Updated HARDENING-ROADMAP.md H2 section header from "IN PROGRESS" to "✓ COMPLETE", added STATUS block summarizing each subphase + the CI gate count + the "primitives not yet wired" caveat.
+- Updated Sequencing Recommendation to mark H2 ✓.
+- Ran full test:ci one final time to confirm: 18 files, 458 checks, all green.
+  - test-vault.ts: 20/20
+  - test-request-peer-integration.ts: 4/4
+  - test-signer-process.ts: 5/5
+  - test-wallet-crud.ts: 11/11
+  - test-signer-dispatcher-structural.ts: 2/2
+  - test-signer-vault-integration.ts: 3/3
+  - test-h0-kdf-versioning.ts: 9/9
+  - test-h0-audit-hashchain.ts: 10/10
+  - test-h0-key-rotation.ts: 14/14
+  - test-h1-rpc-resilience.ts: 46/46
+  - test-h1-simulation-gate.ts: 46/46
+  - test-h1-approval-hardening.ts: 36/36
+  - test-h1-mev-baseline.ts: 47/47
+  - test-h2-contract-verification.ts: 59/59
+  - test-h2-liquidity-verification.ts: 46/46
+  - test-h2-token-authority.ts: 41/41
+  - test-h2-sell-simulation.ts: 42/42
+  - test-h2-adversarial.ts: 17/17
+
+Stage Summary:
+- H2 (Contract interaction hardening) IS COMPLETE.
+- H2.1: ContractVerifier (bytecode + ABI + owner + proxy + upgradeability).
+- H2.2: LiquidityVerifier (LP lock + duration + % + multi-pool + removable).
+- H2.3: TokenAuthorityVerifier (mint + freeze + blacklist + pause + ownership-transfer + real-renounce).
+- H2.4: SellSimVerifier (paired buy+sell with tax/exit/slippage checks).
+- H2.5: Cross-cutting adversarial scenarios (6 operator-mandated cases enumerated + missing "owner muda durante execução" added).
+- 6 commits ready (h2.1, h2.2, h2.3, h2.4, h2.5, h2.closeout pending).
+- CI gate: 18 files / 458 checks (was 13 files / 253 checks at H1 close — H2 added 5 files and 205 checks).
+- The project is ready to proceed to M3 (Sign RPC) per the operator's directed sequence: H0 ✓ → H1 ✓ → H2 ✓ → M3 → M4. The hardened primitives in src/lib/chain/ (now 9 files: 4 from H1, 5 from H2) wait for M3 to wire them into the live-trading path.

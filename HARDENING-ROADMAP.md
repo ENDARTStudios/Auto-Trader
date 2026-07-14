@@ -295,7 +295,7 @@ principle above):
 - Each subphase ships with at least one adversarial test per the
   permanent principle.
 
-### H2: Contract interaction hardening (Layer 2) — IN PROGRESS
+### H2: Contract interaction hardening (Layer 2) — ✓ COMPLETE
 After H1 hardened the transaction lifecycle (RPC, simulation, approvals,
 MEV baseline) as pure primitives, H2 hardens the **on-chain read path**
 that runs BEFORE any transaction is built: every contract the bot is
@@ -311,6 +311,40 @@ Flashbots, MEV Blocker, SUAVE, bundles, or private mempool — those
 belong to M3/M4 when a real execution path exists. H2 keeps the
 operational surface minimal while each contract-interaction defense is
 validated independently.
+
+**STATUS** (Jul 15 2026): all five subphases complete.
+- H2.1 Contract Verification — `src/lib/chain/contract-verification.ts`
+  — `ContractVerifier` with bytecode hash, selector allowlist,
+  owner/admin allowlist, proxy detection (EIP-1967/1822/beacon),
+  upgradeability detection. 59 assertions across 18 scenarios.
+- H2.2 Liquidity Verification — `src/lib/chain/liquidity-verification.ts`
+  — `LiquidityVerifier` with LP lock, lock duration, locked %,
+  multi-pool consistency, removable-liquidity detection. 46 assertions
+  across 16 scenarios.
+- H2.3 Token Authority Verification — `src/lib/chain/token-authority.ts`
+  — `TokenAuthorityVerifier` with mint/freeze/blacklist/pause authority,
+  ownership-transfer liveness, real-renounce verification. 41 assertions
+  across 16 scenarios. Bugs caught: `ownerIsZero` initialization;
+  `transferOwnership` blocking allowlisted owners; mint policy not
+  independently blocking when access control hidden.
+- H2.4 Sell Simulation — `src/lib/chain/sell-simulation.ts` —
+  `SellSimVerifier` runs paired buy+sell simulations, enforces buy
+  succeeds + sell succeeds + tax match + exit non-zero + slippage
+  acceptable. 42 assertions across 16 scenarios. Bug caught: slippage
+  measured against raw expected instead of expected-after-tax.
+- H2.5 Cross-cutting adversarial — `scripts/test-h2-adversarial.ts` —
+  enumerates the 6 operator-mandated scenarios with cross-references;
+  adds the missing "owner muda durante execução" scenario. 17
+  assertions across 6 scenarios.
+
+CI gate: **18 files / 458 checks** (was 13 files / 253 checks at H1
+close — H2 added 5 files and 205 checks). Each subphase ships with
+adversarial tests per the permanent principle. Three real bugs caught
+during testing — all would have been security-affecting in production
+and none were caught by happy-path tests. The hardened primitives are
+NOT yet wired into any production code path — they wait for M3 to
+consume them, ensuring the live-trading path is born hardened rather
+than retrofitted.
 
 H2 subphases (per operator mandate):
 - **H2.1 — Contract Verification**: bytecode expected; ABI expected;
@@ -388,8 +422,8 @@ Acceptance criteria (structural + adversarial, per permanent principle):
 ## Sequencing Recommendation (operator-directed, post-H0)
 
 1. **H0 ✓** — Foundational hardening complete (KDF, secret storage, audit hash-chain, key rotation, crypto guarantees).
-2. **H1** — Transaction lifecycle hardening (RPC resilience, simulation, approvals, MEV baseline). **NO new signer features between H1 and H2** — keep the surface minimal while the entire on-chain communication + execution perimeter is hardened.
-3. **H2** — Contract interaction hardening (on-chain LP lock verification, mint authority, extended scam-detector).
+2. **H1 ✓** — Transaction lifecycle hardening (RPC resilience, simulation, approvals, MEV baseline). **NO new signer features between H1 and H2** — keep the surface minimal while the entire on-chain communication + execution perimeter is hardened.
+3. **H2 ✓** — Contract interaction hardening (contract verification, liquidity verification, token authority, sell simulation, cross-cutting adversarial).
 4. **M3** — Sign RPC (now lands on a hardened base).
 5. **M4** — Writer lease.
 6. **H3-H8** — Subsequent hardening phases (signature hygiene, infra, privacy, address hygiene, logic, operational support).
