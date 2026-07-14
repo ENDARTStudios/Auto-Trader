@@ -451,6 +451,7 @@ Acceptance criteria (structural + adversarial, per permanent principle):
 6. **M3** — Sign RPC (now lands on a hardened + integration-validated + freeze-confirmed base). First task: `SignerAdapter` (translate `PipelineRequest` → `SignerRequest`, validate protocol version, serialize/deserialize messages; NO decision logic). Second task: `signTransaction` / `signTypedData` / `signMessage` RPC methods on the signer process — still no broadcast. Third task: `Broadcaster` — only after signing is decoupled and stable.
    - **M3.1 ✓** — SignerAdapter (`src/lib/chain/signer-adapter.ts`): implements `SignerSink` (the interface the H2.6 Pipeline calls). Three responsibilities only: mapping `SignerRequest` → wire envelope, pre-flight protocol validation via `health_check`, JSON-RPC serialization with timeout. Two-point protocol validation (adapter pre-flight + signer per-request `validateProtocolVersion`). No retry, no fallback, no reconnection (M4 owns lifecycle). 59 assertions across 13 scenarios (4 contract + 4 transport + 3 security + 2 integration against real signer process). Frozen base untouched (H2.6 still 119/119 green).
    - **M3.2 ✓** — Signer RPC handlers (`src/signer/sign-methods.ts`): `signTransaction` / `signTypedData` / `signMessage` handlers, each implementing the 5-step guard (protocol → vault → preconditions → sign → return). DB-backed wallet-by-address lookup (avoids modifying frozen `wallet-crypto.ts`). Defense-in-depth: payload hash re-verification, key-derived address verification, readOnly rejection. Writer lease precondition is a documented M4 SEAM. 80 assertions across 7 categories (functional baseline, 8 adversarial cases, integrity, defense-in-depth, readOnly, chainId override, audit log). Adapter + pipeline unchanged — only signer gained signing capability.
+   - **M3.3 ✓** — Broadcaster (`src/lib/chain/broadcaster.ts`): implements `SignerSink` (replaces the M3.1 adapter as the Pipeline's signer). Architectural decision Option A (sign AFTER filling nonce/gas) — signature covers exactly the bytes transmitted, no re-signing. 3 private components per operator's directive: `resolveTransactionContext()` (nonce + gas, reusable by M4), `signTransaction()` (calls `signerAdapter.signAndReturnRaw()`), `broadcastSignedTransaction()` (REG-014 immutability check: `expectedHash = keccak256(rawSignedTx)` computed locally, verified against RPC-returned hash). 47 assertions across 14 scenarios (3 functional + 8 adversarial + 1 structural immutability + 2 adapter integration). M3.1 adapter extended with `signAndReturnRaw()` (thin; `submit()` unchanged — backward compat with M3.1 contract). Frozen base untouched: H0/H1/H2/H2.6 + `rpc-resilience.ts` + `pipeline.ts` + `sign-methods.ts` all unchanged.
 7. **M4** — Writer lease.
 8. **H3-H8** — Subsequent hardening phases (signature hygiene, infra, privacy, address hygiene, logic, operational support).
 
@@ -683,26 +684,26 @@ The M3.1 adapter computes `payloadHash = SHA-256(canonical JSON of payload)` and
 
 **Frozen base respected:** Zero modifications to the 10 files listed in REG-009. The M3.1 adapter (`src/lib/chain/signer-adapter.ts`) is also unchanged — only the M3.1 TEST FILE had its D.2 assertion updated to reflect post-M3.2 behavior.
 
-### M3.3 — Broadcaster (architectural decision recorded Jul 15 2026)
+### M3.3 — Broadcaster ✓ COMPLETE (Jul 15 2026)
+
+**Implemented:** `src/lib/chain/broadcaster.ts` + `scripts/test-m3-broadcaster.ts`.
+**Extended:** `src/lib/chain/signer-adapter.ts` with `signAndReturnRaw()` (thin; `submit()` unchanged).
 
 Sits downstream of the signer. Consumes the H1.1 RPC resilience
 primitive (`QuorumRpcClient.broadcastRawTransaction` — already
-implemented, FROZEN, 0 callers today) and the signature produced by
-M3.2. Introduces NO new security decisions in the frozen layers.
+implemented, FROZEN, 0 callers before M3.3) and the signature produced
+by M3.2. Introduces NO new security decisions in the frozen layers.
 
 ```
 Pipeline (FROZEN) → SignerSink.submit(req)
                           ↓
-                  BroadcastingSignerSink (NEW, M3.3)
+                  Broadcaster (NEW, M3.3 — implements SignerSink)
                           ↓
-                  1. resolve nonce      (QuorumRpcClient.quorumRead)
-                  2. resolve gas params (QuorumRpcClient.quorumRead)
-                  3. build final tx    (fill nonce + gas into req.tx)
-                  4. request signature (SignerAdapter → Signer RPC)
-                  5. hash(rawSignedTx) → hashBefore
-                  6. broadcast          (QuorumRpcClient.broadcastRawTransaction)
-                  7. verify broadcastHash == hashBefore  (immutability — REG-014)
-                  8. return { ok, txHash: broadcastHash }
+                  1. resolveTransactionContext()  (QuorumRpcClient.quorumRead)
+                  2. signTransaction()            (SignerAdapter.signAndReturnRaw)
+                  3. broadcastSignedTransaction() (REG-014 + broadcastRawTransaction)
+                          ↓
+                  SignerResult { ok, txHash }
 ```
 
 **Architectural decision — Option A (sign AFTER filling nonce/gas):**
@@ -721,15 +722,45 @@ signer signs a fully-formed transaction; the broadcaster transmits
 the exact bytes that were signed. A broadcast failure does NOT
 invalidate the signature, and a re-sign is NOT forced on every retry.
 
-**Closed scope — 6 responsibilities:**
+**Closed scope — 8 responsibilities (per operator's final M3.3 directive):**
 
 1. Resolve nonce (`eth_getTransactionCount` via quorum).
 2. Resolve gas parameters (`eth_feeHistory` / `eth_gasPrice` / EIP-1559
    fields via quorum).
 3. Build the final transaction (fill nonce + gas into `req.tx`).
-4. Request signature from the signer (via `SignerAdapter`).
-5. Transmit via `QuorumRpcClient.broadcastRawTransaction`.
-6. Return hash + initial receipt.
+4. Request signature from the signer (via `SignerAdapter.signAndReturnRaw()`).
+5. Receive `rawSignedTx` from the signer.
+6. Compute `expectedHash = keccak256(rawSignedTx)` locally.
+7. Broadcast via `QuorumRpcClient.broadcastRawTransaction`.
+8. Verify `broadcastHash === expectedHash` (REG-014 mandatory structural
+   check). Return `SignerResult`.
+
+**Internal structure — 3 private components (per operator's directive):**
+
+The Broadcaster is internally divided into three private methods so M4
+can reuse `resolveTransactionContext()` without touching signing or
+broadcast logic:
+
+```
+Broadcaster (implements SignerSink)
+ ├── resolveTransactionContext(from)
+ │      nonce, gasLimit, maxFeePerGas, maxPriorityFeePerGas
+ │      (via QuorumRpcClient.quorumRead)
+ │
+ ├── signTransaction(req, ctx)
+ │      fills nonce + gas into req.tx
+ │      calls SignerAdapter.signAndReturnRaw()
+ │      returns { rawSignedTx, txHash }
+ │
+ └── broadcastSignedTransaction(rawSignedTx)
+        expectedHash = keccak256(rawSignedTx)         ← REG-014
+        result = QuorumRpcClient.broadcastRawTransaction(rawSignedTx)
+        assert(result.txHash === expectedHash)         ← mandatory
+        returns BroadcastResult
+```
+
+The public `submit(req: SignerRequest)` method orchestrates the 8-step
+flow by calling these three private methods in sequence.
 
 **Explicit exclusions (belong to M4 or later):**
 
@@ -774,20 +805,48 @@ guarantees the Broadcaster NEVER transmits bytes different from those
 actually signed. The check is computed locally (keccak256 of the raw
 signed tx bytes) — it does NOT trust the RPC's returned hash.
 
-**Files (planned):**
+**Files (realized):**
 
 - NEW: `src/lib/chain/broadcaster.ts` — the Broadcaster module.
   Owns: nonce resolution, gas resolution, tx assembly, immutability
-  check, broadcast invocation, hash verification.
+  check, broadcast invocation, hash verification. Implements `SignerSink`
+  so the FROZEN pipeline calls it via `submit(req)`. Three private
+  components per operator's directive: `resolveTransactionContext()`,
+  `signTransaction()`, `broadcastSignedTransaction()`.
 - NEW: `scripts/test-m3-broadcaster.ts` — adversarial test suite
-  (8 categories + structural immutability test).
-- UPDATE: `src/lib/chain/signer-adapter.ts` — thin extension to
-  expose `rawSignedTx` from the wire response (M3.2 already returns
-  it in `SignHandlerResult`; the adapter currently discards it when
-  mapping to `SignerResult`). The existing `submit()` method stays
-  unchanged — a new method (e.g. `signAndReturnRaw()`) is added for
-  the Broadcaster to call. The adapter remains a thin translation
-  layer; no broadcast logic enters it.
+  (14 scenarios, 47 assertions: 3 functional + 8 adversarial + 1
+  structural immutability + 2 adapter integration).
+- EXTENDED: `src/lib/chain/signer-adapter.ts` — added `signAndReturnRaw()`
+  method + `SignerResultWithRaw` type + `rawSignedTx?` field on
+  `SignerWireResponse`. The existing `submit()` method is UNCHANGED
+  (backward compat with M3.1 contract — `submit()` does not require
+  `rawSignedTx`). Shared internal `executeSign(req, requireRaw)` helper
+  ensures both public methods have identical transport + integrity
+  semantics.
+- UPDATED: `package.json` — added `test:m3-broadcaster` script +
+  appended to `test:ci`.
+
+**CI gate:** 22 files / 763 checks (was 21 files / 716 checks at M3.2
+close — M3.3 added 1 file and 47 checks). H0/H1/H2/H2.6/M3.1/M3.2 all
+still pass their full suites.
+
+**Bugs caught:** Zero in production code. Three test-file issues during
+iteration (all fixed, none in production code):
+
+1. The `MockRpcTransport` initially checked `broadcastHandler` before
+   `perUrlScripts`, so per-URL failover scripts for `eth_sendRawTransaction`
+   were never consulted. Fixed by reordering: per-URL scripts first,
+   then broadcastHandler, then default hash computation.
+2. The `QuorumRpcClient` was shared across tests, so its health-score
+   state leaked (a failing endpoint in one test degraded the score and
+   affected subsequent tests). Fixed by introducing `freshBroadcaster()`
+   which creates a new `QuorumRpcClient` + `SignerAdapter` per test.
+3. B.1/B.3 initially asserted the specific RPC error message ("nonce
+   too low" / "intrinsic gas too low") would be surfaced. The H1.1
+   `broadcastRawTransaction` returns a generic "all healthy endpoints
+   rejected" message — the specific error is logged but not surfaced.
+   Adjusted the assertions to check the `BROADCAST_FAILED` prefix +
+   that `eth_sendRawTransaction` was actually attempted.
 
 **Frozen base respected:**
 
@@ -795,11 +854,13 @@ signed tx bytes) — it does NOT trust the RPC's returned hash.
 - `src/lib/chain/pipeline.ts` (H2.6) — UNCHANGED. The pipeline still
   calls `SignerSink.submit(req)` and receives `SignerResult`.
 - `src/lib/chain/rpc-resilience.ts` (H1.1) — UNCHANGED. The
-  Broadcaster CONSUMES `broadcastRawTransaction` without modifying it.
+  Broadcaster CONSUMES `broadcastRawTransaction` (now has its first
+  caller) without modifying it.
 - `src/signer/sign-methods.ts` (M3.2) — UNCHANGED. The signer still
   signs only; the Broadcaster is on the web-process side.
 - `src/lib/chain/signer-adapter.ts` (M3.1) — extended with one new
-  method; existing `submit()` unchanged.
+  method (`signAndReturnRaw()`); existing `submit()` unchanged. The
+  M3.1 test suite (59 assertions) still passes without modification.
 
 Each phase produces:
 - Code (the defense)

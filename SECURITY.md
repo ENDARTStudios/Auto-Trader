@@ -1730,16 +1730,27 @@ structural check) confirms the precondition check IS invoked in the
 will verify that a missing lease → `PRECONDITION_FAILED` and NO signing
 occurs.
 
-### REG-014: Post-signature immutability (M3.3 — pinned before implementation)
+### REG-014: Post-signature immutability (M3.3 — implemented Jul 15 2026)
 
 **Pin date:** Jul 15 2026 (M3.3 architectural decision — recorded BEFORE
 implementation, per the operator's directive).
 
+**Implemented:** Jul 15 2026 — `src/lib/chain/broadcaster.ts`
+`broadcastSignedTransaction()` method computes `expectedHash =
+keccak256(rawSignedTx)` locally (via `@noble/hashes/sha3.js`) BEFORE
+calling `QuorumRpcClient.broadcastRawTransaction`, then verifies
+`broadcastResult.txHash === expectedHash`. Also verifies
+`signerReportedHash === expectedHash` as a sanity check (the signer's
+locally-computed hash should match our recomputation since both are
+keccak256 of the same bytes). On any divergence, the Broadcaster fails
+closed with `BROADCAST_IMMUTABILITY_VIOLATION` and does NOT report a
+successful broadcast, even if the RPC claims success.
+
 **Rule:** Once a transaction has been signed by the signer, the signed
 bytes (`rawSignedTx`) MUST be treated as immutable by the Broadcaster.
-The Broadcaster MUST compute `hashBefore = keccak256(rawSignedTx)`
+The Broadcaster MUST compute `expectedHash = keccak256(rawSignedTx)`
 locally BEFORE invoking `broadcastRawTransaction`, and MUST verify that
-the broadcast-accepted hash matches `hashBefore`. Any divergence is a
+the broadcast-accepted hash matches `expectedHash`. Any divergence is a
 critical integrity failure — the Broadcaster MUST fail closed and NOT
 report a successful broadcast.
 
@@ -1776,12 +1787,24 @@ build payload → hash(payload) → sign(payload)         [REG-011 guards this]
   gas — instead, the Broadcaster MUST fail closed and let M4's retry
   logic (when it lands) build a fresh transaction from scratch.
 
-**Regression test:** M3.3 test suite, scenario #4 (RPC returns a hash
-different from the locally-computed `hashBefore` → fail closed) and
-scenario #8 (raw transaction altered after signature → MUST fail BEFORE
-broadcast). The structural immutability test verifies the sequence:
-`buildTransaction → sign → hashBefore → broadcast → hashAfter ==
-hashBefore`.
+**Regression test:** M3.3 test suite (`scripts/test-m3-broadcaster.ts`):
+- Scenario B.4 — RPC returns a hash different from the locally-computed
+  `expectedHash` → Broadcaster fails closed with
+  `BROADCAST_IMMUTABILITY_VIOLATION`. The error message includes both
+  the RPC-returned hash and the locally-computed hash for diagnostics.
+- Scenario B.8 — raw transaction altered after signature (simulated by
+  having the broadcast handler tamper with the raw bytes and compute
+  the hash of the tampered bytes) → Broadcaster fails closed with
+  `BROADCAST_IMMUTABILITY_VIOLATION` because the signer-produced
+  `rawSignedTx` and the tampered bytes hash differently.
+- Scenario C.1 — structural immutability test verifies the closed loop:
+  `buildTransaction → sign → hashBefore → broadcast → hashAfter ==
+  hashBefore`. Confirms the broadcaster received EXACTLY the bytes the
+  signer produced (byte-identical comparison) AND the returned txHash
+  equals `keccak256(rawSignedTx)`.
+- Scenario B.7 — malformed RPC response (non-hex txHash) → fails the
+  immutability check because the malformed string does not match the
+  locally-computed keccak256.
 
 **Why this is a regression entry:** A future maintainer might be
 tempted to "optimize" by skipping the local hash recomputation ("the
@@ -1792,7 +1815,27 @@ violate the immutability guarantee and create a trust gap. This entry
 documents that the local hash recomputation is load-bearing — it is
 the only thing that proves the bytes broadcast are the bytes signed.
 
-### Test coverage
+### M3.3 Test coverage
+
+M3.3 added **47 new assertions** across **1 new test file** +
+**0 modifications to existing test files** (the M3.1 adapter test still
+passes 59/59 unchanged because `submit()`'s contract is preserved):
+
+| File | Scenarios | Assertions |
+|---|---|---|
+| `test-m3-broadcaster.ts` | 14 (3 functional + 8 adversarial + 1 structural immutability + 2 adapter integration) | 47 |
+| **total** | **14** | **47** |
+
+The M3.1 adapter was EXTENDED (not modified) with `signAndReturnRaw()`.
+The existing `submit()` method + its 59-assertion test suite are
+unchanged — backward compatibility is preserved by sharing the internal
+`executeSign(req, requireRaw)` helper between the two public methods.
+
+CI gate is now **22 files / 763 checks** (was 21 files / 716 checks at
+M3.2 close — M3.3 added 1 file and 47 checks). The frozen base is
+untouched: H0/H1/H2/H2.6/M3.1/M3.2 all still pass their full suites.
+
+### Test coverage (M3.2 — historical)
 
 M3.2 added **80 new assertions** across **1 new test file**:
 

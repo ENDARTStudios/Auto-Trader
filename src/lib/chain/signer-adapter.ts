@@ -153,6 +153,13 @@ export interface SignerWireRequest {
  * Fields:
  *   - `ok` — true iff the signer accepted + signed.
  *   - `txHash` — present iff ok=true; the signed transaction hash.
+ *   - `rawSignedTx` — present iff ok=true AND the operation was
+ *     `signTransaction` (M3.2 returns this; the Broadcaster (M3.3)
+ *     consumes it as the bytes to broadcast). NOT present for
+ *     `signTypedData` or `signMessage` (those return a signature, not
+ *     a raw transaction). The field is optional on the wire — the
+ *     adapter treats its absence on a `signTransaction` success as a
+ *     protocol violation (INVALID_RESPONSE).
  *   - `error` — present iff ok=false; the signer's rejection reason.
  *   - `requestId` — echoed back from the request; the adapter verifies
  *     it matches. Catches response confusion.
@@ -163,10 +170,27 @@ export interface SignerWireRequest {
 export interface SignerWireResponse {
   ok: boolean;
   txHash?: string;
+  /** M3.2: raw signed transaction bytes (0x-prefixed hex). Present on signTransaction success. */
+  rawSignedTx?: string;
   error?: string;
   requestId: string;
   receivedPayloadHash: string;
   signerVersion: string;
+}
+
+/**
+ * Extended signer result — includes `rawSignedTx` when available.
+ *
+ * The Broadcaster (M3.3) uses this via `signAndReturnRaw()` so it can
+ * broadcast the exact bytes the signer produced. The base `SignerResult`
+ * (from pipeline.ts, FROZEN) does NOT include `rawSignedTx` — that's by
+ * design, because the pipeline doesn't broadcast. This extended shape is
+ * only used by the Broadcaster, which sits between the pipeline and the
+ * RPC layer.
+ */
+export interface SignerResultWithRaw extends SignerResult {
+  /** Present iff ok=true AND the signer returned raw bytes (signTransaction). */
+  rawSignedTx?: string;
 }
 
 // -------------------------------------------------------------------------
@@ -355,6 +379,11 @@ export class SignerAdapter implements SignerSink {
   /**
    * Submit a sign request to the signer. Implements `SignerSink.submit`.
    *
+   * This is the backward-compatible entry point: returns `SignerResult`
+   * (no `rawSignedTx`). The pipeline (H2.6, FROZEN) calls this. The
+   * Broadcaster (M3.3) calls `signAndReturnRaw()` instead so it can
+   * access the raw signed bytes for broadcast.
+   *
    * Flow:
    *   1. Validate required fields on the incoming SignerRequest (defensive).
    *   2. Verify protocol version (cached; probes on first call).
@@ -370,6 +399,62 @@ export class SignerAdapter implements SignerSink {
    * a descriptive `error` string.
    */
   async submit(req: SignerRequest): Promise<SignerResult> {
+    // submit() uses executeSign with requireRaw=false so the M3.1
+    // contract (signer returns txHash, rawSignedTx optional) is
+    // preserved. The M3.1 test suite's "ok" mode does not include
+    // rawSignedTx — submit() must still accept that response.
+    const ext = await this.executeSign(req, /* requireRaw */ false);
+    if (ext.ok) {
+      // Strip rawSignedTx — the base SignerResult shape does not include it.
+      return { ok: true, txHash: ext.txHash };
+    }
+    return { ok: false, error: ext.error };
+  }
+
+  /**
+   * Submit a sign request AND return the raw signed transaction bytes.
+   *
+   * Used by the Broadcaster (M3.3) — it needs the raw bytes to:
+   *   1. Compute `expectedHash = keccak256(rawSignedTx)` locally (REG-014).
+   *   2. Pass the exact bytes to `broadcastRawTransaction`.
+   *
+   * This method is a THIN EXTENSION of `submit()` — it calls the same
+   * `executeSign()` internal method and just exposes `rawSignedTx` in
+   * the return shape. The protocol validation, envelope construction,
+   * transport, response parsing, and integrity verification are all
+   * identical to `submit()`. There is no separate code path that could
+   * diverge.
+   *
+   * Returns `SignerResultWithRaw` (extends `SignerResult` with an
+   * optional `rawSignedTx` field).
+   *
+   * On `ok=true`, `rawSignedTx` MUST be present (the signer's
+   * `signTransaction` handler always returns it). If the signer returns
+   * `ok=true` but omits `rawSignedTx`, the adapter treats this as
+   * INVALID_RESPONSE — the protocol contract has been violated.
+   */
+  async signAndReturnRaw(req: SignerRequest): Promise<SignerResultWithRaw> {
+    // signAndReturnRaw() uses executeSign with requireRaw=true so the
+    // Broadcaster (M3.3) always gets the bytes it needs to broadcast.
+    // If the signer returns ok=true but omits rawSignedTx, this fails
+    // closed as INVALID_RESPONSE.
+    return this.executeSign(req, /* requireRaw */ true);
+  }
+
+  /**
+   * Internal: execute the sign request end-to-end. Called by both
+   * `submit()` and `signAndReturnRaw()` so there is exactly ONE code
+   * path for signing. This prevents the two public methods from
+   * diverging (a future maintainer cannot accidentally fix a bug in
+   * one but not the other).
+   *
+   * Returns the full `SignerResultWithRaw` — `submit()` strips the
+   * `rawSignedTx` field; `signAndReturnRaw()` returns it verbatim.
+   */
+  private async executeSign(
+    req: SignerRequest,
+    requireRaw: boolean,
+  ): Promise<SignerResultWithRaw> {
     // 1. Validate required fields (adapter-side defense — the Pipeline
     //    already constructs a well-formed SignerRequest, but the adapter
     //    checks again so a future caller that bypasses the Pipeline
@@ -470,7 +555,7 @@ export class SignerAdapter implements SignerSink {
       };
     }
 
-    // 9. Map to SignerResult.
+    // 9. Map to SignerResultWithRaw.
     if (result.ok === true) {
       if (typeof result.txHash !== "string" || result.txHash.length === 0) {
         return {
@@ -478,6 +563,20 @@ export class SignerAdapter implements SignerSink {
           error: `${SignerAdapterError.INVALID_RESPONSE}: signer returned ok=true but txHash missing or empty`,
         };
       }
+      // M3.3 (Broadcaster) requires rawSignedTx. Only enforce this
+      // when requireRaw=true (signAndReturnRaw). The base submit()
+      // passes requireRaw=false to preserve the M3.1 contract where
+      // rawSignedTx was not part of the response shape.
+      if (requireRaw) {
+        if (typeof result.rawSignedTx !== "string" || result.rawSignedTx.length === 0) {
+          return {
+            ok: false,
+            error: `${SignerAdapterError.INVALID_RESPONSE}: signer returned ok=true but rawSignedTx missing or empty`,
+          };
+        }
+        return { ok: true, txHash: result.txHash, rawSignedTx: result.rawSignedTx };
+      }
+      // submit() path: rawSignedTx is optional. Return without it.
       return { ok: true, txHash: result.txHash };
     }
 
