@@ -342,7 +342,19 @@ async function main(): Promise<void> {
         const auditContent = fs.readFileSync(auditLogPath, "utf8");
         const auditLines = auditContent.trim().split("\n").filter(Boolean);
 
-        // Find the vault_zeroized_on_disconnect entry.
+        // H0.3: verify the hash chain integrity of the entire audit log.
+        // The audit entries are now hash-chained — tampering with any entry
+        // breaks the chain. We verify the whole chain is intact before
+        // checking the entry contents.
+        const { AuditLog } = await import("../src/lib/audit/audit-log");
+        const verifyResult = AuditLog.verify(auditLogPath);
+        assert(
+          verifyResult.ok,
+          `audit log hash chain must verify intact — got ${JSON.stringify(verifyResult)}`
+        );
+
+        // Find the vault_zeroized_on_disconnect entry. In the hash-chained
+        // format, the event-specific fields are nested under `payload`.
         const zeroizeEntries = auditLines
           .map((line) => {
             try { return JSON.parse(line); } catch { return null; }
@@ -356,14 +368,29 @@ async function main(): Promise<void> {
         );
 
         const entry = zeroizeEntries[0];
-        assertEq(entry.wasUnlocked, true, "audit entry must record wasUnlocked=true (vault was unlocked at disconnect)");
-        assertEq(entry.walletsWiped, 1, "audit entry must record walletsWiped=1");
-        assertEq(entry.exchangesWiped, 0, "audit entry must record exchangesWiped=0");
-        assertEq(entry.unlockedAfter, false, "audit entry must record unlockedAfter=false (vault is locked after zeroize)");
-        assertEq(entry.pid, handle.pid, "audit entry must record the signer's pid");
+        // H0.3: event-specific fields are now under entry.payload (not top-level).
+        const payload = entry.payload;
+        assertEq(payload.wasUnlocked, true, "audit entry.payload must record wasUnlocked=true (vault was unlocked at disconnect)");
+        assertEq(payload.walletsWiped, 1, "audit entry.payload must record walletsWiped=1");
+        assertEq(payload.exchangesWiped, 0, "audit entry.payload must record exchangesWiped=0");
+        assertEq(payload.unlockedAfter, false, "audit entry.payload must record unlockedAfter=false (vault is locked after zeroize)");
+        assertEq(payload.pid, handle.pid, "audit entry.payload must record the signer's pid");
         assert(
           typeof entry.timestamp === "string" && entry.timestamp.length > 0,
           "audit entry must have a timestamp string"
+        );
+        // H0.3: verify the hash-chain fields are present.
+        assert(
+          typeof entry.seq === "number" && entry.seq >= 1,
+          `audit entry must have seq >= 1 — got ${entry.seq}`
+        );
+        assert(
+          typeof entry.hash === "string" && entry.hash.length === 64,
+          `audit entry must have a 64-char SHA-256 hash — got ${typeof entry.hash} len=${entry.hash?.length}`
+        );
+        assert(
+          entry.prevHash === null || (typeof entry.prevHash === "string" && entry.prevHash.length === 64),
+          `audit entry prevHash must be null (genesis) or 64-char hex — got ${typeof entry.prevHash}`
         );
 
         // Clean up the audit log file.

@@ -997,3 +997,40 @@ Stage Summary:
 - Key buffer zeroization is in place as defense-in-depth.
 - No behavioral change for existing callers (wallet-manager.ts, signer wallet-methods.ts). The EncryptedBlob interface is backward-compatible (new fields are optional).
 - Next: H0.3 (audit log hash-chain).
+
+---
+Task ID: h0.3
+Agent: main
+Task: H0.3 — Audit log hash-chain. Implement tamper-evident append-only audit log for the signer.
+
+Work Log:
+- Created src/lib/audit/audit-log.ts: a new module implementing a hash-chained append-only audit log.
+  - Each AuditEntry has: seq (monotonic), timestamp, event, payload, prevHash (SHA-256 of previous entry's hash, null for genesis), hash (SHA-256 of this entry's canonical JSON excluding hash).
+  - AuditLog class: init() reads the existing file to seed lastHash + lastSeq; append() computes hash + writes synchronously; verify() reads the entire file + checks seq monotonicity, prevHash linkage, and hash recomputation.
+  - CRITICAL BUG FOUND + FIXED during testing: JSON.stringify(entry, sortedKeysArray) uses the replacer array form, which filters keys at ALL levels of the object — not just the top level. This dropped nested keys inside `payload` (e.g. `{ n: 1 }` became `{}`), making the hash independent of the payload content. An attacker could modify the payload without breaking the hash chain. Fixed by building a new top-level object with sorted keys and serializing normally (no replacer). The tamper detection test (test 4) caught this bug — without the test, the hash chain would have been security theater.
+- Created src/signer/audit.ts: signer-side singleton that initializes the AuditLog at boot, verifies chain integrity (logs loudly if broken, does NOT block boot), and exposes auditEvent(event, payload) for the wallet handlers.
+- Updated src/signer/main.ts: calls initSignerAuditLog() at boot (after crash handlers, before socket creation).
+- Updated src/signer/wallet-methods.ts: all wallet handlers now write hash-chained audit entries:
+  - handleUnlock: vault_unlocked (success), vault_unlock_rate_limited, vault_unlock_empty, vault_unlock_failed (wrong passphrase).
+  - handleLock: vault_locked.
+  - zeroizeVaultForDisconnect: vault_zeroized_on_disconnect (now via the AuditLog singleton instead of raw appendFileSync).
+- Created scripts/test-h0-audit-hashchain.ts (10 scenarios):
+  1. Append 3 entries → verify clean. ✓
+  2. Genesis entry has prevHash=null, seq=1. ✓
+  3. Chain linkage: entry N's prevHash === entry N-1's hash. ✓
+  4. Tamper detection: modifying entry 1's payload breaks verification (hash mismatch at seq=1). ✓
+  5. Deletion detection: removing entry 2 breaks verification (seq gap). ✓
+  6. Hash recomputation: stored hash matches SHA-256 of canonical JSON. ✓
+  7. init() seeds lastHash — append after init continues the chain. ✓
+  8. Empty/nonexistent file → verify returns ok with 0 entries. ✓
+  9. Cross-session chain integrity: 2 sessions × 2 entries = 4 entries, all verify. ✓
+- Updated scripts/test-signer-vault-integration.ts: the integration test now verifies the hash chain integrity of the audit log AND checks the new payload-nested field structure (wasUnlocked, walletsWiped, etc. are now under entry.payload instead of top-level). Also asserts seq/hash/prevHash fields are present and well-formed.
+- Wired test:h0-audit into package.json and appended it to test:ci. CI gate is now 8 files / 64 checks (54 previous + 10 new).
+- Regression check: test-signer-vault-integration.ts (3/3) passes with the new hash-chained audit log format.
+
+Stage Summary:
+- H0.3 is implemented + tested + ready to commit.
+- The signer's audit log is now tamper-evident: any modification, deletion, or insertion of entries is detected by AuditLog.verify(). The chain is verified at boot (logs loudly if broken) and can be verified offline by the operator at any time.
+- A critical hash-computation bug was caught by the tamper detection test — the JSON.stringify replacer array form was silently dropping payload content from the hash. This is exactly the kind of bug that test-driven security development is supposed to catch, and it did.
+- The audit entries now cover: vault_unlocked, vault_unlock_rate_limited, vault_unlock_empty, vault_unlock_failed, vault_locked, vault_zeroized_on_disconnect. Every key security event in the signer is recorded in the tamper-evident log.
+- Next: H0.4 (key rotation / versioning).

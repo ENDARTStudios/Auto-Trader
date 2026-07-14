@@ -62,6 +62,7 @@ import {
   zeroizeVaultForDisconnect,
   inspectVaultForTest,
 } from "@/signer/wallet-methods";
+import { initSignerAuditLog } from "@/signer/audit";
 
 // ---------------------------------------------------------------------------
 // Boot sequence
@@ -473,6 +474,12 @@ function main(): void {
   // This ensures any crash during boot (socket creation, etc.) is
   // captured by crash-logger.ts.
   registerCrashHandlers();
+
+  // H0.3: Initialize the hash-chained audit log. This reads the existing
+  // file to seed the hash chain + verifies chain integrity. If the chain
+  // is broken, logs loudly but does NOT block boot (the operator needs
+  // the signer to start so they can investigate).
+  initSignerAuditLog();
 
   const socketPath = resolveSocketPath();
 

@@ -25,6 +25,7 @@
 
 import { walletVault } from "@/lib/trading/wallet-crypto";
 import type { MethodHandlerResult } from "@/lib/signer-protocol";
+import { auditEvent } from "@/signer/audit";
 
 // ---------------------------------------------------------------------------
 // Helper: serialize Date | null → ISO string | null
@@ -98,6 +99,12 @@ async function handleUnlock(params: unknown): Promise<MethodHandlerResult> {
   // PROPAGATES (so crash-logger captures the stack).
   try {
     const result = await walletVault.unlockAsync(p.passphrase, p.sourceIp);
+    // H0.3: audit the successful unlock to the hash-chained file.
+    auditEvent("vault_unlocked", {
+      sourceIp: p.sourceIp,
+      walletCount: result.wallets,
+      exchangeCount: result.exchanges,
+    });
     return {
       ok: true,
       result: {
@@ -110,6 +117,11 @@ async function handleUnlock(params: unknown): Promise<MethodHandlerResult> {
   } catch (err) {
     const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
     if (msg.startsWith("rate limited")) {
+      // H0.3: audit the rate-limited unlock attempt.
+      auditEvent("vault_unlock_rate_limited", {
+        sourceIp: p.sourceIp,
+        message: err instanceof Error ? err.message : String(err),
+      });
       return {
         ok: false,
         code: -32007, // RATE_LIMITED
@@ -118,6 +130,8 @@ async function handleUnlock(params: unknown): Promise<MethodHandlerResult> {
       };
     }
     if (msg.includes("vault vazio") || msg.includes("vault empty")) {
+      // H0.3: audit the empty-vault unlock attempt.
+      auditEvent("vault_unlock_empty", { sourceIp: p.sourceIp });
       return {
         ok: false,
         code: -32000,
@@ -125,6 +139,8 @@ async function handleUnlock(params: unknown): Promise<MethodHandlerResult> {
       };
     }
     if (msg.includes("passphrase incorreta") || msg.includes("blob corrompido")) {
+      // H0.3: audit the failed unlock (wrong passphrase).
+      auditEvent("vault_unlock_failed", { sourceIp: p.sourceIp, reason: "wrong_passphrase" });
       return {
         ok: false,
         code: -32000,
@@ -161,6 +177,8 @@ function handleLock(params: unknown): MethodHandlerResult {
   const sourceIp = typeof p.sourceIp === "string" ? p.sourceIp : "unknown";
 
   walletVault.lock(reason, sourceIp);
+  // H0.3: audit the lock to the hash-chained file.
+  auditEvent("vault_locked", { reason, sourceIp });
   return {
     ok: true,
     result: { unlocked: false },
@@ -353,8 +371,15 @@ export function inspectVaultForTest(): {
  * Zeroize the vault — called from the parent-disconnect handler in main.ts
  * before the signer exits. Wipes all in-memory decrypted keys.
  *
- * Writes an audit entry to the SIGNER_AUDIT_LOG file (if set) so post-mortem
- * review can confirm zeroization happened.
+ * H0.3: Writes a hash-chained audit entry via the signer's AuditLog
+ * singleton (initialized at boot). The entry is tamper-evident — any
+ * modification breaks the chain, detectable by `AuditLog.verify()`.
+ *
+ * The `auditLogPath` parameter is kept for backward compatibility (the
+ * parent-disconnect handler in main.ts passes it) but is now ignored —
+ * the AuditLog singleton was already initialized with the path at boot.
+ * If the singleton is null (no SIGNER_AUDIT_LOG_PATH set, dev mode),
+ * the zeroize still happens but no audit entry is written.
  */
 export function zeroizeVaultForDisconnect(auditLogPath?: string): {
   walletsWiped: number;
@@ -370,24 +395,17 @@ export function zeroizeVaultForDisconnect(auditLogPath?: string): {
 
   const after = walletVault.stats();
 
-  // Write audit entry if path is set.
-  if (auditLogPath) {
-    try {
-      const { appendFileSync } = require("node:fs");
-      const entry = JSON.stringify({
-        timestamp: new Date().toISOString(),
-        event: "vault_zeroized_on_disconnect",
-        wasUnlocked,
-        walletsWiped: walletCount,
-        exchangesWiped: exchangeCount,
-        unlockedAfter: after.unlocked,
-        pid: process.pid,
-      }) + "\n";
-      appendFileSync(auditLogPath, entry);
-    } catch {
-      // Best-effort — the zeroization itself already happened.
-    }
-  }
+  // H0.3: write the hash-chained audit entry via the singleton.
+  // The auditLogPath parameter is ignored — the singleton was initialized
+  // at boot with the path from SIGNER_AUDIT_LOG_PATH.
+  void auditLogPath; // kept for backward compat, intentionally unused.
+  auditEvent("vault_zeroized_on_disconnect", {
+    wasUnlocked,
+    walletsWiped: walletCount,
+    exchangesWiped: exchangeCount,
+    unlockedAfter: after.unlocked,
+    pid: process.pid,
+  });
 
   return {
     walletsWiped: walletCount,
