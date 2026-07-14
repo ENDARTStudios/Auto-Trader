@@ -1689,3 +1689,85 @@ Stage Summary:
 - Frozen base respected: zero modifications to the 10 files listed in REG-009. The only signer-side changes are to src/lib/signer-protocol.ts (added SIGNER_PROTOCOL_MISMATCH_CODE + validateProtocolVersion) and src/signer/main.ts (added per-request validation in dispatchRpc) — neither is in the frozen list.
 - CI gate: 20 files / 637 checks (was 19 files / 577 checks at H2.6 close — M3.1 added 1 file and 60 checks). H0/H1/H2/H2.6 all still pass their full suites.
 - Next: M3.2 — Signer RPC methods (signTransaction, signTypedData, signMessage). The M3.2 handler will call validateProtocolVersion (already added in M3.1), verify vault is unlocked, verify writer lease is held (M4 dependency), compute the signature, and return { ok, txHash, requestId, receivedPayloadHash, signerVersion } — the shape M3.1's adapter already expects.
+
+---
+Task ID: m3.2
+Agent: main
+Task: M3.2 — Signer RPC handlers (signTransaction, signTypedData, signMessage). Operator-directed, closed scope. Each handler implements exactly 5 steps: (1) validate protocol — done by dispatchRpc's per-request check; (2) verify vault is unlocked; (3) validate preconditions (writer lease — M4 seam, no-op for now); (4) sign with the wallet key; (5) return the result. NO broadcast, NO nonce management, NO RPC submission, NO retries, NO queues, NO failover, NO execution logic. Acceptance criteria: adapter unchanged, pipeline unchanged, only signer gains signing capability.
+
+Work Log:
+- Re-read worklog tail (m3.1 record) to confirm M3.1 is FROZEN — 637 checks, SignerAdapter implemented + tested. The M3.1 adapter implements `SignerSink` and translates `SignerRequest` → `SignerWireRequest` wire envelope. The adapter's `SignerWireResponse` shape is `{ ok, txHash?, error?, requestId, receivedPayloadHash, signerVersion }` — M3.2's signTransaction handler must return this shape.
+- Re-read src/signer/main.ts (NOT frozen) to confirm dispatchRpc's LAYER 1/LAYER 2 discipline: allowlist check + protocol validation (LAYER 1, recoverable) → handler invocation (LAYER 2, exceptions propagate). The M3.2 sign handlers must follow the same discipline as wallet-methods.ts: application errors returned as `{ ok: false, ... }`; unexpected exceptions propagate to crash-logger.ts.
+- Re-read src/lib/signer-protocol.ts (NOT frozen) to confirm SIGNER_PROTOCOL_VERSION = "1.1.0-m2", validateProtocolVersion (added in M3.1), and the SIGNER_METHOD_ALLOWLIST (currently health_check + 5 wallet methods). M3.2 adds 3 sign methods to the allowlist alongside their handlers.
+- Re-read src/lib/chain/signer-adapter.ts (M3.1, NOW FROZEN per operator's review) to confirm the wire envelope shape and the SignerPayload type. The adapter always sends `operation: "signTransaction"` — M3.2 adds the handler that accepts this envelope. The other two operations (signTypedData, signMessage) are NOT invoked by the adapter (frozen); they exist for direct RPC callers (e.g., M3.3 Broadcaster).
+- Re-read src/lib/trading/wallet-crypto.ts (FROZEN, H0) to confirm the WalletVault public API: `getWalletKey(walletId)`, `isUnlocked()`, `stats()`. There is NO public address→key lookup. The wallets Map is `private Map<walletId, privateKey>`. Since wallet-crypto.ts is frozen, M3.2 cannot add a `getWalletByAddress()` method — instead, the sign handler queries the DB for WalletConnection rows matching `address = tx.from`, then calls `walletVault.getWalletKey(walletId)` for each match. Defense in depth: the handler verifies the key derives the expected address (catches DB corruption where a row claims address=X but the key is for address=Y).
+- Re-read prisma/schema.prisma to confirm WalletConnection has: id, label, type, address, chain, publicKey, privateKeyEncrypted, isActive, readOnly, lastUsedAt. The `readOnly` field is `true = watch-only, no signing` — M3.2 rejects readOnly wallets.
+- Re-read scripts/test-signer-vault-integration.ts to confirm the test pattern: spawn real signer with SIGNER_TEST_HOOKS=1 + SIGNER_AUDIT_LOG, seed a real wallet into the DB via `db.walletConnection.create` with `encryptSecret(privateKey, passphrase)`, unlock via RPC, exercise the API, verify exit + audit log. M3.2's test suite follows the same pattern.
+- Created src/signer/sign-methods.ts (NEW, NOT frozen):
+  - `SignHandlerError` constant: 5 error code prefixes (PAYLOAD_CORRUPTED, UNAUTHORIZED, INVALID_PARAMS, PRECONDITION_FAILED, SIGN_FAILED).
+  - `CHAIN_ID_BY_NAME` map: mainnet=1, base=8453, arbitrum=42161, optimism=10, polygon=137, sepolia=11155111, baseSepolia=84532, hardhat=31337. Unknown chain → refuse to sign (would be replayable).
+  - `handleSignMethod(method, params)` — dispatcher routing to the 3 handlers. Throws on unknown method (programming error — dispatcher routing bug).
+  - `isSignMethod(method)` — type guard.
+  - `runSignGuard(params, operation)` — shared 5-step guard: validate envelope → verify vault unlocked → check preconditions (writer lease — M4 seam, no-op) → verify payloadHash (defense in depth) → look up wallet by address + verify key derives address. Returns either `{ ok, envelope, receivedPayloadHash, wallet, walletId }` or `{ failure, auditEventName, auditPayload }`.
+  - `handleSignTransaction(params)` — builds tx with placeholders (chainId from wallet's chain DB field OR payload.chainId override; nonce=0; gasLimit=21000; type=2 EIP-1559; maxFeePerGas=1 gwei), signs with `wallet.signTransaction(tx)`, returns `{ ok, txHash, rawSignedTx, requestId, receivedPayloadHash, signerVersion }`.
+  - `handleSignTypedData(params)` — validates typedData structure, signs with `wallet.signTypedData(domain, types, message)`, returns `{ ok, signature, requestId, receivedPayloadHash, signerVersion }`.
+  - `handleSignMessage(params)` — validates message is a string, signs with `wallet.signMessage(message)` (EIP-191 personal_sign), returns `{ ok, signature, requestId, receivedPayloadHash, signerVersion }`.
+  - `validateEnvelope(params, expectedOperation)` — strict structural check of the wire envelope (protocolVersion, requestId, operation match, payload object, payloadHash, payload.tx with from/to/value/data for signTransaction, frozen adapter payload fields approvedAmount/slippageLimitBps/sandwichScore).
+  - `validateTypedData(payload)` — EIP-712 structure check (domain, types, primaryType, message + each type's fields).
+  - `findSignableWalletForAddress(address)` — DB query for non-readOnly wallets with privateKeyEncrypted, case-insensitive JS address match, `walletVault.getWalletKey(walletId)`, ethers Wallet derivation + address verification. Defense in depth: catches DB corruption.
+  - `getWalletChainFromDb(walletId)` — DB query for the wallet's chain field (used to determine chainId when payload doesn't override).
+  - `checkWriterLease()` — M4 SEAM. Returns null (precondition OK) for M3.2. When M4 lands, replace with real writer-lease check. Documented as a hard precondition (no soft mode).
+  - `sha256Canonical(obj)` — MUST match adapter's sha256Canonical exactly. Signer recomputes from received payload and compares with envelope's payloadHash.
+  - `getChainIdForName(name)` — exported for testing (read-only inspection).
+- Updated src/lib/signer-protocol.ts (NOT frozen):
+  - Added "signTransaction", "signTypedData", "signMessage" to SIGNER_METHOD_ALLOWLIST.
+  - Added the 3 methods to SignerMethodName union.
+  - Added M3.2 schema block: SignHandlerParams (wire envelope — mirrors SignerWireRequest), SignPayload (frozen adapter fields + forward-compatible extensions: typedData, message, chainId, nonce, gasLimit, maxFeePerGas, maxPriorityFeePerGas, type), SignHandlerResultSuccess (ok, txHash?, rawSignedTx?, signature?, requestId, receivedPayloadHash, signerVersion), SignHandlerResultFailure (ok, error, requestId, receivedPayloadHash, signerVersion), SignHandlerResult (union).
+  - Extensive design comment explaining: the adapter (frozen) only invokes signTransaction; signTypedData/signMessage exist for direct RPC callers; the adapter's SignerPayload is a SUBSET of what the signer accepts (forward-compatible).
+- Updated src/signer/main.ts (NOT frozen):
+  - Added import: `import { handleSignMethod, isSignMethod } from "@/signer/sign-methods"`.
+  - Added routing in dispatchRpc after `isWalletMethod` check, before test hooks: `if (isSignMethod(method)) { return handleSignMethod(method, _params); }`.
+  - Documented the LAYER 2 discipline: handler invocation is DOWNSTREAM code; application errors returned as `{ ok: false, ... }`; unexpected exceptions propagate; dispatcher MUST NOT wrap in try/catch.
+  - Protocol version NOT bumped (still "1.1.0-m2") — the wire format is unchanged (we added handlers, not changed the envelope). Backward-compatible.
+- Created scripts/test-m3-signer-handlers.ts (NEW):
+  - 80 assertions across 7 categories (A functional baseline, B adversarial 8 cases, C integrity 3 cases, D protocol mismatch defense-in-depth, E readOnly rejection, F chainId override, G audit log).
+  - A.1: signTransaction with unlocked vault → ok=true, txHash + rawSignedTx, ethers Transaction.from recovers wallet address, parsed.hash matches returned txHash.
+  - A.2: signTypedData → ok=true, signature, ethers verifyTypedData recovers wallet address.
+  - A.3: signMessage → ok=true, signature, ethers verifyMessage (EIP-191) recovers wallet address.
+  - B.1: vault locked → SIGNER_VAULT_LOCKED for all 3 operations.
+  - B.2: payload altered (payloadHash mismatch) → SIGNER_PAYLOAD_CORRUPTED, requestId still echoed, receivedPayloadHash differs from envelope's (signer recomputed).
+  - B.3: incompatible protocol → POLICY_VIOLATION (-32006) + SIGNER_PROTOCOL_MISMATCH in message (dispatcher's per-request check).
+  - B.4: invalid format → SIGNER_INVALID_PARAMS (5 sub-cases: non-object, missing requestId, operation mismatch, signTypedData without typedData, signMessage without message).
+  - B.5: unauthorized (random address) → SIGNER_UNAUTHORIZED, error mentions the address, requestId echoed.
+  - B.6: repeated signing → same payload produces IDENTICAL signature (RFC 6979 deterministic ECDSA); signer's signature matches direct ethers.Wallet.signMessage computation.
+  - B.7: LAYER 2 discipline — static source code check that sign-methods.ts handlers do NOT wrap sign calls in try/catch, AND dispatchRpc does NOT .catch() sign-method rejections, AND dispatchRpc returns handleSignMethod promise directly (no .then/.catch chain).
+  - B.8: exact payload preservation — signMessage signature matches direct ethers computation for ASCII + unicode (multibyte UTF-8) messages.
+  - C.1-C.3: echo fields (requestId, receivedPayloadHash, signerVersion) correct.
+  - D.1: signer-side protocol validation catches mismatch even when bypassing the adapter (direct RPC with wrong protocolVersion) → POLICY_VIOLATION + message mentions both bad version and signer's version.
+  - E.1: readOnly wallet cannot sign → SIGNER_UNAUTHORIZED (defense in depth — readOnly check at sign time, not at unlock time).
+  - F.1: explicit payload.chainId override → signed tx has the overridden chainId (Number conversion for ethers v6 bigint).
+  - G.1: audit log contains sign_transaction_succeeded, sign_message_succeeded, sign_typed_data_succeeded, AND at least one adversarial event (sign_vault_locked OR sign_payload_corrupted).
+  - Test harness: spawnSigner (real process + Unix socket + audit log), sendRpc (real JSON-RPC over Unix socket), seedTestWallet (real ethers Wallet.createRandom + DB insert with encrypted key), cleanupTestWallets.
+- Updated scripts/test-m3-signer-adapter.ts (M3.1 test file, NOT the adapter code):
+  - D.2 assertion updated: was "signTransaction returns -32601 since M3.2 not yet shipped" → now "signTransaction reaches the handler which rejects with VAULT_LOCKED (post-M3.2 behavior)". The spawned signer in D.2 has no DB seed + no unlock, so the handler's vault check fails first → ok=false with SIGNER_VAULT_LOCKED error. The adapter surfaces this via the "SIGNER_REJECTED" path (result.error verbatim).
+  - Documented WHY the assertion changed: the adapter code is UNCHANGED — only the test expectation reflects the new (post-M3.2) reality. This is consistent with the operator's M3.2 acceptance criterion "o adapter permanece inalterado".
+  - Summary line updated: "D.2 real signer + correct version → health_check passes, signTransaction reaches handler (post-M3.2: returns VAULT_LOCKED since test spawns with no wallet)".
+  - Assertion count: 60 → 59 (one assertion removed — the "-32601" check is no longer applicable).
+- Updated package.json: added "test:m3-handlers" script + appended to "test:ci".
+- Fixed 3 bugs during iteration (all in the TEST FILE, NOT in sign-methods.ts):
+  1. B.7 regex `isSignMethod\(method\)[\s\S]*?\.catch\s*\(` was too greedy — matched a `.catch(` in a comment later in main.ts. Fixed by extracting the dispatchRpc function body first, then checking only within that body. Also added a positive assertion that the call shape is `return handleSignMethod(method, _params);` (no .then/.catch chain).
+  2. E.1 re-seeded the DB with a NEW wallet (different address), causing F.1 to fail (F.1 used the original `wallet.address` variable). Fixed by saving + restoring the original wallet's address + privateKey at the end of E.1.
+  3. F.1 used `assertEqual(parsed.chainId, 1, ...)` but ethers v6 returns chainId as bigint. JSON.stringify(bigint) throws "Do not know how to serialize a BigInt". Fixed with `Number(parsed.chainId)`.
+- Confirmed frozen base untouched: re-ran full CI suite (21 files / 716 checks, all green). H0 (33), H1 (175), H2 (324), H2.6 (119/119), Phase 1 (45), M3.1 (59/59), M3.2 (80/80).
+- Zero modifications to the 10 files listed in REG-009 (H0/H1/H2/H2.6). The M3.1 adapter (src/lib/chain/signer-adapter.ts) is also unchanged — only the M3.1 TEST FILE (test-m3-signer-adapter.ts) had its D.2 assertion updated to reflect post-M3.2 behavior.
+- Zero bugs caught in the signer-side code during M3.2 testing — expected for a handler that delegates to ethers' well-tested signing primitives. The 5-step guard + adversarial test matrix caught all the design-level concerns (vault locked, payload corruption, unauthorized, readOnly, protocol mismatch) at the test-definition stage, before any code was written.
+
+Stage Summary:
+- M3.2 is implemented + tested + ready to commit.
+- The signer now has 3 sign handlers (signTransaction, signTypedData, signMessage) implementing the operator's closed scope: validate protocol → verify vault → check preconditions (writer lease M4 seam) → sign → return. NO broadcast, NO nonce management, NO RPC submission, NO retries, NO queues, NO failover, NO execution logic.
+- The M3.1 adapter (FROZEN) is unchanged. The H2.6 pipeline (FROZEN) is unchanged. Only the signer process gained signing capability — exactly per the operator's acceptance criterion.
+- Adversarial test matrix (8 cases per operator's directive) all pass: vault locked, payload altered, incompatible protocol, invalid format, unauthorized, repeated signing (RFC 6979), internal error (LAYER 2 structural check), exact payload preservation. Plus 3 integrity checks (echo fields), 1 defense-in-depth protocol check, 1 readOnly rejection, 1 chainId override, 1 audit log verification.
+- CI gate: 21 files / 716 checks (was 20 files / 637 checks at M3.1 close — M3.2 added 1 file and 80 checks, minus 1 assertion removed from M3.1's D.2 = net +79 checks). H0/H1/H2/H2.6/M3.1 all still pass their full suites.
+- Writer lease precondition is a documented SEAM (`checkWriterLease()` in sign-methods.ts) — returns null for M3.2, will be replaced with a real check when M4 lands. The seam is a single function replacement; no handler body changes will be needed.
+- Wallet-by-address lookup uses a DB query + `walletVault.getWalletKey(walletId)` + ethers address derivation verification — avoids modifying the frozen wallet-crypto.ts while still providing defense in depth against DB corruption.
+- Next: M3.3 — Broadcaster. Sits downstream of the signer. Takes the signed tx (rawSignedTx from signTransaction) and broadcasts via `broadcastRawTransaction` from frozen rpc-resilience.ts (H1). M3.3 will fill in the placeholder nonce/gas with real values BEFORE signing (or re-sign with real values after the placeholder signing — design decision for M3.3). The M3.2 signTransaction handler returns rawSignedTx specifically so M3.3 can consume it.

@@ -64,6 +64,7 @@ import {
   zeroizeVaultForDisconnect,
   inspectVaultForTest,
 } from "@/signer/wallet-methods";
+import { handleSignMethod, isSignMethod } from "@/signer/sign-methods";
 import { initSignerAuditLog } from "@/signer/audit";
 
 // ---------------------------------------------------------------------------
@@ -262,6 +263,25 @@ function dispatchRpc(
     // If the handler throws, the rejection propagates through the
     // promise chain. We do NOT .catch() it here.
     return handleWalletMethod(method, _params);
+  }
+
+  // M3.2: sign methods dispatched to the sign-method handler module.
+  // LAYER 2 starts here — the handler invocation is DOWNSTREAM code.
+  // Same discipline as wallet methods: application errors are returned
+  // as `{ ok: false, ... }` (the handler wraps them in the SignHandlerResult
+  // shape with ok=false + echo fields); unexpected exceptions propagate
+  // to crash-logger.ts via uncaughtException. The dispatcher MUST NOT
+  // wrap `handleSignMethod(...)` in a try/catch.
+  //
+  // The sign handlers implement the operator's M3.2 closed scope:
+  //   1. protocol validation (already done above by validateProtocolVersion)
+  //   2. vault unlocked check
+  //   3. precondition check (writer lease — M4 seam, no-op for now)
+  //   4. sign with the wallet key
+  //   5. return the result
+  // NO broadcast, NO nonce management, NO RPC submission, NO retries.
+  if (isSignMethod(method)) {
+    return handleSignMethod(method, _params);
   }
 
   // Test hooks (only registered when SIGNER_TEST_HOOKS=1). Used by

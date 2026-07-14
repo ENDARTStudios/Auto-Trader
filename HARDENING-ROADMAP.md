@@ -449,7 +449,8 @@ Acceptance criteria (structural + adversarial, per permanent principle):
 4. **H2.6 ✓** — Integration Gate (operator-directed): prove the H1+H2 primitives compose correctly when chained in the mandated order. No new functionality — only integration. **M3 cannot start until H2.6 is green**; M3 then becomes pure orchestration of an already-validated pipeline.
 5. **M3 Readiness Review ✓** — final freeze gate before opening M3. A review (NOT implementation) confirming the seven load-bearing invariants hold over the H0/H1/H2/H2.6 base. See the "M3 Readiness Review" block below for the checklist + evidence. The review PASSED on Jul 15 2026; H0/H1/H2/H2.6 are now declared **FROZEN** — any change to these layers during M3 is treated as regression correction, not functional evolution.
 6. **M3** — Sign RPC (now lands on a hardened + integration-validated + freeze-confirmed base). First task: `SignerAdapter` (translate `PipelineRequest` → `SignerRequest`, validate protocol version, serialize/deserialize messages; NO decision logic). Second task: `signTransaction` / `signTypedData` / `signMessage` RPC methods on the signer process — still no broadcast. Third task: `Broadcaster` — only after signing is decoupled and stable.
-   - **M3.1 ✓** — SignerAdapter (`src/lib/chain/signer-adapter.ts`): implements `SignerSink` (the interface the H2.6 Pipeline calls). Three responsibilities only: mapping `SignerRequest` → wire envelope, pre-flight protocol validation via `health_check`, JSON-RPC serialization with timeout. Two-point protocol validation (adapter pre-flight + signer per-request `validateProtocolVersion`). No retry, no fallback, no reconnection (M4 owns lifecycle). 60 assertions across 13 scenarios (4 contract + 4 transport + 3 security + 2 integration against real signer process). Frozen base untouched (H2.6 still 119/119 green).
+   - **M3.1 ✓** — SignerAdapter (`src/lib/chain/signer-adapter.ts`): implements `SignerSink` (the interface the H2.6 Pipeline calls). Three responsibilities only: mapping `SignerRequest` → wire envelope, pre-flight protocol validation via `health_check`, JSON-RPC serialization with timeout. Two-point protocol validation (adapter pre-flight + signer per-request `validateProtocolVersion`). No retry, no fallback, no reconnection (M4 owns lifecycle). 59 assertions across 13 scenarios (4 contract + 4 transport + 3 security + 2 integration against real signer process). Frozen base untouched (H2.6 still 119/119 green).
+   - **M3.2 ✓** — Signer RPC handlers (`src/signer/sign-methods.ts`): `signTransaction` / `signTypedData` / `signMessage` handlers, each implementing the 5-step guard (protocol → vault → preconditions → sign → return). DB-backed wallet-by-address lookup (avoids modifying frozen `wallet-crypto.ts`). Defense-in-depth: payload hash re-verification, key-derived address verification, readOnly rejection. Writer lease precondition is a documented M4 SEAM. 80 assertions across 7 categories (functional baseline, 8 adversarial cases, integrity, defense-in-depth, readOnly, chainId override, audit log). Adapter + pipeline unchanged — only signer gained signing capability.
 7. **M4** — Writer lease.
 8. **H3-H8** — Subsequent hardening phases (signature hygiene, infra, privacy, address hygiene, logic, operational support).
 
@@ -616,19 +617,71 @@ with a real adapter and confirms the contract still holds.
 close — M3.1 added 1 file and 60 checks). The frozen base is untouched:
 H0 (33), H1 (175), H2 (205), H2.6 (119) all still green.
 
-### M3.2 — Signer RPC methods (next, not yet started)
+### M3.2 — Signer RPC methods — ✓ COMPLETE (Jul 15 2026)
 
-Add `signTransaction`, `signTypedData`, `signMessage` handlers to the
-signer process (`src/signer/main.ts`) + expand the allowlist in
-`src/lib/signer-protocol.ts`. Still NO broadcast — the signer signs
-and returns the signed payload; the broadcaster (M4) sends it on-chain.
+Added `signTransaction`, `signTypedData`, `signMessage` handlers to the
+signer process via a new module `src/signer/sign-methods.ts`, and
+expanded the allowlist in `src/lib/signer-protocol.ts`. Still NO
+broadcast — the signer signs and returns the signed payload; the
+broadcaster (M3.3) sends it on-chain.
 
-The M3.2 handler will:
-1. Call `validateProtocolVersion(params)` (already added in M3.1 — signer-side boundary defense).
-2. Verify the vault is unlocked (returns `-32008 VAULT_LOCKED` if not).
-3. Verify the writer lease is held (returns `-32009 WRITER_LEASE_NOT_HELD` if not — M4 dependency).
-4. Compute the signature using the unlocked key from the vault.
-5. Return `{ ok: true, txHash, requestId, receivedPayloadHash, signerVersion }` (the shape M3.1's adapter already expects).
+Each handler implements exactly 5 steps (per operator's M3.2 directive):
+1. Validate protocol — done by `dispatchRpc`'s per-request `validateProtocolVersion` (added in M3.1).
+2. Verify vault is unlocked → returns `SIGNER_VAULT_LOCKED` if not.
+3. Validate preconditions (writer lease — M4 seam, currently no-op via `checkWriterLease()`).
+4. Sign with the wallet key (ethers v6 `Wallet.signTransaction` / `signTypedData` / `signMessage`).
+5. Return the result with echo fields (`requestId`, `receivedPayloadHash`, `signerVersion`).
+
+**Files (new):**
+- `src/signer/sign-methods.ts` — handler implementations + shared 5-step guard + DB-backed wallet-by-address lookup (avoids modifying frozen `wallet-crypto.ts`).
+- `scripts/test-m3-signer-handlers.ts` — adversarial test suite (80 assertions, real signer process + real Unix socket + real DB-seeded wallet).
+
+**Files (modified, NOT frozen):**
+- `src/lib/signer-protocol.ts` — added 3 methods to `SIGNER_METHOD_ALLOWLIST` + `SignerMethodName` union + `SignHandlerParams` / `SignPayload` / `SignHandlerResult` types.
+- `src/signer/main.ts` — wired `handleSignMethod` into `dispatchRpc` after `isWalletMethod`, before test hooks. LAYER 2 discipline preserved (no try/catch around handler invocation).
+- `scripts/test-m3-signer-adapter.ts` — D.2 assertion updated to reflect post-M3.2 behavior (signTransaction now reaches the handler → returns VAULT_LOCKED instead of -32601). Adapter code unchanged.
+
+**What the handlers do NOT do (per operator's M3.2 scope):**
+- NO broadcast (M3.3 — Broadcaster)
+- NO nonce management (M3.3 / M4)
+- NO RPC submission to a chain node (M3.3)
+- NO retries (M4 — writer lease serializes access)
+- NO queues (M4)
+- NO failover (single-signer architecture, forever)
+- NO execution logic (the handlers sign what they're given; the pipeline upstream already verified safety via H0/H1/H2/H2.6)
+
+**Defense in depth — wallet-by-address lookup:**
+The frozen `wallet-crypto.ts` WalletVault stores keys in a `Map<walletId, privateKey>` with NO public address→key lookup. M3.2 cannot add a method to the frozen file, so the handler queries the DB for `WalletConnection` rows matching `address = tx.from`, calls `walletVault.getWalletKey(walletId)` for each match, and VERIFIES the key derives the expected address via `new Wallet(key).address`. This catches DB corruption where a row claims `address=X` but the key is for `address=Y`. The handler also rejects `readOnly` wallets (watch-only entries).
+
+**Payload integrity verification:**
+The M3.1 adapter computes `payloadHash = SHA-256(canonical JSON of payload)` and sends it in the wire envelope. M3.2's handler recomputes the hash from the received payload and rejects on mismatch — catches payload corruption in transit. This is defense in depth: the adapter verified on its side, the signer re-verifies on receipt because the trust boundary is at the signer.
+
+**Adversarial test matrix (per operator's M3.2 directive):**
+
+| Category | Test | Behavior verified |
+|----------|------|-------------------|
+| Functional | A.1 | signTransaction → ok=true, txHash + rawSignedTx, ethers recovers wallet address |
+| Functional | A.2 | signTypedData → ok=true, signature, ethers `verifyTypedData` recovers address |
+| Functional | A.3 | signMessage → ok=true, signature, ethers `verifyMessage` (EIP-191) recovers address |
+| Adversarial | B.1 | vault locked → `SIGNER_VAULT_LOCKED` for all 3 operations |
+| Adversarial | B.2 | payload altered (hash mismatch) → `SIGNER_PAYLOAD_CORRUPTED`, requestId still echoed |
+| Adversarial | B.3 | incompatible protocol → `POLICY_VIOLATION` (-32006) + `SIGNER_PROTOCOL_MISMATCH` |
+| Adversarial | B.4 | invalid format → `SIGNER_INVALID_PARAMS` (5 sub-cases) |
+| Adversarial | B.5 | unauthorized (no wallet matches) → `SIGNER_UNAUTHORIZED` |
+| Adversarial | B.6 | repeated signing → identical signatures (RFC 6979 deterministic ECDSA) |
+| Adversarial | B.7 | LAYER 2 discipline — handlers + dispatcher do NOT wrap sign calls in try/catch (static source check) |
+| Adversarial | B.8 | exact payload preservation — signMessage matches direct ethers computation (ASCII + unicode UTF-8) |
+| Integrity | C.1-C.3 | echo fields (requestId, receivedPayloadHash, signerVersion) correct |
+| Defense-in-depth | D.1 | signer-side protocol validation catches mismatch even via direct RPC (bypassing adapter) |
+| Defense-in-depth | E.1 | readOnly wallet cannot sign → `SIGNER_UNAUTHORIZED` |
+| Forward-compat | F.1 | explicit `payload.chainId` override → signed tx has overridden chainId |
+| Audit | G.1 | audit log records all 3 sign events + at least 1 adversarial event |
+
+**Bugs caught:** Zero in signer-side code (expected for handlers delegating to ethers' well-tested signing primitives). Three bugs in the TEST FILE during iteration (regex too greedy, E.1 re-seed broke F.1, BigInt serialization) — all fixed.
+
+**CI gate:** 21 files / 716 checks (was 20 files / 637 checks at M3.1 close). Net +79 checks (M3.2 added 80, M3.1's D.2 lost 1 assertion that no longer applies). H0/H1/H2/H2.6/M3.1 all still pass their full suites.
+
+**Frozen base respected:** Zero modifications to the 10 files listed in REG-009. The M3.1 adapter (`src/lib/chain/signer-adapter.ts`) is also unchanged — only the M3.1 TEST FILE had its D.2 assertion updated to reflect post-M3.2 behavior.
 
 ### M3.3 — Broadcaster (after M3.2 stable)
 

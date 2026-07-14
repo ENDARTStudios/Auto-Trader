@@ -750,7 +750,7 @@ console.log("\nD.1 — real signer + adapter with wrong expectedProtocolVersion 
   }
 }
 
-console.log("\nD.2 — real signer + adapter with correct expectedProtocolVersion → health_check passes (signTransaction returns -32601 since M3.2 not yet shipped)");
+console.log("\nD.2 — real signer + adapter with correct expectedProtocolVersion → health_check passes; signTransaction reaches the handler which rejects with VAULT_LOCKED (post-M3.2 behavior)");
 
 {
   let handle: SignerHandle | null = null;
@@ -766,18 +766,32 @@ console.log("\nD.2 — real signer + adapter with correct expectedProtocolVersio
 
     const result = await adapter.submit(validSignerRequest());
 
-    // The pre-flight health_check should pass (versions match). Then
-    // the adapter sends signTransaction, which the real signer doesn't
-    // implement yet (M3.2 will add it) — so it returns -32601
-    // METHOD_NOT_FOUND. The adapter surfaces this as SIGNER_RPC_ERROR.
-    assertEqual(result.ok, false, "D.2: result.ok is false (signTransaction not yet implemented)");
+    // POST-M3.2 BEHAVIOR (this assertion was updated when M3.2 shipped
+    // the signTransaction handler):
+    //
+    //   Before M3.2: the real signer had no signTransaction handler →
+    //   dispatchRpc returned -32601 METHOD_NOT_FOUND → adapter surfaced
+    //   as SIGNER_RPC_ERROR: -32601 ...
+    //
+    //   After M3.2: the real signer HAS a signTransaction handler.
+    //   The spawned signer in this test was started with NO unlocked
+    //   vault (no DB seed, no unlock RPC). The handler's 5-step guard
+    //   checks `walletVault.isUnlocked()` first → returns ok=false with
+    //   error "SIGNER_VAULT_LOCKED: vault is locked — unlock required
+    //   before signing". The handler wraps this in a SignHandlerResult
+    //   and returns it as a JSON-RPC SUCCESS response (ok=true at the
+    //   RPC level, but result.ok=false). The adapter sees the
+    //   application-level rejection and surfaces it via the
+    //   "SIGNER_REJECTED" path (result.error verbatim).
+    //
+    // The ADAPTER CODE IS UNCHANGED — only the test expectation changed
+    // to reflect the new (post-M3.2) reality. This is consistent with
+    // the operator's M3.2 acceptance criterion: "o adapter permanece
+    // inalterado".
+    assertEqual(result.ok, false, "D.2: result.ok is false (vault locked — no wallet loaded in this test)");
     assert(
-      result.error !== undefined && result.error.startsWith(SignerAdapterError.RPC_ERROR),
-      `D.2: error starts with ${SignerAdapterError.RPC_ERROR} (expected, since M3.2 not yet shipped)`,
-    );
-    assert(
-      result.error !== undefined && result.error.includes("-32601"),
-      "D.2: error includes -32601 (method not found)",
+      result.error !== undefined && result.error.includes("SIGNER_VAULT_LOCKED"),
+      "D.2: error mentions SIGNER_VAULT_LOCKED (handler rejected because vault is locked)",
     );
   } finally {
     if (handle) await stopSigner(handle);
@@ -802,7 +816,7 @@ console.log("  C.1  adapter does not modify payload (byte-identical forward)");
 console.log("  C.2  adapter does not ignore errors (propagates as ok=false)");
 console.log("  C.3  adapter does not fallback (no retry, no version fallback)");
 console.log("  D.1  real signer + wrong version → SIGNER_PROTOCOL_MISMATCH (integration)");
-console.log("  D.2  real signer + correct version → health_check passes, signTransaction=-32601 (integration)");
+console.log("  D.2  real signer + correct version → health_check passes, signTransaction reaches handler (post-M3.2: returns VAULT_LOCKED since test spawns with no wallet)");
 
 if (fail > 0) {
   console.error(`\n*** ${fail} TEST(S) FAILED ***`);

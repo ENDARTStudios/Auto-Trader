@@ -1559,3 +1559,237 @@ definido. Não alterar H0/H1/H2/H2.6." The frozen base was respected:
 `grep` confirms zero modifications to the 10 frozen files listed in
 REG-009. The only signer-side changes are to `src/lib/signer-protocol.ts`
 and `src/signer/main.ts`, neither of which is in the frozen list.
+
+---
+
+## M3.2 — Signer RPC handlers (Jul 15 2026)
+
+### Scope
+
+M3.2 adds the three sign RPC handlers (`signTransaction`,
+`signTypedData`, `signMessage`) to the signer process via a new module
+`src/signer/sign-methods.ts`. Each handler implements exactly 5 steps
+per the operator's M3.2 directive:
+
+1. **Validate protocol** — done by `dispatchRpc`'s per-request
+   `validateProtocolVersion` (added in M3.1).
+2. **Verify vault is unlocked** — returns `SIGNER_VAULT_LOCKED` if not.
+3. **Validate preconditions** — writer lease is an M4 SEAM (currently
+   no-op via `checkWriterLease()`); the structure is in place so M4
+   can replace the function without touching handler bodies.
+4. **Sign with the wallet key** — ethers v6 `Wallet.signTransaction` /
+   `signTypedData` / `signMessage`.
+5. **Return the result** with echo fields (`requestId`,
+   `receivedPayloadHash`, `signerVersion`) so the adapter can detect
+   response confusion + payload corruption.
+
+The handlers do NOT do: broadcast, nonce management, RPC submission,
+retries, queues, failover, execution logic. Those belong to M3.3 / M4.
+
+### Implementation
+
+- **`src/signer/sign-methods.ts`** (NEW) — handler implementations +
+  shared 5-step guard (`runSignGuard`) + DB-backed wallet-by-address
+  lookup (`findSignableWalletForAddress`) + payload hash re-verification
+  (`sha256Canonical`) + writer-lease M4 SEAM (`checkWriterLease`).
+  Exposes 5 error code prefixes via `SignHandlerError`: `PAYLOAD_CORRUPTED`,
+  `UNAUTHORIZED`, `INVALID_PARAMS`, `PRECONDITION_FAILED`, `SIGN_FAILED`.
+  Handlers return application errors as `{ ok: false, ... }` with the
+  echo fields populated; unexpected exceptions propagate (LAYER 2
+  discipline — same as wallet-methods.ts).
+
+- **`src/lib/signer-protocol.ts`** (NOT frozen) — added:
+  - `signTransaction`, `signTypedData`, `signMessage` to
+    `SIGNER_METHOD_ALLOWLIST` + `SignerMethodName` union.
+  - `SignHandlerParams` (wire envelope — mirrors M3.1's
+    `SignerWireRequest`), `SignPayload` (frozen adapter fields +
+    forward-compatible extensions: `typedData`, `message`, `chainId`,
+    `nonce`, `gasLimit`, `maxFeePerGas`, `maxPriorityFeePerGas`, `type`),
+    `SignHandlerResultSuccess` / `SignHandlerResultFailure` /
+    `SignHandlerResult`.
+  - Protocol version NOT bumped (still `1.1.0-m2`) — the wire format
+    is unchanged; M3.2 adds handlers, not envelope changes.
+
+- **`src/signer/main.ts`** (NOT frozen) — wired `handleSignMethod` into
+  `dispatchRpc` after `isWalletMethod`, before test hooks. LAYER 2
+  discipline preserved: `return handleSignMethod(method, _params);` —
+  no `.then()` / `.catch()` chain, no try/catch wrapping.
+
+- **`scripts/test-m3-signer-handlers.ts`** (NEW) — 80 assertions
+  across 7 categories: 3 functional baseline + 8 adversarial + 3
+  integrity + 1 defense-in-depth protocol + 1 readOnly rejection + 1
+  chainId override + 1 audit log verification. Uses REAL signer process
+  + REAL Unix socket + REAL DB-seeded wallet (ethers
+  `Wallet.createRandom` + `encryptSecret` + `db.walletConnection.create`).
+
+### REG-011: Signer-side payload integrity re-verification
+
+**Pin date:** Jul 15 2026 (M3.2).
+
+**Rule:** The signer MUST recompute `payloadHash = SHA-256(canonical
+JSON of payload)` from the received payload and reject on mismatch with
+the envelope's `payloadHash` field. This is DEFENSE IN DEPTH on top of
+the M3.1 adapter's hash computation.
+
+**Why both:** The adapter computes the hash on its side (so it can
+detect response confusion / payload corruption in the response). The
+signer recomputes on receipt because the trust boundary is at the
+signer, not the adapter. A payload that arrives at the signer with a
+mismatched hash could mean:
+
+- A transport bug corrupted the payload in transit.
+- The adapter has a bug (sent the wrong hash).
+- A man-in-the-middle modified the payload (unlikely on a Unix socket
+  with 0600 permissions, but the check is cheap and the failure mode
+  is catastrophic — signing the wrong payload).
+
+Without the signer-side re-verification, the signer would sign whatever
+payload arrived, regardless of whether it matched the hash the adapter
+computed. The hash field would become advisory rather than enforced.
+
+**Regression test:** M3.2 test suite, scenario B.2 (payload altered —
+payloadHash mismatch → `SIGNER_PAYLOAD_CORRUPTED`, requestId still
+echoed, receivedPayloadHash differs from envelope's because the signer
+recomputed).
+
+**Why this is a regression entry:** A future maintainer might be
+tempted to "trust the adapter's hash" and skip the recomputation ("the
+adapter already verified it, why duplicate the work?"). This entry
+documents that the signer-side re-verification is load-bearing — it
+defends against corruption that occurs AFTER the adapter computes the
+hash (in the transport, or due to a signer-side bug that mangles the
+parsed params).
+
+### REG-012: Wallet-by-address lookup must verify key-derived address
+
+**Pin date:** Jul 15 2026 (M3.2).
+
+**Rule:** When the signer looks up a wallet by `tx.from` address, it
+MUST verify that the decrypted private key actually derives the
+expected address (via `new Wallet(key).address === tx.from`). This
+check is in addition to the DB query that matches `address = tx.from`.
+
+**Why both:** The frozen `wallet-crypto.ts` WalletVault stores keys in
+a `Map<walletId, privateKey>` keyed by walletId, NOT by address. The
+signer must look up the walletId via a DB query on
+`WalletConnection.address`. However, a DB row could claim
+`address=0xABC` but actually contain a key for `0xDEF` (corrupted data,
+a compromised DB, or a botched wallet-import flow). Without the
+key-derived address verification, the signer would sign with whatever
+key the DB row pointed to — potentially signing with an attacker's key
+for a victim's claimed address.
+
+The key-derived address verification is a one-way assertion: the
+decrypted key's address MUST match the DB's claimed address. If they
+diverge, the signer refuses to sign (`SIGNER_UNAUTHORIZED` — the same
+error as "no wallet matches", by design, to avoid leaking which
+mismatch occurred).
+
+**Regression test:** M3.2 test suite, scenario B.5 (random address →
+`SIGNER_UNAUTHORIZED`) and E.1 (readOnly wallet → `SIGNER_UNAUTHORIZED`).
+The key-derived verification is structurally present in
+`findSignableWalletForAddress` — a future regression that removes the
+`new Wallet(key).address` comparison would be caught by code review
+against this REG entry.
+
+**Why this is a regression entry:** A future maintainer might be
+tempted to "trust the DB's address field" and skip the key-derived
+verification ("the DB is the source of truth, why re-derive?"). This
+entry documents that the DB is NOT the source of truth for which key
+signs which address — the KEY is the source of truth, and the DB is
+merely an index. The verification is what makes the index trustworthy.
+
+### REG-013: Writer lease is a hard precondition (M4 SEAM)
+
+**Pin date:** Jul 15 2026 (M3.2).
+
+**Rule:** When M4 implements the writer lease, the lease check in
+`checkWriterLease()` (src/signer/sign-methods.ts) MUST be a hard
+precondition — there is no "soft" mode where signing proceeds without
+the lease. The whole point of the writer lease is to serialize sign
+access so a stale signer process can't race a fresh one.
+
+**Current state (M3.2):** `checkWriterLease()` returns `null`
+(precondition OK) for all calls. This is a documented SEAM — M3.2
+doesn't have a writer lease yet, so the check is a no-op. The
+function's structure (single function, returns `string | null`) is
+designed so M4 can replace the body without touching any handler.
+
+**Why this is a regression entry:** When M4 lands, there will be
+pressure to add a "soft" mode (e.g., "if the lease check fails, log a
+warning but proceed anyway, so we don't block trading during a lease
+flap"). This entry documents that soft mode is FORBIDDEN — the lease
+check is binary (held or not held), and "not held" means "refuse to
+sign". The whole point of decoupling signing from broadcast (M3.2 from
+M3.3) is that the signer can refuse without causing a half-broadcast
+state. Soft mode would defeat this.
+
+**Regression test:** M3.2 test suite, scenario B.7 (LAYER 2 discipline
+structural check) confirms the precondition check IS invoked in the
+5-step guard. When M4 implements the real check, a new test scenario
+will verify that a missing lease → `PRECONDITION_FAILED` and NO signing
+occurs.
+
+### Test coverage
+
+M3.2 added **80 new assertions** across **1 new test file**:
+
+| File | Scenarios | Assertions |
+|---|---|---|
+| `test-m3-signer-handlers.ts` | 17 (3 functional + 8 adversarial + 3 integrity + 1 defense-in-depth + 1 readOnly + 1 chainId + 1 audit) | 80 |
+| **total** | **17** | **80** |
+
+The M3.1 test file (`test-m3-signer-adapter.ts`) was updated: D.2
+assertion changed from "signTransaction returns -32601" to "signTransaction
+returns VAULT_LOCKED" (post-M3.2 behavior). The adapter CODE is
+unchanged — only the test expectation. M3.1 assertion count: 60 → 59.
+
+CI gate is now **21 files / 716 checks** (was 20 files / 637 checks at
+M3.1 close — M3.2 added 1 file and 80 checks, minus 1 assertion removed
+from M3.1's D.2 = net +79). The frozen base is untouched: H0/H1/H2/H2.6
+all still pass their full suites.
+
+### Bugs caught
+
+**Zero bugs caught in signer-side code during M3.2 testing.** The
+handlers delegate to ethers v6's well-tested signing primitives
+(`Wallet.signTransaction` / `signTypedData` / `signMessage`), and the
+5-step guard's structure was designed adversarially first (the test
+matrix was defined before the handler bodies were written).
+
+Three bugs were caught in the TEST FILE during iteration (all fixed,
+none in production code):
+
+1. B.7's regex `isSignMethod\(method\)[\s\S]*?\.catch\s*\(` was too
+   greedy — matched a `.catch(` in a comment later in `main.ts`. Fixed
+   by extracting the `dispatchRpc` function body first, then checking
+   only within that body. Also added a positive assertion that the call
+   shape is `return handleSignMethod(method, _params);` (no
+   `.then`/`.catch` chain).
+
+2. E.1 re-seeded the DB with a NEW wallet (different address), causing
+   F.1 to fail (F.1 used the original `wallet.address` variable captured
+   at the top of `main()`). Fixed by saving + restoring the original
+   wallet's address + privateKey at the end of E.1.
+
+3. F.1 used `assertEqual(parsed.chainId, 1, ...)` but ethers v6 returns
+   `chainId` as `bigint`. `JSON.stringify(bigint)` throws "Do not know
+   how to serialize a BigInt". Fixed with `Number(parsed.chainId)`.
+
+None of these touched frozen code. All were caught by the M3.2 test
+suite itself — exactly the regression-guard purpose the permanent
+adversarial-first principle mandates.
+
+**History:** Jul 15 2026 — M3.2 implemented immediately after the
+operator approved M3.1 and closed M3.2 scope: "Implementar apenas os
+handlers de assinatura: signTransaction, signTypedData, signMessage.
+Todos devem: validar protocolo; verificar que o vault está desbloqueado;
+validar pré-condições exigidas; assinar; retornar o resultado. Não
+incluir ainda: broadcast; gerenciamento de nonce; envio para RPC;
+retries; filas; failover; lógica de execução. Critério de aceite: o
+adapter permanece inalterado; o pipeline permanece inalterado; apenas o
+signer ganha capacidade de produzir assinaturas." The frozen base was
+respected: `grep` confirms zero modifications to the 10 frozen files
+listed in REG-009. The M3.1 adapter (`src/lib/chain/signer-adapter.ts`)
+is also unchanged — only the M3.1 TEST FILE had its D.2 assertion
+updated to reflect post-M3.2 behavior.

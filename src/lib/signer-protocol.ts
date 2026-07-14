@@ -66,7 +66,13 @@ export const SIGNER_METHOD_ALLOWLIST = [
   "getVaultStatus",
   "clearRateLimit",
   "getRateLimitStatus",
-  // M3 (signing): sign, sign_typed_data
+  // M3.2 (signing) — added to the allowlist alongside their handlers in
+  // src/signer/sign-methods.ts. The handlers validate protocol, verify
+  // vault is unlocked, check preconditions (writer lease — M4 seam),
+  // sign, and return. NO broadcast, NO nonce management, NO RPC submission.
+  "signTransaction",
+  "signTypedData",
+  "signMessage",
   // M4 (writer lease): acquire_writer, renew_writer
 ] as const;
 
@@ -327,9 +333,9 @@ export function parseRpcFrame(
 // omits the `params` field entirely, per JSON-RPC 2.0.
 
 /**
- * Union of all method names that will be in the allowlist once M2 lands.
- * M1's allowlist contains only `health_check`; M2 adds the wallet methods
- * below. This union is the type-level projection of the future allowlist.
+ * Union of all method names in the allowlist. M1's allowlist contains only
+ * `health_check`; M2.3 added the wallet methods; M3.2 adds the sign methods
+ * below. This union is the type-level projection of the allowlist.
  */
 export type SignerMethodName =
   | "health_check"
@@ -337,7 +343,10 @@ export type SignerMethodName =
   | "lock"
   | "getVaultStatus"
   | "clearRateLimit"
-  | "getRateLimitStatus";
+  | "getRateLimitStatus"
+  | "signTransaction"
+  | "signTypedData"
+  | "signMessage";
 
 /**
  * `unlock` params.
@@ -491,3 +500,148 @@ export type MethodHandlerResult =
   | { ok: false; code: number; message: string; data?: unknown };
 
 export type MethodHandler = (params: unknown) => MethodHandlerResult | Promise<MethodHandlerResult>;
+
+// ---------------------------------------------------------------------------
+// M3.2 method schemas (signing RPCs)
+// ---------------------------------------------------------------------------
+//
+// The three sign methods (signTransaction, signTypedData, signMessage) all
+// receive the SAME wire envelope as their `params`: the `SignerWireRequest`
+// defined in src/lib/chain/signer-adapter.ts (M3.1, frozen).
+//
+// Re-declaring the envelope shape here (as `SignHandlerParams`) avoids a
+// circular import: signer-protocol.ts is imported by BOTH the signer
+// process AND the web process's adapter, but the adapter's full type lives
+// in src/lib/chain/signer-adapter.ts which imports pipeline.ts (frozen). We
+// keep the protocol module dependency-free, so we mirror only the structural
+// shape — the adapter's `SignerWireRequest` is the canonical definition.
+//
+// Common envelope fields (all three methods):
+//   - protocolVersion: string  — validated by dispatchRpc's per-request check
+//   - requestId:       string  — UUID v4, echoed back in the response
+//   - operation:       string  — "signTransaction" | "signTypedData" | "signMessage"
+//   - payload:         object  — operation-specific payload
+//   - payloadHash:     string  — SHA-256 hex of canonical JSON of `payload`;
+//                                 signer recomputes + rejects on mismatch
+//
+// Operation-specific payload fields:
+//   - signTransaction: payload.tx = { from, to, value, data } (REQUIRED).
+//                      Optional: payload.chainId, payload.nonce,
+//                      payload.gasLimit, payload.maxFeePerGas,
+//                      payload.maxPriorityFeePerGas, payload.type.
+//                      If omitted, the signer fills in placeholders
+//                      (chainId from the wallet's `chain` DB field,
+//                      nonce=0, gasLimit=21000, type=2). The signed tx is
+//                      structurally valid but NOT broadcastable — M3.3
+//                      (Broadcaster) will replace placeholders with real
+//                      values before broadcasting.
+//
+//   - signTypedData:   payload.tx.from = signer address (REQUIRED).
+//                      payload.typedData = EIP-712 TypedData object
+//                      (REQUIRED): { domain, types, primaryType, message }.
+//                      The signer signs with EIP-712.
+//
+//   - signMessage:     payload.tx.from = signer address (REQUIRED).
+//                      payload.message = string (REQUIRED). The signer
+//                      signs with personal_sign (EIP-191 prefix).
+//
+// The M3.1 adapter (frozen) only invokes `signTransaction`, with payload
+// containing only `tx` (no chainId/nonce/gas). The other two methods
+// (signTypedData, signMessage) are NOT invoked by the adapter — they exist
+// for direct RPC callers (e.g., M3.3 Broadcaster, future hardening). This
+// is why the operator's M3.2 acceptance criterion is "the adapter remains
+// unchanged" — the adapter's `SignerPayload` shape is a subset of what
+// the signer accepts; the signer is forward-compatible with extra fields.
+
+/**
+ * The wire envelope for sign methods. Mirrors `SignerWireRequest` from
+ * src/lib/chain/signer-adapter.ts (the canonical definition). Kept here
+ * as a structural type so the signer process does not need to import the
+ * adapter module (which would pull in pipeline.ts — frozen).
+ */
+export interface SignHandlerParams {
+  protocolVersion: string;
+  requestId: string;
+  operation: "signTransaction" | "signTypedData" | "signMessage";
+  payload: SignPayload;
+  payloadHash: string;
+}
+
+/**
+ * The payload for sign methods. The first five fields mirror the frozen
+ * `SignerPayload` from the adapter (the pipeline's SignerRequest). The
+ * remaining fields are forward-compatible extensions used by signTypedData
+ * and signMessage handlers (the adapter does not send them, but direct
+ * RPC callers can).
+ */
+export interface SignPayload {
+  // --- Frozen adapter payload fields (do not rename or reorder) ---
+  tx: { from: string; to: string; value: string; data: string };
+  expectedDiff: unknown;
+  approvedAmount: string;
+  slippageLimitBps: number;
+  sandwichScore: number;
+  // --- M3.2 forward-compatible extensions (optional) ---
+  /** EIP-712 typed data — used by signTypedData. */
+  typedData?: {
+    domain: Record<string, unknown>;
+    types: Record<string, Array<{ name: string; type: string }>>;
+    primaryType: string;
+    message: Record<string, unknown>;
+  };
+  /** Raw message string — used by signMessage. */
+  message?: string;
+  /** Optional tx fields — used by signTransaction when the caller wants to override placeholders. */
+  chainId?: number;
+  nonce?: number;
+  gasLimit?: string | number;
+  maxFeePerGas?: string | number;
+  maxPriorityFeePerGas?: string | number;
+  type?: number;
+}
+
+/**
+ * The wire response for sign methods. Echoes `requestId` and
+ * `receivedPayloadHash` (the signer's recomputed hash) so the adapter can
+ * detect response confusion and payload corruption. `signerVersion` is
+ * included for observability.
+ *
+ * The success fields are operation-specific:
+ *   - signTransaction: `txHash` (hash of the signed tx) + `rawSignedTx`
+ *     (serialized signed tx, hex string starting with 0x).
+ *   - signTypedData / signMessage: `signature` (65-byte hex signature,
+ *     r||s||v format, starting with 0x).
+ *
+ * The M3.1 adapter (frozen) only checks `txHash` for ok=true responses —
+ * which is exactly what signTransaction returns. The other two methods
+ * are not invoked via the adapter.
+ */
+export interface SignHandlerResultSuccess {
+  ok: true;
+  /** Hash of the signed transaction (signTransaction only). */
+  txHash?: string;
+  /** Serialized signed transaction, hex (signTransaction only). */
+  rawSignedTx?: string;
+  /** 65-byte hex signature (signTypedData / signMessage only). */
+  signature?: string;
+  /** Echoed from the request — catches response confusion. */
+  requestId: string;
+  /** Signer's recomputed payload hash — catches payload corruption. */
+  receivedPayloadHash: string;
+  /** Signer's protocol version, for observability. */
+  signerVersion: string;
+}
+
+export interface SignHandlerResultFailure {
+  ok: false;
+  /** Human-readable rejection reason, prefixed with a SIGNER_* code. */
+  error: string;
+  /** Echoed from the request — catches response confusion. */
+  requestId: string;
+  /** Signer's recomputed payload hash — catches payload corruption. */
+  receivedPayloadHash: string;
+  /** Signer's protocol version, for observability. */
+  signerVersion: string;
+}
+
+export type SignHandlerResult = SignHandlerResultSuccess | SignHandlerResultFailure;
