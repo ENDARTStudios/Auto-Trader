@@ -480,7 +480,7 @@ console.log("\nD. Proxy + upgradeability + adversarial");
   });
   assert(r.ok, `expected ok=true on recursive verification, got: ${r.reasons.join("; ")}`);
   assert(r.findings.proxyKind === "eip1967-implementation", `expected eip1967-implementation, got ${r.findings.proxyKind}`);
-  assert(r.implementationResult?.ok, "expected implementation verification ok=true");
+  assert(r.implementationResult?.ok === true, "expected implementation verification ok=true");
 }
 
 // D3 — upgradeable contract (upgradeTo selector present), !allowUpgradeable.
