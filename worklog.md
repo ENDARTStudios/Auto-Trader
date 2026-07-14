@@ -781,3 +781,42 @@ Stage Summary:
 - The PolarFS mount at /tmp/my-project is the project's persistent storage. The container rootfs at /home/z/my-project is ephemeral and can regress on container restart. All work must be committed to git to survive.
 - M2.3 is UNBLOCKED. Two acceptance criteria remain: (1) structural dispatcher test with 5 assertions, (2) real integration test for unlock/lock/zeroize-on-disconnect against live process + real socket.
 - HARDENING-ROADMAP.md (combined threat model, 16 phases H0-H15) is committed and survives future regressions.
+
+---
+Task ID: phase1-recon-reg006 (operator's post-recovery schema audit + REG-006)
+Agent: engineering (main session)
+Task: Operator's review of the PolarFS snapshot recovery flagged that the WalletConnection and ExchangeConnection models were manually reconstructed in prisma/schema.prisma and asked to: (1) verify they belong to the intended DB evolution (not just the tests), and (2) register the change in prisma/migrations to avoid divergence between a fresh DB and the existing one.
+
+Work Log:
+- Audited wallet-manager.ts (the CRUD layer called by /api/wallets and /api/exchanges routes) against the reconstructed prisma/schema.prisma. Found 8 MISSING fields:
+  - WalletConnection: chain (String?), publicKey (String?), lastUsedAt (DateTime?) — all read by toWalletRow, written by createWallet + setWalletActive.
+  - ExchangeConnection: apiKeyPublicPrefix (String?), permissions (String? — JSON), testnet (Boolean @default(false)), ipWhitelistConfigured (Boolean @default(false)), lastUsedAt (DateTime?) — all read by toExchangeRow, written by createExchange + setExchangeActive.
+- Diagnosed why 29/29 tests passed despite the bug: test-vault.ts writes via db.walletConnection.create() DIRECTLY with a minimal field set (label, type, address, privateKeyEncrypted, isActive, readOnly). It does NOT exercise wallet-manager.ts. The vault test path was a SUBSET of the application path — tests validated the vault/signer isolation, not the CRUD layer the API routes call. The bug would have manifested at runtime as PrismaClientValidationError on any POST to /api/wallets or /api/exchanges.
+- Fixed prisma/schema.prisma: added all 8 missing fields with proper types, defaults, and inline comments explaining their purpose. Updated the model header comment for WalletConnection to mention the new fields (chain for non-EVM, publicKey for hardware/multisig, lastUsedAt for activation tracking).
+- Ran `npx prisma generate` (regenerated Prisma client with new field types) + `npx prisma db push --skip-generate` (synced schema to SQLite db/custom.db). Database now in sync.
+- Created prisma/migrations/ directory with:
+  - migration_lock.toml (provider = "sqlite") — established the migration discipline for the first time in the project.
+  - 20260714000001_wallet_exchange_recon_fix/migration.sql — a 430-line BASELINE migration generated via `prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script`. Captures the full 19-model schema at the post-recovery state. NOT intended to be re-applied to the existing dev DB (already in sync); exists so a fresh clone running `prisma migrate deploy` produces a byte-identical schema. Added a 26-line header comment documenting the REG-006 context.
+- Created scripts/test-wallet-crud.ts — 11 structural tests that exercise the REAL wallet-manager.ts CRUD functions end-to-end against the real SQLite DB:
+  1. createWallet with full field set — all 8 WalletConnection columns populated
+  2. createWallet read-only watch-only (no privateKey) — hasPrivateKey is false
+  3. listWallets returns created rows with all fields
+  4. setWalletActive flips isActive AND writes lastUsedAt
+  5. setWalletActive(true) deactivates all others — only one active at a time
+  6. deleteWallet removes the row
+  7. createExchange with full field set — all 8 ExchangeConnection columns populated (including permissions.withdraw hardcoded FALSE for security)
+  8. createExchange without optional fields — defaults are applied
+  9. listExchanges returns rows with all reconstructed fields
+  10. setExchangeActive writes lastUsedAt and deactivates others
+  11. deleteExchange removes the row
+  Every test asserts that each reconstructed field round-trips (write → read back → value matches). If a field is missing from the schema, the Prisma client rejects the write and the test fails. This closes the coverage gap that allowed REG-006 to hide.
+- Added "test:wallet-crud" to package.json scripts. Updated "test:ci" to chain all 4 test suites: test-vault.ts (20) + test-request-peer-integration.ts (4) + test-signer-process.ts (5) + test-wallet-crud.ts (11) = 40/40 total.
+- Added REG-006 to SECURITY.md. The entry documents: the bug, the two-layer rule (schema reconstruction is NOT validated unless tests exercise the SAME code path as the application), the migration discipline (project MUST have prisma/migrations/ with migration_lock.toml; future changes go through `prisma migrate dev --name`), and the history (operator's review caught it, not the test suite).
+- Verification: npm run test:ci → 40/40 PASS (20 vault + 4 peer-integration + 5 signer + 11 wallet-crud). bash scripts/test-install-git-hooks-readonly.sh → 3/3 PASS (readonly-container fix survived). Git status before commit: 6 files modified/created (schema.prisma, package.json, SECURITY.md, worklog.md, scripts/test-wallet-crud.ts, prisma/migrations/20260714000001_wallet_exchange_recon_fix/migration.sql, prisma/migrations/migration_lock.toml).
+
+Stage Summary:
+- REG-006 bug FIXED before any runtime manifestation. The 8 missing fields are now in the schema, the Prisma client knows about them, the DB has the columns, and the CRUD layer is structurally tested.
+- prisma/migrations/ directory established for the first time. The baseline migration (20260714000001) captures the full 19-model schema. Future schema changes go through `prisma migrate dev --name <desc>` instead of silent `db push` writes.
+- test:ci now runs 40 tests across 4 suites. The wallet-crud suite (11 tests) is the REG-006 sentinel — any future schema regression that drops a field consumed by the CRUD layer will fail this suite immediately.
+- Phase 1 is now FULLY validated end-to-end: vault (20 tests), request-peer (4 tests), signer process (5 tests), wallet CRUD (11 tests). The operator's observation was correct and the fix is in place.
+- M2.3 is the next milestone. Two acceptance criteria remain registered: (1) structural dispatcher test with 5 assertions (propagation, no-swallow, no-rerun, crash-log capture, real-mechanism), (2) real integration test for unlock/lock/zeroize-on-disconnect against live process + real socket. The dispatcher test will follow the Test 4 triple-assertion pattern from test-request-peer-integration.ts, extended to 5 assertions for the crash-logger capture dimension.

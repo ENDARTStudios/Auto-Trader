@@ -478,3 +478,100 @@ snapshot at `/tmp/my-project` (a persistent `fuse.pfs` mount that had
 synced copies of the source files). The recovery commit is `d4dc0c0`.
 The operator's directive established this rule as REG-005 to prevent
 recurrence.
+
+---
+
+## REG-006: schema reconstruction MUST be validated against the CRUD layer, not just the direct-DB test path
+
+**Test:** `npm run test:wallet-crud` — 11 structural tests that exercise
+the REAL `src/lib/trading/wallet-manager.ts` CRUD functions
+(`createWallet`, `listWallets`, `setWalletActive`, `deleteWallet`,
+`createExchange`, `listExchanges`, `setExchangeActive`,
+`deleteExchange`) against the real SQLite DB. Every reconstructed field
+must round-trip (write → read back → assert value matches). If a field
+is missing from the schema, the Prisma client rejects the write and the
+test fails. This test runs as part of `test:ci`.
+
+**What this pins:** the contract between the Prisma schema and the
+application code that consumes it. The reconstruction of
+`WalletConnection` and `ExchangeConnection` from the PolarFS snapshot
+dropped 8 fields (3 from Wallet, 5 from Exchange) that
+`wallet-manager.ts` reads and writes. The fields were referenced in the
+CRUD layer but NOT in the direct-DB test path used by `test-vault.ts`,
+so 29/29 CI tests passed while `POST /api/wallets` and
+`POST /api/exchanges` would have thrown Prisma validation errors at
+runtime.
+
+**Why this rule exists (the regression it guards against):**
+
+On Jul 14 2026, during the PolarFS snapshot recovery, the Prisma schema
+was reconstructed from the field usage in `test-vault.ts` and
+`wallet-crypto.ts`. Both of those files use `db.walletConnection.*` and
+`db.exchangeConnection.*` directly with a minimal `select` clause
+(id, label, privateKeyEncrypted, readOnly for wallets; id, label,
+exchange, apiKeyEncrypted, apiSecretEncrypted, apiPassphraseEncrypted
+for exchanges). The reconstruction used exactly those fields and
+omitted:
+
+  - `WalletConnection`: `chain`, `publicKey`, `lastUsedAt`
+  - `ExchangeConnection`: `apiKeyPublicPrefix`, `permissions`,
+    `testnet`, `ipWhitelistConfigured`, `lastUsedAt`
+
+The `wallet-manager.ts` CRUD layer (the layer the API routes call)
+reads and writes ALL of those fields. `toWalletRow` accesses `r.chain`,
+`r.publicKey`, `r.lastUsedAt`; `createWallet` writes `chain`,
+`publicKey`; `setWalletActive` writes `lastUsedAt`. The exchange
+equivalents do the same for the 5 missing Exchange fields.
+
+The bug was caught by the operator's review of the recovery, NOT by the
+test suite. The operator's exact observation: "os modelos
+`WalletConnection` e `ExchangeConnection` foram reconstruídos manualmente
+no schema Prisma. Antes de considerar a recuperação definitiva, confirme
+que esses modelos pertencem à evolução pretendida do banco e não apenas
+aos testes. Como os testes passaram, a implementação está coerente, mas
+vale registrar essa alteração no histórico de migrações
+(`prisma/migrations`) para evitar divergência entre um banco novo e um
+banco existente."
+
+**The two-layer rule (load-bearing from REG-006):**
+
+  1. A schema reconstruction is NOT validated by the test suite unless
+     the test suite exercises the SAME code path as the application.
+     `test-vault.ts` writes via `db.walletConnection.create()` directly;
+     the application writes via `walletManager.createWallet()` which
+     wraps `db.walletConnection.create()` with additional fields. The
+     test path was a SUBSET of the application path, so tests passed
+     while the application was broken.
+
+  2. Every model that has a CRUD layer (`createX` / `listX` /
+     `setXActive` / `deleteX` functions in `*-manager.ts`) MUST have a
+     structural test that exercises those functions end-to-end, not
+     just direct-DB writes.
+
+**The migration discipline (also load-bearing from REG-006):**
+
+  1. The project MUST have a `prisma/migrations/` directory with a
+     `migration_lock.toml`. `prisma db push` is acceptable for dev
+     iteration but the schema state MUST be captured in a versioned
+     migration before any commit that touches `prisma/schema.prisma`.
+
+  2. The baseline migration `20260714000001_wallet_exchange_recon_fix`
+     captures the full 19-model schema at the post-recovery state. It
+     is NOT intended to be re-applied to the existing dev DB (already
+     in sync via `db push`). It exists so a fresh clone running
+     `prisma migrate deploy` produces a byte-identical schema.
+
+  3. Future schema changes go through `prisma migrate dev --name <desc>`,
+     producing a new numbered migration. Direct `db push` after this
+     point is FORBIDDEN outside of dev-only iteration (and the
+     resulting schema state must be captured in a migration before
+     commit).
+
+**History:** Jul 14 2026 — operator's review of the PolarFS recovery
+flagged the divergence risk. Audit of `wallet-manager.ts` against
+`prisma/schema.prisma` found 8 missing fields. Fixed in schema, ran
+`prisma generate` + `prisma db push` to sync, created baseline
+migration, added `test:wallet-crud` (11 structural tests, all passing)
+to the `test:ci` gate. The bug would have manifested at runtime as
+`PrismaClientValidationError: Unknown argument 'chain'` (or similar) on
+any POST to `/api/wallets` or `/api/exchanges`.

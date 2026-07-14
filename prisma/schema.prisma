@@ -476,11 +476,14 @@ model TradingSchedule {
 model WalletConnection {
   id                  String   @id @default(cuid())
   label               String
-  type                String   @default("evm") // "evm" | "solana" (future)
+  type                String   @default("evm") // "evm" | "solana" | "hardware" | "multisig"
   address             String
+  chain               String?  // e.g. "base", "arbitrum", "optimism" — null for non-EVM
+  publicKey           String?  // for hardware/multisig wallets that have no private key
   privateKeyEncrypted String?  // AES-256-GCM ciphertext blob (JSON: {iv, ciphertext, tag})
   isActive            Boolean  @default(false)
   readOnly            Boolean  @default(false) // true = watch-only, no signing
+  lastUsedAt          DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -500,7 +503,12 @@ model ExchangeConnection {
   apiKeyEncrypted       String?  // AES-256-GCM ciphertext
   apiSecretEncrypted    String?
   apiPassphraseEncrypted String? // only some exchanges (e.g. KuCoin) use this
+  apiKeyPublicPrefix    String?  // first 4 + last 4 chars of the plaintext API key, for UI display
+  permissions           String?  // JSON: { read, trade, withdraw } — withdraw is hardcoded false at creation
+  testnet               Boolean  @default(false)
+  ipWhitelistConfigured Boolean  @default(false)
   isActive              Boolean  @default(false)
+  lastUsedAt            DateTime?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

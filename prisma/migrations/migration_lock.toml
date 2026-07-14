@@ -1,0 +1,25 @@
+# Prisma migration lock for the auto-trader project.
+#
+# Provider: sqlite (development DB at db/custom.db).
+# Production: PostgreSQL (separate schema, separate migration history).
+#
+# This baseline migration (20260714000001_wallet_exchange_recon_fix) was
+# generated AFTER the PolarFS snapshot recovery. The project had been using
+# `prisma db push` exclusively — no migration history existed, which meant a
+# fresh DB and the existing dev DB could diverge silently. The operator's
+# review on 2026-07-14 flagged this as a divergence risk after the
+# WalletConnection / ExchangeConnection models were manually reconstructed
+# (8 fields had been dropped during recovery: chain, publicKey, lastUsedAt
+# for Wallet; apiKeyPublicPrefix, permissions, testnet, ipWhitelistConfigured,
+# lastUsedAt for Exchange).
+#
+# The baseline migration captures the FULL current schema (19 models). It is
+# not intended to be re-applied to the existing dev DB (which is already in
+# sync via `prisma db push`). It exists so that:
+#   1. A fresh clone of the repo can run `prisma migrate deploy` and get a
+#      byte-identical schema to the dev DB.
+#   2. Future schema changes go through `prisma migrate dev --name <desc>`,
+#      producing versioned migrations instead of silent `db push` writes.
+#   3. The REG-006 bug (missing fields) is documented in migration history.
+
+provider = "sqlite"
