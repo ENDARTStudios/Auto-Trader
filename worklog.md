@@ -693,3 +693,33 @@ Stage Summary:
 - chmod 555 / root-runner caveat registered for future CI formalization of test-install-git-hooks-readonly.sh. No code change needed now.
 - M2.3 remains the active work (already cleared, two acceptance criteria registered: structural dispatcher test with 5 assertions, real integration test for unlock/lock/zeroize-on-disconnect). Hardening phases start after H0 (signer isolation) completes.
 - Awaiting operator review of HARDENING-ROADMAP.md before any hardening phase begins. The roadmap is a proposal — the operator may reprioritize phases, adjust acceptance criteria, or identify vectors I missed.
+
+---
+Task ID: hardening-mandate-list-2-integration (operator's expanded mandate)
+Agent: engineering (main session)
+Task: Operator issued a SECOND list of ~46 attack vectors (traditional cybersecurity + AI threats), in addition to the original 30 crypto/blockchain vectors. This is a major scope expansion. The data loss reported in the previous turn remains unresolved — the operator has not yet directed which recovery path to take (a/b/c).
+
+Work Log:
+- Re-raised the data loss as the #1 blocking issue. The operator's second mandate does not address it. No implementation work (M2.3, H0-H15) can proceed until the lost signer-isolation code is recovered or reconstructed. The planning work (updating HARDENING-ROADMAP.md) does not depend on the lost code, so I proceeded with that.
+- Analyzed the second list for deduplication and overlap with List 1:
+  - Internal duplicates: OWASP Top 10 (2×), Broken Access Control (2×), Supply Chain (2×), Security Misconfiguration (2×), Falhas Criptográficas (3×), Phishing Hiper-realista/Deepfakes (2×), Prompt Injection (2×). After dedup: ~30 unique vectors.
+  - Overlap with List 1: Supply Chain, Comprometimento de Dependências, Pipeline de Build, Falhas Criptográficas, Deepfakes, Recrutamento de Insider — already in H4 / Layer 0 / Layer 8 of the existing roadmap.
+  - Genuinely new categories: web app security (OWASP), identity/account security, DDoS/availability, ransomware/extortion, APT/espionage, AI-driven threats, e-commerce fraud.
+- Categorized the new vectors into 6 new layers (9-14, plus Layer 15 for e-commerce fraud) and appended them to /home/z/my-project/HARDENING-ROADMAP.md:
+  - Layer 9 (Web app security / OWASP): IN SCOPE — Broken Access Control, SQL Injection (audit raw queries), XSS (audit dangerouslySetInnerHTML), Security Misconfiguration (security headers, CORS), OWASP ZAP scan. H9 acceptance criteria: 4 structural tests.
+  - Layer 10 (Identity/Account): IN SCOPE — Identity Takeover/ATO, Credential Stuffing, Synthetic Identities. H10: MFA, lockout, HIBP check. 3 structural tests.
+  - Layer 11 (DDoS/Availability): PARTIALLY IN SCOPE — app-side rate limiting on all routes + graceful degradation; volumetric DDoS is infra (CDN) = out of scope. 3 app-side tests.
+  - Layer 12 (Ransomware/Extortion): OUT OF SCOPE — endpoint threat. App contributes: append-only audit logs, DB backups, circuit breakers. Documented boundary.
+  - Layer 13 (APT/Espionage): OUT OF SCOPE — nation-state. App contributes: signer isolation (Unix socket, no network) is itself an APT mitigation. Completing M2.3/M3/M4 is the highest-leverage APT defense available in app code.
+  - Layer 14 (AI-driven threats): PARTIALLY IN SCOPE — Prompt Injection (if z-ai-web-dev-sdk used for AI features), autonomous attacks (same defense as H9). Shadow AI, deepfakes = operational (Layer 8). 3 tests if AI features used.
+  - Layer 15 (E-commerce fraud): OUT OF SCOPE — the app is not a marketplace. Triangulation, fake delivery QR, fake stores do not apply.
+- Updated the phased roadmap table (H0-H15) with combined vectors from both lists. Total: ~65 unique vectors; ~35 in scope; ~25 out of scope; ~5 partially in scope.
+- Documented the data loss as a BLOCKING ISSUE section at the end of HARDENING-ROADMAP.md, with the three recovery options (a/b/c) and the explicit statement that the roadmap→worklog→SECURITY.md loop is broken until SECURITY.md and the worklog entries are restored.
+- Did NOT write any hardening code. No H-phase implementation begins until: (1) the data loss is resolved, (2) the operator reviews and prioritizes the combined 16-phase roadmap.
+
+Stage Summary:
+- HARDENING-ROADMAP.md is now a combined threat model covering both mandates: Layers 0-8 (List 1, 30 vectors) + Layers 9-15 (List 2, ~30 new vectors after dedup). 16 hardening phases (H0-H15) with structural-test acceptance criteria for each in-scope phase.
+- The boundary between app-code scope and operational/endpoint/infra scope is documented per-layer. ~25 vectors are explicitly out of scope with the rationale documented (not a refusal — a precise statement of where the defense must live).
+- The data loss remains the #1 blocking issue. The operator has not directed which recovery path to take. I have re-raised it in both the worklog and the roadmap document.
+- No implementation work done. The roadmap is a planning document; it survived the data loss because it was created after the regression.
+- Awaiting operator direction on BOTH: (1) data loss recovery path (a/b/c), (2) roadmap review + phase prioritization.

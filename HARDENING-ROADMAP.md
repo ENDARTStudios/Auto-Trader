@@ -268,10 +268,10 @@ M2.3 → M3 → M4).
 
 ---
 
-## Out-of-Scope Register
+## Out-of-Scope Register (List 1 — original 30 vectors)
 
-The following items from the mandate are explicitly OUT OF SCOPE for app
-code, with the boundary documented above (Layer 8):
+The following items from the first mandate are explicitly OUT OF SCOPE
+for app code, with the boundary documented above (Layer 8):
 
 - Fake Support (operational policy + dashboard notice)
 - Airdrop Scams (not a feature; if added, require allowlist)
@@ -289,15 +289,222 @@ pattern this thread has rejected.
 
 ---
 
+## Extended Threat Model — List 2 (traditional cybersecurity + AI vectors)
+
+The operator issued a second mandate with ~46 additional vectors. After
+deduplication (several items were listed 2-3 times within the list) and
+cross-referencing against List 1 (Supply Chain, Falhas Criptográficas,
+Deepfakes, Pipeline de Build, Recrutamento de Insider already appear in
+Layers 4, 0, 8 above), ~30 genuinely new vectors remain. They fall into
+6 new layers:
+
+### Layer 9: Web application security (OWASP Top 10:2025) — IN SCOPE
+
+| Vector | Existing mitigation | Gap | Defense |
+|---|---|---|---|
+| **Broken Access Control** | NextAuth session check on API routes (partial) | No RBAC; no object-level authorization (IDOR); admin vs operator not distinguished | H9: RBAC (admin / operator / viewer roles); object-level authz on every DB query (not just route-level); deny by default |
+| **SQL Injection** | Prisma parameterized queries (mitigates by construction) | Raw queries if any exist need audit; no SQL injection in Prisma path | H9: audit for `$queryRaw` / `$executeRaw` usage; ban raw SQL unless reviewed; structural test that asserts parameterization |
+| **XSS** | React auto-escaping in JSX (mitigates by construction) | `dangerouslySetInnerHTML` if used anywhere; user-generated content (scam reports, log messages) rendered unsafely | H9: audit for `dangerouslySetInnerHTML`; CSP with `script-src 'self' 'nonce-...'`; sanitize user content before storage |
+| **Security Misconfiguration** | Partial — `.env` for secrets, `NODE_ENV` check | No security headers audit; no CORS policy; default credentials check; debug mode in prod | H9: Next.js middleware for security headers (HSTS, X-Content-Type-Options, Referrer-Policy); CORS allowlist; production config audit |
+| **OWASP Top 10:2025 (broad)** | (encompasses all above + below) | No systematic OWASP compliance review | H9: run OWASP ZAP / Burp scan against the dashboard; remediate findings |
+
+**H9 acceptance criteria:**
+- A test that asserts every API route checks authorization (not just authentication) — no IDOR (object-level access control).
+- A test that asserts no `$queryRaw` / `$executeRaw` exists without parameterization (grep-based gate).
+- A test that asserts security headers are present on every response (HSTS, X-Content-Type-Options, CSP, Referrer-Policy).
+- A test that asserts `dangerouslySetInnerHTML` is not used without explicit sanitization.
+
+### Layer 10: Identity & Account security — IN SCOPE (dashboard auth)
+
+| Vector | Existing mitigation | Gap | Defense |
+|---|---|---|---|
+| **Identity Takeover / ATO** | NextAuth with credentials provider | No MFA; no session device binding; no anomaly detection on login | H10: MFA (TOTP or FIDO2); session device fingerprinting; login anomaly alerts (new geo, new device, impossible travel) |
+| **Credential Stuffing** | NextAuth rate limiting (if configured) | No breach-password check (HIBP API); no lockout after N failures | H10: rate limit login per IP + per account; lockout after 5 failures; HIBP API check on password set/change |
+| **Identidade Digital Falsa / Identidades Sintéticas** | None | No identity verification for dashboard access (single-operator assumption) | H10: if multi-operator ever added, require identity proofing; for single-operator, document the assumption + enforce hardware key |
+
+**H10 acceptance criteria:**
+- A test that asserts login rate limiting works (N failures → lockout).
+- A test that asserts MFA is enforced (no session without second factor).
+- A test that asserts session device fingerprinting rejects a session from a new device without re-auth.
+
+### Layer 11: Availability / DDoS — PARTIALLY IN SCOPE
+
+| Vector | Existing mitigation | Gap | Defense |
+|---|---|---|---|
+| **DDoS volumétrico** | None (single host, Caddy reverse proxy) | No CDN/WAF in front; single host = single point of failure | Out of scope for app code. Infra: CDN (Cloudflare) in front, geographic rate limiting. App-side: graceful degradation under load (shed non-critical requests) |
+| **DDoS de aplicação** | Per-IP rate limiting (REG-002) on vault endpoints | No rate limiting on other API routes; no request complexity budget | H11: rate limit ALL API routes (not just vault); request complexity budget; slow-loris protection (request timeout) |
+| **Monocultura da Internet** | Next.js + Node (common stack) | Dependency monoculture (all Node) is an industry-level concern, not app-level | Out of scope. Operational: diversify critical infra across providers |
+
+**H11 acceptance criteria (app-side only):**
+- A test that asserts every API route has a rate limit configured.
+- A test that asserts request timeout is enforced (no slow-loris hang).
+- A test that asserts the app degrades gracefully under load (returns 503, not crash).
+
+### Layer 12: Ransomware & Extortion — OUT OF SCOPE (endpoint/operational)
+
+| Vector | Why out of scope | App-side support |
+|---|---|---|
+| **Ransomware e Extorsão Digital** | Endpoint threat; app cannot detect or prevent ransomware | Backups (DB export exists in system/backup route); immutable audit logs (signer audit log is append-only) |
+| **RaaS com DDoS** | Ransomware-as-a-Service + DDoS is a combined extortion tactic; DDoS is infra, ransomware is endpoint | Same as above |
+| **Extorsão Multifacetada** | Multi-vector extortion (encrypt + leak + DDoS) | App-side: ensure audit logs cannot be deleted (append-only + hash chain from §7.3.4, pending implementation); ensure DB backups are offsite |
+| **Recrutamento de Insider** | Social engineering of insiders; app cannot detect intent | Audit logs (every action attributed to actor); least privilege; access revocation workflow (H8) |
+| **Prejuízo por Incidente** | This is an impact metric, not a vector; the app's contribution is blast-radius limiting | Risk-manager circuit breakers (5 breakers) limit financial prejuízo per incident |
+
+**The app's contribution to ransomware defense is limited to:** (a) append-only
+audit logs that cannot be tampered with (so the operator can verify what
+happened after an incident), (b) DB backups that can be restored, (c)
+financial circuit breakers that limit prejuízo. The actual ransomware
+defense (endpoint protection, EDR, immutable backups, IR plan) is
+operational and outside this repo.
+
+### Layer 13: APT / Espionage — OUT OF SCOPE (nation-state, operational)
+
+| Vector | Why out of scope | App-side support |
+|---|---|---|
+| **Espionagem Digital e APTs** | Advanced Persistent Threats are nation-state actors with months-long campaigns; defense requires threat hunting, network segmentation, EDR | Audit logs (detect anomalous access patterns); network isolation of signer process (already designed: signer communicates only via Unix socket) |
+| **Espionagem Baseada em IA** | AI-augmented espionage (automated recon, targeted phishing) — same as APT with better tooling | Same as above |
+| **Comprometimento de Longo Prazo** | Long-dwell attackers that establish persistence; app cannot detect | Audit log anomaly detection (future); file integrity monitoring (operational) |
+
+**The signer isolation design (Phase 1) is itself an APT mitigation:**
+keys live in a separate process with no network access (Unix socket
+only), so even if the Next.js process is compromised, the keys are not
+directly accessible. This is the app's strongest contribution to APT
+defense. Completing M2.3/M3/M4 (the signer isolation phases) is the
+highest-leverage APT mitigation available in app code.
+
+### Layer 14: AI-driven threats — PARTIALLY IN SCOPE
+
+| Vector | Existing mitigation | Gap | Defense |
+|---|---|---|---|
+| **Prompt Injection** | None — if `z-ai-web-dev-sdk` is used for AI features (ai-agent.ts exists) | LLM calls that take user input (scam analysis, token descriptions) are vulnerable to prompt injection | H14: input sanitization before LLM calls; output validation; separate privileged vs unprivileged LLM contexts; refuse tool-use from untrusted input |
+| **Shadow AI** | None | Operators using unsanctioned AI tools (external ChatGPT for trading decisions) — operational, not app-level | Out of scope. Operational policy: sanctioned AI tools only |
+| **Bots de Escala** | Per-IP rate limiting (partial) | Automated botnets scaling credential stuffing or API abuse | H10 (rate limiting) + H11 (DDoS) address this; no separate defense needed |
+| **Ataques Autônomos** | None | AI-driven autonomous attack tools (automated vulnerability scanning, automated social engineering) | Same as Layer 9 (web app hardening) — the defense doesn't change because the attacker is AI-driven |
+| **Phishing Hiper-realista / Deepfakes** | None | AI-generated phishing that bypasses traditional detection | Out of scope (Layer 8). Operational: security awareness; hardware keys resist phishing |
+
+**H14 acceptance criteria (if AI features are used):**
+- A test that asserts user input is sanitized before LLM calls (no raw user text in system prompt).
+- A test that asserts LLM output is validated before being used in trading decisions.
+- A test that asserts tool-use (function calling) is refused from untrusted input.
+
+### Layer 15: E-commerce fraud — OUT OF SCOPE (not an e-commerce platform)
+
+| Vector | Why out of scope |
+|---|---|
+| **Fraude de Triangulação** | The app is not a marketplace; no buyer-seller-mediation flow |
+| **Golpe da Falsa Entrega (QR Code)** | The app does not process deliveries or QR codes |
+| **Lojas Falsas e Ofertas Irreais** | The app is not a storefront; it trades on exchanges/DEXs |
+| **Phishing de Falso Suporte e Cancelamento** | Overlaps with Layer 8 Fake Support; same operational boundary |
+
+These vectors apply to e-commerce platforms. The auto-trader does not
+have customers, does not process orders, does not have a storefront.
+Including them would be scope creep into a different problem domain. If
+the app ever adds marketplace features (unlikely), these would become
+relevant — until then, they are explicitly out of scope.
+
+---
+
+## Updated Phased Roadmap (combined Lists 1 + 2)
+
+| Phase | Layer(s) | Vectors | Scope | Depends on |
+|---|---|---|---|---|
+| H0 | 0 | Operational Key Compromise, Hot Wallet Key Mgmt, Crypto Errors | In scope | (current: M2.3 blocked by data loss) |
+| H1 | 1 | Front-Running, Sandwich, Sniper, Arbitrage | In scope | H0 |
+| H2 | 2 | Honeypot, Rug Pull, Contract Exploits, Unlimited Approval, Liquidity Mining, First Depositor | In scope | H0 |
+| H3 | 3 | Signature Phishing, Inconsistent Revocation | In scope | H0 |
+| H4 | 4 | Centralized RPC, Oracle Manipulation, CI/CD Compromise, Supply Chain, Dependency Compromise, Pipeline de Build | In scope | (partially overlaps H9) |
+| H5 | 5 | RPC Privacy, Provider Injection | In scope | H0 |
+| H6 | 6 | Address Poisoning | In scope | — |
+| H7 | 7 | Reentrancy, Logic Errors | In scope | — |
+| H8 | 8 | Fake Support, Airdrop Scams, Infostealers, Deepfakes, Hyper-personalized Phishing, Insider Threats, Clipboard Hijackers | Out of scope (operational support only) | — |
+| H9 | 9 | OWASP Top 10, Broken Access Control, SQL Injection, XSS, Security Misconfiguration | In scope | — |
+| H10 | 10 | Identity Takeover, ATO, Credential Stuffing, Synthetic Identities | In scope | H9 |
+| H11 | 11 | Application-layer DDoS | Partially in scope (app-side rate limiting + degradation) | H9 |
+| H12 | 12 | Ransomware, RaaS+DDoS, Extortion, Insider Recruitment | Out of scope (operational: backups, EDR, IR) | — |
+| H13 | 13 | APTs, AI Espionage, Long-dwell Compromise | Out of scope (operational: threat hunting, network segmentation) | — |
+| H14 | 14 | Prompt Injection, Autonomous Attacks | Partially in scope (if AI features used) | H9 |
+| H15 | 15 | Triangulation Fraud, Fake Delivery QR, Fake Stores | Out of scope (not an e-commerce platform) | — |
+
+**Total unique vectors across both lists: ~65.**
+- In scope for app code: ~35 (Layers 0-7, 9-11, 14)
+- Out of scope (operational/endpoint/infra): ~25 (Layers 8, 12-13, 15)
+- Partially in scope: ~5 (Layers 11, 14)
+
+---
+
+## Out-of-Scope Register (List 2 — additional vectors)
+
+In addition to the Layer 8 register from List 1, the following vectors
+from List 2 are explicitly OUT OF SCOPE for app code:
+
+- Ransomware e Extorsão Digital (endpoint: EDR, backups, IR plan)
+- RaaS com DDoS (same as above + infra DDoS)
+- Extorsão Multifacetada (same as above; app contributes append-only audit logs)
+- Recrutamento de Insider (operational: audit logs, least privilege — app supports via H8)
+- Espionagem Digital e APTs (operational: threat hunting, network segmentation)
+- Espionagem Baseada em IA (same as above)
+- Comprometimento de Longo Prazo (operational: file integrity monitoring, IR)
+- Shadow AI (operational policy: sanctioned AI tools only)
+- Phishing Hiper-realista / Deepfakes (operational: security awareness, hardware keys)
+- DDoS Volumétrico (infra: CDN, geographic rate limiting)
+- Monocultura da Internet (industry-level concern, not app-level)
+- Fraude de Triangulação (not an e-commerce platform)
+- Golpe da Falsa Entrega QR Code (not an e-commerce platform)
+- Lojas Falsas e Ofertas Irreais (not an e-commerce platform)
+- Phishing de Falso Suporte (overlaps Layer 8 — operational)
+- Prejuízo por Incidente (impact metric, not a vector — app contributes via circuit breakers)
+- Identidade Digital Falsa / Identidades Sintéticas (single-operator assumption; if multi-operator, requires identity proofing)
+
+The boundary is the same: the app SUPPORTS operational defenses (audit
+logs, MFA, circuit breakers, append-only logs) but cannot DEFEND alone
+against vectors that operate outside its perimeter. Conflating the two
+produces security theater.
+
+---
+
 ## Relationship to existing documents
 
 - **`SECURITY.md`** — regression inventory for already-fixed properties.
   Each hardening phase, once landed, adds a REG-NNN entry here.
+  **STATUS: LOST in the filesystem regression — needs reconstruction
+  before any hardening phase can land (each phase's REG entry references
+  the inventory format).**
 - **`worklog.md`** — chronological work log. Each hardening phase gets a
   Task ID (e.g., `hardening-h1-mev`) and follows the established template.
+  **STATUS: truncated to enhancement-v11 + hardening-mandate entries.
+  Signer-isolation work log entries (§7.3.7, M1-M2.2, pre-corrections,
+  readonly-fix) are LOST.**
 - **This document (`HARDENING-ROADMAP.md`)** — forward-looking plan. Updated
   as phases complete (mark them done) and as new vectors are identified
-  (added to the threat model).
+  (added to the threat model). **STATUS: intact (created after the
+  filesystem regression, in this session).**
 
 The three documents form a closed loop: roadmap (what we will do) →
-worklog (what we did) → SECURITY.md (what we must not undo).
+worklog (what we did) → SECURITY.md (what we must not undo). **The loop
+is currently broken** — SECURITY.md and the signer-isolation worklog
+entries are missing. The loop must be restored before hardening phases
+can begin.
+
+---
+
+## BLOCKING ISSUE: Data Loss
+
+The filesystem regressed to git commit `66edfd6` (enhancement-v11, Jul 13).
+All signer-isolation work (Phase 1, M1, M2.1, M2.2, the pre-push hook,
+the postinstall wiring, the readonly-container fix, SECURITY.md, the
+three test files, the signer process code, the wallet-crypto class) was
+working-tree-only and is LOST. The git history has no record of it.
+
+**No hardening phase (H0-H15) can begin until this is resolved.** H0
+depends on the signer isolation that was lost. H1-H7 build on H0. H9-H14
+are independent of the signer but depend on the dashboard/API code
+being stable (which it is — the trading code survived; only the signer
+isolation layer was lost).
+
+**Recovery options (awaiting operator direction):**
+- **(a)** Restore from container/volume backup (byte-identical recovery)
+- **(b)** Reconstruct from conversation context (structural reconstruction;
+  SECURITY.md content is in the conversation context; test structures are
+  described; signer code would be rebuilt from the documented design intent)
+- **(c)** Reassess scope (re-do signer isolation from scratch with the
+  benefit of the review thread's lessons learned)
