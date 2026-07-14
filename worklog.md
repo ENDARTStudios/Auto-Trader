@@ -957,3 +957,43 @@ Stage Summary:
   - Key rotation/versioning.
   - Cryptographic guarantees review.
 - Each H0 subphase follows: implement → test → fix → document → commit.
+
+---
+Task ID: h0.1-h0.2
+Agent: main
+Task: H0.1 (KDF + derivation parameters audit) + H0.2 (secret storage audit) — add versioned KDF dispatch + encryption scheme versioning + key buffer zeroization.
+
+Work Log:
+- Created src/lib/trading/kdf.ts: a new module that centralizes KDF + encryption algorithm identifiers, versions, and the deriveKey() dispatch function. Architecture:
+  - KDF_ALGO_PBKDF2_SHA256 = "pbkdf2-sha256" (current).
+  - ENC_ALGO_AES_256_GCM = "aes-256-gcm" (current).
+  - CURRENT_KDF_ALGO / CURRENT_KDF_VERSION (1) / CURRENT_ENC_ALGO / CURRENT_ENC_VERSION (1) — used by encryptSecret for new blobs.
+  - deriveKey(algo, version, passphrase, salt, iters) — dispatches on algo. Currently only pbkdf2-sha256 v1; future argon2id branch goes here.
+  - resolveKdfAlgo(blob) / resolveEncAlgo(blob) — return defaults (pbkdf2-sha256 v1 / aes-256-gcm v1) for pre-H0 blobs that lack the fields. This is the backward-compat bridge.
+  - generateSalt() / generateIv() — CSPRNG wrappers.
+  - zeroizeKeyBuffer(key) — fill(0) on the derived key Buffer. Defense-in-depth — Node doesn't guarantee Buffers are zeroed on GC.
+- Updated src/lib/trading/wallet-crypto.ts:
+  - Import KDF primitives from kdf.ts (removed direct pbkdf2Sync/randomBytes usage).
+  - EncryptedBlob interface: added optional kdfAlgo, kdfVersion, encAlgo, encVersion fields. Optional so pre-H0 blobs parse without modification.
+  - encryptSecret: now emits kdfAlgo/kdfVersion/encAlgo/encVersion in the blob. Derived key is zeroized in a finally{} block.
+  - decryptSecret: resolves algo+version from the blob (defaults for legacy), dispatches via deriveKey(), validates encAlgo/encVersion against current. Derived key is zeroized in a finally{} block.
+  - Unsupported algo/version → throws → caught → returns null (no crash, no partial decrypt).
+- Created scripts/test-h0-kdf-versioning.ts (9 scenarios):
+  1. New blob includes kdfAlgo/kdfVersion/encAlgo/encVersion fields. ✓
+  2. New blob decrypts correctly with correct passphrase. ✓
+  3. New blob fails to decrypt with wrong passphrase (GCM auth tag). ✓
+  4. Legacy blob (pre-H0, without version fields) still decrypts (backward compat). ✓
+  5. Legacy blob resolves to pbkdf2-sha256 v1 / aes-256-gcm v1 defaults. ✓
+  6. Blob with unsupported kdfAlgo (e.g. "argon2id-future") → decrypt returns null. ✓
+  7. Blob with unsupported encAlgo (e.g. "chacha20-poly1305-future") → decrypt returns null. ✓
+  8. deriveKey returns a zeroizable buffer + zeroizeKeyBuffer overwrites it (verifies key is non-zero before, all-zero after). ✓
+  9. Two encryptions of same plaintext produce different blobs (salt+IV randomness — no deterministic reuse). ✓
+- Wired test:h0-kdf into package.json and appended it to test:ci. The CI gate is now 7 files / 54 checks (45 previous + 9 new).
+- Regression check: test-vault.ts (20/20) + test-signer-vault-integration.ts (3/3) still pass after the refactor — confirms backward compatibility holds end-to-end through the real signer process + real DB + real unlock/lock cycle.
+
+Stage Summary:
+- H0.1 + H0.2 are implemented + tested + ready to commit.
+- The KDF + encryption scheme is now versioned. Future migration to argon2id or a different cipher is possible without breaking existing blobs — the rotation logic (H0.4) will decrypt legacy blobs with their original algo and re-encrypt with the new algo.
+- Key buffer zeroization is in place as defense-in-depth.
+- No behavioral change for existing callers (wallet-manager.ts, signer wallet-methods.ts). The EncryptedBlob interface is backward-compatible (new fields are optional).
+- Next: H0.3 (audit log hash-chain).

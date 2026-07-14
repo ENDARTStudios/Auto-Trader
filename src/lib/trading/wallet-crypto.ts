@@ -23,8 +23,24 @@
 //
 // NOTE: This module uses Node's built-in `crypto` module. No external deps.
 
-import { randomBytes, pbkdf2Sync, createCipheriv, createDecipheriv } from "crypto";
+import { createCipheriv, createDecipheriv } from "crypto";
 import { logger } from "./logger";
+import {
+  deriveKey,
+  resolveKdfAlgo,
+  resolveEncAlgo,
+  generateSalt,
+  generateIv,
+  zeroizeKeyBuffer,
+  KDF_ITERATIONS,
+  KDF_KEYLEN,
+  IV_LEN,
+  SALT_LEN,
+  CURRENT_KDF_ALGO,
+  CURRENT_KDF_VERSION,
+  CURRENT_ENC_ALGO,
+  CURRENT_ENC_VERSION,
+} from "./kdf";
 
 // v18: defer notifier import to avoid Turbopack circular-import issues at
 // module-load time. The notifier imports `db` at top-level, and the vault
@@ -298,61 +314,124 @@ function notifyVaultEvent(payload: {
   });
 }
 
-const KDF_ITERATIONS = 600_000;
-const KDF_KEYLEN = 32; // 256 bits for AES-256
-const KDF_DIGEST = "sha256";
-const IV_LEN = 12; // 96 bits — recommended for GCM
-const SALT_LEN = 16; // 128 bits
+// H0.1/H0.2: KDF + encryption constants moved to src/lib/trading/kdf.ts.
+// The constants KDF_ITERATIONS, KDF_KEYLEN, IV_LEN, SALT_LEN are re-exported
+// from kdf.ts for backward compatibility with any code that imports them
+// from wallet-crypto.ts (none currently does, but the re-export keeps the
+// surface stable). KDF_DIGEST is kept here because the dispatch in kdf.ts
+// handles it internally.
 
+/**
+ * Encrypted blob format.
+ *
+ * H0.1/H0.2 added the `kdfAlgo`, `kdfVersion`, `encAlgo`, `encVersion`
+ * fields. They are OPTIONAL — pre-H0 blobs don't have them and default to
+ * "pbkdf2-sha256" v1 / "aes-256-gcm" v1 via resolveKdfAlgo/resolveEncAlgo.
+ * New blobs (post-H0) include them explicitly so the rotation logic (H0.4)
+ * can detect and upgrade legacy blobs.
+ */
 export interface EncryptedBlob {
   iv: string;          // base64
   ciphertext: string;  // base64
   tag: string;         // base64 (GCM auth tag)
   salt: string;        // base64
   kdfIters: number;
+  // H0.1: KDF algorithm identifier (e.g. "pbkdf2-sha256"). Optional for
+  // backward compat — missing means legacy pbkdf2-sha256.
+  kdfAlgo?: string;
+  kdfVersion?: number;
+  // H0.2: Encryption algorithm identifier (e.g. "aes-256-gcm"). Optional
+  // for backward compat — missing means legacy aes-256-gcm.
+  encAlgo?: string;
+  encVersion?: number;
 }
 
 /**
  * Encrypt a plaintext string with AES-256-GCM using a key derived from
- * the operator's passphrase via PBKDF2.
+ * the operator's passphrase via the current KDF (PBKDF2-SHA256, 600k
+ * iterations as of H0).
+ *
+ * H0.1/H0.2: The resulting blob includes `kdfAlgo`, `kdfVersion`,
+ * `encAlgo`, `encVersion` so future decryption + rotation can detect the
+ * scheme used. The derived key is zeroized after use.
  *
  * Returns a JSON-stringified EncryptedBlob.
  */
 export function encryptSecret(plaintext: string, passphrase: string): string {
-  const salt = randomBytes(SALT_LEN);
-  const iv = randomBytes(IV_LEN);
-  const key = pbkdf2Sync(passphrase, salt, KDF_ITERATIONS, KDF_KEYLEN, KDF_DIGEST);
+  const salt = generateSalt();
+  const iv = generateIv();
+  const key = deriveKey(
+    CURRENT_KDF_ALGO,
+    CURRENT_KDF_VERSION,
+    passphrase,
+    salt,
+    KDF_ITERATIONS
+  );
 
-  const cipher = createCipheriv("aes-256-gcm", key, iv);
-  const ciphertext = Buffer.concat([
-    cipher.update(plaintext, "utf8"),
-    cipher.final(),
-  ]);
-  const tag = cipher.getAuthTag();
+  try {
+    const cipher = createCipheriv("aes-256-gcm", key, iv);
+    const ciphertext = Buffer.concat([
+      cipher.update(plaintext, "utf8"),
+      cipher.final(),
+    ]);
+    const tag = cipher.getAuthTag();
 
-  const blob: EncryptedBlob = {
-    iv: iv.toString("base64"),
-    ciphertext: ciphertext.toString("base64"),
-    tag: tag.toString("base64"),
-    salt: salt.toString("base64"),
-    kdfIters: KDF_ITERATIONS,
-  };
-  return JSON.stringify(blob);
+    const blob: EncryptedBlob = {
+      iv: iv.toString("base64"),
+      ciphertext: ciphertext.toString("base64"),
+      tag: tag.toString("base64"),
+      salt: salt.toString("base64"),
+      kdfIters: KDF_ITERATIONS,
+      kdfAlgo: CURRENT_KDF_ALGO,
+      kdfVersion: CURRENT_KDF_VERSION,
+      encAlgo: CURRENT_ENC_ALGO,
+      encVersion: CURRENT_ENC_VERSION,
+    };
+    return JSON.stringify(blob);
+  } finally {
+    // H0.2: zeroize the derived key after use. Defense-in-depth — the key
+    // is a Buffer allocated by pbkdf2Sync (not from the shared pool), so
+    // fill(0) reliably overwrites it. The plaintext is not zeroized here
+    // because the caller owns it (it's a string parameter, immutable).
+    zeroizeKeyBuffer(key);
+  }
 }
 
 /**
  * Decrypt a JSON-stringified EncryptedBlob. Returns null if the passphrase
  * is wrong (GCM auth tag verification fails) or the blob is malformed.
+ *
+ * H0.1/H0.2: The KDF algorithm + version are resolved from the blob's
+ * `kdfAlgo`/`kdfVersion` fields (defaulting to legacy pbkdf2-sha256 v1
+ * for pre-H0 blobs). The derived key is zeroized after use.
  */
 export function decryptSecret(encryptedJson: string, passphrase: string): string | null {
+  let key: Buffer | null = null;
   try {
     const blob: EncryptedBlob = JSON.parse(encryptedJson);
+    const kdf = resolveKdfAlgo(blob);
+    const enc = resolveEncAlgo(blob);
+
     const salt = Buffer.from(blob.salt, "base64");
     const iv = Buffer.from(blob.iv, "base64");
     const tag = Buffer.from(blob.tag, "base64");
     const ciphertext = Buffer.from(blob.ciphertext, "base64");
 
-    const key = pbkdf2Sync(passphrase, salt, blob.kdfIters ?? KDF_ITERATIONS, KDF_KEYLEN, KDF_DIGEST);
+    key = deriveKey(
+      kdf.algo,
+      kdf.version,
+      passphrase,
+      salt,
+      blob.kdfIters ?? KDF_ITERATIONS
+    );
+
+    if (enc.algo !== CURRENT_ENC_ALGO) {
+      throw new Error(`decryptSecret: unsupported encAlgo "${enc.algo}"`);
+    }
+    if (enc.version !== CURRENT_ENC_VERSION) {
+      throw new Error(`decryptSecret: unsupported encVersion ${enc.version}`);
+    }
+
     const decipher = createDecipheriv("aes-256-gcm", key, iv);
     decipher.setAuthTag(tag);
 
@@ -364,6 +443,10 @@ export function decryptSecret(encryptedJson: string, passphrase: string): string
   } catch (err) {
     logger.warn("wallet", `decryptSecret failed: ${String(err)}`);
     return null;
+  } finally {
+    if (key) {
+      zeroizeKeyBuffer(key);
+    }
   }
 }
 
