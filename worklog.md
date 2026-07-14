@@ -1067,3 +1067,52 @@ Stage Summary:
   2. KDF param bump (e.g. iterations 600k → 1M, or PBKDF2 → argon2id): update CURRENT_KDF_* constants in kdf.ts, call rotateKdfParams(allBlobs, passphrase), persist new blobs. Legacy blobs are detected + rotated automatically.
   3. Audit: call auditBlobVersions(allBlobs) to see how many blobs are stale (need rotation).
 - Next: H0.5 (cryptographic guarantees review document).
+
+---
+Task ID: h0.5
+Agent: main
+Task: H0.5 — Cryptographic guarantees review. Write docs/CRYPTO.md + update SECURITY.md with H0 section.
+
+Work Log:
+- Created docs/CRYPTO.md: a comprehensive cryptographic guarantees review document covering:
+  - Section 1: Cryptographic primitives in use (KDF parameters, encryption parameters, hash chain structure) with a table of values + justifications.
+  - Section 2: Guarantees provided (confidentiality at rest/in-transit/in-memory, integrity at blob level + audit log level, KDF strength, forward migration path).
+  - Section 3: Guarantees NOT provided — 7 explicit limitations:
+    1. No forward secrecy (passphrase compromise → all blobs compromised).
+    2. No key escrow / passphrase recovery (intentional — no backdoor).
+    3. No HSM support (keys derived in software; future: PKCS#11/cloud KMS).
+    4. No constant-time passphrase comparison at the API level (GCM auth tag is constant-time, but overall function timing could leak; rate limiter dominates).
+    5. Audit log: tamper DETECTION not PREVENTION (attacker with FS write access can modify but must recompute all subsequent hashes — detectable).
+    6. Audit log: no protection against full-file deletion (mirror off-host).
+    7. No DB-level AppLog hash chain (only the file-based SIGNER_AUDIT_LOG is chained).
+  - Section 4: Key rotation procedures (change passphrase, bump KDF params, migrate algorithm) — step-by-step workflows.
+  - Section 5: Test coverage summary (36 new assertions across 3 test files + integration test).
+  - Section 6: Future work (argon2id migration, HSM integration, audit log mirroring, AppLog hash chain, constant-time audit).
+  - Section 7: References (OWASP, NIST SP 800-132, NIST SP 800-38D, RFC 6234, JSON-RPC 2.0).
+- Updated SECURITY.md with a new "H0 — Foundational Hardening" section documenting:
+  - H0.1–H0.5 scope + status.
+  - Why H0 is a regression sentinel (what could go wrong without it).
+  - Each subphase's key implementation details.
+  - The CRITICAL BUG caught by H0.3 testing (JSON.stringify replacer array dropping payload keys from the hash).
+  - Test coverage summary (36 new assertions, CI gate now 9 files / 78 checks).
+- Ran the full test:ci suite one final time: 9 files, 78 checks, all green.
+  - test-vault.ts: 20/20
+  - test-request-peer-integration.ts: 4/4
+  - test-signer-process.ts: 5/5
+  - test-wallet-crud.ts: 11/11
+  - test-signer-dispatcher-structural.ts: 2/2
+  - test-signer-vault-integration.ts: 3/3
+  - test-h0-kdf-versioning.ts: 9/9
+  - test-h0-audit-hashchain.ts: 10/10
+  - test-h0-key-rotation.ts: 14/14
+
+Stage Summary:
+- H0 (Foundational Hardening) IS COMPLETE.
+- H0.1: Versioned KDF dispatch (pbkdf2-sha256 v1, ready for argon2id).
+- H0.2: Versioned encryption scheme + key buffer zeroization.
+- H0.3: Hash-chained tamper-evident audit log (caught a critical hash-computation bug via testing).
+- H0.4: Key rotation + versioning (passphrase rotation, KDF param upgrade, legacy blob migration).
+- H0.5: Cryptographic guarantees review (docs/CRYPTO.md + SECURITY.md H0 section).
+- 4 commits made (h0.1-h0.2, h0.3, h0.4, h0.5 pending).
+- CI gate: 9 files / 78 checks (was 6 files / 48 checks at Phase 1 freeze).
+- The project is ready to proceed to H1/H2 (MEV defenses + contract interaction hardening) per the operator's directed sequence: H0 → H1/H2 → M3/M4.

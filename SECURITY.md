@@ -714,3 +714,83 @@ baseline documents). REG-008 closes the corollary: not only must the
 schema be in migration history, the dev DB artifact must NOT be in
 git history — otherwise the migration baseline is undermined by a
 stale committed DB that masks future drift.
+
+---
+
+## H0 — Foundational Hardening (cryptographic guarantees)
+
+**Status:** H0.1–H0.4 implemented + tested. H0.5 is the review document
+at `docs/CRYPTO.md`.
+
+**Scope:** KDF versioning (H0.1), encryption scheme versioning + key
+zeroization (H0.2), audit log hash-chain (H0.3), key rotation + versioning
+(H0.4), cryptographic guarantees review (H0.5).
+
+**Why this is a regression sentinel:** Before H0, the KDF was hardcoded
+(PBKDF2-SHA256, 600k iters) with no algorithm field — migrating to
+argon2id would break existing blobs. The audit log was plain JSON lines
+with no integrity protection — an attacker with file access could modify
+entries undetected. There was no key rotation mechanism — changing the
+passphrase required manual re-encryption of every blob. H0 closes all
+three gaps.
+
+**H0.1 — KDF + derivation parameters:**
+- New module `src/lib/trading/kdf.ts` centralizes KDF algorithm identifiers
+  (`KDF_ALGO_PBKDF2_SHA256`), versions (`CURRENT_KDF_VERSION=1`), and the
+  `deriveKey()` dispatch function. Architecture ready for future argon2id.
+- `EncryptedBlob` gains optional `kdfAlgo`/`kdfVersion` fields. Pre-H0
+  blobs default to `pbkdf2-sha256` v1 via `resolveKdfAlgo()`.
+
+**H0.2 — Secret storage:**
+- `EncryptedBlob` gains optional `encAlgo`/`encVersion` fields.
+- `encryptSecret` emits version fields + zeroizes the derived key in `finally`.
+- `decryptSecret` validates `encAlgo`/`encVersion`, dispatches via
+  `deriveKey()`, zeroizes the key in `finally`. Unsupported algo → null.
+- `zeroizeKeyBuffer(key)` fills the derived key Buffer with zeros after use.
+
+**H0.3 — Audit log hash-chain:**
+- New module `src/lib/audit/audit-log.ts` implements an append-only log
+  where each entry's `hash` = SHA-256(canonical JSON excluding `hash`),
+  and the next entry's `prevHash` references it.
+- `AuditLog.verify(path)` detects modification, deletion, insertion.
+- Signer initializes the audit log at boot, verifies chain integrity
+  (logs loudly if broken, does NOT block boot).
+- All wallet handlers write hash-chained audit entries:
+  `vault_unlocked`, `vault_unlock_rate_limited`, `vault_unlock_empty`,
+  `vault_unlock_failed`, `vault_locked`, `vault_zeroized_on_disconnect`.
+- **CRITICAL BUG CAUGHT BY TESTING:** `JSON.stringify(entry, sortedKeysArray)`
+  uses the replacer array form, which filters keys at ALL levels — dropping
+  nested payload keys and making the hash independent of payload content.
+  Fixed by building a sorted-key object and serializing normally. The H0.3
+  tamper detection test caught this — without the test, the hash chain
+  would have been security theater.
+
+**H0.4 — Key rotation + versioning:**
+- New module `src/lib/trading/key-rotation.ts` provides pure functions:
+  `rotatePassphrase(blobs, oldPass, newPass)`,
+  `rotateKdfParams(blobs, pass)`, `auditBlobVersions(blobs)`.
+- `isBlobCurrent()` checks RAW blob fields (not resolved defaults) —
+  ensures legacy blobs without explicit version fields are detected as
+  stale and rotated to add the fields.
+- Rotation is pure (no DB access) — caller responsible for atomicity.
+
+**H0.5 — Cryptographic guarantees review:**
+- Full review document at `docs/CRYPTO.md` covering:
+  - Primitives in use (PBKDF2-SHA256, AES-256-GCM, SHA-256 hash chain).
+  - Guarantees provided (confidentiality, integrity, KDF strength, forward migration).
+  - Guarantees NOT provided (no forward secrecy, no key escrow, no HSM, no
+    constant-time API-level comparison, tamper DETECTION not PREVENTION).
+  - Key rotation procedures (change passphrase, bump KDF params, migrate algorithm).
+  - Test coverage summary.
+  - Future work (argon2id, HSM, audit log mirroring, AppLog hash chain).
+
+**Test coverage:** 36 new assertions across 3 test files
+(`test-h0-kdf-versioning.ts` 9, `test-h0-audit-hashchain.ts` 10,
+`test-h0-key-rotation.ts` 14) + the integration test updated to verify
+the hash chain end-to-end. CI gate is now 9 files / 78 checks.
+
+**History:** Jul 14 2026 — H0 implemented after Phase 1 (signer isolation)
+freeze. The operator's directed sequence was H0 → H1/H2 → M3/M4 (NOT
+M3/M4 first), to consolidate the cryptographic foundation before expanding
+the signer's functional surface. Each H0 subphase followed:
+implement → test → fix → document → commit.
