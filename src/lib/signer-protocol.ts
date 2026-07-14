@@ -95,6 +95,67 @@ export const RPC_ERROR_CODES = {
 } as const;
 
 /**
+ * Error code string the dispatcher includes in the `message` field of
+ * a POLICY_VIOLATION response when the rejection reason is a protocol
+ * version mismatch. The M3.1 SignerAdapter recognizes this string in
+ * the response and surfaces it as `SIGNER_PROTOCOL_MISMATCH`.
+ *
+ * Per the operator's M3.1 directive, protocol version validation
+ * happens at TWO points:
+ *   1. ADAPTER (src/lib/chain/signer-adapter.ts) — pre-flight
+ *      `health_check` probe; refuses to forward if version mismatches.
+ *   2. SIGNER (src/signer/main.ts dispatchRpc) — per-request check of
+ *      `params.protocolVersion`; rejects with POLICY_VIOLATION +
+ *      this code string in the message.
+ *
+ * Both checks are needed: the adapter's pre-flight catches mismatch
+ * early, the signer's per-request check defends the trust boundary
+ * against any client (not just the adapter).
+ */
+export const SIGNER_PROTOCOL_MISMATCH_CODE = "SIGNER_PROTOCOL_MISMATCH";
+
+/**
+ * Validate that the request's `protocolVersion` field (if present)
+ * matches `SIGNER_PROTOCOL_VERSION`. Used by the signer's dispatcher
+ * as the per-request protocol check.
+ *
+ * Returns `null` if validation passes (no `protocolVersion` field
+ * present, OR the field matches). Returns a human-readable error
+ * string if validation fails.
+ *
+ * This function is backward-compatible: existing wallet methods
+ * (unlock, lock, getVaultStatus, etc.) do NOT include `protocolVersion`
+ * in their params, so they pass validation trivially. M3.2's sign
+ * methods WILL include `protocolVersion`, so they are validated.
+ */
+export function validateProtocolVersion(params: unknown): string | null {
+  if (params === undefined || params === null) {
+    // No params — nothing to validate. Existing wallet methods that
+    // take no params (e.g., getVaultStatus) fall here.
+    return null;
+  }
+  if (typeof params !== "object" || Array.isArray(params)) {
+    // Positional params (JSON array) — no `protocolVersion` field to
+    // check. We standardize on object params for M2+ methods (see the
+    // DESIGN CHOICE block above), but JSON-RPC 2.0 permits arrays.
+    return null;
+  }
+  const obj = params as { protocolVersion?: unknown };
+  if (obj.protocolVersion === undefined) {
+    // Object params without `protocolVersion` — backward-compatible.
+    // Existing wallet methods fall here.
+    return null;
+  }
+  if (typeof obj.protocolVersion !== "string") {
+    return `${SIGNER_PROTOCOL_MISMATCH_CODE}: protocolVersion field present but not a string (got ${typeof obj.protocolVersion})`;
+  }
+  if (obj.protocolVersion !== SIGNER_PROTOCOL_VERSION) {
+    return `${SIGNER_PROTOCOL_MISMATCH_CODE}: protocolVersion ${obj.protocolVersion} does not match signer version ${SIGNER_PROTOCOL_VERSION}`;
+  }
+  return null;
+}
+
+/**
  * SIGNER_READY message: the signer process writes this single line to
  * stdout once the Unix socket is listening. The parent process (web)
  * reads this line and knows it can connect.

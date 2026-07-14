@@ -54,6 +54,8 @@ import {
   parseRpcFrame,
   rpcError,
   rpcSuccess,
+  validateProtocolVersion,
+  RPC_ERROR_CODES,
   type SignerReadyMessage,
 } from "@/lib/signer-protocol";
 import {
@@ -208,6 +210,39 @@ function dispatchRpc(
         version: SIGNER_PROTOCOL_VERSION,
         uptimeMs: Math.floor(process.uptime() * 1000),
       },
+    });
+  }
+
+  // M3.1: per-request protocol version validation.
+  //
+  // This is the SIGNER-SIDE half of the two-point protocol validation
+  // (see src/lib/signer-protocol.ts validateProtocolVersion + the
+  // SignerAdapter's pre-flight health_check probe).
+  //
+  // The check is backward-compatible: existing wallet methods (unlock,
+  // lock, getVaultStatus, etc.) do NOT include `protocolVersion` in
+  // their params, so validateProtocolVersion returns null and the
+  // request proceeds normally. M3.2's sign methods (signTransaction,
+  // signTypedData, signMessage) WILL include `protocolVersion`, so
+  // they are validated against SIGNER_PROTOCOL_VERSION.
+  //
+  // If the validation fails, we return POLICY_VIOLATION (-32006) with
+  // the SIGNER_PROTOCOL_MISMATCH_CODE prefix in the message. The
+  // SignerAdapter recognizes this prefix and surfaces it as
+  // SIGNER_PROTOCOL_MISMATCH rather than a generic RPC error.
+  //
+  // This is LAYER 1 code (OUR setup logic), NOT LAYER 2 (downstream
+  // handler invocation). A validation failure here is a recoverable
+  // application-level error, not an unexpected exception — return a
+  // clean RPC error response, no crash. The Note 1 discipline (don't
+  // catch downstream exceptions) does not apply here because we are
+  // NOT invoking downstream code yet.
+  const protoErr = validateProtocolVersion(_params);
+  if (protoErr !== null) {
+    return Promise.resolve({
+      ok: false,
+      code: RPC_ERROR_CODES.POLICY_VIOLATION,
+      message: protoErr,
     });
   }
 

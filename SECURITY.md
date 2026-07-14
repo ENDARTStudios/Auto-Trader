@@ -1397,3 +1397,165 @@ a change sees the freeze documented as a regression guard, not as a
 stylistic preference. The discipline is the same as REG-001 through
 REG-008: the rule is here so that the temptation to "simplify" it
 back is met with a documented objection.
+
+---
+
+## M3.1 — SignerAdapter (Jul 15 2026)
+
+### Scope
+
+M3.1 introduces the `SignerAdapter` (`src/lib/chain/signer-adapter.ts`),
+the first execution-layer component. It implements the `SignerSink`
+interface defined in frozen `pipeline.ts` — replacing the mock that
+H2.6 used with a real adapter that forwards sign requests over a Unix
+socket to the signer process.
+
+The adapter has exactly three responsibilities per the operator's M3.1
+directive:
+
+1. **Mapping** — translate `SignerRequest` (application-level, from
+   frozen pipeline.ts) → `SignerWireRequest` (wire-level envelope:
+   `{ protocolVersion, requestId, operation, payload, payloadHash }`).
+   The payload is forwarded byte-identical. The `payloadHash` is
+   SHA-256 of the canonical JSON, so the signer can verify integrity.
+
+2. **Protocol validation** — TWO-POINT validation:
+   - **Adapter-side** (pre-flight `health_check` probe; cached).
+   - **Signer-side** (per-request `validateProtocolVersion` in
+     `src/signer/main.ts`'s `dispatchRpc`).
+
+3. **RPC serialization** — JSON-RPC 2.0 envelope, timeout, response
+   parsing, structural validation, `requestId` echo check,
+   `receivedPayloadHash` echo check.
+
+The adapter does NOT do: broadcast, nonce management, writer lease,
+multi-signer, key rotation, real signing, async queue, persistence,
+retry, fallback, reconnection. Those belong to M3.2 / M3.3 / M4.
+
+### Implementation
+
+- **`src/lib/chain/signer-adapter.ts`** — `SignerAdapter` class.
+  Implements `SignerSink.submit(req: SignerRequest): Promise<SignerResult>`.
+  Uses an injected `SignerTransport` (interface) so tests can inject a
+  mock; production will use a real Unix-socket transport (added in M3.2).
+  Exposes 7 error codes via the `SignerAdapterError` enum: `PROTOCOL_MISMATCH`,
+  `UNAVAILABLE`, `TIMEOUT`, `INVALID_RESPONSE`, `INVALID_REQUEST`,
+  `PAYLOAD_CORRUPTED`, `RPC_ERROR`. The adapter NEVER throws — all errors
+  are converted into `SignerResult` with `ok: false` and a descriptive
+  `error` string prefixed with one of these codes.
+
+- **`src/lib/signer-protocol.ts`** — added:
+  - `SIGNER_PROTOCOL_MISMATCH_CODE = "SIGNER_PROTOCOL_MISMATCH"` — the
+    string the dispatcher includes in the POLICY_VIOLATION message when
+    the rejection is a version mismatch. The adapter recognizes this
+    string and surfaces the error as `PROTOCOL_MISMATCH` (not a generic
+    RPC error).
+  - `validateProtocolVersion(params: unknown): string | null` —
+    backward-compatible helper. Returns `null` if `params` has no
+    `protocolVersion` field (existing wallet methods pass trivially)
+    OR if the field matches `SIGNER_PROTOCOL_VERSION`. Returns a
+    human-readable error string (prefixed with `SIGNER_PROTOCOL_MISMATCH:`)
+    if the field is present but doesn't match.
+
+- **`src/signer/main.ts`** — added per-request protocol validation
+  in `dispatchRpc`, between the allowlist check and the handler
+  dispatch. This is LAYER 1 code (OUR setup logic), not LAYER 2
+  (downstream handler invocation) — so the Note 1 discipline (don't
+  catch downstream exceptions) does not apply. A validation failure
+  returns `POLICY_VIOLATION (-32006)` cleanly, no crash.
+
+- **`scripts/test-m3-signer-adapter.ts`** — 60 assertions across 13
+  scenarios: 4 contract + 4 transport + 3 security + 2 integration
+  (real signer process).
+
+### REG-010: Two-point protocol version validation
+
+**Pin date:** Jul 15 2026 (M3.1).
+
+**Rule:** Protocol version validation MUST occur at BOTH points:
+
+1. **Adapter-side** (pre-flight) — `SignerAdapter.verifyProtocol()`
+   sends a `health_check` RPC on first `submit()` call and compares
+   the signer's reported `version` against `expectedProtocolVersion`.
+   If mismatch, the adapter returns `SIGNER_PROTOCOL_MISMATCH` WITHOUT
+   sending the sign request. This protects the internal system from
+   sending requests to an incompatible signer.
+
+2. **Signer-side** (per-request) — `dispatchRpc` in `src/signer/main.ts`
+   calls `validateProtocolVersion(params)` before dispatching to any
+   handler. If `params.protocolVersion` is present and doesn't match
+   `SIGNER_PROTOCOL_VERSION`, returns `POLICY_VIOLATION (-32006)` with
+   the `SIGNER_PROTOCOL_MISMATCH:` prefix. This protects the trust
+   boundary — even a non-adapter client cannot bypass the version check.
+
+**Why both:** The adapter's pre-flight catches mismatch early (before
+constructing the sign request). The signer's per-request check catches
+the case where the signer was upgraded between the adapter's pre-flight
+and the actual sign request (e.g., the signer process was restarted
+with a new version while the adapter's cached verification was still
+valid). Removing either check reopens a gap:
+
+- Removing the adapter pre-flight → the adapter constructs and sends
+  a full sign request before discovering the mismatch, wasting work
+  and leaking payload structure to an incompatible signer.
+- Removing the signer per-request check → a non-adapter client (or a
+  future adapter that bypasses the pre-flight) could send requests
+  with an arbitrary version field, and the signer would dispatch them
+  without validation.
+
+**Regression test:** M3.1 test suite, scenarios A.2 (adapter pre-flight
+blocks), B.4 (signer per-request rejects), D.1 (real signer process +
+adapter with wrong expected version → mismatch detected end-to-end).
+
+**Why this is a regression entry:** A future maintainer might be
+tempted to "simplify" by removing one of the two checks ("it's
+redundant, the other check catches it"). This entry documents that
+both checks are load-bearing and serve different purposes. Removing
+either one reopens a specific gap that M3.1 was designed to close.
+
+### Test coverage
+
+M3.1 added **60 new assertions** across **1 new test file**:
+
+| File | Scenarios | Assertions |
+|---|---|---|
+| `test-m3-signer-adapter.ts` | 13 (4 contract + 4 transport + 3 security + 2 integration) | 60 |
+| **total** | **13** | **60** |
+
+CI gate is now **20 files / 637 checks** (was 19 files / 577 checks
+at H2.6 close — M3.1 added 1 file and 60 checks). The frozen base
+is untouched: H0/H1/H2/H2.6 all still pass their full suites.
+
+### Bugs caught
+
+**Zero bugs caught during M3.1 testing.** The adapter is a thin
+translation layer over the `SignerSink` contract that H2.6 already
+proven (via 9 per-gate failure tests using a mock SignerSink). M3.1
+replaces the mock with a real adapter and confirms the contract still
+holds.
+
+Two test-fix iterations were needed during development (both in the
+adapter, not in frozen code):
+
+1. `verifyProtocol()` initially classified all transport-thrown errors
+   as `UNAVAILABLE`, missing the `TIMEOUT` classification that `submit()`
+   had. Fixed by extracting `classifyTransportError()` as a shared
+   helper used by both methods.
+
+2. The `METHOD_NOT_FOUND` special case in `submit()` didn't include the
+   numeric error code in the returned string, breaking the D.2
+   integration test assertion. Fixed by removing the special case and
+   letting it fall through to the generic `RPC_ERROR` handler (which
+   includes `${errCode}`).
+
+Neither fix touched frozen code. Both were caught by the M3.1 test
+suite itself — exactly the regression-guard purpose the permanent
+principle mandates.
+
+**History:** Jul 15 2026 — M3.1 implemented immediately after the M3
+Readiness Review passed, following the operator's directive: "O
+próximo passo deve ser M3.1 — SignerAdapter, mantendo o escopo mínimo
+definido. Não alterar H0/H1/H2/H2.6." The frozen base was respected:
+`grep` confirms zero modifications to the 10 frozen files listed in
+REG-009. The only signer-side changes are to `src/lib/signer-protocol.ts`
+and `src/signer/main.ts`, neither of which is in the frozen list.
