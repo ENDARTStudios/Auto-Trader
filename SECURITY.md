@@ -397,3 +397,84 @@ expected to be added to this inventory:
 Each entry should follow the same shape: what the test pins, why it
 exists, what breaks if it's removed, the correct structure, and the
 history of the bug it guards against.
+
+---
+
+## REG-005: commit discipline — no milestone stays working-tree-only
+
+**Test:** the git history itself. Every milestone (M1, M2.1, M2.2, M2.3,
+M3, M4, H0-H15) MUST produce a commit. No approved milestone stays as
+uncommitted working-tree changes.
+
+**What this pins:** the project's recoverability. If the container
+rootfs regresses (as it did on Jul 14 2026 — see History below), the
+maximum loss is the work since the last commit, NOT an entire phase.
+
+**Why this rule exists (the regression it guards against):**
+
+On Jul 14 2026, the container rootfs at `/home/z/my-project` regressed
+to git commit `66edfd6` (enhancement-v11, Jul 13). The entire signer-
+isolation work (Phase 1, M1, M2.1, M2.2, the pre-push hook, the
+postinstall wiring, the readonly-container fix, SECURITY.md, the three
+test files, the signer process code, the WalletVault class — 67 files,
+~30000 lines) was working-tree-only and would have been LOST.
+
+Recovery was possible only because a PolarFS persistent mount at
+`/tmp/my-project` had synced copies of the source files. Without that
+snapshot, the entire Phase 1 would have been unrecoverable — the git
+history had no record of it.
+
+The root cause was a process failure, not a technical failure: milestones
+were approved and implemented but never committed. The operator's
+directive after the incident: "nenhum marco (M1, M2.1, M2.2, M2.3...)
+permanece sem commit; todo marco aprovado gera um commit; commits
+intermediários pequenos são preferíveis a centenas de arquivos não
+versionados; antes de alterações grandes, criar uma branch dedicada."
+
+**The correct discipline (do not relax):**
+
+1. **Every approved milestone produces a commit.** "Approved" means the
+   operator reviewed and accepted the work. The commit happens immediately
+   after approval, not "later" or "when I have time." The Jul 14 incident
+   proved that "later" can become "never" if the container restarts.
+
+2. **Small intermediate commits are preferred over large batch commits.**
+   A 67-file commit (like the recovery commit `d4dc0c0`) is acceptable
+   for recovery, but NOT for normal workflow. Normal workflow commits
+   should be scoped to a single milestone or sub-milestone (e.g., M2.1
+   = one commit, M2.2 = one commit, not M2.1+M2.2+hooks in one commit).
+
+3. **Before large changes, create a dedicated branch.** The signer-
+   isolation work should have been on a `phase1-signer-isolation` branch,
+   not on `main`. A branch would have made the work visible in `git
+   branch` output and would have survived the rootfs regression (branches
+   are stored in `.git/refs/`, which is part of the git database, not
+   the working tree).
+
+4. **The pre-push hook is NOT a substitute for committing.** The hook
+   runs `test:ci` before a push, but a push requires a commit first.
+   If the work is uncommitted, the hook never fires, and the work is
+   invisible to git. Commit FIRST, then push.
+
+5. **After each step in a multi-step milestone: implement → test → fix →
+   commit.** Not "implement everything → test → commit at the end." The
+   intermediate commits create recovery points. If step 3 breaks
+   something, you can `git diff` against step 2's commit to find the
+   regression — you can't do that against uncommitted working-tree
+   changes that got lost.
+
+**If you are tempted to "commit later" or "commit when the phase is
+done":**
+
+Don't. The Jul 14 incident proved that "later" can mean "lost." If the
+work is approved, commit it NOW. If the work is not yet approved, commit
+it on a feature branch with a `WIP:` prefix — a WIP commit is infinitely
+better than no commit, because it's recoverable.
+
+**History:** Jul 14 2026 — container rootfs regressed to the last git
+commit (66edfd6). All signer-isolation work was working-tree-only. 67
+files / ~30000 lines would have been lost. Recovered from PolarFS
+snapshot at `/tmp/my-project` (a persistent `fuse.pfs` mount that had
+synced copies of the source files). The recovery commit is `d4dc0c0`.
+The operator's directive established this rule as REG-005 to prevent
+recurrence.
