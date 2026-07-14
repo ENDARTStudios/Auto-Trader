@@ -648,3 +648,48 @@ Stage Summary:
 - Dev server estável em /home/z/my-project porta 3000
 - Dashboard agora tem 14 tabs: Posições, Histórico, Mercado, AI Agents, Scam Audit, Site Audit, Plataformas, Vigilância, Backtest, Analytics, Rounds, Logs, Notificações, Sistema
 - Validação end-to-end: schedule POST → engine tick pula SCOUT quando fora da janela → logs confirmam "Fora da janela de trading — SCOUT pulado"
+
+---
+Task ID: hardening-mandate-acknowledgment (operator's "blindagem" mandate)
+Agent: engineering (main session)
+Task: Operator mandated that the Auto Trader must be "blindada" (armored) against 30 attack vectors spanning MEV, contract fraud, signature phishing, infrastructure, privacy, address hygiene, logic correctness, key management, and operational/endpoint threats. This is a major scope expansion beyond M2.3. The operator also confirmed M2.3 is cleared (no reservations) and registered a non-blocking note about the chmod 555 test simulation not working for root runners.
+
+Work Log:
+- Acknowledged operator's non-blocking note on chmod 555 / root-runner caveat: the read-only simulation in scripts/test-install-git-hooks-readonly.sh relies on POSIX file permissions, which are bypassed when the test runs as root (common in Docker-based CI runners). This does NOT invalidate the verification done in this session (the environment here is clearly non-root — Test 2 failed as expected before the fix). The caveat is registered for the day the test is formalized into a CI pipeline: either (a) confirm the runner is non-root, or (b) replace the chmod 555 simulation with a bind-mount read-only directory, which works regardless of UID. No code change needed now — the fix itself is correct; only the test simulation has the root-bypass edge case.
+- Surveyed existing defense code to ground the gap analysis:
+  - scam-detector.ts (407 lines): 6 sub-scorers (honeypot, liquidity, contract, tax, holder, age) — partial coverage of Honeypot, Rug Pull, Smart Contract Exploits.
+  - risk-manager.ts (259 lines): 5 circuit breakers (kill switch, daily loss, per-trade loss, exposure, drawdown) — limits blast radius of logic errors.
+  - portfolio.ts (328 lines): 50/50 profit split — partial Hot Wallet Key Management mitigation (cold reserve is a DB row, not an actual cold wallet).
+  - platform-scanner.ts + site-integrity.ts: platform legitimacy audit — partial Fake Support mitigation.
+  - paper-trader.ts: hardcoded 30bps slippage — NO MEV protection, NO private mempool, NO commit-reveal.
+  - No CSP / X-Frame-Options / COOP headers found (grep returned no matches in src/).
+  - No multi-RPC failover, no oracle aggregation, no TWAP, no approval management code.
+  - Signer isolation (Phase 1 in flight): covers Operational Key Compromise + Hot Wallet Key Management + partial Cryptographic Implementation Errors (zeroize-on-disconnect pending M2.3).
+  - Per-IP rate limiting (REG-002): partial RPC Privacy Leakage (rate-based, not payload-based).
+- Categorized all 30 vectors into 8 defense layers:
+  - Layer 0 (Foundational — in flight via Phase 1): 3 vectors (Operational Key Compromise, Hot Wallet Key Management, Cryptographic Implementation Errors)
+  - Layer 1 (MEV / on-chain adversarial — GAP): 4 vectors (Front-Running, Sandwich, Sniper, Arbitrage Bots)
+  - Layer 2 (Token/contract fraud — PARTIAL via scam-detector): 6 vectors (Honeypot, Rug Pull, Smart Contract Exploits, Unlimited Approval Drain, Liquidity Mining Frauds, First Depositor Attacks)
+  - Layer 3 (Signature/approval hygiene — GAP): 2 vectors (Signature Phishing, Inconsistent Permission Revocation)
+  - Layer 4 (Infrastructure — GAP): 4 vectors (Centralized RPC Dependency, Oracle Manipulation, CI/CD Compromise, Supply Chain Attacks)
+  - Layer 5 (Privacy/browser — GAP): 2 vectors (RPC Privacy Leakage payload, Provider Injection in Iframes)
+  - Layer 6 (Address hygiene — GAP): 1 vector (Address Poisoning)
+  - Layer 7 (Logic correctness — PARTIAL via risk-manager): 2 vectors (Reentrancy, Logic Errors)
+  - Layer 8 (Operational/endpoint — OUT OF SCOPE for app code, documented boundary): 7 vectors (Fake Support, Airdrop Scams, Clipboard Hijackers, Infostealers, Deepfakes/Synthetic Audio, Hyper-personalized Phishing, Insider Threats/Contractors)
+- Produced /home/z/my-project/HARDENING-ROADMAP.md — structured counterpart to SECURITY.md:
+  - Threat model: 30 vectors mapped to 8 layers, each with existing mitigation / gap / proposed defense.
+  - Defense matrix: per-vector table with what exists vs what's missing.
+  - Phased roadmap: H0 (foundational, parallel to M2.3/M3/M4) → H1 (MEV) → H2 (contract hardening) → H3 (signature) → H4 (infra) → H5 (privacy) → H6 (address) → H7 (logic) → H8 (operational support).
+  - Each phase has explicit acceptance criteria in the structural-test pattern (real mechanism, 5-assertion pattern where applicable, not best-effort).
+  - Explicit out-of-scope register for Layer 8 with the boundary documented: the app SUPPORTS (audit logs, MFA, hardware keys) but cannot DEFEND against deepfakes/clipboard hijackers/infostealers/etc. — those require operational policy + endpoint hardening outside this repo. Conflating the two would be security theater, the exact pattern this thread rejected ("documenting the intention is not the same as proving the code respects the intention").
+  - Relationship to existing documents: roadmap (what we will do) → worklog (what we did) → SECURITY.md (what we must not undo). Closed loop.
+- Sequencing recommendation: M2.3 first (already cleared, foundational for H0), then M3+M4 (completes H0), then H1+H2 in parallel (highest-risk gaps: on-chain adversarial + token fraud), then H3+H4+H5 in parallel (compromise vectors), then H6+H7 (hardening polish), H8 continuous. Each phase is self-contained and reviewable independently, matching the M1→M2.1→M2.2→M2.3→M3→M4 increment discipline.
+
+Stage Summary:
+- /home/z/my-project/HARDENING-ROADMAP.md created — the structured response to the 30-vector mandate. It is a PROPOSAL for alignment, not an implementation. No hardening code has been written yet.
+- The 30 vectors are fully accounted for: 23 in-scope for app code (Layers 0-7), 7 explicitly out-of-scope with documented boundary (Layer 8) and app-side support described.
+- Existing mitigations mapped: scam-detector (partial Layer 2), risk-manager (partial Layer 7), signer isolation (Layer 0 in flight), per-IP rate limiting (partial Layer 5), platform-scanner (partial Layer 8 support). Gaps identified for all 30 vectors.
+- Phased roadmap (H0-H8) with structural-test acceptance criteria for each phase, matching the discipline established in the v19.3 review thread.
+- chmod 555 / root-runner caveat registered for future CI formalization of test-install-git-hooks-readonly.sh. No code change needed now.
+- M2.3 remains the active work (already cleared, two acceptance criteria registered: structural dispatcher test with 5 assertions, real integration test for unlock/lock/zeroize-on-disconnect). Hardening phases start after H0 (signer isolation) completes.
+- Awaiting operator review of HARDENING-ROADMAP.md before any hardening phase begins. The roadmap is a proposal — the operator may reprioritize phases, adjust acceptance criteria, or identify vectors I missed.
