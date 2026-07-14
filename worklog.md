@@ -1034,3 +1034,36 @@ Stage Summary:
 - A critical hash-computation bug was caught by the tamper detection test — the JSON.stringify replacer array form was silently dropping payload content from the hash. This is exactly the kind of bug that test-driven security development is supposed to catch, and it did.
 - The audit entries now cover: vault_unlocked, vault_unlock_rate_limited, vault_unlock_empty, vault_unlock_failed, vault_locked, vault_zeroized_on_disconnect. Every key security event in the signer is recorded in the tamper-evident log.
 - Next: H0.4 (key rotation / versioning).
+
+---
+Task ID: h0.4
+Agent: main
+Task: H0.4 — Key rotation + versioning. Implement rotatePassphrase, rotateKdfParams, auditBlobVersions.
+
+Work Log:
+- Created src/lib/trading/key-rotation.ts: a pure-functions module for rotating encrypted blobs between passphrases and KDF/encryption versions.
+  - rotatePassphrase(blobs, oldPass, newPass): decrypts each blob with oldPass, re-encrypts with newPass using current KDF/enc params. Returns { id, rotated, newEncryptedJson?, error? } per blob. Wrong old passphrase → error (no partial rotation; caller responsible for atomicity).
+  - rotateKdfParams(blobs, passphrase): re-encrypts blobs that are NOT on the current version, using the same passphrase but current KDF/enc params. Current blobs are skipped (alreadyCurrent=true). Idempotent — running twice is a no-op the second time.
+  - auditBlobVersions(blobs): returns { total, current, stale, failed, byVersion } — used to detect stale blobs that need rotation.
+  - inspectBlobVersion(json) + isBlobCurrent(json): utility functions.
+  - CRITICAL DESIGN DECISION: isBlobCurrent checks the RAW blob fields (blob.kdfAlgo === CURRENT_KDF_ALGO), NOT the resolved defaults. This ensures legacy blobs (pre-H0, no explicit version fields) are classified as stale even though they resolve to the current defaults via resolveKdfAlgo/resolveEncAlgo. Without this, rotateKdfParams would skip legacy blobs and they'd never get the explicit version fields added. The test suite (test 6 + test 8) verifies this.
+- Created scripts/test-h0-key-rotation.ts (14 assertions across 9 scenarios):
+  1. rotatePassphrase: all blobs rotate with correct old passphrase. ✓ (3 assertions)
+  2. rotatePassphrase: wrong old passphrase → all fail (no partial rotation). ✓ (2 assertions)
+  3. rotatePassphrase: new blobs decrypt with NEW passphrase, not old. ✓ (1 assertion)
+  4. rotatePassphrase: new blobs have fresh salt+IV. ✓ (1 assertion)
+  5. rotateKdfParams: current blobs are skipped (alreadyCurrent=true). ✓ (1 assertion)
+  6. rotateKdfParams: legacy blobs re-encrypted to current version + decrypt correctly. ✓ (3 assertions)
+  7. rotateKdfParams: idempotent — second run skips all. ✓ (2 assertions)
+  8. auditBlobVersions: mixed current + legacy + failed blobs counted correctly. ✓ (2 assertions)
+  9. inspectBlobVersion: legacy blob resolves to defaults. ✓ (1 assertion)
+- Wired test:h0-rotation into package.json and appended it to test:ci. CI gate is now 9 files / 78 checks (64 previous + 14 new).
+
+Stage Summary:
+- H0.4 is implemented + tested + ready to commit.
+- The rotation logic is pure (no DB access) — the caller (wallet-manager.ts or a CLI script) is responsible for reading DB rows before rotation and persisting new blobs after. This makes the rotation testable without a DB and allows the caller to implement atomicity.
+- Key rotation workflow is now:
+  1. Operator changes passphrase: call rotatePassphrase(allBlobs, oldPass, newPass), persist new blobs to DB.
+  2. KDF param bump (e.g. iterations 600k → 1M, or PBKDF2 → argon2id): update CURRENT_KDF_* constants in kdf.ts, call rotateKdfParams(allBlobs, passphrase), persist new blobs. Legacy blobs are detected + rotated automatically.
+  3. Audit: call auditBlobVersions(allBlobs) to see how many blobs are stale (need rotation).
+- Next: H0.5 (cryptographic guarantees review document).
