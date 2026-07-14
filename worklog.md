@@ -910,3 +910,50 @@ Stage Summary:
 - Git history is clean: 4 substantive commits since the PolarFS recovery (d4dc0c0 restore, 2495049 worklog+REG-005, 5b382f5 recovery docs, cdfd58f REG-006 fix, 6f7eb6b M2.3).
 - The project is ready to begin H0 of the HARDENING-ROADMAP (foundational hardening: key management, encryption, parallel to M3/M4). H0 depends on the signer isolation that Phase 1 just completed — specifically, the wallet handlers from M2.3 are the integration point for H0's key-derivation review and the audit-log hash chain (M5, also part of H0).
 - Next steps for the operator: review the M2.3 commit (6f7eb6b) — particularly the test hook infrastructure (SIGNER_TEST_HOOKS env var) and the LAYER 2 discipline implementation. If approved, the project can proceed to H0 (or to M3/M4 if the operator prefers to complete the signer isolation fully before starting hardening).
+
+---
+Task ID: phase1-freeze
+Agent: main
+Task: Phase 1 closure checklist verification (SIGNER_TEST_HOOKS isolation) + db/custom.db untracking + Phase 1 freeze.
+
+Work Log:
+- Operator's Phase 1 closure checklist had 5 items, all verified:
+  1. SIGNER_TEST_HOOKS exists ONLY in test code (scripts/test-signer-dispatcher-structural.ts, scripts/test-signer-vault-integration.ts) and the bootstrap check in src/signer/main.ts:291. No production script references it.
+  2. __test_* hooks cannot be activated by external RPC in production: TEST_HOOKS_ENABLED is a const captured at boot from process.env.SIGNER_TEST_HOOKS === "1". isTestHookMethod() checks this captured flag, NOT the live env var. Even if a compromised web process could mutate process.env at runtime (it can't — the signer is a separate process), the captured value would remain false. Additionally, __test_throw and __test_inspect_vault are NOT in SIGNER_METHOD_ALLOWLIST, so they fall through to -32601 when test hooks are disabled.
+  3. The variable is read only during bootstrap and remains immutable: const TEST_HOOKS_ENABLED = ... is module-level, evaluated once at import time, never reassigned. No code path writes to process.env.SIGNER_TEST_HOOKS after boot.
+  4. No production script exports SIGNER_TEST_HOOKS: verified by grep across package.json scripts (dev, build, start, lint, test:*, db:*), scripts/*.sh (smoke-test-production.sh, start-dev.sh, install-git-hooks.sh, check-port-orphan.sh, diag-oom-check.sh, test-install-git-hooks-readonly.sh). Only the two test scripts set it, and only in the signer child process's env.
+  5. The production artifact starts with hooks completely disabled: confirmed — SIGNER_TEST_HOOKS is unset in all production paths, so TEST_HOOKS_ENABLED is false at boot, isTestHookMethod() returns false for all methods, and __test_* methods fall through to the -32601 branch.
+- All 5 checklist items PASS. No code changes needed for the checklist itself.
+
+- Operator's second flag: db/custom.db was tracked in git. Verified:
+  - git ls-files db/ returned db/custom.db (tracked).
+  - git check-ignore db/custom.db returned NOT IGNORED.
+  - git log showed db/custom.db had been committed across 10+ commits, including the recovery and M2.3 commits.
+- Fix applied:
+  - Added db/*.db, db/*.db-journal, db/*.db-wal, db/*.db-shm to .gitignore with explanatory comment (REG-007 → renumbered REG-008 to avoid collision with the existing REG-007 entry for the dispatcher LAYER 2 discipline).
+  - git rm --cached db/custom.db (untracked without deleting the local dev copy).
+  - Verified git check-ignore -v db/custom.db now returns the .gitignore rule.
+  - Verified db/custom.db still exists locally for dev work.
+- Added REG-008 entry to SECURITY.md documenting the defect, fix, and acceptance criteria.
+- Ran the full test:ci suite (6 files, 45 checks) after the untrack to confirm nothing broke:
+  - test-vault.ts: 20/20 pass.
+  - test-request-peer-integration.ts: 4/4 pass.
+  - test-signer-process.ts: 5/5 pass.
+  - test-wallet-crud.ts: 11/11 pass.
+  - test-signer-dispatcher-structural.ts: 2/2 pass.
+  - test-signer-vault-integration.ts: 3/3 pass.
+  - Total: 45/45. Plus 3 readonly checks from test-install-git-hooks-readonly.sh = 48/48 (matching the operator's count).
+- git status after the fix: .gitignore modified, db/custom.db deleted from index. Working tree otherwise clean.
+
+Stage Summary:
+- PHASE 1 (SIGNER ISOLATION) IS FROZEN.
+- The 5-item closure checklist is verified green. No defensive code changes were needed — the existing implementation already satisfies all 5 properties (test-only env var, boot-time capture, defense in depth via allowlist exclusion, no production script export, hooks disabled in production artifact).
+- REG-008 (db/custom.db tracking) is fixed and documented. The dev DB is no longer tracked; the schema remains in prisma/migrations/ as the source of truth.
+- The project is now ready to begin H0 (Foundational Hardening) per the operator's directed sequence: H0 → H1/H2 → M3/M4 (NOT M3/M4 first).
+- H0 scope (from HARDENING-ROADMAP.md, to be re-read in detail before starting):
+  - KDF and derivation parameters audit.
+  - Secret storage audit.
+  - Audit log hash-chain.
+  - Key rotation/versioning.
+  - Cryptographic guarantees review.
+- Each H0 subphase follows: implement → test → fix → document → commit.

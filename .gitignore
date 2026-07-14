@@ -24,6 +24,16 @@ node_modules
 .DS_Store
 *.pem
 
+# local SQLite dev database (created by prisma migrate deploy / db push).
+# The schema is fully captured by prisma/migrations/ — a fresh clone should
+# run `prisma migrate deploy` to recreate the DB, not inherit a dev artifact.
+# Tracking db/custom.db caused REG-007: test runs mutated the committed DB,
+# creating noise in commits and risking leakage of dev-only secrets.
+db/*.db
+db/*.db-journal
+db/*.db-wal
+db/*.db-shm
+
 # debug
 npm-debug.log*
 yarn-debug.log*

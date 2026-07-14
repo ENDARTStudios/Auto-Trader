@@ -663,3 +663,54 @@ that dispatches to downstream code MUST distinguish "our setup logic
 failed" from "the thing we were wrapping failed". The mental test:
 "if the handler I am calling fails, is my catch catching THAT error,
 or only the error of my own setup logic around it?"
+
+## REG-008: dev SQLite DB must not be tracked in git
+
+**Class:** repository hygiene / secret hygiene
+
+**Discovered:** Jul 14 2026, during Phase 1 closure review (operator's
+checklist item: "confirme que `db/custom.db` não faz parte dos commits
+destinados ao repositório").
+
+**Defect:** `db/custom.db` (the dev SQLite database) was committed to
+the repo and tracked by git. Every test run that touched the DB
+(test-vault.ts, test-wallet-crud.ts, test-signer-vault-integration.ts)
+mutated the committed binary, producing noise in `git diff` and
+risking accidental inclusion of dev-only secrets (encrypted wallet
+keys, exchange API key prefixes) in future commits. A fresh clone
+would inherit the dev DB instead of running `prisma migrate deploy`
+to build a clean one, masking schema/CRUD divergence bugs like
+REG-006.
+
+**Fix:**
+
+1. Added `db/*.db`, `db/*.db-journal`, `db/*.db-wal`, `db/*.db-shm`
+   to `.gitignore`.
+2. `git rm --cached db/custom.db` — untracked the file without
+   deleting the local dev copy.
+3. The schema remains fully captured by the Prisma migration baseline
+   (`prisma/migrations/20260714000001_wallet_exchange_recon_fix/`),
+   so a fresh clone runs `prisma migrate deploy` and gets a
+   byte-identical schema.
+
+**Acceptance:**
+
+- `git check-ignore -v db/custom.db` returns the `.gitignore` rule.
+- `git ls-files db/` returns empty (no tracked DB artifacts).
+- `git status` is clean after running the full test suite (the dev
+  DB is mutated locally but no longer shows up as a tracked change).
+- The full `test:ci` suite still passes (45 checks across 6 files +
+  3 readonly checks = 48 total) after untracking.
+
+**History:** Jul 14 2026 — flagged by the operator's Phase 1 closure
+review. The DB had been tracked since the project's earliest commits
+(pre-dating the signer isolation work). The PolarFS snapshot recovery
+re-committed it as part of the restoration, perpetuating the issue.
+Fixed and committed as the final Phase 1 closure action before
+freezing Phase 1 and proceeding to H0.
+
+**Related:** REG-006 (the schema/CRUD divergence bug that the migration
+baseline documents). REG-008 closes the corollary: not only must the
+schema be in migration history, the dev DB artifact must NOT be in
+git history — otherwise the migration baseline is undermined by a
+stale committed DB that masks future drift.
