@@ -742,3 +742,42 @@ Stage Summary (RECONSTRUCTED):
 - The worklog entries above are RECONSTRUCTED from the conversation summary, not from the original worklog content. The originals were lost during the filesystem regression and were not in the PolarFS snapshot. The key milestones and decisions are captured, but the original level of detail (exact test names, exact assertion text, exact code snippets) may differ.
 - M2.3 is cleared with two acceptance criteria: (1) structural dispatcher test with 5 assertions, (2) real integration test for unlock/lock/zeroize-on-disconnect against live process + real socket.
 - The chmod 555 / root-runner caveat is registered: the readonly-container test relies on POSIX file permissions, which are bypassed when running as root. For CI formalization, either confirm the runner is non-root or replace chmod 555 with a bind-mount read-only directory.
+
+---
+Task ID: data-loss-recovery (PolarFS snapshot recovery + commit discipline)
+Agent: engineering (main session)
+Task: Operator directed recovery path (a)→(b)→(c): exhaust backup options first, then guided reconstruction, then reimplement from scratch. Plus a fourth measure: establish commit discipline policy so no milestone stays working-tree-only.
+
+Work Log:
+- Phase (a) — backup recovery: SUCCEEDED. Found a PolarFS persistent mount at /tmp/my-project (fuse.pfs, persistent across container restarts) that had synced copies of ALL signer-isolation source files. The container rootfs at /home/z/my-project (ephemeral) had regressed to git commit 66edfd6, but the PolarFS mount preserved the full working state.
+  - Checked: Docker volumes (not available), /var/backups (empty), editor history (not present), /tmp caches. The PolarFS mount was the recovery source.
+  - Verified the snapshot had: SECURITY.md (20545 bytes), src/signer/main.ts (15860 bytes), src/lib/signer-protocol.ts (17544 bytes), src/lib/request-peer-capture.ts (14953 bytes), src/lib/crash-logger.ts (10517 bytes), src/lib/trading/wallet-crypto.ts (53443 bytes, ~1300 lines), src/lib/trading/proxy-trust.ts (10743 bytes), all 3 test files (test-vault.ts 52659 bytes, test-request-peer-integration.ts 22369 bytes, test-signer-process.ts 13401 bytes), scripts/install-git-hooks.sh (7128 bytes, with readonly fix), scripts/test-install-git-hooks-readonly.sh (5113 bytes), scripts/git-hooks/pre-push (4654 bytes, with banner), docs/signer-isolation-design.md (167695 bytes), plus 13 additional API routes, 3 dashboard components, 10 additional trading lib modules, and 15 additional scripts.
+  - The ONLY things NOT in the snapshot: (1) the worklog entries for signer isolation (§7.3.7, M1, M2.1, M2.2, pre-corrections, readonly-fix) — the worklog in the snapshot was identical to the truncated rootfs worklog, both jumping from enhancement-v11 to hardening-mandate-acknowledgment; (2) the package.json scripts (postinstall, test:ci, test:vault, test:peer-integration, test:signer) — the snapshot package.json was from Jul 13 02:13, before the scripts were added; (3) the Prisma schema models WalletConnection and ExchangeConnection — the snapshot schema was from an earlier state.
+- Phase (b) — guided reconstruction: PARTIALLY NEEDED for 3 items.
+  - (1) Restored all 67 code files from PolarFS snapshot via cp -p (preserving permissions and timestamps). Verified with diff -rq that src/app, src/components, src/hooks, src/lib, prisma are now identical between snapshot and working dir (0 differences).
+  - (2) Reconstructed package.json scripts: added "postinstall", "test:vault", "test:peer-integration", "test:signer", "test:ci" to the scripts section. These were not in the snapshot's package.json (older version). Reconstructed from conversation context — the exact script commands were documented in the previous session's worklog entries.
+  - (3) Reconstructed Prisma schema models: added WalletConnection (id, label, type, address, privateKeyEncrypted, isActive, readOnly, createdAt, updatedAt) and ExchangeConnection (id, label, exchange, apiKeyEncrypted, apiSecretEncrypted, apiPassphraseEncrypted, isActive, createdAt, updatedAt) to prisma/schema.prisma. Reconstructed from field usage in test-vault.ts (db.walletConnection.create, .findMany, .update, .delete, .deleteMany call sites) and wallet-crypto.ts (select clauses showing exactly which fields are read). Ran npx prisma generate + npx prisma db push to sync the schema.
+  - Reconstructed the lost worklog entries as a single consolidated entry (phase1-signer-isolation-RECONSTRUCTED) from the conversation summary. Marked as RECONSTRUCTED to distinguish from original entries. Not byte-identical to the originals but captures the key milestones and decisions.
+- Phase (c) — reimplement from scratch: NOT NEEDED. The PolarFS snapshot + guided reconstruction fully recovered the work.
+- Verification:
+  - npm run test:ci: 29/29 PASS (20 vault + 4 peer-integration + 5 signer-process). All tests pass with the restored code + reconstructed schema.
+  - scripts/test-install-git-hooks-readonly.sh: 3/3 PASS (readonly-container fix survived).
+  - Pre-push skip banner: confirmed visible (7-line boxed banner to stderr).
+  - Git status: clean (all changes committed).
+- Phase (d) — commit discipline policy:
+  - Established REG-005 in SECURITY.md: "commit discipline — no milestone stays working-tree-only." Documents the rule, the rationale (the Jul 14 incident), the correct discipline (5 rules), and the history.
+  - Rule 1: every approved milestone produces a commit, immediately after approval.
+  - Rule 2: small intermediate commits preferred over large batch commits.
+  - Rule 3: before large changes, create a dedicated branch.
+  - Rule 4: the pre-push hook is NOT a substitute for committing.
+  - Rule 5: after each step in a multi-step milestone: implement → test → fix → commit.
+  - Committed the restored code as d4dc0c0 (67 files, 30014 lines) and the worklog reconstruction + REG-005 as 2495049.
+
+Stage Summary:
+- FULL RECOVERY from the PolarFS snapshot. All signer-isolation code restored and verified: 29/29 test:ci passing, 3/3 readonly-container test passing, skip banner confirmed.
+- Two commits made: d4dc0c0 (code restoration, 67 files) + 2495049 (worklog reconstruction + REG-005 commit discipline policy).
+- The worklog entries for signer isolation are RECONSTRUCTED (not original) — marked as such in the worklog. The key milestones and decisions are captured, but the original level of detail may differ.
+- REG-005 (commit discipline) is established as a SECURITY.md regression entry. Future maintainers who see "commit later" or "commit when the phase is done" should read REG-005 and commit NOW.
+- The PolarFS mount at /tmp/my-project is the project's persistent storage. The container rootfs at /home/z/my-project is ephemeral and can regress on container restart. All work must be committed to git to survive.
+- M2.3 is UNBLOCKED. Two acceptance criteria remain: (1) structural dispatcher test with 5 assertions, (2) real integration test for unlock/lock/zeroize-on-disconnect against live process + real socket.
+- HARDENING-ROADMAP.md (combined threat model, 16 phases H0-H15) is committed and survives future regressions.
