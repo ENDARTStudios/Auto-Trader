@@ -20,6 +20,40 @@ The discipline is the same one this thread consolidated:
 4. **Real-mechanism tests** — live process, real socket, real RPC, not
    pure-function simulations of the defense logic.
 
+### Permanent principle — adversarial cryptographic tests
+
+> **Every new cryptographic implementation must ship with at least one
+> test that explicitly attempts to break the promised security property.**
+
+This principle was added after H0.3 (audit log hash-chain) revealed that
+`JSON.stringify(entry, sortedKeysArray)` (the replacer-array form) was
+silently dropping nested keys inside `payload` from the hash. An attacker
+could modify the payload without breaking the chain. The bug was caught
+only by the tamper-detection test — not by code inspection, not by the
+happy-path tests, not by the chain-linkage tests. Only by the test that
+**deliberately tried to break the property the hash chain was supposed to
+guarantee**.
+
+The pattern is now mandatory for every cryptographic primitive. Examples:
+
+| Primitive | Adversarial test must demonstrate |
+|---|---|
+| hash-chain | tampering with a record's payload (including nested fields) breaks verification; deleting a record breaks verification; reordering records breaks verification |
+| KDF / encryption | a legacy blob (without version fields) still decrypts only with the correct passphrase; a blob with a manipulated ciphertext fails to decrypt; a blob with a wrong auth tag is rejected |
+| key rotation | rotation with the wrong old passphrase fails for ALL blobs (no partial rotation); rotated blobs decrypt with the new passphrase and NOT with the old one; idempotency holds |
+| signature | modifying any byte of the signed payload invalidates the signature; signing under a different domain separator does not verify under the expected domain |
+| audit log | insertion of a forged entry at any position is detected; removal of the genesis entry is detected; replay of an old entry under a new seq is detected |
+| transaction simulation | a simulated revert blocks broadcast; a simulated state diff that diverges from the expected diff blocks broadcast |
+| approval cap | an unlimited approval (`type(uint256).max`) is rejected; an approval that exceeds the configured cap is rejected; an approval that exceeds the on-chain balance is rejected |
+| RPC quorum | a malicious endpoint returning a wrong chain id, a stale block number, or a wrong balance is detected and quarantined; quorum disagreement blocks the action |
+
+A cryptographic primitive that ships without an adversarial test is
+**incomplete by definition** — it has not been proven to actually defend
+the property it claims to defend. The hash-chain bug is the canonical
+example: the code looked correct, the happy-path tests passed, the
+structural tests passed, and the chain was still security theater until
+the adversarial test was written.
+
 ## Scope — what the app can and cannot defend against
 
 The 30 vectors span three concentric perimeters. The app code can only
@@ -191,16 +225,75 @@ MFA, short sessions) not to REPLACE them.
 
 ## Phased Roadmap
 
-### H0: Complete foundational (parallel to M2.3, M3, M4)
+### H0: Complete foundational (parallel to M2.3, M3, M4) — ✓ COMPLETE
 - Finish signer isolation: M2.3 (move WalletVault) → M3 (sign RPC) → M4 (writer lease)
 - This fully closes Layer 0 (Operational Key Compromise, Hot Wallet Key Management, Cryptographic Implementation Errors via zeroize-on-disconnect)
 - **No new hardening work starts until H0 is done** — Layer 0 is the foundation that H1-H7 build on. Building MEV defenses on top of a non-isolated signer would be rework.
+- **STATUS**: H0.1 (KDF + derivation parameters audit), H0.2 (secret storage audit), H0.3 (audit log hash-chain), H0.4 (key rotation / versioning), H0.5 (cryptographic guarantees review) — all complete. CI gate: 9 files / 78 checks. Critical hash-chain bug (JSON.stringify replacer-array dropping payload keys) caught + fixed during H0.3 testing. docs/CRYPTO.md and SECURITY.md H0 section written.
 
-### H1: MEV defenses (Layer 1) — highest-risk on-chain gap
-- Private mempool integration (Flashbots Protect for Ethereum, Merlin for Base, MEV-Share)
-- Configurable slippage tolerance (replace hardcoded 30bps)
-- Exit timing jitter (anti-arb)
-- Acceptance criteria: 3 structural tests (private mempool path, slippage enforcement, jitter)
+### H1: Transaction lifecycle hardening (Layers 1+2+4) — ✓ COMPLETE
+After H0 closed the foundational crypto base, H1 hardens the entire
+transaction lifecycle: from RPC fan-out, through pre-broadcast
+simulation, to approval hygiene and MEV baseline. H1 deliberately
+collapses what the original roadmap had as separate H1 (MEV), H2
+(simulation + approvals), and H4 (RPC failover) into a single
+hardening pass — the rationale is to keep the entire on-chain
+communication + execution layer hardened as one perimeter before any
+new signer feature (M3/M4) lands on top of it.
+
+**STATUS** (Jul 15 2026): all four subphases complete.
+- H1.1 RPC Resilience — `src/lib/chain/rpc-resilience.ts` —
+  `QuorumRpcClient` with quorum, health score, failover, circuit
+  breaker. 46 assertions across 16 scenarios. Bug caught: double-
+  counting in `recordFailure`.
+- H1.2 Transaction Simulation — `src/lib/chain/simulation-gate.ts` —
+  `SimulationGate` with revert detection, state-diff comparison,
+  tolerance-bounded amount checks, gas cap. 46 assertions across 14
+  scenarios.
+- H1.3 Approval Hardening — `src/lib/chain/approval-hardening.ts` —
+  `ApprovalGate` with cap enforcement, unlimited-approval hard block,
+  over-approval block, ledger + revocation. 36 assertions across 15
+  scenarios. Bug caught: cap-vs-overapproval ordering.
+- H1.4 MEV Baseline — `src/lib/chain/mev-baseline.ts` —
+  `computeSlippageLimit`, `checkSlippage`, `detectSandwich`,
+  `Relay` interface + `PublicMempoolRelay` + `PrivateRelayStub`.
+  47 assertions across 16 scenarios.
+
+CI gate: **13 files / 253 checks** (was 9 files / 78 checks at H0 close).
+Each subphase ships with adversarial tests per the permanent principle.
+The hardened primitives are NOT yet wired into any production code path
+— they wait for M3 to consume them, ensuring the live-trading path is
+born hardened rather than retrofitted.
+
+H1 subphases (per operator mandate):
+- **H1.1 — RPC Resilience**: multi-RPC with quorum; per-endpoint health
+  score; automatic failover; per-RPC circuit breaker.
+- **H1.2 — Transaction Simulation**: mandatory simulation before any
+  broadcast; comparison between expected and simulated state diff;
+  automatic block on divergence.
+- **H1.3 — Approval Hardening**: approval inventory; maximum approval
+  cap; automatic revocation when possible; hard block on unlimited
+  approvals (`type(uint256).max`).
+- **H1.4 — MEV Baseline**: abnormal slippage detection; dynamic
+  slippage limit; sandwich detection via simulation; abstraction
+  prepared for private relays (Flashbots / Merlin / MEV-Share) WITHOUT
+  depending on them yet.
+
+Acceptance criteria (structural + adversarial, per the permanent
+principle above):
+- RPC quorum test: a malicious endpoint returning wrong chain id /
+  stale block / wrong balance is detected and quarantined; quorum
+  disagreement blocks the action.
+- Simulation test: a simulated revert blocks broadcast; a state-diff
+  divergence blocks broadcast.
+- Approval test: an unlimited approval is rejected; an approval
+  exceeding the cap is rejected; an approval exceeding the on-chain
+  balance is rejected.
+- MEV test: a sandwich pattern (front-run + back-run around the
+  victim tx) is detected from simulation; abnormal slippage blocks
+  broadcast.
+- Each subphase ships with at least one adversarial test per the
+  permanent principle.
 
 ### H2: Contract interaction hardening (Layer 2) — highest-risk token-fraud gap
 - Exact-amount approvals + auto-revoke
@@ -246,14 +339,20 @@ MFA, short sessions) not to REPLACE them.
 
 ---
 
-## Sequencing Recommendation
+## Sequencing Recommendation (operator-directed, post-H0)
 
-1. **M2.3 first** (current work, already cleared) — moves WalletVault to signer, adds zeroize-on-disconnect, structural dispatcher test. This is H0 progress.
-2. **M3, M4** (sign RPC + writer lease) — completes H0.
-3. **H1 (MEV)** + **H2 (contract hardening)** in parallel — these are the highest-risk gaps. H1 is on-chain adversarial, H2 is token-fraud. Both are "the bot loses money to attackers" vectors.
-4. **H3 (signature)** + **H4 (infra)** + **H5 (privacy)** in parallel — these are "the bot/operator gets compromised" vectors. Less frequent but higher blast radius.
-5. **H6 (address)** + **H7 (logic)** — hardening polish.
-6. **H8 (operational support)** — continuous, parallel to everything else.
+1. **H0 ✓** — Foundational hardening complete (KDF, secret storage, audit hash-chain, key rotation, crypto guarantees).
+2. **H1** — Transaction lifecycle hardening (RPC resilience, simulation, approvals, MEV baseline). **NO new signer features between H1 and H2** — keep the surface minimal while the entire on-chain communication + execution perimeter is hardened.
+3. **H2** — Contract interaction hardening (on-chain LP lock verification, mint authority, extended scam-detector).
+4. **M3** — Sign RPC (now lands on a hardened base).
+5. **M4** — Writer lease.
+6. **H3-H8** — Subsequent hardening phases (signature hygiene, infra, privacy, address hygiene, logic, operational support).
+
+The previous recommendation (M2.3 → M3 → M4 → H1+H2 in parallel) is
+superseded. The operator's directive after H0 closed is explicit:
+**harden H1 → H2 first, then M3/M4 land on a hardened base**. This
+avoids the rework of bolting MEV defenses onto a live trading path
+that already exists.
 
 Each phase produces:
 - Code (the defense)
