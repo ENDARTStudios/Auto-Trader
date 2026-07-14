@@ -463,3 +463,47 @@ model TradingSchedule {
   forceCloseAtEnd     Boolean  @default(false)
   updatedAt           DateTime @updatedAt
 }
+
+// ---------------------------------------------------------------------------
+// Wallet connections — encrypted private keys for EVM chains.
+// Stored as AES-256-GCM ciphertext (privateKeyEncrypted) with per-row
+// passphrase. The signer process loads these at unlock time; the Next.js
+// process never holds the plaintext key.
+//
+// privateKeyEncrypted is nullable to support "address watch" entries that
+// don't have a spendable key (read-only tracking).
+// ---------------------------------------------------------------------------
+model WalletConnection {
+  id                  String   @id @default(cuid())
+  label               String
+  type                String   @default("evm") // "evm" | "solana" (future)
+  address             String
+  privateKeyEncrypted String?  // AES-256-GCM ciphertext blob (JSON: {iv, ciphertext, tag})
+  isActive            Boolean  @default(false)
+  readOnly            Boolean  @default(false) // true = watch-only, no signing
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  @@index([address])
+  @@index([isActive])
+}
+
+// ---------------------------------------------------------------------------
+// Exchange connections — encrypted API credentials for CEX trading.
+// Stored as AES-256-GCM ciphertext for apiKey / apiSecret / apiPassphrase.
+// The signer process loads these at unlock time.
+// ---------------------------------------------------------------------------
+model ExchangeConnection {
+  id                    String   @id @default(cuid())
+  label                 String
+  exchange              String   // "binance" | "kraken" | "okx" | etc.
+  apiKeyEncrypted       String?  // AES-256-GCM ciphertext
+  apiSecretEncrypted    String?
+  apiPassphraseEncrypted String? // only some exchanges (e.g. KuCoin) use this
+  isActive              Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([exchange])
+  @@index([isActive])
+}

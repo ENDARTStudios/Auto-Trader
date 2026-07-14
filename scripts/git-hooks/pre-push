@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# pre-push git hook — runs the project's full CI gate before any push.
+#
+# This hook exists because of a recurring pattern in this project's history:
+# a test script exists, a human forgets to run it, a regression ships, the
+# regression is discovered weeks later in production. The pattern recurred
+# three times during the v19.3 signer-isolation review thread alone (see
+# SECURITY.md REG-003 for the test-suite self-cleanup entry, which guards
+# against the same class of "manual step gets forgotten" failure mode).
+#
+# The hook runs `npm run test:ci`, which executes:
+#   1. scripts/test-vault.ts               (20 scenarios — vault contract)
+#   2. scripts/test-request-peer-integration.ts (4 scenarios — IP-capture monkey-patch)
+#   3. scripts/test-signer-process.ts      (5 scenarios — signer IPC)
+#
+# If ANY suite fails, the push is aborted. The operator must investigate
+# the failure, fix the root cause, and re-attempt the push. DO NOT bypass
+# this hook with `--no-verify` for a failing test — if the test is wrong,
+# fix the test in a separate commit and document why in SECURITY.md; if
+# the test is right, fix the code.
+#
+# Installation: this file lives in `scripts/git-hooks/pre-push` (tracked by
+# git) and is installed into `.git/hooks/pre-push` by
+# `scripts/install-git-hooks.sh`. Re-run the install script after a fresh
+# clone or after pulling changes that touch this file.
+#
+# Author: Phase 1 implementation — operator's non-blocking Note 2 from the
+# §7.3.7 final sign-off ("`test:ci` is a well-named script, but nothing in
+# this thread indicates a pipeline of CI of truth running automatically
+# before merge/deploy — it's just a command that still depends on someone
+# remembering to run it").
+
+set -euo pipefail
+
+# Optional: skip the hook by setting SIGNER_SKIP_PRE_PUSH_HOOK=1. This is
+# an escape hatch for unusual situations (e.g., pushing a WIP branch to a
+# remote for backup). DO NOT use this as a routine workflow — if the test
+# suite is too slow for routine pushes, fix the speed, don't bypass the
+# gate.
+#
+# The skip prints a LOUD multi-line banner to stderr (not a single line)
+# so that someone who accidentally leaves the variable set in their shell
+# profile cannot miss it. A single-line skip message is too easy to tune
+# out after a few pushes — the banner is intentionally noisy so the
+# protection being off is visible every single time.
+if [ "${SIGNER_SKIP_PRE_PUSH_HOOK:-0}" = "1" ]; then
+  echo "" >&2
+  echo "╔══════════════════════════════════════════════════════════════════════╗" >&2
+  echo "║  AVISO: pre-push hook PULADO via SIGNER_SKIP_PRE_PUSH_HOOK=1         ║" >&2
+  echo "║  test:ci NÃO rodou — a porta de proteção está DESLIGADA para este   ║" >&2
+  echo "║  push. Se isto é um push de rotina, há um problema: a variável deve  ║" >&2
+  echo "║  estar setada só para pushes de WIP/backup, nunca como workflow de  ║" >&2
+  echo "║  rotina. Verifique seu ~/.bashrc / ~/.zshrc / perfil do shell.       ║" >&2
+  echo "╚══════════════════════════════════════════════════════════════════════╝" >&2
+  echo "" >&2
+  exit 0
+fi
+
+# Read the push specs from stdin (pre-push hooks receive them on stdin,
+# not as arguments). We don't use them — we just want to drain the pipe so
+# git doesn't get a SIGPIPE.
+while read -r _local_ref _local_sha _remote_ref _remote_sha; do
+  : # ignore — we run the gate once regardless of how many refs are pushed
+done
+
+echo "[pre-push] running test:ci gate before push..." >&2
+
+# Run from the repo root, regardless of where the user invoked git.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+if ! npm run test:ci; then
+  echo "" >&2
+  echo "[pre-push] FAILED — test:ci gate did not pass." >&2
+  echo "[pre-push] Push aborted. Investigate the failure above." >&2
+  echo "[pre-push]" >&2
+  echo "[pre-push] If the test is wrong, fix it in a separate commit and" >&2
+  echo "[pre-push] document the change in SECURITY.md. If the test is right," >&2
+  echo "[pre-push] fix the code. DO NOT bypass with --no-verify." >&2
+  echo "[pre-push]" >&2
+  echo "[pre-push] (Escape hatch: SIGNER_SKIP_PRE_PUSH_HOOK=1 git push ... —" >&2
+  echo "[pre-push] use only for WIP backup pushes, never for routine work.)" >&2
+  exit 1
+fi
+
+echo "[pre-push] test:ci gate PASSED — proceeding with push." >&2
+exit 0
