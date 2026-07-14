@@ -1184,3 +1184,137 @@ hardened primitives in `src/lib/chain/` (now 9 files: 4 from H1, 5
 from H2) are NOT yet wired into any production code path — they
 wait for M3 to consume them, ensuring the live-trading path is born
 hardened rather than retrofitted.
+
+## H2.6 — Integration Gate (Jul 15 2026)
+
+### Scope
+
+H1 and H2 each validated hardened primitives in isolation: RPC
+resilience, simulation, contract verification, liquidity, authority,
+sell simulation, approval, MEV baseline. Each primitive has its own
+unit + adversarial tests. What H2.6 proves is that the **composition**
+of all primitives — when chained in the operator-mandated order —
+preserves six load-bearing properties:
+
+1. **ORDER** — gates run in the fixed sequence: RPC → Simulation →
+   Contract → Liquidity → Authority → Sell-Sim → Approval → MEV →
+   Signer. No reordering, no skipping.
+2. **SHORT-CIRCUIT** — the first gate that fails stops the pipeline.
+   Subsequent gates are NEVER invoked.
+3. **ORIGINAL REASON PRESERVATION** — the failing gate's reason is
+   propagated verbatim — not normalized, not truncated, not rewritten.
+4. **AUDIT EXACTLY-ONCE** — every `process()` call writes exactly one
+   audit entry. Success writes one entry; failure writes one entry;
+   exception writes one entry. There is no path that writes zero
+   entries, and no path that writes more than one.
+5. **SIGNER GATING** — the signer is invoked iff every gate passes.
+   Any gate failure → signer is not called.
+6. **NO BYPASS** — there is no `skipGate` / `ignoreFailure` /
+   `bypassOrder` option on `PipelineConfig`. The composer always runs
+   every gate in fixed order.
+
+H2.6 adds **no new functionality**. It only composes existing
+primitives. The `Pipeline` class in `src/lib/chain/pipeline.ts` is the
+integration layer that M3 will call; the `SignerSink` interface is the
+placeholder for M3's real signer process (in H2.6 tests it is a mock).
+
+### Implementation
+
+- **`src/lib/chain/pipeline.ts`** — the `Pipeline` composer class.
+  Takes a `PipelineConfig` holding all 8 gate instances + audit sink +
+  signer sink. Exposes a single `process(req)` method that runs gates
+  in fixed order, short-circuits on first failure, writes exactly one
+  audit entry per call, and invokes the signer iff every gate passes.
+  Each gate call is wrapped in try/catch so that a thrown exception
+  (not just `ok=false`) is converted into a failed `PipelineResult`
+  with `failedGate` set + `originalReason` prefixed with `exception:`.
+  The `GATE_ORDER` constant is exported so tests can verify the
+  canonical sequence.
+- **`scripts/test-h2-integration-gate.ts`** — 119 assertions across 17
+  scenarios (1 happy path + 9 per-gate failures + 7 adversarial).
+
+### Adversarial tests
+
+Per the permanent principle, H2.6 ships with adversarial tests that
+explicitly try to break each promised property:
+
+- **C.1 — No bypass option exists on PipelineConfig (static check)**:
+  Inspects the `PipelineConfig` type to confirm there is no
+  `skipGate` / `ignoreFailure` / `bypassOrder` / `disabledGates` key.
+  An attacker who controls the request cannot make the composer skip
+  a gate because the composer doesn't expose that capability.
+- **C.2 — Double simultaneous failure (first-failure-wins)**:
+  Configures TWO gates to fail simultaneously (contract bytecode
+  mismatch + liquidity lock percentage too low). The pipeline must
+  report the FIRST failure (contract) and never reach the liquidity
+  gate. The liquidity failure reason must NOT appear in
+  `originalReason`.
+- **C.3 — Corrupted state between gates (no shared mutation)**:
+  Mutates the `contractManifest.expectedBytecodeHash` AFTER the first
+  `process()` call succeeds. The second `process()` must fail at the
+  contract gate — proving the pipeline does not cache the manifest
+  from the first call. Each gate receives its own slice of the
+  request; there is no shared mutable state between gates.
+- **C.4 — Audit exactly-once on exception path**:
+  Makes the `SignerSink.submit()` throw (not just return `ok=false`).
+  The pipeline catches the exception, writes exactly one
+  `pipeline.failure` audit entry, and returns a failed result with
+  `failedGate="signer"` + `originalReason` prefixed with `exception:`.
+  This catches the bug class where a thrown exception bypasses the
+  audit-write path.
+- **C.5 — executedGates always forms a prefix of GATE_ORDER**:
+  Runs 9 scenarios (happy path + 8 per-gate failures) and verifies
+  that `executedGates` is always a prefix of `GATE_ORDER` — i.e.,
+  the executed gates are always the first N gates of the canonical
+  sequence, for some N. This catches any reordering or skipping.
+- **C.6 — Signer receives the full SignerRequest**:
+  Verifies that the signer receives the full `SignerRequest` — the
+  tx, the expectedDiff, the approved amount (post-cap), the slippage
+  limit, and the sandwich score. Catches the bug where the composer
+  strips context before calling the signer.
+- **C.7 — originalReason is byte-identical to the gate's raw reason**:
+  Runs the contract verifier in isolation to get its raw
+  `reasons.join("; ")`, then runs the full pipeline with the same
+  configuration, and asserts `pipeline.originalReason ===
+  rawResult.reasons.join("; ")`. Catches any normalization or
+  rewriting of the reason string.
+
+### Test coverage
+
+H2.6 added **119 new assertions** across **1 new test file**:
+
+| File | Scenarios | Assertions |
+|---|---|---|
+| `test-h2-integration-gate.ts` | 17 (1 happy + 9 per-gate + 7 adversarial) | 119 |
+| **total** | **17** | **119** |
+
+CI gate is now **19 files / 577 checks** (was 18 files / 458 checks
+at H2 close — H2.6 added 1 file and 119 checks).
+
+### Bugs caught
+
+**Zero bugs caught during H2.6 testing.** This is the expected
+outcome for a composition layer: the individual gates were already
+well-tested in H1/H2 (which found 6 bugs total), and the composition
+itself is straightforward (fixed-order iteration + short-circuit +
+audit-write). The H2.6 test suite's value is **regression guard** —
+it ensures future changes to the pipeline don't break the six
+load-bearing properties. If a future maintainer adds a `skipGate`
+option, reorders the gates, forgets to write the audit entry on the
+success path, or normalizes the reason string, the H2.6 test will
+catch it.
+
+The fact that H2.6 found zero bugs does NOT weaken the permanent
+principle — it validates that the principle was correctly applied
+during H1 and H2. The composition layer is correct BECAUSE each
+primitive was hardened under adversarial testing. H2.6 proves the
+hardening composes.
+
+**History:** Jul 15 2026 — H2.6 implemented immediately after H2
+closure, following the operator's directive: "Criaria um H2.6. Não
+adiciona funcionalidades. Apenas integração." The operator's
+rationale was that H1 and H2 validated primitives in isolation, but
+the composition (ordering, error propagation, fail-closed, audit
+uniqueness, no-bypass) had not been demonstrated. H2.6 closes that
+gap. M3 can now begin as pure orchestration of an already-validated
+pipeline.

@@ -336,9 +336,18 @@ validated independently.
   enumerates the 6 operator-mandated scenarios with cross-references;
   adds the missing "owner muda durante execução" scenario. 17
   assertions across 6 scenarios.
+- H2.6 Integration Gate — `src/lib/chain/pipeline.ts` + `scripts/test-h2-integration-gate.ts`
+  — `Pipeline` composer class chaining all 8 gates in the mandated
+  order (RPC → Simulation → Contract → Liquidity → Authority →
+  Sell-Sim → Approval → MEV → Signer). Proves six composition
+  properties: order, short-circuit, original-reason-preservation,
+  audit-exactly-once, signer-gating, no-bypass. 119 assertions across
+  17 scenarios (1 happy + 9 per-gate + 7 adversarial). Zero bugs
+  caught — expected for a composition layer; the test suite's value is
+  regression guard for future changes.
 
-CI gate: **18 files / 458 checks** (was 13 files / 253 checks at H1
-close — H2 added 5 files and 205 checks). Each subphase ships with
+CI gate: **19 files / 577 checks** (was 18 files / 458 checks at H2
+close — H2.6 added 1 file and 119 checks). Each subphase ships with
 adversarial tests per the permanent principle. Three real bugs caught
 during testing — all would have been security-affecting in production
 and none were caught by happy-path tests. The hardened primitives are
@@ -361,6 +370,18 @@ H2 subphases (per operator mandate):
   between blocks; owner changes during execution; proxy changes
   implementation; sell passes on first simulation and fails on the
   second; taxes change after buy; contract changes behavior per caller.
+- **H2.6 — Integration Gate** (operator-directed): prove that all H1+H2
+  gates compose correctly when chained in the mandated order. Adds NO
+  new functionality — only integration. Pipeline order: RPC →
+  Simulation → Contract Verification → Liquidity Verification →
+  Authority Verification → Sell Simulation → Approval Gate → MEV Gate
+  → Signer. Each gate failure short-circuits; the failing gate's
+  original reason is preserved verbatim; exactly one audit event is
+  written per `process()` call; the signer is invoked iff every gate
+  passes. Adversarial: bypass attempt (no `skipGate` option exists);
+  double simultaneous failure (first-failure-wins); corrupted state
+  between gates (each gate receives its own manifest, no shared
+  mutation); audit exactly-once on both success and exception paths.
 
 Acceptance criteria (structural + adversarial, per permanent principle):
 - Contract verification: an unknown bytecode / unknown ABI / unknown
@@ -424,9 +445,10 @@ Acceptance criteria (structural + adversarial, per permanent principle):
 1. **H0 ✓** — Foundational hardening complete (KDF, secret storage, audit hash-chain, key rotation, crypto guarantees).
 2. **H1 ✓** — Transaction lifecycle hardening (RPC resilience, simulation, approvals, MEV baseline). **NO new signer features between H1 and H2** — keep the surface minimal while the entire on-chain communication + execution perimeter is hardened.
 3. **H2 ✓** — Contract interaction hardening (contract verification, liquidity verification, token authority, sell simulation, cross-cutting adversarial).
-4. **M3** — Sign RPC (now lands on a hardened base).
-5. **M4** — Writer lease.
-6. **H3-H8** — Subsequent hardening phases (signature hygiene, infra, privacy, address hygiene, logic, operational support).
+4. **H2.6** — Integration Gate (operator-directed): prove the H1+H2 primitives compose correctly when chained in the mandated order. No new functionality — only integration. **M3 cannot start until H2.6 is green**; M3 then becomes pure orchestration of an already-validated pipeline.
+5. **M3** — Sign RPC (now lands on a hardened + integration-validated base).
+6. **M4** — Writer lease.
+7. **H3-H8** — Subsequent hardening phases (signature hygiene, infra, privacy, address hygiene, logic, operational support).
 
 The previous recommendation (M2.3 → M3 → M4 → H1+H2 in parallel) is
 superseded. The operator's directive after H0 closed is explicit:
