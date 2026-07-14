@@ -228,12 +228,21 @@ async function main(): Promise<void> {
 
   // Test 1: the happy path — spawn, health_check, disconnect, exit.
   await runTest("spawn → SIGNER_READY → health_check → ok → disconnect → signer exits", async () => {
-    const expectedSocketPath = `/tmp/signer-test-${process.pid}-${Date.now()}.sock`;
-    process.env.SIGNER_SOCKET_PATH = expectedSocketPath;
+    // Don't pre-set SIGNER_SOCKET_PATH — spawnSigner() generates its own
+    // unique path. Predicting it with Date.now() in the test body races
+    // with spawnSigner's own Date.now() call (1ms drift breaks the
+    // equality assertion). The handle returns the actual path from the
+    // SIGNER_READY message, which is the source of truth.
     const handle = await spawnSigner();
     try {
       // Verify the SIGNER_READY message fields.
-      assertEq(handle.socketPath, expectedSocketPath, "socketPath from SIGNER_READY must match the path we set");
+      // The socketPath comes from the SIGNER_READY message — we don't
+      // predict it (see comment above). Just verify it's a non-empty
+      // string starting with /tmp/signer-test-.
+      assert(
+        typeof handle.socketPath === "string" && handle.socketPath.startsWith("/tmp/signer-test-"),
+        `socketPath must be a /tmp/signer-test-* path — got ${handle.socketPath}`
+      );
       assert(handle.pid > 0, "pid must be positive");
       assert(handle.version.length > 0, "version must be non-empty");
 
@@ -263,14 +272,17 @@ async function main(): Promise<void> {
     try {
       const resp = await sendRpc(
         handle.socketPath,
-        JSON.stringify({ jsonrpc: "2.0", method: "unlock", id: 2 }) // unlock not in M1 allowlist
+        // M2.3: `unlock` is now in the allowlist, so we use a method that
+        // is genuinely not allowlisted. `sign` arrives in M3, `acquire_writer`
+        // in M4 — both are NOT in SIGNER_METHOD_ALLOWLIST yet.
+        JSON.stringify({ jsonrpc: "2.0", method: "sign", id: 2 })
       );
       assertEq(resp.id, 2, "id");
       assert(resp.result === undefined, "unknown method must not return result");
       assert(resp.error !== undefined, "unknown method must return error");
       assertEq(resp.error!.code, -32601, "error code must be -32601 (Method not found)");
       assert(
-        resp.error!.message.includes("unlock"),
+        resp.error!.message.includes("sign"),
         `error message must mention the method name — got ${resp.error!.message}`
       );
     } finally {

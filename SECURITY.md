@@ -575,3 +575,91 @@ migration, added `test:wallet-crud` (11 structural tests, all passing)
 to the `test:ci` gate. The bug would have manifested at runtime as
 `PrismaClientValidationError: Unknown argument 'chain'` (or similar) on
 any POST to `/api/wallets` or `/api/exchanges`.
+
+---
+
+## REG-007: dispatcher LAYER 2 discipline — handler exceptions propagate, never swallowed
+
+**Test:** `npm run test:signer-structural` — 2 tests (5-assertion
+structural + complementary). The structural test verifies that when a
+handler THROWS (instead of returning `{ ok: false, ... }`), the
+exception propagates to `uncaughtException`, crash-logger.ts writes a
+crash-*.log file, the process exits with code 1, and NO -32603 Internal
+Error response is sent on the socket. Runs as part of `test:ci`.
+
+**What this pins:** the LAYER 1 vs LAYER 2 distinction in
+`src/signer/main.ts` `dispatchRpc`:
+
+  - LAYER 1 (allowlist check + method routing): OUR code. Failures
+    here (method not in allowlist, no handler registered) are
+    recoverable application-level errors. Return `{ ok: false,
+    code: -32601, ... }` — the caller gets a clean RPC error
+    response, no crash.
+
+  - LAYER 2 (handler invocation): DOWNSTREAM code. The handler may
+    throw for two reasons: (a) a handler bug (handlers are
+    contractually required to return error objects, see
+    `MethodHandler` in signer-protocol.ts), or (b) a genuine
+    unexpected exception (TypeError, OOM, DB connection lost). In
+    BOTH cases, the exception MUST propagate out of `dispatchRpc`
+    → out of the readline 'line' listener → to Node's
+    `uncaughtException` handler → `crash-logger.ts` writes the
+    stack trace → the process exits + restarts.
+
+  - The dispatcher MUST NOT wrap `handler(params)` in a try/catch
+    that converts the exception to -32603 Internal Error. Doing so
+    would silently swallow bugs in the handler, which is exactly
+    the "silent failure without log" pattern this project's crash
+    investigation exists to eliminate.
+
+**The 5-assertion pattern (load-bearing from REG-007):**
+
+  1. PROPAGATION — the handler exception reaches `uncaughtException`
+     (observed via the process exiting with non-zero code, which
+     only happens if crash-logger.ts fired).
+  2. NO-SWALLOW — no -32603 Internal Error response is sent on the
+     socket (the socket closes without any response line).
+  3. NO-RERUN — the handler is invoked exactly once (verified by
+     counting crash event FILES containing the unique marker, NOT
+     string occurrences — the marker appears multiple times within
+     one crash entry: message line + stack trace).
+  4. CRASH-LOG CAPTURE — a `crash-uncaughtException-*.log` file was
+     created in CRASH_LOG_DIR, AND its contents include the exact
+     marker string from the thrown Error (proving it's the same
+     exception object).
+  5. REAL-MECHANISM — live process + real Unix socket, not a unit
+     test of `dispatchRpc()`.
+
+**Test hook infrastructure (load-bearing from REG-007):**
+
+The structural test uses `__test_throw` and `__test_inspect_vault`
+test hooks. These are ONLY registered when `SIGNER_TEST_HOOKS=1` is
+set at boot time. The `TEST_HOOKS_ENABLED` constant is captured at
+module load — a compromised web process cannot enable test hooks at
+runtime. The operator's review of M2.3 must verify:
+
+  - `SIGNER_TEST_HOOKS` is NOT set in any production deployment
+    script (start scripts, Dockerfiles, systemd units, etc.).
+  - The test runner (`test:ci`) sets it ONLY for the structural
+    test and the vault integration test.
+  - `isTestHookMethod()` is a pure env-var check captured at boot,
+    not a runtime-configurable flag.
+
+**History:** Jul 14 2026 — M2.3 implemented. The LAYER 1 / LAYER 2
+discipline was originally documented as a 75-line comment block in
+M2.2 (when the dispatcher had no handlers, the distinction was moot).
+M2.3 added wallet handlers that actually touch the DB and CAN throw,
+making the discipline load-bearing. The structural test was built to
+verify the discipline holds end-to-end, following the Test 4 pattern
+from `test-request-peer-integration.ts` (3 assertions) extended to 5
+to cover the crash-logger capture dimension (which the request-peer
+test does not exercise, since the request-peer ALS wrapper doesn't
+write to a crash log file).
+
+**Related:** REG-001 (enteredHandler sentinel — the same LAYER 1 vs
+LAYER 2 pattern applied to the request-peer ALS wrapper). The
+pattern is universal: any code that wraps a try/catch around a call
+that dispatches to downstream code MUST distinguish "our setup logic
+failed" from "the thing we were wrapping failed". The mental test:
+"if the handler I am calling fails, is my catch catching THAT error,
+or only the error of my own setup logic around it?"

@@ -56,6 +56,12 @@ import {
   rpcSuccess,
   type SignerReadyMessage,
 } from "@/lib/signer-protocol";
+import {
+  handleWalletMethod,
+  isWalletMethod,
+  zeroizeVaultForDisconnect,
+  inspectVaultForTest,
+} from "@/signer/wallet-methods";
 
 // ---------------------------------------------------------------------------
 // Boot sequence
@@ -181,19 +187,19 @@ function writeReadyMessage(socketPath: string): void {
 function dispatchRpc(
   method: string,
   _params: unknown
-): { ok: true; result: unknown } | { ok: false; code: number; message: string; data?: unknown } {
+): Promise<{ ok: true; result: unknown } | { ok: false; code: number; message: string; data?: unknown }> {
   // LAYER 1: allowlist check — OUR code, recoverable.
-  if (!isAllowedSignerMethod(method)) {
-    return {
+  if (!isAllowedSignerMethod(method) && !isTestHookMethod(method)) {
+    return Promise.resolve({
       ok: false,
       code: -32601, // METHOD_NOT_FOUND
       message: `Method not found: ${method}`,
-    };
+    });
   }
 
-  // M1: only health_check is allowlisted + implemented.
+  // M1: health_check is a pure function.
   if (method === "health_check") {
-    return {
+    return Promise.resolve({
       ok: true,
       result: {
         status: "ok",
@@ -201,7 +207,33 @@ function dispatchRpc(
         version: SIGNER_PROTOCOL_VERSION,
         uptimeMs: Math.floor(process.uptime() * 1000),
       },
-    };
+    });
+  }
+
+  // M2.3: wallet methods dispatched to the wallet handler module.
+  // LAYER 2 starts here — the handler invocation is DOWNSTREAM code.
+  // The handler is contractually required to RETURN application errors
+  // as `{ ok: false, ... }`. If it THROWS, the exception propagates out
+  // of `dispatchRpc` → out of the readline 'line' listener → to Node's
+  // `uncaughtException` handler → crash-logger.ts writes the stack →
+  // process exits + restarts.
+  //
+  // The dispatcher MUST NOT wrap `handleWalletMethod(...)` in a
+  // try/catch that converts the exception to -32603. See the LAYER 2
+  // discipline block above.
+  if (isWalletMethod(method)) {
+    // We RETURN the promise — the caller (rl.on('line')) awaits it.
+    // If the handler throws, the rejection propagates through the
+    // promise chain. We do NOT .catch() it here.
+    return handleWalletMethod(method, _params);
+  }
+
+  // Test hooks (only registered when SIGNER_TEST_HOOKS=1). Used by
+  // scripts/test-signer-dispatcher-structural.ts to verify the LAYER 2
+  // discipline (handler exceptions propagate, are not swallowed, are
+  // captured by crash-logger.ts). NEVER enabled in production.
+  if (isTestHookMethod(method)) {
+    return Promise.resolve(handleTestHook(method, _params));
   }
 
   // LAYER 1 (continued): method is in the allowlist but no handler is
@@ -217,10 +249,84 @@ function dispatchRpc(
   process.stderr.write(
     `[signer] ALLOWLIST/HANDLER MISMATCH: method "${method}" is in the allowlist but has no handler. This is a programming error — the allowlist and handlers must ship together. Returning -32601.\n`
   );
-  return {
+  return Promise.resolve({
     ok: false,
     code: -32601,
     message: `Method not implemented: ${method}`,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Test hooks (ONLY active when SIGNER_TEST_HOOKS=1)
+// ---------------------------------------------------------------------------
+//
+// These methods exist for ONE purpose: to verify the LAYER 2 discipline
+// (operator's Note 1 from the §7.3.7 final sign-off). The structural
+// dispatcher test (scripts/test-signer-dispatcher-structural.ts) needs a
+// way to make a handler THROW a known exception, so it can verify that:
+//
+//   1. The exception propagates to `uncaughtException` (not swallowed).
+//   2. No -32603 Internal Error response is sent on the socket.
+//   3. crash-logger.ts writes a crash-*.log file with the stack trace.
+//   4. The handler is invoked exactly once (no retry).
+//   5. The mechanism is real (live process + real socket, not a unit test).
+//
+// The `__test_throw` method throws an Error with a unique marker message
+// so the test can verify the crash log contains exactly that string.
+//
+// SECURITY: these methods are NEVER registered unless SIGNER_TEST_HOOKS=1
+// is set. The env var is checked at boot, not at request time — a
+// compromised web process cannot enable test hooks at runtime. The
+// isTestHookMethod() check below is a SECOND layer of defense (defense
+// in depth): even if the env var were somehow set in production, the
+// isTestHookMethod() check would still reject the method unless the
+// env var was set AT BOOT TIME.
+//
+// The operator's review of M2.3 must verify that:
+//   - SIGNER_TEST_HOOKS is NOT set in any production deployment script.
+//   - The test runner (test:ci) sets it ONLY for the structural test.
+//   - The isTestHookMethod() function is a pure env-var check, not a
+//     runtime-configurable flag.
+
+const TEST_HOOKS_ENABLED = process.env.SIGNER_TEST_HOOKS === "1";
+
+function isTestHookMethod(method: string): boolean {
+  if (!TEST_HOOKS_ENABLED) return false;
+  return method === "__test_throw" || method === "__test_inspect_vault";
+}
+
+function handleTestHook(
+  method: string,
+  params: unknown
+): { ok: true; result: unknown } | { ok: false; code: number; message: string; data?: unknown } {
+  if (method === "__test_throw") {
+    // Throw an Error with a unique marker. The marker is passed in
+    // params.marker so the test can verify the crash log contains
+    // exactly this string.
+    const p = (params ?? {}) as { marker?: unknown };
+    const marker =
+      typeof p.marker === "string" ? p.marker : "default-test-throw-marker";
+    const err = new Error(
+      `__test_throw marker=${marker} (intentional test hook — verifies LAYER 2 propagation discipline)`
+    );
+    // Set a custom property so the crash log + test can verify identity.
+    (err as Error & { __testMarker?: string }).__testMarker = marker;
+    throw err;
+  }
+  if (method === "__test_inspect_vault") {
+    // Return the vault's stats for inspection. Used by the integration
+    // test to verify the vault state after unlock/before disconnect.
+    const s = inspectVaultForTest();
+    return {
+      ok: true,
+      result: s,
+    };
+  }
+  // Should never happen — isTestHookMethod already filtered.
+  return {
+    ok: false,
+    code: -32601,
+    message: `Unknown test hook: ${method}`,
   };
 }
 
@@ -247,13 +353,33 @@ function handleConnection(socket: net.Socket): void {
       return;
     }
 
-    // Dispatch to the handler.
-    const result = dispatchRpc(parsed.method, parsed.params);
-    if (result.ok) {
-      socket.write(rpcSuccess(parsed.id, result.result));
-    } else {
-      socket.write(rpcError(parsed.id, result.code, result.message, result.data));
-    }
+    // Dispatch to the handler. dispatchRpc returns a Promise (handlers
+    // are async — they touch the DB and wallet-crypto.ts).
+    //
+    // CRITICAL (LAYER 2 discipline from operator's Note 1): we do NOT
+    // .catch() the promise. If the handler throws, the rejection
+    // propagates as an unhandledRejection → crash-logger.ts captures
+    // it → process exits + restarts. We MUST NOT convert the rejection
+    // to an -32603 Internal Error response on the socket — that would
+    // silently swallow bugs in the handler, which is exactly the
+    // "silent failure without log" pattern this project's crash
+    // investigation exists to eliminate.
+    //
+    // The .then() below ONLY handles the success path (handler returned
+    // a result object, which may still be `{ ok: false, ... }` for
+    // application errors like "wrong passphrase"). Application errors
+    // are written to the socket as JSON-RPC error responses. Unexpected
+    // exceptions propagate as unhandled rejections.
+    dispatchRpc(parsed.method, parsed.params).then(
+      (result) => {
+        if (result.ok) {
+          socket.write(rpcSuccess(parsed.id, result.result));
+        } else {
+          socket.write(rpcError(parsed.id, result.code, result.message, result.data));
+        }
+      }
+      // NOTE: no .catch() — intentional. See comment above.
+    );
   });
 
   socket.on("error", (err) => {
@@ -274,7 +400,7 @@ function handleConnection(socket: net.Socket): void {
 
 function setupParentDisconnectHandler(server: net.Server): void {
   // When stdin closes, the parent process is gone. The signer MUST:
-  //   1. Zeroize any in-memory keys (M2 will add this — M1 has no keys).
+  //   1. Zeroize any in-memory keys (M2.3 — implemented).
   //   2. Close the server (stop accepting new connections).
   //   3. Exit with code 0 (parent disconnect is a normal shutdown
   //      condition, not a crash — the supervisor will not restart the
@@ -288,7 +414,28 @@ function setupParentDisconnectHandler(server: net.Server): void {
     process.stderr.write(
       `[signer] parent disconnect detected (stdin closed) — shutting down.\n`
     );
-    // M2: zeroizeKeys() goes here. M1 has no keys.
+
+    // M2.3: zeroize the vault BEFORE closing the server. This wipes
+    // every in-memory decrypted private key + API secret, so even if
+    // a memory dump were taken between disconnect and process exit,
+    // the keys are gone. The audit entry (written to SIGNER_AUDIT_LOG
+    // if set) records how many keys were wiped, so post-mortem review
+    // can confirm the zeroization happened.
+    const auditLogPath = process.env[SIGNER_ENV.AUDIT_LOG_PATH];
+    try {
+      const result = zeroizeVaultForDisconnect(auditLogPath);
+      process.stderr.write(
+        `[signer] vault zeroized on disconnect — ${result.walletsWiped} wallet(s), ${result.exchangesWiped} exchange(s) wiped.\n`
+      );
+    } catch (err) {
+      // Zeroization failure is a CRITICAL security event — log loudly.
+      // We still proceed to exit (the process is going down anyway),
+      // but the operator must investigate.
+      process.stderr.write(
+        `[signer] CRITICAL: vault zeroization FAILED on disconnect — ${String(err)}. INVESTIGATE.\n`
+      );
+    }
+
     server.close(() => {
       process.exit(0);
     });

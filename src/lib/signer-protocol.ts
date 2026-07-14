@@ -58,8 +58,14 @@ export const JSONRPC_VERSION = "2.0" as const;
  */
 export const SIGNER_METHOD_ALLOWLIST = [
   "health_check",
-  // M2 (wallet): unlock, lock, getVaultStatus, clearRateLimit, getRateLimitStatus
-  //   — added to the allowlist in M2.3, alongside their handlers.
+  // M2 (wallet) — added to the allowlist in M2.3 alongside their handlers
+  // in src/signer/wallet-methods.ts. See SignerMethodName union below for
+  // the param/result schemas.
+  "unlock",
+  "lock",
+  "getVaultStatus",
+  "clearRateLimit",
+  "getRateLimitStatus",
   // M3 (signing): sign, sign_typed_data
   // M4 (writer lease): acquire_writer, renew_writer
 ] as const;
@@ -117,8 +123,10 @@ export interface SignerReadyMessage {
  * this on startup and refuses to connect if the version doesn't match.
  *
  * M1: version "1.0.0-m1" — only health_check is implemented.
+ * M2.3: version "1.1.0-m2" — wallet methods (unlock, lock, getVaultStatus,
+ *       clearRateLimit, getRateLimitStatus) added to the allowlist.
  */
-export const SIGNER_PROTOCOL_VERSION = "1.0.0-m1";
+export const SIGNER_PROTOCOL_VERSION = "1.1.0-m2";
 
 /**
  * Default Unix socket path template. The signer replaces ${pid} with

@@ -820,3 +820,53 @@ Stage Summary:
 - test:ci now runs 40 tests across 4 suites. The wallet-crud suite (11 tests) is the REG-006 sentinel — any future schema regression that drops a field consumed by the CRUD layer will fail this suite immediately.
 - Phase 1 is now FULLY validated end-to-end: vault (20 tests), request-peer (4 tests), signer process (5 tests), wallet CRUD (11 tests). The operator's observation was correct and the fix is in place.
 - M2.3 is the next milestone. Two acceptance criteria remain registered: (1) structural dispatcher test with 5 assertions (propagation, no-swallow, no-rerun, crash-log capture, real-mechanism), (2) real integration test for unlock/lock/zeroize-on-disconnect against live process + real socket. The dispatcher test will follow the Test 4 triple-assertion pattern from test-request-peer-integration.ts, extended to 5 assertions for the crash-logger capture dimension.
+
+---
+Task ID: phase1-m2.3 (signer wallet handlers + structural dispatcher test + vault integration test)
+Agent: engineering (main session)
+Task: Implement M2.3 — the final Phase 1 milestone. Two acceptance criteria: (1) structural dispatcher test with 5 assertions (propagation, no-swallow, no-rerun, crash-log capture, real-mechanism), (2) real integration test for unlock/lock/zeroize-on-disconnect against live process + real socket.
+
+Work Log:
+- Expanded SIGNER_METHOD_ALLOWLIST in src/lib/signer-protocol.ts to include the 5 wallet methods: unlock, lock, getVaultStatus, clearRateLimit, getRateLimitStatus. Per the M2.1 NOTE discipline, the allowlist expansion shipped in the SAME change as the handlers (this commit). Bumped SIGNER_PROTOCOL_VERSION from "1.0.0-m1" to "1.1.0-m2" to reflect the wire-protocol change.
+- Created src/signer/wallet-methods.ts — the wallet RPC handler module. Exports:
+  - handleWalletMethod(method, params): async dispatcher for the 5 wallet methods. Each handler wraps the corresponding walletVault method from wallet-crypto.ts.
+  - isWalletMethod(method): predicate for the dispatcher routing.
+  - inspectVaultForTest(): read-only vault stats accessor, used by the __test_inspect_vault test hook.
+  - zeroizeVaultForDisconnect(auditLogPath): wipes the in-memory vault + writes a JSON audit entry to the SIGNER_AUDIT_LOG file. Called from the parent-disconnect handler in main.ts.
+  - Handler contract: application errors (wrong passphrase, rate limited, vault locked, empty vault) are RETURNED as { ok: false, ... }. Unexpected exceptions PROPAGATE — the dispatcher never catches them, they reach crash-logger.ts via uncaughtException.
+  - Error classification in handleUnlock uses case-insensitive substring matching against the actual error messages from wallet-crypto.ts (verified against source): "Rate limited:..." → -32007, "Vault vazio..." → -32000, "Passphrase incorreta..." → -32000. Anything else propagates.
+- Updated src/signer/main.ts:
+  - Made dispatchRpc ASYNC (returns Promise<MethodHandlerResult>). Handlers touch the DB and wallet-crypto.ts is async, so the dispatcher must be async.
+  - Wired wallet handlers: if isWalletMethod(method), return handleWalletMethod(method, params). LAYER 2 starts here — the handler invocation is downstream code, exceptions MUST propagate.
+  - Updated the rl.on("line") handler to use dispatchRpc(...).then(...) WITHOUT a .catch() — intentional. If the handler throws, the rejection propagates as an unhandledRejection → crash-logger.ts captures it → process exits + restarts. The .then() ONLY handles the success path (handler returned a result object, which may be { ok: false, ... } for application errors).
+  - Added a 75-line comment block documenting the LAYER 1 / LAYER 2 discipline (already present from M2.2, now load-bearing because handlers actually exist).
+  - Added test hooks (ONLY when SIGNER_TEST_HOOKS=1 at boot time):
+    - __test_throw: throws an Error with a unique marker (passed via params.marker). Used by the structural dispatcher test to verify LAYER 2 propagation.
+    - __test_inspect_vault: returns the vault's { unlocked, walletCount, exchangeCount }. Used by the integration test to verify vault state without exposing the walletVault instance.
+    - isTestHookMethod() is a pure env-var check (TEST_HOOKS_ENABLED captured at boot). Defense in depth: even if SIGNER_TEST_HOOKS were somehow set in production, the env-var check at boot time prevents runtime activation.
+  - Updated setupParentDisconnectHandler to call zeroizeVaultForDisconnect(auditLogPath) BEFORE server.close(). Writes a vault_zeroized_on_disconnect audit entry to SIGNER_AUDIT_LOG (if set) with { wasUnlocked, walletsWiped, exchangesWiped, unlockedAfter, pid, timestamp }. If zeroization fails, logs a CRITICAL warning to stderr (still proceeds to exit — the process is going down anyway).
+- Fixed M1's Test 2 (test-signer-process.ts): the test sent `unlock` expecting -32601 (method not found). Now that `unlock` is in the allowlist (M2.3), it returns -32602 (invalid params — no params passed). Changed the test to use `sign` (an M3 method not yet in the allowlist) instead.
+- Fixed a pre-existing timing flakiness in M1's Test 1: the test predicted the socket path with Date.now() in the test body, which raced with spawnSigner's own Date.now() call. 1ms drift broke the equality assertion. Removed the prediction; the test now uses handle.socketPath directly (the source of truth from the SIGNER_READY message).
+- Created scripts/test-signer-dispatcher-structural.ts — M2.3 acceptance criterion 1. 5-assertion structural test:
+  1. PROPAGATION — handler exception reaches uncaughtException (process exits with code 1, which only happens if crash-logger fired).
+  2. NO-SWALLOW — no -32603 response sent on the socket (socket closes without any response line).
+  3. NO-RERUN — exactly 1 crash event file containing the marker (counted via per-crash files, NOT string occurrences — the marker appears multiple times within one crash entry: message line + stack trace).
+  4. CRASH-LOG CAPTURE — a crash-uncaughtException-*.log file was created in CRASH_LOG_DIR, AND its contents include the exact marker string from the thrown Error (proving it's the same exception object).
+  5. REAL-MECHANISM — live process (real pid) + real Unix socket (path starts with /tmp/signer-structural-), NOT a unit test of dispatchRpc().
+  Plus a complementary test: __test_inspect_vault returns a normal response (test hooks are sound — only __test_throw crashes).
+- Created scripts/test-signer-vault-integration.ts — M2.3 acceptance criterion 2. Real integration test against live signer process + real Unix socket:
+  - Test 1 (REAL INTEGRATION): seed a test wallet in the DB → spawn signer with SIGNER_AUDIT_LOG set → __test_inspect_vault (verify locked, 0 wallets) → getVaultStatus (unlocked=false) → unlock with correct passphrase (verify walletCount=1) → __test_inspect_vault (verify unlocked, 1 wallet) → getVaultStatus (unlocked=true) → lock → __test_inspect_vault (verify locked, 0 wallets wiped) → unlock again (re-unlock) → close stdin → verify exit code 0 → read SIGNER_AUDIT_LOG → verify vault_zeroized_on_disconnect entry with walletsWiped=1, wasUnlocked=true, unlockedAfter=false.
+  - Test 2 (COMPLEMENTARY): unlock with WRONG passphrase returns application error (-32000), signer stays alive, vault remains locked. Verifies LAYER 2 contract from the other side — application errors are RETURNED, not thrown.
+  - Test 3 (COMPLEMENTARY): unlock on EMPTY vault returns application error (-32000, message includes "empty"), signer stays alive. Verifies the empty-vault guard.
+- Updated package.json: added test:signer-structural and test:signer-vault scripts. Updated test:ci to chain all 6 suites: test-vault.ts (20) + test-request-peer-integration.ts (4) + test-signer-process.ts (5) + test-wallet-crud.ts (11) + test-signer-dispatcher-structural.ts (2) + test-signer-vault-integration.ts (3) = 45/45 total.
+- Added REG-007 to SECURITY.md: "dispatcher LAYER 2 discipline — handler exceptions propagate, never swallowed". Documents the LAYER 1 vs LAYER 2 distinction (allowlist check = our code = recoverable; handler invocation = downstream = exceptions propagate to crash-logger), the test hook infrastructure (SIGNER_TEST_HOOKS=1, only for tests, never in production), and the 5-assertion structural test as the regression sentinel.
+
+Stage Summary:
+- M2.3 COMPLETE. Both acceptance criteria met:
+  (1) Structural dispatcher test with 5 assertions — PASS (scripts/test-signer-dispatcher-structural.ts).
+  (2) Real integration test for unlock/lock/zeroize-on-disconnect — PASS (scripts/test-signer-vault-integration.ts, with audit-log proof of zeroization).
+- test:ci now runs 45 tests across 6 suites, all passing: 20 vault + 4 peer-integration + 5 signer-process + 11 wallet-crud + 2 signer-structural + 3 signer-vault-integration.
+- readonly-container test: 3/3 PASS (unchanged).
+- Phase 1 (signer isolation) is now FUNCTIONALLY COMPLETE: the signer process boots, accepts connections, dispatches RPCs through the allowlist, handles all 5 wallet methods (unlock/lock/getVaultStatus/clearRateLimit/getRateLimitStatus), zeroizes the vault on parent disconnect (with audit-log proof), and crashes loudly (never silently) on unexpected handler exceptions.
+- The SIGNER_PROTOCOL_VERSION is now "1.1.0-m2". The web-side RPC client (M6) will need to speak this version. The version bump is documented in signer-protocol.ts.
+- Next: Phase 1 closure (validate all acceptance criteria green, update docs) → then H0 of the HARDENING-ROADMAP.
