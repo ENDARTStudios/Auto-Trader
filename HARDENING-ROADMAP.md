@@ -225,13 +225,13 @@ MFA, short sessions) not to REPLACE them.
 
 ## Phased Roadmap
 
-### H0: Complete foundational (parallel to M2.3, M3, M4) — ✓ COMPLETE
+### H0: Complete foundational (parallel to M2.3, M3, M4) — ✓ COMPLETE (FROZEN)
 - Finish signer isolation: M2.3 (move WalletVault) → M3 (sign RPC) → M4 (writer lease)
 - This fully closes Layer 0 (Operational Key Compromise, Hot Wallet Key Management, Cryptographic Implementation Errors via zeroize-on-disconnect)
 - **No new hardening work starts until H0 is done** — Layer 0 is the foundation that H1-H7 build on. Building MEV defenses on top of a non-isolated signer would be rework.
 - **STATUS**: H0.1 (KDF + derivation parameters audit), H0.2 (secret storage audit), H0.3 (audit log hash-chain), H0.4 (key rotation / versioning), H0.5 (cryptographic guarantees review) — all complete. CI gate: 9 files / 78 checks. Critical hash-chain bug (JSON.stringify replacer-array dropping payload keys) caught + fixed during H0.3 testing. docs/CRYPTO.md and SECURITY.md H0 section written.
 
-### H1: Transaction lifecycle hardening (Layers 1+2+4) — ✓ COMPLETE
+### H1: Transaction lifecycle hardening (Layers 1+2+4) — ✓ COMPLETE (FROZEN)
 After H0 closed the foundational crypto base, H1 hardens the entire
 transaction lifecycle: from RPC fan-out, through pre-broadcast
 simulation, to approval hygiene and MEV baseline. H1 deliberately
@@ -295,7 +295,7 @@ principle above):
 - Each subphase ships with at least one adversarial test per the
   permanent principle.
 
-### H2: Contract interaction hardening (Layer 2) — ✓ COMPLETE
+### H2: Contract interaction hardening (Layer 2) — ✓ COMPLETE (FROZEN)
 After H1 hardened the transaction lifecycle (RPC, simulation, approvals,
 MEV baseline) as pure primitives, H2 hardens the **on-chain read path**
 that runs BEFORE any transaction is built: every contract the bot is
@@ -344,7 +344,8 @@ validated independently.
   audit-exactly-once, signer-gating, no-bypass. 119 assertions across
   17 scenarios (1 happy + 9 per-gate + 7 adversarial). Zero bugs
   caught — expected for a composition layer; the test suite's value is
-  regression guard for future changes.
+  regression guard for future changes. **FROZEN** as of Jul 15 2026
+  (M3 Readiness Review passed).
 
 CI gate: **19 files / 577 checks** (was 18 files / 458 checks at H2
 close — H2.6 added 1 file and 119 checks). Each subphase ships with
@@ -445,16 +446,108 @@ Acceptance criteria (structural + adversarial, per permanent principle):
 1. **H0 ✓** — Foundational hardening complete (KDF, secret storage, audit hash-chain, key rotation, crypto guarantees).
 2. **H1 ✓** — Transaction lifecycle hardening (RPC resilience, simulation, approvals, MEV baseline). **NO new signer features between H1 and H2** — keep the surface minimal while the entire on-chain communication + execution perimeter is hardened.
 3. **H2 ✓** — Contract interaction hardening (contract verification, liquidity verification, token authority, sell simulation, cross-cutting adversarial).
-4. **H2.6** — Integration Gate (operator-directed): prove the H1+H2 primitives compose correctly when chained in the mandated order. No new functionality — only integration. **M3 cannot start until H2.6 is green**; M3 then becomes pure orchestration of an already-validated pipeline.
-5. **M3** — Sign RPC (now lands on a hardened + integration-validated base).
-6. **M4** — Writer lease.
-7. **H3-H8** — Subsequent hardening phases (signature hygiene, infra, privacy, address hygiene, logic, operational support).
+4. **H2.6 ✓** — Integration Gate (operator-directed): prove the H1+H2 primitives compose correctly when chained in the mandated order. No new functionality — only integration. **M3 cannot start until H2.6 is green**; M3 then becomes pure orchestration of an already-validated pipeline.
+5. **M3 Readiness Review ✓** — final freeze gate before opening M3. A review (NOT implementation) confirming the seven load-bearing invariants hold over the H0/H1/H2/H2.6 base. See the "M3 Readiness Review" block below for the checklist + evidence. The review PASSED on Jul 15 2026; H0/H1/H2/H2.6 are now declared **FROZEN** — any change to these layers during M3 is treated as regression correction, not functional evolution.
+6. **M3** — Sign RPC (now lands on a hardened + integration-validated + freeze-confirmed base). First task: `SignerAdapter` (translate `PipelineRequest` → `SignerRequest`, validate protocol version, serialize/deserialize messages; NO decision logic). Second task: `signTransaction` / `signTypedData` / `signMessage` RPC methods on the signer process — still no broadcast. Third task: `Broadcaster` — only after signing is decoupled and stable.
+7. **M4** — Writer lease.
+8. **H3-H8** — Subsequent hardening phases (signature hygiene, infra, privacy, address hygiene, logic, operational support).
 
 The previous recommendation (M2.3 → M3 → M4 → H1+H2 in parallel) is
 superseded. The operator's directive after H0 closed is explicit:
 **harden H1 → H2 first, then M3/M4 land on a hardened base**. This
 avoids the rework of bolting MEV defenses onto a live trading path
 that already exists.
+
+---
+
+## M3 Readiness Review (Jul 15 2026) — ✓ PASSED
+
+A review, NOT implementation. The operator's checklist before opening M3:
+
+| # | Property | Evidence | Status |
+|---|---|---|---|
+| 1 | The `Pipeline` is the **only** authorized path to the signer | `src/signer/main.ts` SIGNER_METHOD_ALLOWLIST = `health_check` + wallet methods (unlock/lock/getVaultStatus/clearRateLimit/getRateLimitStatus). **No `sign`/`signTransaction`/`signTypedData`/`signMessage` exposed yet.** `Pipeline.cfg.signer.submit()` is the only authorized sink. M3 will add the signing methods AND wire them through the `SignerAdapter` — there will still be exactly one path. | ✓ PASS |
+| 2 | No direct signer call outside the pipeline | `grep signer.submit` in `src/` returns only `pipeline.ts:643`. `src/lib/trading/signer-client.ts` (the web-process RPC client) does NOT exist yet — it will be created by M3 and will be the sole consumer of the signer Unix socket from the web side. | ✓ PASS |
+| 3 | No alternative broadcast path | `QuorumRpcClient.broadcastRawTransaction` is defined (`rpc-resilience.ts:332`) but `grep .broadcastRawTransaction(` returns **0 callers** in production code. M4 will introduce the broadcaster; it will sit downstream of the signer, never beside it. | ✓ PASS |
+| 4 | No bypass flag in production builds | `grep process.env` in `src/lib/chain/` returns **0 matches** — the chain layer does not read env vars at all. `PipelineConfig` has no `skipGate`/`ignoreFailure`/`bypassOrder`/`disabledGates` field (proven by adversarial test C.1). Only `DISABLE_CRASH_HANDLERS` (test isolation) and `SIGNER_TEST_HOOKS` (boot-gated at line 292 of `main.ts`, second-layer `isTestHookMethod()` check at line 294; documented as NEVER set in production) — neither security-affecting. | ✓ PASS |
+| 5 | Audit log covers success, failure, and exception exactly once | `Pipeline.cfg.audit.append()` is called ONLY inside `fail()` (pipeline.ts:314) and `succeed()` (pipeline.ts:341). Every gate is wrapped in try/catch so a thrown exception still routes through `fail()` with `originalReason` prefixed `exception:`. Proven by H2.6 adversarial test C.4 (exception path) + 9 per-gate failure scenarios + happy path = 11 of 17 scenarios. | ✓ PASS |
+| 6 | All error returns preserve the original reason | `fail()` passes the raw gate reason verbatim: `simResult.blockReason`, `contractResult.reasons.join("; ")`, `liquidityResult.reasons.join("; ")`, `authorityResult.reasons.join("; ")`, `sellSimResult.reasons.join("; ")`, `approvalResult.rejectReason`, slippage/sandwich strings, `signerResult.error`. Proven byte-identical by H2.6 adversarial test C.7; no-leakage from non-executed gates proven by C.2. | ✓ PASS |
+| 7 | The pipeline is deterministic for the same input | Security decisions (ok/reject) are pure functions of `PipelineRequest`. No `Math.random()` in `src/lib/chain/`. `Date.now()` is used ONLY for: (a) RPC circuit breaker state — stateful by design, recovering from outages; (b) `grantedAt` metadata in approval-hardening.ts:284 — not in the decision path; (c) `minLockEndEpoch` fallback in liquidity-verification.ts:196 — only when the caller omits it; (d) audit timestamps — observability, not decisions. | ✓ PASS-WITH-CAVEAT |
+
+**Caveat on point 7:** callers SHOULD pin `minLockEndEpoch` explicitly in
+`LiquidityManifest` to keep the liquidity gate fully reproducible. The
+fallback (`Math.floor(Date.now()/1000) + 7*86400`) is a convenience
+default, not a contract. The RPC circuit breaker's statefulness is
+desired behavior (it is the mechanism that makes the RPC gate
+resilient) and does not affect security decisions on a single call —
+it affects whether a previously-failing endpoint is retried.
+
+### Freeze declaration (Jul 15 2026)
+
+Per the operator's directive — *"Eu consideraria H0, H1, H2 e H2.6
+congelados. Durante M3, qualquer alteração nessas camadas deveria ser
+tratada como correção de regressão, não como evolução funcional."* —
+the following layers are now declared **FROZEN**:
+
+- **H0** — `src/lib/audit/audit-log.ts`, `src/lib/trading/wallet-crypto.ts`,
+  `src/lib/trading/kdf.ts`, `src/lib/trading/key-rotation.ts`
+- **H1** — `src/lib/chain/rpc-resilience.ts`, `simulation-gate.ts`,
+  `approval-hardening.ts`, `mev-baseline.ts`
+- **H2** — `src/lib/chain/contract-verification.ts`,
+  `liquidity-verification.ts`, `token-authority.ts`, `sell-simulation.ts`
+- **H2.6** — `src/lib/chain/pipeline.ts`
+
+Any change to these files during M3/M4 MUST be:
+1. Documented as a **regression correction** in the commit message and
+   `worklog.md`, with the original Hx.x stage referenced.
+2. Accompanied by a **regression test** that demonstrates the bug + the
+   fix (per the permanent adversarial-first principle).
+3. Reviewed against the H2.6 adversarial suite (C.1–C.7) to confirm
+   the six composition properties still hold.
+
+Functional evolution of these layers is deferred until after M4 closes
+the execution perimeter. The next layer of hardening (H3+) sits ABOVE
+the execution layer and does not require touching the frozen base.
+
+### Architecture after freeze — three layers, explicitly separated
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ Layer 3 — Execution (M3, M4 — NOT YET IMPLEMENTED)              │
+│   SignerAdapter → Signer RPC → Broadcaster                      │
+│   Pure orchestration. Consumes the pipeline. No new security    │
+│   primitives introduced here — only the wiring that lets the     │
+│   validated pipeline reach a real signer + real broadcaster.    │
+└─────────────────────────────────────────────────────────────────┘
+                            ▲
+                            │ consumes
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ Layer 2 — Composition (H2.6 — FROZEN)                           │
+│   Pipeline composer in src/lib/chain/pipeline.ts                │
+│   Fixed-order gate chain, short-circuit, original-reason,       │
+│   audit-exactly-once, signer-gating, no-bypass.                │
+└─────────────────────────────────────────────────────────────────┘
+                            ▲
+                            │ invokes
+                            ▼
+┌─────────────────────────────────────────────────────────────────┐
+│ Layer 1 — Primitives (H0, H1, H2 — FROZEN)                      │
+│   H0:  audit-log, wallet-crypto, kdf, key-rotation              │
+│   H1:  rpc-resilience, simulation-gate, approval-hardening,     │
+│        mev-baseline                                             │
+│   H2:  contract-verification, liquidity-verification,           │
+│        token-authority, sell-simulation                         │
+│   Each primitive is independent of the execution flow.          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+This separation ensures M3 cannot accidentally introduce a security
+primitive — it can only wire together primitives that already exist
+and have already been hardened under adversarial testing. If M3
+discovers a missing primitive, the correct response is to OPEN A NEW
+HARDENING PHASE (e.g., H2.7), not to slip the primitive into the
+execution layer.
 
 Each phase produces:
 - Code (the defense)

@@ -1318,3 +1318,82 @@ the composition (ordering, error propagation, fail-closed, audit
 uniqueness, no-bypass) had not been demonstrated. H2.6 closes that
 gap. M3 can now begin as pure orchestration of an already-validated
 pipeline.
+
+## M3 Readiness Review (Jul 15 2026) — ✓ PASSED
+
+A review (NOT implementation) performed before opening M3, against the
+operator's seven-point freeze checklist. The base layers (H0, H1, H2,
+H2.6) were inspected for invariants that M3 will rely on but cannot
+re-verify in isolation:
+
+| # | Property | Evidence | Status |
+|---|---|---|---|
+| 1 | `Pipeline` is the only authorized path to the signer | `src/signer/main.ts` SIGNER_METHOD_ALLOWLIST = `health_check` + wallet methods only; no `sign`/`signTypedData`/`signMessage` exposed yet. `Pipeline.cfg.signer.submit()` is the only authorized sink. | ✓ PASS |
+| 2 | No direct signer call outside the pipeline | `grep signer.submit` in `src/` returns only `pipeline.ts:643`. The web-process signer client (`src/lib/trading/signer-client.ts`) does not yet exist — M3 will create it as the sole consumer of the signer Unix socket. | ✓ PASS |
+| 3 | No alternative broadcast path | `QuorumRpcClient.broadcastRawTransaction` is defined (`rpc-resilience.ts:332`) but `grep .broadcastRawTransaction(` returns 0 callers in production code. M4 will introduce the broadcaster downstream of the signer, never beside it. | ✓ PASS |
+| 4 | No bypass flag in production builds | `grep process.env` in `src/lib/chain/` returns 0 matches — the chain layer does not read env vars at all. `PipelineConfig` has no `skipGate`/`ignoreFailure`/`bypassOrder`/`disabledGates` field (proven by H2.6 adversarial test C.1). Only `DISABLE_CRASH_HANDLERS` (test isolation) and `SIGNER_TEST_HOOKS` (boot-gated + second-layer `isTestHookMethod()` check; documented as NEVER set in production) — neither security-affecting. | ✓ PASS |
+| 5 | Audit log covers success, failure, and exception exactly once | `Pipeline.cfg.audit.append()` is called ONLY inside `fail()` (pipeline.ts:314) and `succeed()` (pipeline.ts:341). Every gate is wrapped in try/catch so a thrown exception still routes through `fail()`. Proven by H2.6 adversarial test C.4 (exception path) + 9 per-gate failure scenarios + happy path. | ✓ PASS |
+| 6 | All error returns preserve the original reason | `fail()` passes the raw gate reason verbatim. Proven byte-identical by H2.6 adversarial test C.7; no-leakage from non-executed gates proven by C.2. | ✓ PASS |
+| 7 | The pipeline is deterministic for the same input | Security decisions (ok/reject) are pure functions of `PipelineRequest`. No `Math.random()` in `src/lib/chain/`. `Date.now()` is used ONLY for: (a) RPC circuit breaker state — stateful by design; (b) `grantedAt` metadata — not in the decision path; (c) `minLockEndEpoch` fallback — only when caller omits it; (d) audit timestamps — observability. | ✓ PASS-WITH-CAVEAT |
+
+**Caveat on point 7:** callers SHOULD pin `minLockEndEpoch` explicitly
+in `LiquidityManifest` to keep the liquidity gate fully reproducible.
+The fallback (`Math.floor(Date.now()/1000) + 7*86400`) is a convenience
+default, not a contract.
+
+**Outcome:** All 7 properties hold. H0, H1, H2, H2.6 are declared
+**FROZEN**. Any change to these layers during M3/M4 MUST be documented
+as a regression correction (see REG-009 below).
+
+---
+
+## REG-009: H0/H1/H2/H2.6 freeze — M3 changes are regression-only
+
+**Pin date:** Jul 15 2026 (M3 Readiness Review).
+
+**Frozen files:**
+- H0: `src/lib/audit/audit-log.ts`, `src/lib/trading/wallet-crypto.ts`,
+  `src/lib/trading/kdf.ts`, `src/lib/trading/key-rotation.ts`
+- H1: `src/lib/chain/rpc-resilience.ts`, `simulation-gate.ts`,
+  `approval-hardening.ts`, `mev-baseline.ts`
+- H2: `src/lib/chain/contract-verification.ts`,
+  `liquidity-verification.ts`, `token-authority.ts`,
+  `sell-simulation.ts`
+- H2.6: `src/lib/chain/pipeline.ts`
+
+**Rule:** During M3 and M4, any commit that modifies a frozen file
+MUST:
+
+1. Reference the original Hx.x stage in the commit message
+   (e.g., `regression(H2.4): fix tax-bps off-by-one in sell-sim`).
+2. Be accompanied by a regression test that demonstrates the bug +
+   the fix (per the permanent adversarial-first principle).
+3. Re-run the H2.6 adversarial suite (C.1–C.7) and confirm all 119
+   assertions still pass — this guards the six composition properties.
+
+**Rationale:** M3 is the execution layer (SignerAdapter → Signer RPC →
+Broadcaster). It is a CONSUMER of the pipeline, not a peer. Allowing
+M3 commits to evolve frozen layers would reintroduce the exact risk
+the H1→H2→H2.6 sequence was designed to eliminate: bolting execution
+logic onto primitives that have already been hardened under
+adversarial testing. The freeze enforces the three-layer separation:
+
+```
+Layer 3 — Execution (M3, M4)         ← can change freely
+Layer 2 — Composition (H2.6)         ← FROZEN
+Layer 1 — Primitives (H0, H1, H2)    ← FROZEN
+```
+
+If M3 discovers a missing primitive, the correct response is to OPEN
+A NEW HARDENING PHASE (e.g., H2.7), not to slip the primitive into
+the execution layer.
+
+**Why this is a regression entry, not a roadmap note:** Future
+maintainers WILL be tempted to "refactor" the pipeline during M3 —
+e.g., to share a helper between the SignerAdapter and the pipeline,
+or to add a convenience flag to `PipelineConfig`. This entry exists
+so that the next maintainer who reads SECURITY.md before making such
+a change sees the freeze documented as a regression guard, not as a
+stylistic preference. The discipline is the same as REG-001 through
+REG-008: the rule is here so that the temptation to "simplify" it
+back is met with a documented objection.

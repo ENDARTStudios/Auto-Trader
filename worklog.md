@@ -1565,3 +1565,50 @@ Stage Summary:
 - The fact that H2.6 found zero bugs does NOT weaken the permanent principle — it validates that the principle was correctly applied during H1 and H2. The composition layer is correct BECAUSE each primitive was hardened under adversarial testing. H2.6 proves the hardening composes.
 - CI gate: 19 files / 577 checks (was 18 files / 458 checks at H2 close — H2.6 added 1 file and 119 checks).
 - The project is ready to proceed to M3 (Sign RPC) per the operator's directed sequence: H0 ✓ → H1 ✓ → H2 ✓ → H2.6 ✓ → M3 → M4. M3 can now begin as pure orchestration of an already-validated pipeline — each component already exists and the composition has been proven correct under adversarial testing.
+
+---
+Task ID: m3.readiness
+Agent: main
+Task: M3 Readiness Review — operator-directed freeze gate before opening M3. Review (NOT implementation) confirming seven invariants hold over the H0/H1/H2/H2.6 base.
+
+Work Log:
+- Re-read worklog H2.6 closeout (19 files / 577 checks, all green) to confirm H2.6 is complete + the Pipeline composer is the integration layer M3 will call.
+- Re-read src/lib/chain/pipeline.ts in full — confirmed:
+  - `audit.append()` is called ONLY inside `fail()` (line 314) and `succeed()` (line 341). No other audit-write path exists.
+  - Every gate (rpc, simulation, contract, liquidity, authority, sell-sim, approval, mev, signer) is wrapped in its own try/catch; exceptions route through `fail()` with `originalReason` prefixed `exception:`.
+  - `PipelineConfig` has 9 mandatory fields + 1 optional log. No `skipGate` / `ignoreFailure` / `bypassOrder` / `disabledGates` field.
+  - `fail()` passes the failing gate's raw reason verbatim (no normalization). Confirmed for all 9 gates.
+- Re-read src/signer/main.ts (dispatchRpc + isTestHookMethod) + src/lib/signer-protocol.ts (SIGNER_METHOD_ALLOWLIST) — confirmed allowlist currently contains `health_check` + 5 wallet methods only. No `sign` / `signTransaction` / `signTypedData` / `signMessage` exposed yet. The signer Unix socket has no signing RPC at all today; M3 will add it.
+- Grep `\.broadcastRawTransaction\(` across project — 0 callers in production code. The method exists on QuorumRpcClient (rpc-resilience.ts:332) but is not invoked from anywhere.
+- Grep `signer\.submit|signer\.sign|signerClient|wallet-methods` in src/ — only `pipeline.ts:643` (the Pipeline's gated call to `cfg.signer.submit`). No direct signer calls bypass the Pipeline.
+- Grep `process\.env` in src/lib/chain/ — 0 matches. The chain layer does not read env vars at all (no bypass flags possible at runtime).
+- Grep `Date\.now|Math\.random` in src/lib/chain/ — `Date.now()` used in rpc-resilience.ts (circuit breaker timing), approval-hardening.ts:284 (`grantedAt` metadata only), liquidity-verification.ts:196 (minLockEndEpoch fallback when caller omits it). No `Math.random()`. Security decisions are pure functions of `PipelineRequest`; the only stateful non-determinism is the RPC circuit breaker (stateful by design, recovering from outages — desired behavior, not a defect).
+- Re-ran `npx tsx scripts/test-h2-integration-gate.ts` to confirm 119/119 still green after the doc updates.
+- Updated HARDENING-ROADMAP.md:
+  - Marked H0, H1, H2 section headers as "✓ COMPLETE (FROZEN)".
+  - Marked H2.6 entry as "FROZEN as of Jul 15 2026 (M3 Readiness Review passed)".
+  - Sequencing Recommendation: inserted "M3 Readiness Review ✓" as step 5, expanded M3 description to name the three tasks (SignerAdapter → Sign RPC methods → Broadcaster).
+  - Added the "M3 Readiness Review" block with the full 7-point checklist + evidence + status per row.
+  - Added the "Freeze declaration" subsection enumerating the 10 frozen files.
+  - Added the "Architecture after freeze" ASCII diagram showing the three explicitly separated layers (Primitives / Composition / Execution).
+- Updated SECURITY.md:
+  - Added the "M3 Readiness Review" section with the 7-point table mirroring HARDENING-ROADMAP.md.
+  - Added REG-009 ("H0/H1/H2/H2.6 freeze — M3 changes are regression-only") pinning the freeze as a regression guard. The rule: any commit modifying a frozen file during M3/M4 must (1) reference the original Hx.x stage in the commit message, (2) ship with a regression test demonstrating the bug + fix, (3) re-run the H2.6 adversarial suite (C.1–C.7) and confirm 119/119 still pass. Rationale: prevents the "simplify back" temptation that REG-001 through REG-008 already defend against for other invariants.
+
+Stage Summary:
+- M3 Readiness Review PASSED. All 7 operator-mandated invariants hold:
+  1. Pipeline is the only authorized path to the signer — ✓ (signer signing methods not yet exposed; only Pipeline.cfg.signer.submit can invoke)
+  2. No direct signer call outside the pipeline — ✓ (only pipeline.ts:643 calls signer.submit; no signer-client.ts exists yet)
+  3. No alternative broadcast path — ✓ (broadcastRawTransaction has 0 callers)
+  4. No bypass flag in production — ✓ (no process.env in chain layer; PipelineConfig has no skip option; SIGNER_TEST_HOOKS is boot-gated + second-layer check)
+  5. Audit exactly-once on success/failure/exception — ✓ (single audit-write point per path; proven by H2.6 C.4 + 9 per-gate + happy path)
+  6. Original reason preserved — ✓ (byte-identical per C.7; no-leakage per C.2)
+  7. Deterministic for same input — ✓ PASS-WITH-CAVEAT (decisions are pure; only non-determinism is RPC circuit breaker state, by design; callers should pin minLockEndEpoch explicitly)
+- H0, H1, H2, H2.6 declared FROZEN. Any change to these layers during M3/M4 is regression correction, not functional evolution. The freeze is enforced via REG-009 in SECURITY.md.
+- Three-layer architecture now explicit:
+  - Layer 1 — Primitives (H0/H1/H2) — FROZEN
+  - Layer 2 — Composition (H2.6 Pipeline) — FROZEN
+  - Layer 3 — Execution (M3 SignerAdapter → Signer RPC → Broadcaster; M4 writer lease) — can change freely
+- If M3 discovers a missing primitive, the correct response is to open a new hardening phase (e.g., H2.7), not to slip the primitive into the execution layer.
+- CI gate: 19 files / 577 checks (unchanged from H2.6 close — this task added no code, only review + documentation).
+- Next: M3 Task 1 — SignerAdapter. Translates PipelineRequest → SignerRequest, validates protocol version, serializes/deserializes messages. NO decision logic. Keeps the pipeline independent of the transport.
