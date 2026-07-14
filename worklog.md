@@ -1880,3 +1880,54 @@ Stage Summary:
 - Frozen base respected: zero modifications to the 10 files listed in REG-009. The H2.6 pipeline, the H1.1 rpc-resilience module, and the M3.2 sign-methods module are all UNCHANGED. The M3.1 signer-adapter received a thin extension (one new method + one new type); the existing submit() method is unchanged.
 - Zero bugs caught in production code during M3.3 testing. The 3 test-file issues caught during iteration were all in the mock infrastructure (transport ordering, client state leakage, assertion expectations) — exactly the regression-guard purpose the permanent adversarial-first principle mandates.
 - Next: M4 — Writer lease. The Broadcaster's `resolveTransactionContext()` is the seam M4 will wrap with lease-acquire/lease-release. The signer-side `checkWriterLease()` (M3.2 SEAM, currently no-op) will be replaced with a real check. REG-013 (writer lease is a hard precondition) pins the rule that soft mode is forbidden.
+
+---
+Task ID: ui-redesign-v2
+Agent: main (claude)
+Task: Redesign visual radical do dashboard inspirado em terminais institucionais (Bloomberg, TradingView, Hyperliquid, GMGN, BullX). Usuário criticou 10 pontos: falta ponto focal, muito espaço vazio, cards flat, métricas sem parecer instrumentos, sem hierarquia de cores, barra superior simples, falta telemetria, não parece vivo, falta identidade visual, falta sensação premium. Pediu para abandonar completamente a estrutura atual e reconstruir.
+
+Work Log:
+- Step 1: Expandido CSS (globals.css) com variantes ultra-premium:
+  - `.terminal-hero-v2` — surface dominante com 5-tier shadow + ambient emerald glow + top accent ribbon (2px gradient bar with glow)
+  - `.instrument-card-v2` — cards mais densos e profundos com accent top edge glow + hover lift
+  - `.mini-panel` — panels internos compactos com backdrop-filter blur
+  - `.section-bar` — header de seção com accent square + monospace title
+  - `.tick-stream` — fluxo vertical de ticks com left accent rail
+  - `.marquee` / `.marquee-content` — ticker tape animado
+  - `.num-roll` — contador animado com transition suave
+  - `.data-flash` — flash em mudanças de valor
+  - `.grid-overlay` — dot grid sutil para inner panels
+- Step 2: Reconstruído EquityHero como ponto focal DOMINANTE:
+  - Altura do chart expandida de 380px para 460px
+  - Layout 3-col no header: brand | MASSIVE TOTAL EQUITY number (42-52px font, com tick-flash quando lastLoopAt muda) | status badges
+  - 8 stat cells no footer (2 rows × 4 cols): ROI, REALIZED, UNREALIZED, DRAWDOWN, TRADING, RESERVE, EXPOSURE, WIN RATE — cada um com progress rail e sub-stats
+  - Adicionadas props: wins, losses, openPositions, exposureUsd, lastLoopAt
+  - Tick pulse animation quando lastLoopAt muda (efeito "alive")
+  - Grid overlay sutil + scan-line + focal-pulse combinados
+- Step 3: Expandido TelemetryStrip de layout horizontal-scroll para grid denso:
+  - 22 indicadores (era 16): LATENCY, RPC, CPU, RAM, GAS, TPS, BLOCK, TICK, QUEUE, WORKERS, SIGNER, HEALTH, CIRCUIT, MEV, SIM, APPROVAL, LIQUIDITY, AUTHORITY, DB, UPTIME, OPEN, PAPER
+  - Grid responsivo: 3 cols (mobile) → 4 cols (sm) → 6 cols (md) → 9 cols (lg)
+  - Header com "LIVE STREAM" + pulse dot verde
+  - Cada tile: 6px dot + label + value + sub-label (denso)
+- Step 4: Reconstruído page.tsx abandonando Explorer Tabs como seção primária:
+  - Novo layout: Header → EquityHero (DOMINANTE) → Telemetry → 8 Instruments → Positions|Logs → Market|AI → Surveillance|Scam → Explorer Tabs (secondary) → Config → Footer
+  - Adicionado `.section-bar` no topo de cada seção principal (PORTFOLIO INSTRUMENTS, EXECUTION · LIVE FEED, MARKET INTELLIGENCE, RISK SURVEILLANCE, EXPLORER · SECONDARY PANELS, CONTROLS)
+  - Explorer Tabs reduzido de 13 para 8 triggers (history, rounds, site, platforms, backtest, analytics, notifications, system)
+  - MarketPanel + AIInsightsPanel agora sempre visíveis (2-col)
+  - SurveillancePanel + ScamReportsList agora sempre visíveis (2-col)
+  - PositonsTable + LogsFeed sempre visíveis (2-col)
+- Step 5: Atualizado InstrumentMetric para usar `instrument-card-v2` (era `instrument-card`)
+- Step 6: Validação completa:
+  - `npx next build` → ✓ Compiled successfully in 16.2s, 40/40 páginas estáticas
+  - `npx eslint src/app/page.tsx src/components/dashboard/equity-hero.tsx src/components/dashboard/telemetry-strip.tsx src/components/dashboard/instrument-metric.tsx` → 0 errors
+  - Zero regressões em código de produção (errors pré-existentes em scripts/, examples/, watchlist-panel.tsx, broadcaster.ts, simulation-gate.ts não tocados)
+
+Stage Summary:
+- Dashboard reconstruído com linguagem visual de terminal institucional.
+- EquityHero v2 domina ~50% da above-the-fold com chart 460px + 8 mini-panels de stats + número massivo 42-52px + tick pulse em cada atualização.
+- TelemetryStrip expandido de 16 para 22 indicadores cobrindo todo o stack: Latency, RPC, CPU, RAM, Gas, TPS, Block, Tick, Queue, Workers, Signer, Health, Circuit, MEV, Sim, Approval, Liquidity, Authority, DB, Uptime, Open, Paper.
+- 8 instrument cards agora com `instrument-card-v2` — 3-tier shadow + accent top edge glow + hover lift.
+- Layout abandona tabs em favor de painéis sempre visíveis: Market | AI | Surveillance | Scam | Positions | Logs todas visíveis simultaneamente.
+- Explorer Tabs preservado como seção secundária para: History, Rounds, Site Audit, Platforms, Backtest, Analytics, Notifications, System.
+- Visual identity "Cyber Financial Terminal" reforçada em todas as seções via section-bar + label-mono + grid-overlay + scan-line.
+- Animações "alive": heartbeat (brand glyph), focal-pulse (hero), scan-line (hero + header), tick-flash (equity updates), status-dot-pulse (live indicators), data-flash (changes).

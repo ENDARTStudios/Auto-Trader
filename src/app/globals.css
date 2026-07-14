@@ -602,4 +602,219 @@
                            0 40px 80px -32px oklch(0 0 0 / 0.95),
                            0 0 0 1px oklch(0.78 0.18 152 / 0.18); }
   }
+
+  /* ============================================================
+     ULTRA-PREMIUM VARIANTS — v2 design language
+     Stronger elevation, more dramatic gradients, ambient color
+     ============================================================ */
+
+  /* HERO v2 — DOMINANT focal surface for the equity curve.
+     Five-tier shadow + ambient accent glow + top accent ribbon.
+     Reserved for the single most important element on the screen. */
+  .terminal-hero-v2 {
+    position: relative;
+    background:
+      /* Top 1px highlight ribbon */
+      linear-gradient(180deg, oklch(1 0 0 / 0.10) 0%, transparent 4%),
+      /* Diagonal surface lift */
+      linear-gradient(135deg, oklch(0.225 0.009 264) 0%, oklch(0.150 0.005 264) 100%),
+      /* Ambient emerald glow at bottom-right (positive vibe default) */
+      radial-gradient(ellipse 80% 60% at 100% 100%, oklch(0.78 0.18 152 / 0.06), transparent 60%);
+    border: 1px solid oklch(1 0 0 / 0.10);
+    box-shadow:
+      /* Inner top edge highlight */
+      inset 0 1px 0 0 oklch(1 0 0 / 0.10),
+      /* Inner bottom shadow for depth */
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.35),
+      /* Side inner highlights */
+      inset 1px 0 0 0 oklch(1 0 0 / 0.04),
+      inset -1px 0 0 0 oklch(1 0 0 / 0.04),
+      /* Drop shadow tier 1 */
+      0 2px 8px 0 oklch(0 0 0 / 0.60),
+      /* Drop shadow tier 2 */
+      0 16px 48px -8px oklch(0 0 0 / 0.80),
+      /* Drop shadow tier 3 — far aura */
+      0 48px 96px -24px oklch(0 0 0 / 1),
+      /* Outer black ring */
+      0 0 0 1px oklch(0 0 0 / 0.60);
+  }
+  .terminal-hero-v2::before {
+    /* Top accent ribbon — 2px gradient bar with glow */
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      oklch(0.78 0.18 152 / 0.2) 10%,
+      oklch(0.78 0.18 152 / 0.8) 30%,
+      oklch(0.74 0.16 200 / 0.8) 70%,
+      oklch(0.74 0.16 200 / 0.2) 90%,
+      transparent 100%
+    );
+    box-shadow: 0 0 12px oklch(0.78 0.18 152 / 0.6),
+                0 0 24px oklch(0.78 0.18 152 / 0.3);
+  }
+
+  /* INSTRUMENT v2 — denser, deeper instrument cards with accent side-glow */
+  .instrument-card-v2 {
+    background:
+      linear-gradient(180deg, oklch(1 0 0 / 0.08) 0%, transparent 8%),
+      linear-gradient(135deg, oklch(0.215 0.008 264) 0%, oklch(0.145 0.005 264) 100%);
+    border: 1px solid oklch(1 0 0 / 0.08);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.08),
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.32),
+      inset 1px 0 0 0 oklch(1 0 0 / 0.03),
+      inset -1px 0 0 0 oklch(1 0 0 / 0.03),
+      0 2px 6px 0 oklch(0 0 0 / 0.60),
+      0 10px 24px -6px oklch(0 0 0 / 0.80),
+      0 24px 48px -16px oklch(0 0 0 / 1);
+    transition: all 180ms ease;
+    position: relative;
+    overflow: hidden;
+  }
+  .instrument-card-v2::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--instrument-accent, oklch(0.78 0.18 152)) 15%,
+      var(--instrument-accent, oklch(0.78 0.18 152)) 85%,
+      transparent 100%
+    );
+    box-shadow: 0 0 10px var(--instrument-accent, oklch(0.78 0.18 152 / 0.6));
+  }
+  .instrument-card-v2::after {
+    content: "";
+    position: absolute;
+    top: 2px; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(
+      180deg,
+      var(--instrument-accent, oklch(0.78 0.18 152 / 0.08)) 0%,
+      transparent 30%
+    );
+    pointer-events: none;
+  }
+  .instrument-card-v2:hover {
+    border-color: oklch(1 0 0 / 0.16);
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.12),
+      inset 0 -1px 0 0 oklch(0 0 0 / 0.32),
+      inset 1px 0 0 0 oklch(1 0 0 / 0.04),
+      inset -1px 0 0 0 oklch(1 0 0 / 0.04),
+      0 6px 12px 0 oklch(0 0 0 / 0.70),
+      0 18px 36px -8px oklch(0 0 0 / 0.90),
+      0 36px 64px -20px oklch(0 0 0 / 1);
+  }
+
+  /* Mini panel — used inside hero overlay for stat blocks.
+     Very compact, 1px borders, slight inner highlight. */
+  .mini-panel {
+    background: linear-gradient(180deg, oklch(1 0 0 / 0.04) 0%, transparent 100%);
+    border: 1px solid oklch(1 0 0 / 0.06);
+    box-shadow: inset 0 1px 0 0 oklch(1 0 0 / 0.06);
+    backdrop-filter: blur(8px);
+  }
+
+  /* Section title bar — slim header used at the top of each major section.
+     Adds a strong horizontal rule with a colored accent square. */
+  .section-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0 0.25rem;
+    margin-bottom: 0.5rem;
+  }
+  .section-bar::before {
+    content: "";
+    width: 3px;
+    height: 12px;
+    background: linear-gradient(180deg, oklch(0.78 0.18 152), oklch(0.74 0.16 200));
+    border-radius: 2px;
+    box-shadow: 0 0 6px oklch(0.78 0.18 152 / 0.5);
+  }
+  .section-bar-title {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: oklch(0.96 0.002 264);
+  }
+  .section-bar-sub {
+    font-family: var(--font-geist-mono), ui-monospace, monospace;
+    font-size: 9px;
+    color: oklch(0.62 0.008 264);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Tick stream — vertical line of small data updates with a left accent rail */
+  .tick-stream {
+    border-left: 1px solid oklch(1 0 0 / 0.06);
+    padding-left: 0.625rem;
+    position: relative;
+  }
+  .tick-stream::before {
+    content: "";
+    position: absolute;
+    left: -1px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: linear-gradient(180deg, oklch(0.78 0.18 152 / 0.5), transparent);
+  }
+
+  /* Marquee scroll — for live ticker tapes */
+  .marquee {
+    overflow: hidden;
+    white-space: nowrap;
+    mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
+  }
+  .marquee-content {
+    display: inline-block;
+    animation: marquee-scroll 60s linear infinite;
+  }
+  @keyframes marquee-scroll {
+    0%   { transform: translateX(0%); }
+    100% { transform: translateX(-50%); }
+  }
+
+  /* Number roll — for big animated counters */
+  .num-roll {
+    display: inline-block;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    transition: transform 240ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Data flash — when a value changes, briefly brighten the cell */
+  .data-flash {
+    animation: data-flash 600ms ease-out;
+  }
+  @keyframes data-flash {
+    0%   { background: oklch(0.78 0.18 152 / 0.18); }
+    100% { background: transparent; }
+  }
+
+  /* Tiny tick mark — used on sparkline contexts */
+  .tick-mark {
+    position: absolute;
+    width: 1px;
+    background: oklch(1 0 0 / 0.10);
+  }
+
+  /* Grid 2px — denser dot pattern for inner panels */
+  .grid-overlay {
+    background-image:
+      linear-gradient(oklch(1 0 0 / 0.020) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(1 0 0 / 0.020) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
 }

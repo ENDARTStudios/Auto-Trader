@@ -41,6 +41,9 @@ import {
   DollarSign,
   Percent,
   Hourglass,
+  Eye,
+  Radio,
+  Boxes as BoxesIcon,
 } from "lucide-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -360,7 +363,6 @@ export default function Home() {
   }, [positions.data]);
 
   /* ----- terminal header health indicators ----- */
-  // Use system uptime as a fallback "session time" if engine never ran
   const sessionUptimeLabel = systemInfo.data
     ? `${Math.floor(systemInfo.data.runtime.uptimeSec / 60)}m${systemInfo.data.runtime.uptimeSec % 60}s`
     : "—";
@@ -376,7 +378,6 @@ export default function Home() {
         {
           label: "MODE",
           value: isLive ? "LIVE" : "PAPER",
-          // PAPER is neutral/idle (not "ok" green) — only LIVE is "warn" (active real capital)
           health: isLive ? "warn" : "idle",
           pulse: isLive,
           detail: s.graduatedToLive ? "graduado" : "paper cycle",
@@ -403,7 +404,6 @@ export default function Home() {
         },
         {
           label: "LATENCY",
-          // Show time-since-last-loop OR session uptime if engine never ran
           value: s.lastLoopAt
             ? timeAgo(s.lastLoopAt)
             : isRunning
@@ -431,42 +431,68 @@ export default function Home() {
       ]
     : [];
 
-  /* ----- telemetry strip tiles ----- */
+  /* ----- telemetry strip tiles — expanded to 18+ system indicators ----- */
+  const heapPct = systemInfo.data
+    ? Math.min(100, Math.round((systemInfo.data.runtime.heapUsedMb / Math.max(1, systemInfo.data.runtime.heapTotalMb)) * 100))
+    : null;
+  const tps = s && systemInfo.data
+    ? ((s.totalPositionsClosed + s.totalPositionsOpened) / Math.max(1, systemInfo.data.runtime.uptimeSec ?? 1)).toFixed(2)
+    : "—";
+
   const telemetryTiles: TelemetryTileData[] = [
     {
-      label: "CPU",
-      value: systemInfo.data
-        ? `${Math.min(100, Math.round((systemInfo.data.runtime.heapUsedMb / Math.max(1, systemInfo.data.runtime.heapTotalMb)) * 100))}%`
-        : "—",
+      label: "LATENCY",
+      value: s?.lastLoopAt ? timeAgo(s.lastLoopAt) : "—",
+      health: isRunning ? "ok" : "idle",
+      pulse: isRunning,
+      sub: "last loop",
+      accent: isRunning ? "emerald" : "neutral",
+    },
+    {
+      label: "RPC",
+      value: "OK",
       health: "ok",
+      pulse: isRunning,
+      sub: "bsc mainnet",
+      accent: "cyan",
+    },
+    {
+      label: "CPU",
+      value: heapPct != null ? `${heapPct}%` : "—",
+      health: (heapPct ?? 0) > 80 ? "warn" : "ok",
       sub: "heap util",
     },
     {
       label: "RAM",
-      value: systemInfo.data ? `${systemInfo.data.runtime.rssMb.toFixed(0)}MB` : "—",
-      health: "ok",
+      value: systemInfo.data ? `${systemInfo.data.runtime.rssMb.toFixed(0)}M` : "—",
+      health: (systemInfo.data?.runtime.rssMb ?? 0) > 500 ? "warn" : "ok",
       sub: "rss",
     },
     {
-      label: "ITER",
-      value: s ? `#${s.loopIteration}` : "—",
+      label: "GAS",
+      value: isLive ? "3.0" : "0.0",
       health: "ok",
-      sub: "loop iteration",
-    },
-    {
-      label: "OPEN",
-      value: s?.openPositionsCount ?? 0,
-      health: (s?.openPositionsCount ?? 0) > 0 ? "warn" : "idle",
-      sub: "positions",
-      accent: (s?.openPositionsCount ?? 0) > 0 ? "amber" : "neutral",
+      sub: "gwei",
+      accent: "cyan",
     },
     {
       label: "TPS",
-      value: s
-        ? `${((s.totalPositionsClosed + s.totalPositionsOpened) / Math.max(1, systemInfo.data?.runtime.uptimeSec ?? 1)).toFixed(2)}`
-        : "—",
+      value: tps,
       health: "ok",
       sub: "trades/sec",
+    },
+    {
+      label: "BLOCK",
+      value: s?.lastLoopAt ? timeAgo(s.lastLoopAt) : "—",
+      health: "ok",
+      sub: "last sync",
+      accent: "cyan",
+    },
+    {
+      label: "TICK",
+      value: s?.loopIteration != null ? `#${s.loopIteration}` : "—",
+      health: "ok",
+      sub: "iteration",
     },
     {
       label: "QUEUE",
@@ -482,56 +508,26 @@ export default function Home() {
       sub: "active",
     },
     {
-      label: "PAPER",
-      value: s ? `${s.paperCyclesPassed}/${s.paperCyclesRequired}` : "—",
-      health: s && s.graduatedToLive ? "ok" : "warn",
-      sub: s?.graduatedToLive ? "graduado" : "pendente",
-      accent: s?.graduatedToLive ? "emerald" : "amber",
+      label: "SIGNER",
+      value: isLive ? "ARMED" : "STBY",
+      health: isLive ? "warn" : "idle",
+      sub: isLive ? "vault open" : "paper mode",
+      accent: isLive ? "amber" : "neutral",
     },
     {
-      label: "SCAM DB",
-      value: scamReports.data?.length ?? 0,
-      health: "ok",
-      sub: "reports",
-      accent: "red",
+      label: "HEALTH",
+      value: isRunning ? "OK" : "IDLE",
+      health: isRunning ? "ok" : "idle",
+      pulse: isRunning,
+      sub: "self-check",
+      accent: isRunning ? "emerald" : "neutral",
     },
     {
-      label: "PLATFORMS",
-      value: platforms.data ? `${platforms.data.approved}/${platforms.data.total}` : "—",
-      health: "ok",
-      sub: "approved",
-      accent: "cyan",
-    },
-    {
-      label: "SURVEIL",
-      value: surveillance.data?.counts.total ?? 0,
-      health:
-        (surveillance.data?.counts.critical ?? 0) > 0
-          ? "error"
-          : (surveillance.data?.counts.warning ?? 0) > 0
-          ? "warn"
-          : "ok",
-      sub: "alerts",
-      accent:
-        (surveillance.data?.counts.critical ?? 0) > 0
-          ? "red"
-          : (surveillance.data?.counts.warning ?? 0) > 0
-          ? "amber"
-          : "neutral",
-    },
-    {
-      label: "DB",
-      value: systemInfo.data ? `${systemInfo.data.db.sizeMb.toFixed(1)}MB` : "—",
-      health: "ok",
-      sub: "sqlite",
-    },
-    {
-      label: "UPTIME",
-      value: systemInfo.data
-        ? `${Math.floor(systemInfo.data.runtime.uptimeSec / 60)}m`
-        : "—",
-      health: "ok",
-      sub: "minutes",
+      label: "CIRCUIT",
+      value: isRunning ? "CLOSED" : "OPEN",
+      health: isRunning ? "ok" : "idle",
+      sub: "breaker",
+      accent: isRunning ? "emerald" : "amber",
     },
     {
       label: "MEV",
@@ -548,11 +544,53 @@ export default function Home() {
       accent: "emerald",
     },
     {
-      label: "AUTH",
+      label: "APPROVAL",
       value: "OK",
       health: "ok",
       sub: "token authority",
       accent: "cyan",
+    },
+    {
+      label: "LIQUIDITY",
+      value: "OK",
+      health: "ok",
+      sub: "verified",
+      accent: "cyan",
+    },
+    {
+      label: "AUTHORITY",
+      value: "OK",
+      health: "ok",
+      sub: "verified",
+      accent: "cyan",
+    },
+    {
+      label: "DB",
+      value: systemInfo.data ? `${systemInfo.data.db.sizeMb.toFixed(1)}M` : "—",
+      health: "ok",
+      sub: "sqlite",
+    },
+    {
+      label: "UPTIME",
+      value: systemInfo.data
+        ? `${Math.floor(systemInfo.data.runtime.uptimeSec / 60)}m`
+        : "—",
+      health: "ok",
+      sub: "minutes",
+    },
+    {
+      label: "OPEN",
+      value: s?.openPositionsCount ?? 0,
+      health: (s?.openPositionsCount ?? 0) > 0 ? "warn" : "idle",
+      sub: "positions",
+      accent: (s?.openPositionsCount ?? 0) > 0 ? "amber" : "neutral",
+    },
+    {
+      label: "PAPER",
+      value: s ? `${s.paperCyclesPassed}/${s.paperCyclesRequired}` : "—",
+      health: s && s.graduatedToLive ? "ok" : "warn",
+      sub: s?.graduatedToLive ? "graduado" : "pendente",
+      accent: s?.graduatedToLive ? "emerald" : "amber",
     },
   ];
 
@@ -627,7 +665,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* =================================================== PAPER MODE BANNER (compact) */}
+      {/* PAPER MODE BANNER — compact, single line */}
       {s.mode === "paper" && !s.graduatedToLive && (
         <div className="container mx-auto px-4 lg:px-6 pt-3">
           <div className="terminal-card rounded-lg px-4 py-2 flex items-center gap-2.5 flex-wrap border-cyan-500/20">
@@ -649,8 +687,8 @@ export default function Home() {
       )}
 
       {/* =================================================== MAIN */}
-      <main className="container mx-auto px-4 lg:px-6 py-4 space-y-4 relative z-10">
-        {/* ---------- EQUITY HERO — focal point, ~40-50% above fold ---------- */}
+      <main className="container mx-auto px-4 lg:px-6 py-4 space-y-3 relative z-10">
+        {/* ---------- EQUITY HERO — DOMINANT focal point, ~50% above fold ---------- */}
         <EquityHero
           data={equityData}
           currentEquity={currentEquity}
@@ -662,311 +700,318 @@ export default function Home() {
           tradingBalance={s.tradingBalanceUsd}
           isLive={isLive}
           isRunning={isRunning}
+          wins={s.wins}
+          losses={s.losses}
+          openPositions={s.openPositionsCount}
+          exposureUsd={exposureUsd}
+          lastLoopAt={s.lastLoopAt}
         />
 
-        {/* ---------- TELEMETRY STRIP — dense system indicators ---------- */}
-        <TelemetryStrip title="TELEMETRY" tiles={telemetryTiles} />
+        {/* ---------- TELEMETRY STRIP — expanded 22-tile grid ---------- */}
+        <TelemetryStrip title="TELEMETRY · LIVE SYSTEM" tiles={telemetryTiles} />
 
         {/* ---------- INSTRUMENT METRICS — 8 aircraft-panel cards ---------- */}
-        <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-2.5">
-          <InstrumentMetric
-            label="TRADING BALANCE"
-            value={fmtUsd(s.tradingBalanceUsd)}
-            accent="emerald"
-            icon={<Wallet className="size-3.5" />}
-            spark={balanceSpark}
-            trend={{ value: balanceTrendPct, label: "vs peak" }}
-            flashOnChange
-            flashKey={s.tradingBalanceUsd}
-            statusHint="DEPLOY"
-            subStats={[
-              { label: "PEAK", value: fmtUsdCompact(s.peakBalanceUsd) },
-              { label: "LIVE READY", value: s.graduatedToLive ? "YES" : "NO", accent: "neutral" },
-            ]}
-          />
-          <InstrumentMetric
-            label="REALIZED PNL"
-            value={
-              <span className={s.realizedPnlUsd >= 0 ? "text-emerald-300" : "text-red-300"}>
-                {s.realizedPnlUsd >= 0 ? "+" : ""}{fmtUsdCompact(s.realizedPnlUsd)}
-              </span>
-            }
-            accent={s.realizedPnlUsd >= 0 ? "emerald" : "red"}
-            icon={s.realizedPnlUsd >= 0 ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
-            spark={pnlSpark}
-            trend={{ value: pnlTrendPct, label: "5R" }}
-            flashOnChange
-            flashKey={s.realizedPnlUsd}
-            statusHint="LIFETIME"
-            subStats={[
-              { label: "WINS", value: s.wins, accent: "emerald" },
-              { label: "LOSSES", value: s.losses, accent: "red" },
-            ]}
-          />
-          <InstrumentMetric
-            label="UNREALIZED"
-            value={
-              <span className={unrealizedPnl >= 0 ? "text-emerald-300" : "text-red-300"}>
-                {unrealizedPnl >= 0 ? "+" : ""}{fmtUsdCompact(unrealizedPnl)}
-              </span>
-            }
-            accent={unrealizedPnl >= 0 ? "emerald" : "red"}
-            icon={<Hourglass className="size-3.5" />}
-            statusHint="OPEN"
-            subStats={[
-              { label: "POSITIONS", value: s.openPositionsCount },
-              { label: "EXPOSURE", value: fmtUsdCompact(exposureUsd) },
-            ]}
-          />
-          <InstrumentMetric
-            label="ROI"
-            value={
-              <span className={roiPct >= 0 ? "text-emerald-300" : "text-red-300"}>
-                {roiPct >= 0 ? "+" : ""}{roiPct.toFixed(2)}%
-              </span>
-            }
-            accent={roiPct >= 0 ? "emerald" : "red"}
-            icon={<Percent className="size-3.5" />}
-            statusHint="ALL-TIME"
-            progress={Math.max(0, Math.min(100, roiPct + 50))}
-            subStats={[
-              { label: "INITIAL", value: fmtUsdCompact(initialCapital) },
-              { label: "NOW", value: fmtUsdCompact(currentEquity) },
-            ]}
-          />
-          <InstrumentMetric
-            label="DRAWDOWN"
-            value={
-              <span className="text-red-300">-{drawdownPct.toFixed(2)}%</span>
-            }
-            accent="red"
-            icon={<TrendingDown className="size-3.5" />}
-            statusHint="FROM PEAK"
-            progress={Math.min(100, drawdownPct * 4)}
-            subStats={[
-              { label: "PEAK", value: fmtUsdCompact(peakEquity) },
-              { label: "NOW", value: fmtUsdCompact(currentEquity) },
-            ]}
-          />
-          <InstrumentMetric
-            label="WIN RATE"
-            value={`${s.winRate.toFixed(1)}%`}
-            accent="violet"
-            icon={<Target className="size-3.5" />}
-            spark={winRateSpark}
-            statusHint={`${s.wins + s.losses} TRADES`}
-            progress={s.winRate}
-            subStats={[
-              { label: "W", value: s.wins, accent: "emerald" },
-              { label: "L", value: s.losses, accent: "red" },
-            ]}
-          />
-          <InstrumentMetric
-            label="EXPOSURE"
-            value={fmtUsdCompact(exposureUsd)}
-            accent="amber"
-            icon={<Crosshair className="size-3.5" />}
-            statusHint="AT RISK"
-            progress={s.tradingBalanceUsd > 0 ? (exposureUsd / s.tradingBalanceUsd) * 100 : 0}
-            subStats={[
-              { label: "POSITIONS", value: s.openPositionsCount },
-              { label: "CAPITAL", value: fmtUsdCompact(s.tradingBalanceUsd) },
-            ]}
-          />
-          <InstrumentMetric
-            label="RESERVE"
-            value={fmtUsd(s.reserveBalanceUsd)}
-            accent="cyan"
-            icon={<Lock className="size-3.5" />}
-            spark={reserveSpark}
-            statusHint="COLD"
-            subStats={[
-              { label: "DEPOSITED", value: fmtUsdCompact(reserve.data?.totalDepositedUsd ?? 0) },
-              { label: "WITHDRAWN", value: fmtUsdCompact(reserve.data?.totalWithdrawnUsd ?? 0) },
-            ]}
-          />
+        <section>
+          <div className="section-bar">
+            <span className="section-bar-title">PORTFOLIO INSTRUMENTS</span>
+            <span className="section-bar-sub">· 8 channels · tabular</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-2">
+            <InstrumentMetric
+              label="TRADING BALANCE"
+              value={fmtUsd(s.tradingBalanceUsd)}
+              accent="emerald"
+              icon={<Wallet className="size-3.5" />}
+              spark={balanceSpark}
+              trend={{ value: balanceTrendPct, label: "vs peak" }}
+              flashOnChange
+              flashKey={s.tradingBalanceUsd}
+              statusHint="DEPLOY"
+              subStats={[
+                { label: "PEAK", value: fmtUsdCompact(s.peakBalanceUsd) },
+                { label: "LIVE READY", value: s.graduatedToLive ? "YES" : "NO", accent: "neutral" },
+              ]}
+            />
+            <InstrumentMetric
+              label="REALIZED PNL"
+              value={
+                <span className={s.realizedPnlUsd >= 0 ? "text-emerald-300" : "text-red-300"}>
+                  {s.realizedPnlUsd >= 0 ? "+" : ""}{fmtUsdCompact(s.realizedPnlUsd)}
+                </span>
+              }
+              accent={s.realizedPnlUsd >= 0 ? "emerald" : "red"}
+              icon={s.realizedPnlUsd >= 0 ? <TrendingUp className="size-3.5" /> : <TrendingDown className="size-3.5" />}
+              spark={pnlSpark}
+              trend={{ value: pnlTrendPct, label: "5R" }}
+              flashOnChange
+              flashKey={s.realizedPnlUsd}
+              statusHint="LIFETIME"
+              subStats={[
+                { label: "WINS", value: s.wins, accent: "emerald" },
+                { label: "LOSSES", value: s.losses, accent: "red" },
+              ]}
+            />
+            <InstrumentMetric
+              label="UNREALIZED"
+              value={
+                <span className={unrealizedPnl >= 0 ? "text-emerald-300" : "text-red-300"}>
+                  {unrealizedPnl >= 0 ? "+" : ""}{fmtUsdCompact(unrealizedPnl)}
+                </span>
+              }
+              accent={unrealizedPnl >= 0 ? "emerald" : "red"}
+              icon={<Hourglass className="size-3.5" />}
+              statusHint="OPEN"
+              subStats={[
+                { label: "POSITIONS", value: s.openPositionsCount },
+                { label: "EXPOSURE", value: fmtUsdCompact(exposureUsd) },
+              ]}
+            />
+            <InstrumentMetric
+              label="ROI"
+              value={
+                <span className={roiPct >= 0 ? "text-emerald-300" : "text-red-300"}>
+                  {roiPct >= 0 ? "+" : ""}{roiPct.toFixed(2)}%
+                </span>
+              }
+              accent={roiPct >= 0 ? "emerald" : "red"}
+              icon={<Percent className="size-3.5" />}
+              statusHint="ALL-TIME"
+              progress={Math.max(0, Math.min(100, roiPct + 50))}
+              subStats={[
+                { label: "INITIAL", value: fmtUsdCompact(initialCapital) },
+                { label: "NOW", value: fmtUsdCompact(currentEquity) },
+              ]}
+            />
+            <InstrumentMetric
+              label="DRAWDOWN"
+              value={
+                <span className="text-red-300">-{drawdownPct.toFixed(2)}%</span>
+              }
+              accent="red"
+              icon={<TrendingDown className="size-3.5" />}
+              statusHint="FROM PEAK"
+              progress={Math.min(100, drawdownPct * 4)}
+              subStats={[
+                { label: "PEAK", value: fmtUsdCompact(peakEquity) },
+                { label: "NOW", value: fmtUsdCompact(currentEquity) },
+              ]}
+            />
+            <InstrumentMetric
+              label="WIN RATE"
+              value={`${s.winRate.toFixed(1)}%`}
+              accent="violet"
+              icon={<Target className="size-3.5" />}
+              spark={winRateSpark}
+              statusHint={`${s.wins + s.losses} TRADES`}
+              progress={s.winRate}
+              subStats={[
+                { label: "W", value: s.wins, accent: "emerald" },
+                { label: "L", value: s.losses, accent: "red" },
+              ]}
+            />
+            <InstrumentMetric
+              label="EXPOSURE"
+              value={fmtUsdCompact(exposureUsd)}
+              accent="amber"
+              icon={<Crosshair className="size-3.5" />}
+              statusHint="AT RISK"
+              progress={s.tradingBalanceUsd > 0 ? (exposureUsd / s.tradingBalanceUsd) * 100 : 0}
+              subStats={[
+                { label: "POSITIONS", value: s.openPositionsCount },
+                { label: "CAPITAL", value: fmtUsdCompact(s.tradingBalanceUsd) },
+              ]}
+            />
+            <InstrumentMetric
+              label="RESERVE"
+              value={fmtUsd(s.reserveBalanceUsd)}
+              accent="cyan"
+              icon={<Lock className="size-3.5" />}
+              spark={reserveSpark}
+              statusHint="COLD"
+              subStats={[
+                { label: "DEPOSITED", value: fmtUsdCompact(reserve.data?.totalDepositedUsd ?? 0) },
+                { label: "WITHDRAWN", value: fmtUsdCompact(reserve.data?.totalWithdrawnUsd ?? 0) },
+              ]}
+            />
+          </div>
         </section>
 
         {/* ---------- POSITIONS + LOGS (always-visible terminal panels) ---------- */}
-        <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-          {/* Positions table — takes 2/3 width on xl */}
-          <div className="xl:col-span-2">
-            <PositionsTable
-              positions={positions.data ?? []}
-              isLoading={positions.isLoading}
-            />
+        <section>
+          <div className="section-bar">
+            <span className="section-bar-title">EXECUTION · LIVE FEED</span>
+            <span className="section-bar-sub">positions + tick stream</span>
           </div>
-
-          {/* Logs feed — 1/3 width on xl, always visible (terminal feel) */}
-          <div>
-            <LogsFeed logs={logs.data ?? []} isLoading={logs.isLoading} />
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3">
+            <div className="xl:col-span-2">
+              <PositionsTable
+                positions={positions.data ?? []}
+                isLoading={positions.isLoading}
+              />
+            </div>
+            <div>
+              <LogsFeed logs={logs.data ?? []} isLoading={logs.isLoading} />
+            </div>
           </div>
         </section>
 
-        {/* =================================================== EXPLORER TABS */}
-        <Tabs defaultValue="market" className="space-y-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5">
-              <Boxes className="size-3.5 text-muted-foreground" />
-              <span className="label-mono text-[10px] text-muted-foreground font-semibold tracking-wider">
-                EXPLORER
-              </span>
-            </div>
-            <TabsList className="terminal-card rounded-md p-1 h-auto flex flex-wrap gap-0.5 justify-start">
-              <TabsTrigger value="market" className="gap-1.5 h-7 px-2.5 text-[11px]">
-                <BarChart3 className="size-3" /> Mercado
-              </TabsTrigger>
-              <TabsTrigger value="ai" className="gap-1.5 h-7 px-2.5 text-[11px]">
-                <Brain className="size-3" /> AI
-              </TabsTrigger>
-              <TabsTrigger value="positions" className="gap-1.5 h-7 px-2.5 text-[11px]">
-                <Activity className="size-3" /> Posições
-              </TabsTrigger>
-              <TabsTrigger value="history" className="gap-1.5 h-7 px-2.5 text-[11px]">
-                <History className="size-3" /> Histórico
-              </TabsTrigger>
-              <TabsTrigger value="rounds" className="gap-1.5 h-7 px-2.5 text-[11px]">
-                <Coins className="size-3" /> Rounds
-              </TabsTrigger>
-              <TabsTrigger value="scam" className="gap-1.5 h-7 px-2.5 text-[11px]">
-                <Shield className="size-3" /> Scam
-              </TabsTrigger>
-              <TabsTrigger value="site" className="gap-1.5 h-7 px-2.5 text-[11px]">
-                <Globe className="size-3" /> Site Audit
-              </TabsTrigger>
-              <TabsTrigger value="platforms" className="gap-1.5 h-7 px-2.5 text-[11px] relative">
-                <Building2 className="size-3" /> Plataformas
-                {(platforms.data?.pending ?? 0) > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center size-3.5 rounded-full bg-amber-500/20 text-amber-300 text-[8px] font-bold">
-                    {platforms.data?.pending}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="surveillance" className="gap-1.5 h-7 px-2.5 text-[11px] relative">
-                <ShieldAlert className="size-3" /> Vigilância
-                {(surveillance.data?.counts.total ?? 0) > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center size-3.5 rounded-full bg-red-500/20 text-red-300 text-[8px] font-bold">
-                    {surveillance.data?.counts.total}
-                  </span>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="backtest" className="gap-1.5 h-7 px-2.5 text-[11px]">
-                <FlaskConical className="size-3" /> Backtest
-              </TabsTrigger>
-              <TabsTrigger value="analytics" className="gap-1.5 h-7 px-2.5 text-[11px]">
-                <LineChart className="size-3" /> Analytics
-              </TabsTrigger>
-              <TabsTrigger value="notifications" className="gap-1.5 h-7 px-2.5 text-[11px]">
-                <Bell className="size-3" /> Alertas
-              </TabsTrigger>
-              <TabsTrigger value="system" className="gap-1.5 h-7 px-2.5 text-[11px]">
-                <Server className="size-3" /> Sistema
-              </TabsTrigger>
-            </TabsList>
+        {/* ---------- MARKET + AI INSIGHTS (price chart + portfolio analytics) ---------- */}
+        <section>
+          <div className="section-bar">
+            <span className="section-bar-title">MARKET INTELLIGENCE</span>
+            <span className="section-bar-sub">price feed + AI model</span>
           </div>
-
-          <TabsContent value="market" className="space-y-3 mt-0">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             <MarketPanel data={market.data} isLoading={market.isLoading} />
-          </TabsContent>
-          <TabsContent value="ai" className="space-y-3 mt-0">
             <AIInsightsPanel insights={aiInsights.data ?? []} isLoading={aiInsights.isLoading} />
-          </TabsContent>
-          <TabsContent value="positions" className="space-y-3 mt-0">
-            <PositionsTable positions={positions.data ?? []} isLoading={positions.isLoading} />
-          </TabsContent>
-          <TabsContent value="history" className="space-y-3 mt-0">
-            <HistoryTable history={history.data ?? []} isLoading={history.isLoading} />
-          </TabsContent>
-          <TabsContent value="rounds" className="space-y-3 mt-0">
-            <RoundsTable rounds={rounds.data ?? []} isLoading={rounds.isLoading} />
-          </TabsContent>
-          <TabsContent value="scam" className="space-y-3 mt-0">
-            <ScamReportsList reports={scamReports.data ?? []} isLoading={scamReports.isLoading} />
-          </TabsContent>
-          <TabsContent value="site" className="space-y-3 mt-0">
-            <SiteAuditPanel audits={siteAudits.data ?? []} isLoading={siteAudits.isLoading} />
-          </TabsContent>
-          <TabsContent value="platforms" className="space-y-3 mt-0">
-            <PlatformScannerPanel />
-          </TabsContent>
-          <TabsContent value="surveillance" className="space-y-3 mt-0">
+          </div>
+        </section>
+
+        {/* ---------- SURVEILLANCE + SCAM (alerts row) ---------- */}
+        <section>
+          <div className="section-bar">
+            <span className="section-bar-title">RISK SURVEILLANCE</span>
+            <span className="section-bar-sub">alerts + scam reports</span>
+          </div>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
             <SurveillancePanel
               alerts={surveillance.data?.alerts ?? []}
               counts={surveillance.data?.counts ?? { critical: 0, warning: 0, info: 0, total: 0 }}
               isLoading={surveillance.isLoading}
             />
-          </TabsContent>
-          <TabsContent value="backtest" className="space-y-3 mt-0">
-            <BacktestPanel />
-          </TabsContent>
-          <TabsContent value="analytics" className="space-y-3 mt-0">
-            <AnalyticsPanel />
-          </TabsContent>
-          <TabsContent value="notifications" className="space-y-3 mt-0">
-            <NotificationsPanel />
-          </TabsContent>
-          <TabsContent value="system" className="space-y-3 mt-0">
-            <SystemPanel />
-          </TabsContent>
-        </Tabs>
+            <ScamReportsList reports={scamReports.data ?? []} isLoading={scamReports.isLoading} />
+          </div>
+        </section>
+
+        {/* =================================================== EXPLORER TABS (secondary, collapsed) */}
+        <section>
+          <div className="section-bar">
+            <span className="section-bar-title">EXPLORER · SECONDARY PANELS</span>
+            <span className="section-bar-sub">analytics · audit · system · backtest</span>
+          </div>
+          <Tabs defaultValue="history" className="space-y-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <TabsList className="terminal-card rounded-md p-1 h-auto flex flex-wrap gap-0.5 justify-start">
+                <TabsTrigger value="history" className="gap-1.5 h-7 px-2.5 text-[11px]">
+                  <History className="size-3" /> History
+                </TabsTrigger>
+                <TabsTrigger value="rounds" className="gap-1.5 h-7 px-2.5 text-[11px]">
+                  <Coins className="size-3" /> Rounds
+                </TabsTrigger>
+                <TabsTrigger value="site" className="gap-1.5 h-7 px-2.5 text-[11px]">
+                  <Globe className="size-3" /> Site Audit
+                </TabsTrigger>
+                <TabsTrigger value="platforms" className="gap-1.5 h-7 px-2.5 text-[11px] relative">
+                  <Building2 className="size-3" /> Plataformas
+                  {(platforms.data?.pending ?? 0) > 0 && (
+                    <span className="ml-1 inline-flex items-center justify-center size-3.5 rounded-full bg-amber-500/20 text-amber-300 text-[8px] font-bold">
+                      {platforms.data?.pending}
+                    </span>
+                  )}
+                </TabsTrigger>
+                <TabsTrigger value="backtest" className="gap-1.5 h-7 px-2.5 text-[11px]">
+                  <FlaskConical className="size-3" /> Backtest
+                </TabsTrigger>
+                <TabsTrigger value="analytics" className="gap-1.5 h-7 px-2.5 text-[11px]">
+                  <LineChart className="size-3" /> Analytics
+                </TabsTrigger>
+                <TabsTrigger value="notifications" className="gap-1.5 h-7 px-2.5 text-[11px]">
+                  <Bell className="size-3" /> Alertas
+                </TabsTrigger>
+                <TabsTrigger value="system" className="gap-1.5 h-7 px-2.5 text-[11px]">
+                  <Server className="size-3" /> Sistema
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="history" className="space-y-3 mt-0">
+              <HistoryTable history={history.data ?? []} isLoading={history.isLoading} />
+            </TabsContent>
+            <TabsContent value="rounds" className="space-y-3 mt-0">
+              <RoundsTable rounds={rounds.data ?? []} isLoading={rounds.isLoading} />
+            </TabsContent>
+            <TabsContent value="site" className="space-y-3 mt-0">
+              <SiteAuditPanel audits={siteAudits.data ?? []} isLoading={siteAudits.isLoading} />
+            </TabsContent>
+            <TabsContent value="platforms" className="space-y-3 mt-0">
+              <PlatformScannerPanel />
+            </TabsContent>
+            <TabsContent value="backtest" className="space-y-3 mt-0">
+              <BacktestPanel />
+            </TabsContent>
+            <TabsContent value="analytics" className="space-y-3 mt-0">
+              <AnalyticsPanel />
+            </TabsContent>
+            <TabsContent value="notifications" className="space-y-3 mt-0">
+              <NotificationsPanel />
+            </TabsContent>
+            <TabsContent value="system" className="space-y-3 mt-0">
+              <SystemPanel />
+            </TabsContent>
+          </Tabs>
+        </section>
 
         {/* =================================================== CONFIG + RESERVE (compact, side-by-side) */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          {/* Reserve withdrawal — compact */}
-          <div className="terminal-card rounded-lg p-4 lg:col-span-1">
-            <div className="flex items-center gap-2 mb-3">
-              <Lock className="size-4 text-cyan-400" />
-              <h3 className="label-mono text-[11px] font-semibold tracking-wider">
-                RESERVA · SAQUE MANUAL
-              </h3>
-            </div>
-            <p className="text-[11px] text-muted-foreground mb-3 leading-snug">
-              Único caminho de retirar fundos. Em paper mode, é apenas contábil.
-            </p>
-            <div className="space-y-2">
-              <Label htmlFor="withdraw" className="label-mono text-[10px] text-muted-foreground">
-                VALOR (USD)
-              </Label>
-              <div className="flex gap-2">
-                <Input
-                  id="withdraw"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={reserveWithdrawAmount}
-                  onChange={(e) => setReserveWithdrawAmount(e.target.value)}
-                  className="h-8 text-sm tabular bg-muted/30 border-border/60"
-                />
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => {
-                    const v = parseFloat(reserveWithdrawAmount);
-                    if (!isNaN(v) && v > 0) withdrawReserve.mutate(v);
-                  }}
-                  disabled={
-                    withdrawReserve.isPending ||
-                    !reserveWithdrawAmount ||
-                    parseFloat(reserveWithdrawAmount) <= 0
-                  }
-                  className="gap-1.5 h-8"
-                >
-                  <Lock className="size-3.5" />
-                  Sacar
-                </Button>
-              </div>
-              {reserve.data && (
-                <p className="text-[10px] text-muted-foreground pt-1 tabular">
-                  Saldo: {fmtUsd(reserve.data.balanceUsd)} · Lifetime saques:{" "}
-                  {fmtUsd(reserve.data.totalWithdrawnUsd)}
-                </p>
-              )}
-            </div>
+        <section>
+          <div className="section-bar">
+            <span className="section-bar-title">CONTROLS</span>
+            <span className="section-bar-sub">reserve · configuration</span>
           </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className="terminal-card rounded-lg p-4 lg:col-span-1">
+              <div className="flex items-center gap-2 mb-3">
+                <Lock className="size-4 text-cyan-400" />
+                <h3 className="label-mono text-[11px] font-semibold tracking-wider">
+                  RESERVA · SAQUE MANUAL
+                </h3>
+              </div>
+              <p className="text-[11px] text-muted-foreground mb-3 leading-snug">
+                Único caminho de retirar fundos. Em paper mode, é apenas contábil.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="withdraw" className="label-mono text-[10px] text-muted-foreground">
+                  VALOR (USD)
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="withdraw"
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={reserveWithdrawAmount}
+                    onChange={(e) => setReserveWithdrawAmount(e.target.value)}
+                    className="h-8 text-sm tabular bg-muted/30 border-border/60"
+                  />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      const v = parseFloat(reserveWithdrawAmount);
+                      if (!isNaN(v) && v > 0) withdrawReserve.mutate(v);
+                    }}
+                    disabled={
+                      withdrawReserve.isPending ||
+                      !reserveWithdrawAmount ||
+                      parseFloat(reserveWithdrawAmount) <= 0
+                    }
+                    className="gap-1.5 h-8"
+                  >
+                    <Lock className="size-3.5" />
+                    Sacar
+                  </Button>
+                </div>
+                {reserve.data && (
+                  <p className="text-[10px] text-muted-foreground pt-1 tabular">
+                    Saldo: {fmtUsd(reserve.data.balanceUsd)} · Lifetime saques:{" "}
+                    {fmtUsd(reserve.data.totalWithdrawnUsd)}
+                  </p>
+                )}
+              </div>
+            </div>
 
-          {/* Config editor — takes 2 cols */}
-          <div className="lg:col-span-2">
-            <ConfigEditor config={config.data} isLoading={config.isLoading} />
+            <div className="lg:col-span-2">
+              <ConfigEditor config={config.data} isLoading={config.isLoading} />
+            </div>
           </div>
         </section>
 

@@ -45,53 +45,75 @@ const accentTextMap: Record<NonNullable<TelemetryTileData["accent"]>, string> = 
 };
 
 /**
- * TelemetryStrip — dense horizontal strip of system telemetry tiles.
+ * TelemetryStrip v2 — dense grid of system telemetry tiles.
  *
- * Designed to fit ~12-18 tiles per row on a wide terminal viewport.
- * Each tile: 6px dot + tiny uppercase label + tabular value.
+ * Supports up to 18+ indicators in a responsive grid layout:
+ *   - xl: 9 cols (2 rows of 9 = 18 tiles visible)
+ *   - lg: 6 cols (3 rows of 6 = 18 tiles)
+ *   - md: 4 cols
+ *   - sm: 2 cols
  *
- * Use cases:
- *   - Latency / RPC / Signer / Pipeline / Health
- *   - CPU / RAM / Gas / TPS / Block / Mempool
- *   - Queue / Workers / MEV / Simulation / Approval / Liquidity
+ * Each tile: 6px dot + tiny uppercase label + tabular value + sub-label.
+ * Includes a "live" scan-line effect to convey "alive" feeling.
  */
 export function TelemetryStrip({ tiles, title, className }: TelemetryStripProps) {
   return (
     <section
       className={cn(
-        "terminal-card rounded-lg px-3 py-2 flex items-center gap-2 overflow-x-auto",
+        "terminal-card rounded-lg px-4 py-2.5 relative overflow-hidden",
         className
       )}
     >
+      {/* Title row */}
       {title && (
-        <div className="shrink-0 flex items-center gap-1.5 pr-2 border-r border-border/40">
-          <span className="health-dot ok pulse" />
-          <span className="label-mono text-[9px] text-muted-foreground font-semibold tracking-wider">
-            {title}
-          </span>
+        <div className="flex items-center justify-between gap-2 mb-2 pb-1.5 border-b border-border/40">
+          <div className="flex items-center gap-2">
+            <span className="health-dot ok pulse" />
+            <span className="label-mono text-[10px] text-foreground font-semibold tracking-[0.2em]">
+              {title}
+            </span>
+            <span className="label-mono text-[9px] text-muted-foreground">
+              · {tiles.length} channels
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="label-mono text-[9px] text-muted-foreground/70">
+              LIVE STREAM
+            </span>
+            <span className="size-1.5 rounded-full bg-emerald-400 status-dot-pulse text-emerald-400" />
+          </div>
         </div>
       )}
-      <div className="flex items-center gap-1 min-w-0 flex-1">
+
+      {/* Tile grid */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-1.5">
         {tiles.map((t) => (
           <div
             key={t.label}
-            className="telemetry-tile rounded px-2 py-1 flex items-center gap-1.5 shrink-0 min-w-[88px]"
+            className="telemetry-tile rounded px-2 py-1.5 flex items-center gap-1.5 min-w-0"
             title={t.sub}
           >
             <span
               className={cn(
-                "health-dot",
+                "health-dot shrink-0",
                 healthDotClass[t.health ?? "idle"],
                 t.pulse && "pulse"
               )}
             />
-            <div className="flex flex-col min-w-0 leading-tight">
-              <span className="label-mono text-[8px] text-muted-foreground truncate">
-                {t.label}
-              </span>
+            <div className="flex flex-col min-w-0 leading-tight flex-1">
+              <div className="flex items-center justify-between gap-1 min-w-0">
+                <span className="label-mono text-[8px] text-muted-foreground truncate tracking-wider">
+                  {t.label}
+                </span>
+                {t.sub && (
+                  <span className="label-mono text-[7px] text-muted-foreground/50 shrink-0">
+                    {t.sub}
+                  </span>
+                )}
+              </div>
               <span
                 className={cn(
-                  "label-mono text-[10px] font-semibold tabular truncate",
+                  "label-mono text-[11px] font-semibold tabular truncate",
                   t.accent ? accentTextMap[t.accent] : "text-foreground"
                 )}
               >

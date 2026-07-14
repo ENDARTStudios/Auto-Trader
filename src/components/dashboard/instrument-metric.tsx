@@ -111,7 +111,7 @@ export function InstrumentMetric({
   return (
     <div
       className={cn(
-        "instrument-card rounded-md px-3 py-2.5 flex flex-col gap-1.5",
+        "instrument-card-v2 rounded-md px-3 py-2.5 flex flex-col gap-1.5",
         className
       )}
       style={{ ["--instrument-accent" as string]: accentColor }}
