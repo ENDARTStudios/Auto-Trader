@@ -1,5 +1,9 @@
 # `standards/git-workflow.md` — Padrões de Git
 
+> **STATE: ACTIVE** — Padrões de git — refináveis.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Regras detalhadas de commits, branches, PRs. Aplica-se a todo
 > repositório do projeto.
 >

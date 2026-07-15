@@ -1,5 +1,9 @@
 # `architecture/runtime.md` — Fluxo, Eventos, Lifecycle
 
+> **STATE: FROZEN** — Fluxo canônico — alteração requer ADR (suporta INV-001).
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Documenta o fluxo canônico em runtime, o lifecycle do processo
 > signer isolado, o loop principal de trading e os eventos de audit
 > emitidos. Para módulos individuais, veja `modules.md`. Para

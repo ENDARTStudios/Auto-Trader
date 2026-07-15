@@ -1,5 +1,9 @@
 # memory/future-ideas.md — Ideias Futuras
 
+> **STATE: APPEND-ONLY** — FI-NNN implementado ganha nota; nunca removido.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Ideias futuras registradas para consideração. **Não implementar
 > automaticamente.** Apenas registrar. Quando uma ideia for
 > promovida a milestone, criar entrada em

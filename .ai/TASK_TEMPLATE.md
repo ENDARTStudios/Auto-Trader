@@ -1,5 +1,9 @@
 # TASK_TEMPLATE.md — Template Padrão de Tarefa
 
+> **STATE: ACTIVE** — Template — refinável conforme padrões evoluem.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Todo trabalho futuro neste projeto deve seguir este modelo. Copiar a
 > seção "Template" abaixo para a resposta da tarefa e preencher cada campo.
 > Este template está alinhado com `OUTPUT_RULES.md` (7 seções) e com o

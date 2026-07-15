@@ -1,5 +1,9 @@
 # memory/implementation-history.md — Registro Cronológico
 
+> **STATE: APPEND-ONLY** — Linha do tempo cronológica — nunca editar entradas antigas.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > O que foi implementado, quando, por quê. Append-only. Para decisões
 > arquiteturais com contexto completo ver `DECISION_LOG.md` e
 > `.ai/decisions/ADR-*.md`.
@@ -312,6 +316,91 @@
   canônicos por categoria, (d) cross-links obrigatórios, (e)
   versionamento explícito da própria governança. Formalizado
   em `MANIFEST.md`.
+
+---
+
+---
+
+## 2026-07-16 — Project OS v2.2: Rastreabilidade, MOD-IDs, STATE markers, IDS/TRACEABILITY/tests
+
+- **Versão do Project OS bumpada:** v2.1 → v2.2. `PROJECT_STATE.md`
+  agora declara `Project OS: v2.2` explicitamente.
+- **Decisão registrada:** `DEC-007` em `DECISION_LOG.md`.
+  Detalhe completo em `decisions/ADR-0003.md`.
+- **Motivo da mudança:** após um ciclo de uso operacional de v2.1,
+  o operador identificou 7 lacunas de rastreabilidade: (1)
+  `CORE_RULES.md` crescia com regras operacionais; (2) módulos
+  sem IDs padronizados; (3) sem matriz de rastreabilidade;
+  (4) testes sem catálogo; (5) documentação sem estado explícito;
+  (6) sem diagrama de árvore de dependências; (7) IDs espalhados
+  sem catálogo consolidado.
+- **Mudanças estruturais aplicadas (7 refinamentos):**
+  1. **`CORE_RULES.md` reduzido a regras permanentes (10 regras).**
+     Regra 11 ("todo bug deve produzir aprendizado") movida para
+     `ENGINEERING_RULES.md > Cultura de aprendizado (pós-bug)` como
+     seção operacional. Adicionado "Princípio de separação" no
+     topo declarando o critério (regra entra em CORE_RULES só se
+     for verdadeira em qualquer fase do projeto).
+  2. **MOD-IDs introduzidos em `architecture/modules.md`.** Todo
+     módulo recebe MOD-ID permanente derivado da fase: MOD-H*,
+     MOD-M3.*, MOD-M4.*, MOD-M5.*, MOD-M6+ (placeholders),
+     MOD-TR-* (trading), MOD-API-* (API), MOD-UI-* (UI). Coluna
+     MOD-ID adicionada a todas as tabelas. ~45 MOD-IDs emitidos.
+  3. **`TRACEABILITY.md` criado.** Matriz principal liga cada
+     INV-NNN a ADR-NNNN, MOD-NNN, REG-NNN e script de teste.
+     Tabela inversa liga cada REG-NNN ao INV-NNN defendido.
+     Cobertura por módulo mostra quais MOD-IDs têm defesa
+     adversarial. 5 lacunas identificadas (INV-008/009/010 sem
+     REG; MOD-H1.1 e MOD-M5.4 sem REG direto) — pendências a
+     registrar como TD-NNN.
+  4. **`tests.md` criado.** Indexa 24 scripts test-*.ts por
+     milestone (H0, H1, H2, M3, M4, M5). Para cada teste:
+     script, contagem de asserts (1.487 total), linhas (15.759
+     total), cobertura MOD-ID + INV-NNN + REG-NNN, responsável
+     histórico. 8 de 10 INV têm teste direto.
+  5. **STATE markers adicionados a 37 arquivos de governança.**
+     Vocabulário: FROZEN (imutável), ACTIVE (evolui), SNAPSHOT
+     (reescrito), APPEND-ONLY (entrada adicionada, nunca
+     removida), DRAFT (rascunho). Script persistido
+     `scripts/add-state-markers.py` aplicou markers em batch
+     (idempotente).
+  6. **Diagrama de árvore canônica de dependências adicionado**
+     em `architecture/dependencies.md`. ASCII top-level mostrando
+     Market Data → Pipeline → SignerAdapter → Signer RPC →
+     Writer Lease → LeasedBroadcaster → Broadcaster → RPC Quorum
+     → Blockchain → Audit Log. Cada nó tem MOD-ID e estado
+     FROZEN. Diagrama é declarado "única topologia aceita" —
+     desvio viola INV-001.
+  7. **`IDS.md` criado.** Catálogo consolidado de todos os IDs
+     emitidos em 9 categorias: ADR (3), DEC (7), INV (10), MOD
+     (~45), REG (18), STD (41+), TD (12), KP (11), FI (13 ativas
+     + 3 descartadas). Para cada ID: título, arquivo-fonte
+     canônico, status. Regras de manutenção: adicionar entrada
+     ao criar novo ID, nunca remover (permanência), numeração
+     sequencial por bloco.
+- **Arquivos criados:** 5 (`.ai/IDS.md`, `.ai/TRACEABILITY.md`,
+  `.ai/tests.md`, `.ai/decisions/ADR-0003.md`,
+  `scripts/add-state-markers.py`).
+- **Arquivos editados:** 8 (`.ai/CORE_RULES.md`,
+  `.ai/ENGINEERING_RULES.md`, `.ai/architecture/modules.md`,
+  `.ai/architecture/dependencies.md`, `.ai/PROJECT_STATE.md`,
+  `.ai/INDEX.md`, `.ai/README.md`, `.ai/DECISION_LOG.md`).
+- **Arquivos com STATE marker adicionado via script:** 33
+  (4 já tinham markers; total de 37 arquivos de governança com
+  STATE explícito após v2.2).
+- **Nenhum arquivo FROZEN do código-fonte foi tocado.** Nenhuma
+  dependência adicionada. Nenhum arquivo renomeado.
+- **Total de arquivos `.ai/` após v2.2:** 14 raiz (antes 11:
+  +IDS, +TRACEABILITY, +tests) + 7 architecture + 4 contracts
+  + 5 standards + 4 context + 4 memory + 3 decisions (antes 2:
+  +ADR-0003) = 41 arquivos de governança.
+- **Lição permanente registrada em DEC-007:** "Toda camada de
+  governança precisa de rastreabilidade completa entre seus
+  elementos. IDs canônicos por categoria resolvem consistência
+  de referência, mas não resolvem rastreabilidade — é possível
+  ter IDs consistentes sem matriz que mostre como eles se
+  relacionam. Os 5 elementos (INV, ADR, MOD, REG, teste) formam
+  cadeia; quebrar qualquer elo é pendência técnica."
 
 ---
 

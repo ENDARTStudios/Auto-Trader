@@ -1,4 +1,11 @@
-# ENGINEERING_RULES.md — Fluxo, Restrições e Testes
+# ENGINEERING_RULES.md — Fluxo, Restrições, Testes e Cultura
+
+> **STATE: ACTIVE** — Regras **operacionais** do processo de
+> engenharia. Diferem de `CORE_RULES.md` (regras permanentes):
+> estas podem ser refinadas conforme o projeto evolui, novas
+> ferramentas são adotadas, ou lições operacionais são
+> incorporadas. Toda mudança requer entrada em
+> `memory/implementation-history.md` e, se estrutural, ADR.
 
 ## Fluxo obrigatório
 
@@ -99,3 +106,90 @@ o arquivo persistido e re-rodar — não regenerar do zero.
 Isto aplica-se especialmente a: scripts de geração de documentos (docx/pdf/
 xlsx/pptx), scripts de plot (matplotlib), scripts de migração de banco,
 scripts de teste, scripts de stress.
+
+---
+
+## Cultura de aprendizado (pós-bug)
+
+> Esta é regra **operacional** (não permanente). Pode ser refinada
+> conforme novos formatos de post-mortem, novas ferramentas de
+> tracking, ou novas categorias de aprendizado surgirem. Ver
+> `CORE_RULES.md > Princípio de separação` para o critério.
+
+### Princípio
+
+Nenhum bug é corrigido silenciosamente. Toda correção deve produzir
+registro permanente do aprendizado em **um** destes locais
+(escolher conforme o escopo):
+
+- **`memory/known-problems.md`** — para bugs operacionais ou
+  integrações de API (causa, status, mitigação). Padrão KP-NNN.
+- **`DECISION_LOG.md`** (e/ou `.ai/decisions/ADR-NNNN.md`) — para
+  bugs que revelam falha de arquitetura e exigem mudança
+  estrutural. Padrão DEC-NNN ou ADR-NNNN.
+- **`SECURITY.md`** — para bugs de segurança, com teste adversarial
+  REG-NNN que pinne o invariant corrigido.
+
+### Aplicação prática
+
+Antes de marcar uma correção como completa, verificar se o
+aprendizado foi registrado. Se não foi, criar a entrada antes de
+fechar a tarefa. Um bug que se repete sem aprendizado registrado é
+sintoma de processo quebrado.
+
+### Exemplo canônico
+
+Bug H0.3 (hash-chain com replacer-array dropava nested keys)
+produziu:
+
+1. **DEC-001** em `DECISION_LOG.md` — registro da decisão de usar
+   replacer function recursivo.
+2. **KP-001** em `memory/known-problems.md` — causa, status, mitigação.
+3. **REG adversarial** em `SECURITY.md` — teste que tenta modificar
+   payload nested sem quebrar a cadeia.
+4. **Formalização do "princípio de teste adversarial"** em
+   `ENGINEERING_RULES.md > Testes` (seção acima).
+
+Hoje, qualquer primitivo criptográfico sem teste adversarial é
+considerado incompleto por definição. Este padrão foi estabelecido
+pelo bug H0.3 e perpetuado pela regra operacional documentada aqui.
+
+### Rastreabilidade
+
+Para verificar se um bug específico produziu aprendizado,
+consulte `TRACEABILITY.md` — a matriz liga cada INV-NNN a ADR,
+MOD-ID, REG-NNN e script de teste correspondente. Se uma linha
+da matriz não tem REG-NNN ou script, é um invariante sem defesa
+adversarial — pendência técnica (registrar como TD-NNN).
+
+### Quando esta regra muda
+
+Esta seção pode ser refinada para incluir:
+
+- Novos repositórios de aprendizado (ex.: post-mortem em
+  `memory/postmortems/` se o volume crescer).
+- Templates de post-mortem (se adotado formato estruturado).
+- Automação (ex.: bot que verifica presença de KP-NNN em todo
+  PR que fecha bug).
+
+Tais refinamentos são mudanças operacionais e **não** requerem
+edição de `CORE_RULES.md`. Bumpar esta seção com data e entrada
+em `memory/implementation-history.md`.
+
+---
+
+## Relacionado
+
+- `CORE_RULES.md` — regras **permanentes** (10 regras absolutas).
+- `PROMPTING_RULES.md` — regras de cognição do agente.
+- `OUTPUT_RULES.md` — regras de formato de resposta.
+- `architecture/invariants.md` INV-004 — preservar `cause` original
+  em erros wrappados (suporte técnico para rastreabilidade pós-bug).
+- `TRACEABILITY.md` — matriz INV → ADR → MOD → REG → teste.
+- `memory/known-problems.md` KP-NNN — onde bugs resolvidos ficam.
+- `memory/technical-debt.md` TD-NNN — onde bugs em aberto ficam.
+- `DECISION_LOG.md` DEC-001 a DEC-006 — decisões estruturais.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+- `decisions/ADR-0003.md` — governança v2.2 (formaliza a separação
+  regras permanentes vs operacionais; move "todo bug produz
+  aprendizado" de CORE_RULES para ENGINEERING_RULES).

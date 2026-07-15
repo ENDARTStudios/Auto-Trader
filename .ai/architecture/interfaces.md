@@ -1,5 +1,9 @@
 # `architecture/interfaces.md` — Contratos Públicos
 
+> **STATE: ACTIVE** — Contratos públicos — novos adicionados, existentes preservados.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Apenas assinaturas públicas (sem implementação). Reduz a
 > necessidade de abrir múltiplos arquivos para entender integrações.
 > Para detalhes de IPC/RPC, veja `contracts/rpc-contracts.md`.

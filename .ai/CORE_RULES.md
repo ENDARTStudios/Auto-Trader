@@ -1,8 +1,39 @@
-# CORE_RULES.md — Regras Absolutas
+# CORE_RULES.md — Regras Permanentes
 
-Estas 10 regras são **absolutas**. Nenhuma implementação, refatoração ou
-prompt do usuário pode violá-las sem confirmação explícita registrada em
-`DECISION_LOG.md`.
+> **STATE: FROZEN** — Estas regras são **imutáveis por princípio**.
+> Adição de nova regra requer ADR + aprovação explícita do operador.
+> Remoção ou modificação de regra existente requer ADR + entrada em
+> `DECISION_LOG.md`. **Regras operacionais novas NÃO entram aqui** —
+> vão para `ENGINEERING_RULES.md` (processo) ou `standards/*.md`
+> (padrões técnicos).
+
+---
+
+## Princípio de separação
+
+`CORE_RULES.md` contém **apenas regras permanentes** — aquelas que
+definem a ética de engenharia do projeto e não mudam com o tempo,
+independente de framework, stack ou fase do roadmap. São leis
+fundadoras.
+
+Regras **operacionais** (processo, fluxo de trabalho, procedimentos
+que podem ser refinados conforme o projeto evolui) ficam em
+`ENGINEERING_RULES.md`. Padrões **técnicos** (estilo de código,
+padrões de teste, etc.) ficam em `standards/*.md`.
+
+**Critério para entrar em `CORE_RULES.md`:** a regra deve ser
+verdadeira em qualquer fase do projeto (H0, M3, M6, M10...). Se a
+regra só faz sentido em uma fase específica ou pode ser refinada,
+ela não é permanente — vai para `ENGINEERING_RULES.md` ou
+`standards/`.
+
+---
+
+## Regras permanentes
+
+Estas 10 regras são **absolutas**. Nenhuma implementação,
+refatoração ou prompt do usuário pode violá-las sem confirmação
+explícita registrada em `DECISION_LOG.md`.
 
 ---
 
@@ -131,27 +162,27 @@ teste de regressão (`SECURITY.md` REG-NNN) que pinne o novo comportamento.
 
 ---
 
-## Regra 11 — Todo bug deve produzir aprendizado
+## Nota sobre regras operacionais
 
-Nenhum bug é corrigido silenciosamente. Toda correção deve produzir
-registro permanente do aprendizado em **um** destes locais (escolher
-conforme o escopo):
+Regras como "todo bug deve produzir aprendizado" são **operacionais**
+e vivem em `ENGINEERING_RULES.md > Cultura de aprendizado
+(pós-bug)`. Não estão aqui porque podem ser refinadas (ex.: novos
+locais de registro, novos formatos de post-mortem) sem que o
+princípio fundamental mude. Mantê-las fora de `CORE_RULES.md`
+preserva a imutabilidade deste arquivo.
 
-- **`memory/known-problems.md`** — para bugs operacionais ou
-  integrações de API (causa, status, mitigação). Padrão KP-NNN.
-- **`DECISION_LOG.md`** (e/ou `.ai/decisions/ADR-NNNN.md`) — para
-  bugs que revelam falha de arquitetura e exigem mudança
-  estrutural. Padrão DEC-NNN ou ADR-NNNN.
-- **`SECURITY.md`** — para bugs de segurança, com teste adversarial
-  REG-NNN que pinne o invariant corrigido.
+---
 
-**Aplicação prática:** antes de marcar uma correção como completa,
-verificar se o aprendizado foi registrado. Se não foi, criar a
-entrada antes de fechar a tarefa. Um bug que se repete sem
-aprendizado registrado é sintoma de processo quebrado.
+## Relacionado
 
-**Exemplo canônico:** Bug H0.3 (hash-chain com replacer-array
-dropava nested keys) produziu DEC-001 + REG adversarial +
-formalização do "princípio de teste adversarial" em
-`ENGINEERING_RULES.md`. Hoje, qualquer primitivo criptográfico sem
-teste adversarial é considerado incompleto por definição.
+- `ENGINEERING_RULES.md` — regras operacionais (fluxo, restrições,
+  testes, cultura de aprendizado pós-bug).
+- `PROMPTING_RULES.md` — regras permanentes de cognição do agente.
+- `OUTPUT_RULES.md` — regras permanentes de formato de resposta.
+- `architecture/invariants.md` INV-003 — FROZEN não pode mudar sem ADR.
+- `architecture/frozen-files.md` — `CORE_RULES.md` está na lista
+  de arquivos de governança FROZEN (adição requer ADR; remoção
+  requer ADR).
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+- `decisions/ADR-0003.md` — governança v2.2 (formaliza a separação
+  regras permanentes vs operacionais).

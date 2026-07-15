@@ -1,5 +1,9 @@
 # PROMPTING_RULES.md — Uso de Contexto, Ambiguidade e Raciocínio
 
+> **STATE: FROZEN** — Regras permanentes de cognição do agente.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 ## Context Window
 
 Sempre aproveitar o **máximo possível** da janela de contexto disponível.

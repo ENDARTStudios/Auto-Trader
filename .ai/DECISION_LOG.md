@@ -1,5 +1,9 @@
 # DECISION_LOG.md — Registro de Decisões Arquiteturais
 
+> **STATE: APPEND-ONLY** — Entradas DEC-NNN nunca removidas; reversão = nova entrada.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > **Regra:** toda decisão arquitetural relevante deve ser registrada aqui
 > com os campos abaixo. Apenas adicionar — nunca remover entradas antigas
 > (mesmo que a decisão tenha sido revertida; registre a reversão como
@@ -248,6 +252,92 @@
   (e) versionamento explícito da própria governança. Sem estes
   5 elementos, governança tende a crescer desordenada e gerar
   duplicação. Formalizado em `MANIFEST.md`.
+
+---
+
+## DEC-007 — Project OS v2.2: TRACEABILITY, IDS, tests.md, MOD-IDs, STATE markers (2026-07-16)
+
+- **Data:** 2026-07-16.
+- **Motivo:** v2.1 do Project OS resolveu duplicação e crescimento
+  desordenado via IDs canônicos e MANIFEST/CHECKLIST, mas não
+  endereçou rastreabilidade completa entre invariantes, decisões,
+  módulos, regressões e testes. Sete lacunas identificadas após
+  um ciclo de uso operacional: (1) `CORE_RULES.md` crescia com
+  regras operacionais; (2) módulos sem IDs padronizados; (3) sem
+  matriz de rastreabilidade; (4) testes sem catálogo; (5)
+  documentação sem estado explícito; (6) sem diagrama de árvore
+  de dependências; (7) IDs espalhados sem catálogo consolidado.
+- **Arquivos envolvidos:**
+  - **Criados:** `.ai/IDS.md`, `.ai/TRACEABILITY.md`, `.ai/tests.md`,
+    `.ai/decisions/ADR-0003.md`, `scripts/add-state-markers.py`.
+  - **Editados:** `.ai/CORE_RULES.md` (Regra 11 movida para
+    ENGINEERING_RULES; adicionado "Princípio de separação"),
+    `.ai/ENGINEERING_RULES.md` (adicionada seção "Cultura de
+    aprendizado (pós-bug)"), `.ai/architecture/modules.md`
+    (coluna MOD-ID em todas as tabelas; placeholders M6/M7/M8),
+    `.ai/architecture/dependencies.md` (diagrama de árvore
+    canônica ASCII), `.ai/PROJECT_STATE.md` (bump v2.1 → v2.2),
+    `.ai/INDEX.md` (MOD- na tabela de prefixos; IDS/TRACEABILITY/
+    tests na seção MANIFEST & NAVIGATION; ADR-0003 na tabela
+    DECISIONS), `.ai/README.md` (ponto de entrada atualizado;
+    sequência obrigatória expandida para 14 passos).
+  - **STATE markers adicionados:** 33 arquivos de governança
+    receberam marker (FROZEN/ACTIVE/SNAPSHOT/APPEND-ONLY) via
+    script `scripts/add-state-markers.py` (idempotente,
+    persistido).
+- **Alternativas descartadas:**
+  - Manter v2.1 sem mudanças — descartado: lacunas de
+    rastreabilidade são críticas para M6 (live trading).
+  - Apenas IDS + TRACEABILITY sem MOD-IDs — descartado: matriz
+    sem MOD-IDs é ambígua ("qual módulo implementa INV-002?").
+  - Substituir `CORE_RULES.md` por `PERMANENT_RULES.md` +
+    `OPERATIONAL_RULES.md` — descartado: fragmentação sem
+    benefício; melhor manter `CORE_RULES.md` como permanente e
+    direcionar regras operacionais para `ENGINEERING_RULES.md`.
+  - SemVer (v2.2.0) — descartado: Project OS é governança
+    qualitativa, não código.
+  - Diagrama Mermaid em vez de ASCII — descartado: ASCII é
+    resiliente em qualquer editor/diff.
+- **Justificativa:** v2.2 fecha as 7 lacunas com mudanças
+  incrementais e backwards-compatible. Não altera arquitetura
+  do projeto (H0–M5), apenas governança do `.ai/`. MOD-IDs são
+  pré-requisito para TRACEABILITY; STATE markers são
+  complementares (declarar imutabilidade); diagrama ASCII
+  elimina ambiguidade topológica. `CORE_RULES.md` reduzido a
+  regras permanentes preserva imutabilidade a longo prazo.
+- **Impacto:**
+  - `PROJECT_STATE.md` agora declara `Project OS: v2.2`.
+  - `CORE_RULES.md` tem 10 regras permanentes (antes 11);
+    Regra 11 movida para `ENGINEERING_RULES.md` como seção
+    operacional "Cultura de aprendizado (pós-bug)".
+  - `architecture/modules.md` agora tem coluna MOD-ID em todas
+    as tabelas (chain H0→M5 + trading + API + UI + placeholders
+    M6/M7/M8).
+  - `architecture/dependencies.md` abre com diagrama ASCII
+    canônico (Pipeline → SignerAdapter → Signer RPC → Writer
+    Lease → LeasedBroadcaster → Broadcaster → RPC Quorum →
+    Blockchain → Audit Log).
+  - `TRACEABILITY.md` matriz principal cobre 10 INV-NNN;
+    tabela inversa cobre 18 REG-NNN; cobertura por módulo
+    cobre 22 MOD-IDs; 5 lacunas identificadas (INV-008/009/010
+    sem REG adversarial; MOD-H1.1 e MOD-M5.4 sem REG direto).
+  - `tests.md` cataloga 24 scripts (1.487 asserts, 15.759
+    linhas); 8 de 10 INV têm teste direto (INV-003 procedural,
+    INV-004 indireto).
+  - `IDS.md` lista todos os IDs em 9 categorias: ADR (3), DEC
+    (7), INV (10), MOD (~45), REG (18), STD (41+), TD (12), KP
+    (11), FI (13 ativas + 3 descartadas).
+  - 37 arquivos de governança têm STATE marker explícito.
+- **REG-NNN associados:** (não aplicável — mudança de governança,
+  não de segurança).
+- **Status:** Ativa.
+- **Lição permanente:** Toda camada de governança precisa de
+  rastreabilidade completa entre seus elementos. IDs canônicos
+  por categoria resolvem consistência de referência, mas não
+  resolvem rastreabilidade — é possível ter IDs consistentes
+  sem matriz que mostre como eles se relacionam. Os 5 elementos
+  (INV, ADR, MOD, REG, teste) formam cadeia; quebrar qualquer
+  elo é pendência técnica. Formalizado em `TRACEABILITY.md`.
 
 ---
 

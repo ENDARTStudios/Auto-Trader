@@ -1,5 +1,9 @@
 # `context/terminology.md` — Terminologia Interna do Projeto
 
+> **STATE: ACTIVE** — Termos podem ser adicionados; rename requer ADR.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > **Divisão de responsabilidade (vs `glossary.md`):**
 >
 > - **`terminology.md` (este arquivo):** convenções internas do

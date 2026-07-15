@@ -1,5 +1,9 @@
 # `.ai/` — Índice Geral
 
+> **STATE: ACTIVE** — Índice completo — reindexado quando arquivos mudam.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Ponto de entrada único para toda a memória operacional do projeto.
 > Use este índice para navegação humana e leitura automática pelo
 > modelo. A ordem abaixo reflete a **precedência semântica** (não a
@@ -7,7 +11,7 @@
 > atual, depois arquitetura, depois contratos, depois padrões,
 > depois contexto, depois memória, depois decisões.
 >
-> **Versão vigente:** Project OS v2.1 (ver `PROJECT_STATE.md`).
+> **Versão vigente:** Project OS v2.2 (ver `PROJECT_STATE.md`).
 
 ---
 
@@ -23,11 +27,16 @@ supercedidos mantêm o ID original com nota
 | `INV-`   | Invariantes arquiteturais                     | `architecture/invariants.md`                       |
 | `ADR-`   | Architecture Decision Records (4 dígitos)     | `decisions/ADR-NNNN.md`                            |
 | `DEC-`   | Decisões (resumos curtos)                     | `DECISION_LOG.md`                                  |
+| `MOD-`   | Módulos (código + responsabilidade)           | `architecture/modules.md`                          |
 | `TD-`    | Débitos técnicos                              | `memory/technical-debt.md`                         |
 | `KP-`    | Problemas conhecidos                          | `memory/known-problems.md`                         |
 | `STD-`   | Padrões de engenharia                         | `standards/*.md`                                   |
 | `REG-`   | Regressões de segurança (testes adversariais) | `SECURITY.md` (raiz do projeto)                    |
 | `FI-`    | Ideias futuras                                | `memory/future-ideas.md`                           |
+
+> **Catálogo consolidado de IDs:** `IDS.md` lista todos os IDs
+> emitidos com ponteiro para o arquivo-fonte. Ver também
+> `TRACEABILITY.md` para a matriz INV → ADR → MOD → REG → teste.
 
 ---
 
@@ -63,6 +72,9 @@ Todo novo documento deve:
 | `README.md`        | (índice)   | Índice mínimo humano (responde "onde cada informação fica"). |
 | `INDEX.md`         | (este)     | Índice completo com IDs, descrições e regra de cross-link.   |
 | `CHECKLIST.md`     | (checklist)| Checklist obrigatório pré-implementação (7 fases).           |
+| `IDS.md`           | (catálogo) | Catálogo consolidado de todos os IDs (ADR/DEC/INV/MOD/REG/STD/TD/KP/FI). |
+| `TRACEABILITY.md`  | (matriz)   | Matriz INV → ADR → MOD → REG → script de teste.              |
+| `tests.md`         | (catálogo) | Catálogo de testes por milestone (H0/H1/H2/M3/M4/M5).        |
 
 ---
 
@@ -70,8 +82,8 @@ Todo novo documento deve:
 
 | Arquivo                | ID         | Função                                                       |
 | ---------------------- | ---------- | ------------------------------------------------------------ |
-| `CORE_RULES.md`        | (regras)   | 11 regras absolutas (leis permanentes do projeto).           |
-| `ENGINEERING_RULES.md` | (fluxo)    | Fluxo: Ler → Mapear → Planejar → Executar → Validar → Documentar. |
+| `CORE_RULES.md`        | (regras)   | 10 regras permanentes (leis imutáveis do projeto).           |
+| `ENGINEERING_RULES.md` | (fluxo)    | Fluxo + regras operacionais (incl. cultura pós-bug).         |
 | `PROMPTING_RULES.md`   | (regras)   | Uso de contexto + ambiguidade + raciocínio + idioma.         |
 | `OUTPUT_RULES.md`      | (regras)   | Formato obrigatório de 7 seções para toda resposta técnica.  |
 
@@ -173,6 +185,7 @@ Ordem de leitura: `CORE_RULES` → `ENGINEERING_RULES` → `PROMPTING_RULES` →
 | --------------------- | -------- | ------------------------------------------------------------ |
 | `decisions/ADR-0001.md`| ADR-0001 | Arquitetura defense-in-depth canônica (H0 → M5).            |
 | `decisions/ADR-0002.md`| ADR-0002 | Project OS v2.1: MANIFEST, CHECKLIST, IDs, cross-links, snapshot puro. |
+| `decisions/ADR-0003.md`| ADR-0003 | Project OS v2.2: TRACEABILITY, IDS, tests.md, MOD-IDs, STATE markers. |
 | (futuros)             | ADR-NNNN | Próximos ADRs seguem numeração sequencial.                  |
 
 > ADRs são append-only. Cada ADR documenta uma decisão arquitetural

@@ -1,5 +1,9 @@
 # `contracts/api-contracts.md` — Contratos HTTP API
 
+> **STATE: FROZEN** — Contrato HTTP — breaking change requer ADR + bump.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Endpoints HTTP expostos pelo Next.js App Router. Antes de alterar
 > qualquer rota, consultar este arquivo para entender o contrato
 > público. Mudanças breaking (remoção de campo, mudança de método,

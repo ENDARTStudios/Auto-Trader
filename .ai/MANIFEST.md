@@ -1,5 +1,9 @@
 # MANIFEST.md — Manifesto do Project OS
 
+> **STATE: FROZEN** — Declaração de princípios do Project OS.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > **Versão atual:** Project OS v2.1 (ver `PROJECT_STATE.md` >
 > `Project OS` para a versão vigente; ver `decisions/ADR-0002.md`
 > para o histórico de mudanças estruturais).

@@ -1,5 +1,9 @@
 # `standards/coding-style.md` — Estilo de Código
 
+> **STATE: ACTIVE** — Padrões de estilo — refináveis com novas lições.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Regras detalhadas de estilo. `ENGINEERING_RULES.md` é o resumo
 > executivo; este arquivo é a referência completa. Aplica-se a
 > TypeScript, React (TSX) e scripts Node.

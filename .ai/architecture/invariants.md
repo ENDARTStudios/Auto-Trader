@@ -1,5 +1,9 @@
 # `architecture/invariants.md` — Garantias Arquiteturais
 
+> **STATE: FROZEN** — Garantias arquiteturais — alteração requer ADR.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Invariantes são **regras que raramente mudam** e servem como
 > garantias arquiteturais. Diferem de `CORE_RULES.md` (que são regras
 > de processo) e de `frozen-files.md` (que é lista de arquivos

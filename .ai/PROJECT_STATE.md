@@ -1,5 +1,9 @@
 # PROJECT_STATE.md — Snapshot Puro do Estado Atual
 
+> **STATE: SNAPSHOT** — Snapshot puro — reescrito a cada mudança de estado.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > **Este arquivo é APENAS o snapshot corrente do projeto.**
 > Não contém roadmap, decisões nem histórico. Tudo else é
 > referência para a fonte canônica.
@@ -9,10 +13,25 @@
 ## Versão do Project OS
 
 ```
-Project OS  : v2.1
+Project OS  : v2.2
 Atualizado  : 2026-07-16
-Ver ADR-0002 para a última mudança estrutural.
+Ver ADR-0003 para a última mudança estrutural.
 ```
+
+**Mudanças v2.1 → v2.2 (resumo — detalhes em ADR-0003):**
+
+- Novos arquivos: `IDS.md`, `TRACEABILITY.md`, `tests.md`.
+- MOD-IDs introduzidos em `architecture/modules.md` (cobrem todos
+  os módulos do projeto, H0 → M5 + camadas trading/API/UI +
+  placeholders M6/M7/M8).
+- STATE markers (FROZEN / ACTIVE / SNAPSHOT / APPEND-ONLY)
+  adicionados a todos os arquivos de governança.
+- Diagrama de árvore canônica de dependências adicionado a
+  `architecture/dependencies.md`.
+- `CORE_RULES.md` reduzido a regras permanentes (10 regras);
+  Regra 11 ("todo bug produz aprendizado") movida para
+  `ENGINEERING_RULES.md > Cultura de aprendizado (pós-bug)`.
+- ADR-0003 e DEC-007 registram a transição.
 
 ---
 

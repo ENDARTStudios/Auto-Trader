@@ -1,5 +1,9 @@
 # `standards/testing.md` — Padrões de Teste
 
+> **STATE: ACTIVE** — Padrões de teste — refináveis com novos REG-NNN.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Regras detalhadas de teste. `ENGINEERING_RULES.md` >
 > "Princípio de teste adversarial" é o resumo executivo; este
 > arquivo é a referência completa.

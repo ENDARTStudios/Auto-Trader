@@ -1,10 +1,14 @@
 # `.ai/` — Project Operating System
 
+> **STATE: ACTIVE** — Índice mínimo — reindexado quando estrutura muda.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 Memória operacional permanente do projeto. Não explica regras —
 apenas responde **onde cada informação fica**. Para regras, leia
 os arquivos referenciados.
 
-**Versão vigente:** Project OS v2.1 (ver `PROJECT_STATE.md`).
+**Versão vigente:** Project OS v2.2 (ver `PROJECT_STATE.md`).
 
 ---
 
@@ -14,13 +18,16 @@ os arquivos referenciados.
 MANIFEST.md           → princípios do Project OS (leia primeiro)
 INDEX.md              → índice completo com IDs e descrições
 CHECKLIST.md          → checklist obrigatório pré-implementação
+IDS.md                → catálogo consolidado de todos os IDs
+TRACEABILITY.md       → matriz INV → ADR → MOD → REG → teste
+tests.md              → catálogo de testes por milestone
 ```
 
 ## Regras absolutas
 
 ```
-CORE_RULES.md         → 11 regras absolutas
-ENGINEERING_RULES.md  → fluxo: Ler → Mapear → Planejar → Executar → Validar → Documentar
+CORE_RULES.md         → 10 regras permanentes (imutáveis)
+ENGINEERING_RULES.md  → fluxo + regras operacionais (incl. cultura pós-bug)
 PROMPTING_RULES.md    → uso de contexto, ambiguidade, raciocínio, idioma
 OUTPUT_RULES.md       → formato de 7 seções para respostas técnicas
 ```
@@ -58,9 +65,11 @@ decisions/            → ADR-NNNN.md (Architecture Decision Records)
 7. architecture/invariants.md
 8. architecture/frozen-files.md
 9. architecture/interfaces.md + contracts/<relacionados>
-10. Ler código necessário (escopo mínimo)
-11. Implementar seguindo TASK_TEMPLATE.md
-12. Validar + Documentar (ver CHECKLIST.md Fases 5-7)
+10. IDS.md + TRACEABILITY.md (verificar IDs e testes do escopo)
+11. tests.md (verificar quais testes cobrem o módulo a alterar)
+12. Ler código necessário (escopo mínimo)
+13. Implementar seguindo TASK_TEMPLATE.md
+14. Validar + Documentar (ver CHECKLIST.md Fases 5-7)
 ```
 
 ## Precedência em conflito

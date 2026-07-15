@@ -1,5 +1,9 @@
 # `architecture/frozen-files.md` — Lista Canônica de Arquivos FROZEN
 
+> **STATE: ACTIVE** — Lista canônica — transições FROZEN↔ACTIVE registradas em DEC-NNN.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Arquivos FROZEN são imutáveis por padrão (Regra 8 de
 > `CORE_RULES.md`). Qualquer alteração requer ADR + entrada em
 > `DECISION_LOG.md` + aprovação explícita do operador.

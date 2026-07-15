@@ -1,5 +1,9 @@
 # CHECKLIST.md — Checklist Obrigatório Pré-Implementação
 
+> **STATE: ACTIVE** — Checklist operacional — refinável conforme processo evolui.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > **Regra absoluta:** nenhum agente (GLM, Claude, ChatGPT, ou
 > outro) deve iniciar implementação sem antes completar todos os
 > itens abaixo. Pular etapas viola `CORE_RULES.md` Regra 1 e

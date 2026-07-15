@@ -1,5 +1,9 @@
 # `context/project-summary.md` — Resumo do Projeto
 
+> **STATE: FROZEN** — Identidade do projeto — mudança exige ADR.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Página única de contexto imutável. Objetivos, escopo,
 > tecnologias, arquitetura em alto nível. Para detalhes, veja
 > arquivos em `architecture/`, `contracts/`, `standards/`.

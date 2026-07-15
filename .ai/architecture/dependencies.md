@@ -1,5 +1,9 @@
 # `architecture/dependencies.md` — Quem Depende de Quem
 
+> **STATE: ACTIVE** — mapa de dependências evolui quando módulos
+> são adicionados ou relações de consumo mudam (ex.: M6 introduz
+> novos harnesses).
+>
 > Mapa de dependências entre módulos. Use para calcular **blast
 > radius** antes de alterar qualquer símbolo público.
 > Símbolos marcados ⚠️ têm muitos consumers — alterar com cautela
@@ -7,26 +11,142 @@
 
 ---
 
+## Árvore canônica de dependências (top-level)
+
+O fluxo abaixo é a **única topologia aceita** em runtime. Qualquer
+desvio desta árvore viola `architecture/invariants.md` INV-001 e
+requer ADR. MOD-IDs referenciam `architecture/modules.md`.
+
+```
+                    Market Data
+                         │
+                         ▼
+                  ┌─────────────┐
+                  │  Pipeline   │   MOD-H2.6  (FROZEN)
+                  │  .process() │   src/lib/chain/pipeline.ts
+                  └──────┬──────┘
+                         │
+        ┌────────────────┼─────────────────────┐
+        ▼                ▼                     ▼
+  ┌──────────┐    ┌────────────┐        ┌──────────────┐
+  │ Sim Gate │    │ Contract   │        │ Liquidity    │
+  │ MOD-H1.2 │    │ Verify     │        │ Verify       │
+  │          │    │ MOD-H2.1   │        │ MOD-H2.2     │
+  └────┬─────┘    └─────┬──────┘        └──────┬───────┘
+       │                │                      │
+       │     ┌──────────┴───────────┐          │
+       │     │                      │          │
+       ▼     ▼                      ▼          ▼
+  ┌──────────────┐          ┌──────────────┐  ┌──────────────┐
+  │ Approval     │          │ Token        │  │ Sell         │
+  │ Hardening    │          │ Authority    │  │ Simulation   │
+  │ MOD-H1.3     │          │ MOD-H2.3     │  │ MOD-H2.4     │
+  └──────┬───────┘          └──────┬───────┘  └──────┬───────┘
+         │                         │                 │
+         └────────────┬────────────┴─────────────────┘
+                      │
+                      ▼
+              ┌────────────────┐
+              │  MEV Baseline  │   MOD-H1.4
+              │  (sandwich)    │
+              └────────┬───────┘
+                       │
+                       ▼
+              ┌────────────────┐
+              │ SignerAdapter  │   MOD-M3.1
+              │  .submit()     │   (FROZEN)
+              └────────┬───────┘
+                       │ IPC binário (signer-protocol.ts FROZEN)
+                       ▼
+              ┌────────────────┐
+              │  Signer RPC    │   MOD-M3.2  (FROZEN)
+              │  (processo     │   segura chave privada
+              │   isolado)     │   src/signer/
+              └────────┬───────┘
+                       │ signedTx: string
+                       ▼
+              ┌────────────────┐
+              │ Writer Lease   │   MOD-M4.1  (FROZEN)
+              │  .acquire()    │   fencing token monotônico
+              │  .renew()      │   (Kleppmann pattern)
+              │  .release()    │
+              └────────┬───────┘
+                       │ LeaseToken { fence, owner, expires }
+                       ▼
+              ┌────────────────────────┐
+              │ LeasedBroadcaster      │   MOD-M4.2  (FROZEN)
+              │  verifyToken() THEN    │
+              │  delegate to Broadcaster│
+              └────────┬───────────────┘
+                       │
+                       ▼
+              ┌────────────────┐
+              │  Broadcaster   │   MOD-M3.3  (FROZEN)
+              │  .broadcast()  │   prefixa erros BROADCAST_*
+              └────────┬───────┘
+                       │
+                       ▼
+              ┌────────────────┐
+              │ RPC Quorum     │   MOD-H1.1  (FROZEN)
+              │ retry +        │   quorum + circuit breaker
+              │ fallback       │
+              └────────┬───────┘
+                       │
+                       ▼
+                  Blockchain
+                       │
+                       ▼
+              ┌────────────────┐
+              │  Audit Log     │   MOD-H0  (FROZEN)
+              │  hash-chain    │   entrada append-only
+              │  (todas as    │   (INV-005 — exatamente uma
+              │   fases       │    entrada por operação)
+              │   auditam)    │
+              └────────────────┘
+```
+
+### Resumo linear (sequência de execução)
+
+```
+Market Data
+  → Pipeline (MOD-H2.6)
+  → SignerAdapter (MOD-M3.1)
+  → Signer RPC (MOD-M3.2)
+  → Writer Lease (MOD-M4.1)
+  → LeasedBroadcaster (MOD-M4.2)
+  → Broadcaster (MOD-M3.3)
+  → RPC Quorum (MOD-H1.1)
+  → Blockchain
+  → Audit Log (MOD-H0, observado em paralelo por todos os módulos)
+```
+
+> Este diagrama substitui ambiguidades textuais. Quando em dúvida
+> sobre "quem chama quem", consulte esta árvore — ela é a fonte
+> canônica. Para o fluxo runtime completo com eventos de audit em
+> cada etapa, veja `architecture/runtime.md`.
+
+---
+
 ## Camada de Chain — dependências internas
 
 ```
-Pipeline
-  ├── SimulationGate        (H1.2)
-  ├── ContractVerification  (H2.1)
-  ├── LiquidityVerification (H2.2)
-  ├── TokenAuthority        (H2.3)
-  ├── SellSimulation        (H2.4)
-  ├── ApprovalHardening     (H1.3)
-  ├── MEVBaseline           (H1.4)
-  ├── SignerAdapter         (M3.1)
+Pipeline (MOD-H2.6)
+  ├── SimulationGate        (MOD-H1.2)
+  ├── ContractVerification  (MOD-H2.1)
+  ├── LiquidityVerification (MOD-H2.2)
+  ├── TokenAuthority        (MOD-H2.3)
+  ├── SellSimulation        (MOD-H2.4)
+  ├── ApprovalHardening     (MOD-H1.3)
+  ├── MEVBaseline           (MOD-H1.4)
+  ├── SignerAdapter         (MOD-M3.1)
   │     └── signer-protocol (IPC binário, FROZEN)
-  ├── WriterLease           (M4)
+  ├── WriterLease           (MOD-M4.1)
   │     └── LeaseStore      (interface; InMemoryLeaseStore default)
-  ├── LeasedBroadcaster     (M4)
-  │     ├── Broadcaster     (M3.3)
-  │     │     └── rpc-resilience (H1.1, RPC quorum)
+  ├── LeasedBroadcaster     (MOD-M4.2)
+  │     ├── Broadcaster     (MOD-M3.3)
+  │     │     └── rpc-resilience (MOD-H1.1, RPC quorum)
   │     └── WriterLease.verifyToken()
-  └── audit-log             (H0, hash-chain)
+  └── audit-log             (MOD-H0, hash-chain)
 ```
 
 ### Blast radius por módulo
@@ -186,12 +306,16 @@ extremamente arriscado. Sempre que possível:
 
 ## Relacionado
 
-- `architecture/modules.md` — lista completa de módulos.
+- `IDS.md` — catálogo consolidado de IDs (inclui todos os MOD-NNN).
+- `TRACEABILITY.md` — matriz INV → ADR → MOD → REG → teste.
+- `architecture/modules.md` — lista completa de módulos com MOD-IDs.
 - `architecture/frozen-files.md` — módulos FROZEN têm dependências travadas.
 - `architecture/interfaces.md` — contratos que definem as dependências.
+- `architecture/runtime.md` — fluxo canônico com eventos de audit por etapa.
 - `CORE_RULES.md` Regra 6 — identificar dependentes antes de alterar.
 - `ENGINEERING_RULES.md` — mapear dependências é etapa obrigatória do fluxo.
 - `DECISION_LOG.md` DEC-005 — exemplo de mudança que tocou dependência (Broadcaster → LeasedBroadcaster).
 - `memory/technical-debt.md` TD-001 — duplicação chain/runtime.ts vs runtime/runtime.ts.
 - `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+- `decisions/ADR-0003.md` — governança v2.2 (introduz diagrama de árvore canônico).
 

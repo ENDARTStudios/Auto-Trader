@@ -1,5 +1,9 @@
 # memory/known-problems.md — Problemas Conhecidos
 
+> **STATE: APPEND-ONLY** — KP-NNN resolvido ganha nota; nunca removido.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Problemas conhecidos, causa, status, mitigação. Append-only.
 > Para bugs que viraram aprendizado arquitectural ver
 > `DECISION_LOG.md`.

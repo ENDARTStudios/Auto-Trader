@@ -2515,3 +2515,43 @@ Stage Summary:
 - Total de arquivos .ai/ após v2.1: 37 (antes 34).
 - Estrutura final: 11 raiz + 7 architecture + 4 contracts + 5 standards + 4 context + 4 memory + 2 decisions.
 - Estado do projeto (código): inalterado. M5 continua concluído. Próximo milestone: M6 (Live Trading com canaryPct ramp).
+
+---
+Task ID: project-os-v2.2
+Agent: main (Super Z)
+Task: Aplicar 7 refinamentos do operador ao Project OS (v2.1 → v2.2): (1) separar regras permanentes de operacionais em CORE_RULES, (2) criar MOD-IDs para todos os módulos, (3) criar TRACEABILITY.md matriz INV→ADR→MOD→REG→teste, (4) criar tests.md catálogo de testes por milestone, (5) adicionar STATE markers FROZEN/ACTIVE/SNAPSHOT/APPEND-ONLY a todos os arquivos de governança, (6) adicionar diagrama de árvore canônica de dependências em dependencies.md, (7) criar IDS.md catálogo consolidado de IDs.
+
+Work Log:
+- Lido prompt do operador com 7 refinamentos para v2.2. Cada refinamento endereça uma lacuna de rastreabilidade identificada após um ciclo de uso operacional de v2.1.
+- Lidos arquivos-chave de .ai/ para entender estado atual: CORE_RULES.md (11 regras, incluindo Regra 11 operacional), ENGINEERING_RULES.md, architecture/modules.md (sem MOD-IDs), architecture/dependencies.md (sem diagrama top-level), architecture/invariants.md (INV-001 a INV-010), PROJECT_STATE.md (v2.1), INDEX.md, README.md, DECISION_LOG.md (DEC-001 a DEC-006), MANIFEST.md, ADR-0002.md (formato de ADR), known-problems.md (KP-001 a KP-011), technical-debt.md (TD-001 a TD-012), future-ideas.md (FI-001 a FI-013 + 3 descartadas), SECURITY.md (REG-001 a REG-018), frozen-files.md, standards/testing.md.
+- Listados scripts/ — identificados 24 scripts test-*.ts com contagem de asserts via grep (1.487 asserts total, 15.759 linhas).
+- Aplicado Refinement #2 (MOD-IDs): editado architecture/modules.md com coluna MOD-ID em todas as tabelas. Adicionada seção "MOD-ID Convention" explicando padrão. ~45 MOD-IDs emitidos: MOD-H0, MOD-H1.1-H1.4, MOD-H2.1-H2.4, MOD-H2.6, MOD-M3.1-M3.3, MOD-M4.1-M4.2, MOD-M5.0-M5.6, MOD-M5.5-{M,R,S,E}, MOD-TR-*, MOD-API-*, MOD-UI-*, MOD-M6/M7/M8 (placeholders).
+- Aplicado Refinement #1 (separação regras): editado CORE_RULES.md — removida Regra 11 ("todo bug deve produzir aprendizado") que era operacional; adicionado "Princípio de separação" no topo declarando o critério para regras permanentes; CORE_RULES.md agora tem 10 regras permanentes; marcado STATE: FROZEN. Adicionada seção "Cultura de aprendizado (pós-bug)" em ENGINEERING_RULES.md com o conteúdo da antiga Regra 11, declarada como operacional e refinável; marcado STATE: ACTIVE.
+- Aplicado Refinement #6 (diagrama de árvore): editado architecture/dependencies.md — adicionado diagrama ASCII top-level no início do arquivo mostrando Market Data → Pipeline → SignerAdapter → Signer RPC → Writer Lease → LeasedBroadcaster → Broadcaster → RPC Quorum → Blockchain → Audit Log. Cada nó tem MOD-ID e estado FROZEN. Diagrama declarado "única topologia aceita" — desvio viola INV-001. Adicionado resumo linear abaixo. Atualizado diagrama existente (Camada de Chain) com MOD-IDs.
+- Aplicado Refinement #5 (STATE markers): escrito script /home/z/my-project/scripts/add-state-markers.py (persistido, idempotente, Rule 9). Script define vocabulário (FROZEN, ACTIVE, DRAFT, APPEND-ONLY, SNAPSHOT) e targets com descrição. Executado: 33 arquivos modificados, 4 já tinham markers, 0 missing. Total de 37 arquivos de governança com STATE explícito após v2.2.
+- Aplicado Refinement #7 (IDS.md): criado .ai/IDS.md (~250 linhas) com catálogo consolidado de todos os IDs em 9 categorias: ADR (3), DEC (7), INV (10), MOD (~45 com sub-tabelas por camada), REG (18), STD (5 blocos), TD (12), KP (11), FI (13 ativas + 3 descartadas). Cada ID tem título, arquivo-fonte, status. Regras de manutenção: adicionar entrada ao criar ID, nunca remover, numeração sequencial por bloco.
+- Aplicado Refinement #3 (TRACEABILITY.md): criado .ai/TRACEABILITY.md (~200 linhas) com matriz principal INV → ADR → MOD → REG → script de teste cobrindo 10 INV-NNN. Tabela inversa REG → INV cobrindo 18 REG-NNN. Cobertura por módulo cobrindo 22 MOD-IDs. 5 lacunas identificadas (INV-008/009/010 sem REG adversarial; MOD-H1.1 e MOD-M5.4 sem REG direto) — pendências a registrar como TD-NNN. Seção "Como usar" documenta 3 cenários canônicos. Diagrama ASCII da cadeia de rastreabilidade.
+- Aplicado Refinement #4 (tests.md): criado .ai/tests.md (~220 linhas) catalogando 24 scripts test-*.ts por milestone (H0, H1, H2, M3, M4, M5). Para cada teste: script, asserts, linhas, cobertura (MOD-ID + INV-NNN + REG-NNN), responsável histórico. Tabela consolidada mostra total por milestone (24 scripts, 1.487 asserts, 15.759 linhas). Tabela de cobertura por invariante mostra quais INV têm teste direto (8 de 10). Seção "Pendências" lista REG-019/020/021/022/023 propostos. Comandos para rodar testes individuais e suite completa.
+- Atualizado PROJECT_STATE.md: bumpado v2.1 → v2.2; adicionado resumo das mudanças v2.1 → v2.2.
+- Atualizado INDEX.md: adicionado MOD- à tabela de prefixos; adicionados IDS/TRACEABILITY/tests à seção MANIFEST & NAVIGATION; atualizada contagem de regras (11→10); adicionado ADR-0003 à tabela DECISIONS; bumpado versão vigente para v2.2.
+- Atualizado README.md: bumpado versão vigente para v2.2; adicionados IDS/TRACEABILITY/tests ao ponto de entrada; atualizada contagem de regras; adicionados passos 10-11 (IDS+TRACEABILITY, tests) à sequência obrigatória (agora 14 passos).
+- Criado .ai/decisions/ADR-0003.md (~250 linhas) documentando a transição v2.1 → v2.2 com Contexto (7 lacunas), Decisão (7 mudanças), Alternativas descartadas (5), Consequências (positivas e negativas), Implementação (arquivos criados/editados), Validação (10 checks), Rollback, Lição permanente.
+- Adicionado DEC-007 ao .ai/DECISION_LOG.md com resumo completo da mudança v2.2 (motivo, arquivos, alternativas, justificativa, impacto, lição permanente). Ordem do placeholder "[Entradas futuras]" corrigida para ficar após DEC-007.
+- Adicionada entrada datada (2026-07-16) ao .ai/memory/implementation-history.md descrevendo a transição v2.2 com detalhamento dos 7 refinamentos.
+- Nenhum arquivo FROZEN do código-fonte foi tocado. Nenhuma dependência adicionada. Nenhum arquivo renomeado. Escopo mínimo respeitado.
+
+Stage Summary:
+- Project OS bumpado: v2.1 → v2.2.
+- 5 arquivos criados: .ai/IDS.md, .ai/TRACEABILITY.md, .ai/tests.md, .ai/decisions/ADR-0003.md, scripts/add-state-markers.py.
+- 8 arquivos editados de forma direcionada: CORE_RULES.md (Regra 11 movida, STATE: FROZEN adicionado, Princípio de separação adicionado), ENGINEERING_RULES.md (seção "Cultura de aprendizado" adicionada, STATE: ACTIVE), architecture/modules.md (coluna MOD-ID em todas as tabelas, ~45 MOD-IDs emitidos), architecture/dependencies.md (diagrama ASCII canônico top-level), PROJECT_STATE.md (bump v2.2 + resumo), INDEX.md (MOD- + IDS/TRACEABILITY/tests + ADR-0003), README.md (ponto de entrada + 14 passos), DECISION_LOG.md (DEC-007).
+- 33 arquivos receberam STATE marker via script persistido (FROZEN/ACTIVE/SNAPSHOT/APPEND-ONLY). Total de 37 arquivos de governança com STATE explícito após v2.2.
+- CORE_RULES.md reduzido de 11 regras para 10 regras permanentes (Regra 11 operacional movida para ENGINEERING_RULES.md).
+- MOD-IDs introduzidos cobrem todos os módulos do projeto: chain H0-M5 (15 módulos), runtime M5 (6 harnesses), observability M5.5 (4 módulos), trading (9 módulos), API (13 endpoints), UI (6 componentes), placeholders M6/M7/M8.
+- TRACEABILITY.md matriz cobre 10 INV-NNN com cadeia completa até script de teste; identifica 5 lacunas de REG-NNN adversarial (pendências TD-NNN propostas).
+- tests.md cataloga 24 scripts (1.487 asserts, 15.759 linhas); 8 de 10 INV têm teste direto.
+- IDS.md lista IDs em 9 categorias (ADR/DEC/INV/MOD/REG/STD/TD/KP/FI) — fonte única para verificação de colisão futura.
+- Sequência obrigatória antes de implementar expandida para 14 passos (antes 12) — adicionados passos 10 (IDS+TRACEABILITY) e 11 (tests).
+- Total de arquivos .ai/ após v2.2: 41 (antes 37 em v2.1: +IDS, +TRACEABILITY, +tests, +ADR-0003).
+- Estrutura final: 14 raiz + 7 architecture + 4 contracts + 5 standards + 4 context + 4 memory + 3 decisions.
+- Estado do projeto (código): inalterado. M5 continua concluído. Próximo milestone: M6 (Live Trading com canaryPct ramp). rastreabilidade completa entre INV/ADR/MOD/REG/teste agora disponível para suportar M6 com confiança.
+- worklog.md atualizado seguindo protocolo multi-agente (Task ID, Work Log, Stage Summary).

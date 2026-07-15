@@ -1,5 +1,9 @@
 # `contracts/event-contracts.md` — Eventos do Sistema
 
+> **STATE: FROZEN** — Contrato de eventos — adição ok; remoção/rename requer ADR.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Catálogo de eventos emitidos e consumidos entre módulos.
 > Diferentemente do audit log (que é persistente e append-only),
 > eventos aqui são para **comunicação em runtime** entre módulos

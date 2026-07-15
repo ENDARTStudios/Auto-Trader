@@ -1,5 +1,9 @@
 # OUTPUT_RULES.md — Formato Obrigatório de Resposta Técnica
 
+> **STATE: FROZEN** — Regras permanentes de formato de resposta.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 Toda resposta técnica deste projeto deve seguir, **sem omissões**, a estrutura
 de 7 seções abaixo. A ordem é fixa.
 

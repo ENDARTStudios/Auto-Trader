@@ -1,5 +1,9 @@
 # `contracts/database-contracts.md` — Schema Prisma
 
+> **STATE: FROZEN** — Schema Prisma — migrations reversíveis apenas.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Contrato canônico do banco de dados. Fonte de verdade é
 > `prisma/schema.prisma`. Este documento é espelho legível + regras
 > de evolução. Antes de alterar qualquer model, consultar este

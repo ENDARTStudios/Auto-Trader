@@ -1,5 +1,9 @@
 # `context/glossary.md` — Dicionário Alfabético de Termos Técnicos
 
+> **STATE: ACTIVE** — Dicionário — adições ok; remoção de termo obsoleto requer nota.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > **Divisão de responsabilidade (vs `terminology.md`):**
 >
 > - **`glossary.md` (este arquivo):** dicionário alfabético de

@@ -1,5 +1,9 @@
 # memory/technical-debt.md — Débitos Técnicos
 
+> **STATE: APPEND-ONLY** — TD-NNN pago ganha nota; nunca removido.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Débitos técnicos identificados. Prioridade, impacto, ação
 > recomendada. Append-only.
 > Para problemas em aberto que causam bugs ver

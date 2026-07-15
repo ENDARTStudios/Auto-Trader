@@ -1,5 +1,9 @@
 # `contracts/rpc-contracts.md` — Contratos RPC e IPC
 
+> **STATE: FROZEN** — Contrato RPC + IPC signer — binário breaking change requer ADR.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Cobertura dupla:
 > 1. **RPC blockchain** — chamadas JSON-RPC para nodes (Ethereum,
 >    BSC, L2s).

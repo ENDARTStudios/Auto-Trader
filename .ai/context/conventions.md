@@ -1,5 +1,9 @@
 # `context/conventions.md` — Convenções do Projeto
 
+> **STATE: ACTIVE** — Convenções evoluem com o código.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Padrões de nomenclatura, estrutura de pastas, convenções de
 > commits, formato de logs, e outras convenções operacionais.
 > Para estilo de código detalhado, ver `standards/coding-style.md`.

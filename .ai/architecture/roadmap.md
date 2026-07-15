@@ -1,5 +1,9 @@
 # `architecture/roadmap.md` — Roadmap Técnico Canônico
 
+> **STATE: ACTIVE** — Roadmap — fases concluídas são append-only; futuras podem mudar.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Fonte canônica do roadmap de hardening. Para detalhes de attack
 > vectors cobertos por cada fase, veja `HARDENING-ROADMAP.md` na
 > raiz do projeto. Para estado atual, veja `PROJECT_STATE.md`.

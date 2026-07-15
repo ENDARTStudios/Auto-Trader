@@ -1,5 +1,9 @@
 # `standards/security.md` — Padrões de Segurança
 
+> **STATE: ACTIVE** — Padrões de segurança — refináveis com novos attack vectors.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Regras detalhadas de segurança. `CORE_RULES.md` Regra 8
 > (arquivos FROZEN) e Regra 9 (compatibilidade) são as leis;
 > este arquivo é a referência técnica para implementação.

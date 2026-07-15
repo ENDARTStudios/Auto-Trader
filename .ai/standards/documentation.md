@@ -1,5 +1,9 @@
 # `standards/documentation.md` — Padrões de Documentação
 
+> **STATE: ACTIVE** — Padrões de documentação — refináveis.
+> Mudança de estado requer entrada em `memory/implementation-history.md`
+> e, se estrutural, novo ADR em `decisions/ADR-NNNN.md`.
+
 > Regras detalhadas de documentação. `README.md` (raiz do `.ai/`)
 > é o ponto de entrada; este arquivo é a referência para manter
 > todos os documentos sincronizados e consistentes.
