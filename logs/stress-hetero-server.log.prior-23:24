@@ -1,0 +1,490 @@
+▲ Next.js 16.1.3
+- Local:         http://localhost:3100
+- Network:       http://21.0.7.137:3100
+
+✓ Starting...
+⚠ "next start" does not work with "output: standalone" configuration. Use "node .next/standalone/server.js" instead.
+✓ Ready in 576ms
+[INFO] [wallet] Wallet created: baseline-0-30442 (evm 0x595bd2...) 
+[INFO] [wallet] Wallet created: baseline-1-30442 (evm 0xed6583...) 
+[INFO] [wallet] Wallet created: baseline-2-30442 (evm 0x512f77...) 
+[INFO] [wallet] Wallet created: baseline-3-30442 (evm 0xfcce0a...) 
+[INFO] [wallet] Wallet created: baseline-4-30442 (evm 0x632495...) 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 5 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":5,"exchangeRows":0,"failedCount":5,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.77"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 5 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":5,"exchangeRows":0,"failedCount":5,"recentFailures":2,"cooldownActive":false,"sourceIp":"203.0.113.177"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 0.6s ago, window 60s  {"sourceIp":"203.0.113.177"}
+[INFO] [vault] Vault DESBLOQUEADO — 5 carteira(s) + 0 exchange(s) carregadas  {"wallets":5,"exchanges":0,"unlockTime":"2026-07-13T23:23:32.996Z","sourceIp":"203.0.113.58"}
+[INFO] [wallet] Wallet created: lifecycle-30442-1 (evm 0xd8574f...) 
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 5 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":5,"exchangeCount":0,"sourceIp":"203.0.113.173"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 6 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":6,"exchangeRows":0,"failedCount":6,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.173"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 1.5s ago, window 60s  {"sourceIp":"203.0.113.173"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 6 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":6,"exchangeRows":0,"failedCount":6,"recentFailures":2,"cooldownActive":false,"sourceIp":"203.0.113.195"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 2.1s ago, window 60s  {"sourceIp":"203.0.113.195"}
+[INFO] [vault] Vault DESBLOQUEADO — 6 carteira(s) + 0 exchange(s) carregadas  {"wallets":6,"exchanges":0,"unlockTime":"2026-07-13T23:23:34.586Z","sourceIp":"203.0.113.143"}
+[INFO] [vault] Vault DESBLOQUEADO — 6 carteira(s) + 0 exchange(s) carregadas  {"wallets":6,"exchanges":0,"unlockTime":"2026-07-13T23:23:35.079Z","sourceIp":"203.0.113.84"}
+[INFO] [wallet] Wallet created: lifecycle-30442-1 (evm 0x2e2c4b...) 
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 6 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":6,"exchangeCount":0,"sourceIp":"203.0.113.76"}
+[INFO] [wallet] Wallet created: interleave-30442-1 (evm 0x3887d7...) 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 8 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":8,"exchangeRows":0,"failedCount":8,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.76"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 3.8s ago, window 60s  {"sourceIp":"203.0.113.76"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 8 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":8,"exchangeRows":0,"failedCount":8,"recentFailures":2,"cooldownActive":false,"sourceIp":"203.0.113.68"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 4.6s ago, window 60s  {"sourceIp":"203.0.113.68"}
+[INFO] [vault] Vault DESBLOQUEADO — 8 carteira(s) + 0 exchange(s) carregadas  {"wallets":8,"exchanges":0,"unlockTime":"2026-07-13T23:23:37.253Z","sourceIp":"203.0.113.9"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 8 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":8,"exchangeRows":0,"failedCount":8,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.82"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 5.9s ago, window 60s  {"sourceIp":"203.0.113.82"}
+[INFO] [wallet] Wallet created: lifecycle-30442-2 (evm 0x9b5a43...) 
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 8 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":8,"exchangeCount":0,"sourceIp":"203.0.113.9"}
+[INFO] [vault] Vault DESBLOQUEADO — 8 carteira(s) + 0 exchange(s) carregadas  {"wallets":8,"exchanges":0,"unlockTime":"2026-07-13T23:23:38.582Z","sourceIp":"203.0.113.124"}
+[INFO] [vault] Vault DESBLOQUEADO — 9 carteira(s) + 0 exchange(s) carregadas  {"wallets":9,"exchanges":0,"unlockTime":"2026-07-13T23:23:39.326Z","sourceIp":"203.0.113.48"}
+[INFO] [vault] Vault BLOQUEADO (manual via API) — 9 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"manual via API","walletCount":9,"exchangeCount":0,"sourceIp":"203.0.113.245"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 9 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":9,"exchangeRows":0,"failedCount":9,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.9"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 8.1s ago, window 60s  {"sourceIp":"203.0.113.9"}
+[INFO] [vault] Vault DESBLOQUEADO — 9 carteira(s) + 0 exchange(s) carregadas  {"wallets":9,"exchanges":0,"unlockTime":"2026-07-13T23:23:40.815Z","sourceIp":"203.0.113.162"}
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 9 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":9,"exchangeCount":0,"sourceIp":"203.0.113.192"}
+[INFO] [wallet] Wallet created: interleave-30442-1 (evm 0x989372...) 
+[INFO] [vault] Vault DESBLOQUEADO — 10 carteira(s) + 0 exchange(s) carregadas  {"wallets":10,"exchanges":0,"unlockTime":"2026-07-13T23:23:41.862Z","sourceIp":"203.0.113.192"}
+[INFO] [wallet] Wallet created: lifecycle-30442-2 (evm 0x59d9ed...) 
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 10 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":10,"exchangeCount":0,"sourceIp":"203.0.113.234"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 10 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":10,"exchangeRows":0,"failedCount":10,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.46"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 10.7s ago, window 60s  {"sourceIp":"203.0.113.46"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 11 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":11,"exchangeRows":0,"failedCount":11,"recentFailures":2,"cooldownActive":false,"sourceIp":"203.0.113.98"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 11.6s ago, window 60s  {"sourceIp":"203.0.113.98"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 11 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":11,"exchangeRows":0,"failedCount":11,"recentFailures":3,"cooldownActive":false,"sourceIp":"203.0.113.234"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 12.5s ago, window 60s  {"sourceIp":"203.0.113.234"}
+[INFO] [vault] Vault DESBLOQUEADO — 11 carteira(s) + 0 exchange(s) carregadas  {"wallets":11,"exchanges":0,"unlockTime":"2026-07-13T23:23:45.424Z","sourceIp":"203.0.113.123"}
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 11 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":11,"exchangeCount":0,"sourceIp":"203.0.113.159"}
+[INFO] [vault] Vault DESBLOQUEADO — 11 carteira(s) + 0 exchange(s) carregadas  {"wallets":11,"exchanges":0,"unlockTime":"2026-07-13T23:23:46.425Z","sourceIp":"203.0.113.199"}
+[INFO] [vault] Vault DESBLOQUEADO — 11 carteira(s) + 0 exchange(s) carregadas  {"wallets":11,"exchanges":0,"unlockTime":"2026-07-13T23:23:47.327Z","sourceIp":"203.0.113.252"}
+[INFO] [wallet] Wallet created: lifecycle-30442-3 (evm 0xc430c9...) 
+[INFO] [vault] Vault BLOQUEADO (manual via API) — 11 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"manual via API","walletCount":11,"exchangeCount":0,"sourceIp":"203.0.113.93"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 12 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":12,"exchangeRows":0,"failedCount":12,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.159"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 16.4s ago, window 60s  {"sourceIp":"203.0.113.159"}
+[INFO] [vault] Vault DESBLOQUEADO — 12 carteira(s) + 0 exchange(s) carregadas  {"wallets":12,"exchanges":0,"unlockTime":"2026-07-13T23:23:49.381Z","sourceIp":"203.0.113.132"}
+[INFO] [wallet] Wallet created: interleave-30442-2 (evm 0x7e5185...) 
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 12 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":12,"exchangeCount":0,"sourceIp":"203.0.113.113"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 13 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":13,"exchangeRows":0,"failedCount":13,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.113"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 18.5s ago, window 60s  {"sourceIp":"203.0.113.113"}
+[INFO] [vault] Vault DESBLOQUEADO — 13 carteira(s) + 0 exchange(s) carregadas  {"wallets":13,"exchanges":0,"unlockTime":"2026-07-13T23:23:51.547Z","sourceIp":"203.0.113.65"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 13 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":13,"exchangeRows":0,"failedCount":13,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.191"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 20.7s ago, window 60s  {"sourceIp":"203.0.113.191"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 13 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":13,"exchangeRows":0,"failedCount":13,"recentFailures":2,"cooldownActive":false,"sourceIp":"203.0.113.175"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 21.8s ago, window 60s  {"sourceIp":"203.0.113.175"}
+[INFO] [vault] Vault DESBLOQUEADO — 13 carteira(s) + 0 exchange(s) carregadas  {"wallets":13,"exchanges":0,"unlockTime":"2026-07-13T23:23:54.853Z","sourceIp":"203.0.113.238"}
+[INFO] [wallet] Wallet created: lifecycle-30442-3 (evm 0x4f45c1...) 
+[INFO] [vault] Vault BLOQUEADO (manual via API) — 13 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"manual via API","walletCount":13,"exchangeCount":0,"sourceIp":"203.0.113.86"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 14 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":14,"exchangeRows":0,"failedCount":14,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.123"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 24.1s ago, window 60s  {"sourceIp":"203.0.113.123"}
+[INFO] [wallet] Wallet created: interleave-30442-2 (evm 0xee091b...) 
+[INFO] [vault] Vault DESBLOQUEADO — 15 carteira(s) + 0 exchange(s) carregadas  {"wallets":15,"exchanges":0,"unlockTime":"2026-07-13T23:23:57.424Z","sourceIp":"203.0.113.253"}
+[INFO] [wallet] Wallet created: lifecycle-30442-4 (evm 0x006ccb...) 
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 15 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":15,"exchangeCount":0,"sourceIp":"203.0.113.232"}
+[INFO] [vault] Vault DESBLOQUEADO — 15 carteira(s) + 0 exchange(s) carregadas  {"wallets":15,"exchanges":0,"unlockTime":"2026-07-13T23:23:58.669Z","sourceIp":"203.0.113.116"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 16 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":16,"exchangeRows":0,"failedCount":16,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.68"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 28.0s ago, window 60s  {"sourceIp":"203.0.113.68"}
+[INFO] [vault] Vault BLOQUEADO (manual via API) — 15 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"manual via API","walletCount":15,"exchangeCount":0,"sourceIp":"203.0.113.203"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 16 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":16,"exchangeRows":0,"failedCount":16,"recentFailures":2,"cooldownActive":false,"sourceIp":"203.0.113.232"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 29.3s ago, window 60s  {"sourceIp":"203.0.113.232"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 16 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":16,"exchangeRows":0,"failedCount":16,"recentFailures":3,"cooldownActive":false,"sourceIp":"203.0.113.156"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 30.6s ago, window 60s  {"sourceIp":"203.0.113.156"}
+[INFO] [vault] Vault DESBLOQUEADO — 16 carteira(s) + 0 exchange(s) carregadas  {"wallets":16,"exchanges":0,"unlockTime":"2026-07-13T23:24:03.936Z","sourceIp":"203.0.113.26"}
+[INFO] [vault] Vault DESBLOQUEADO — 16 carteira(s) + 0 exchange(s) carregadas  {"wallets":16,"exchanges":0,"unlockTime":"2026-07-13T23:24:05.244Z","sourceIp":"203.0.113.85"}
+[INFO] [vault] Vault DESBLOQUEADO — 16 carteira(s) + 0 exchange(s) carregadas  {"wallets":16,"exchanges":0,"unlockTime":"2026-07-13T23:24:06.560Z","sourceIp":"203.0.113.59"}
+[INFO] [vault] Vault BLOQUEADO (manual via API) — 16 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"manual via API","walletCount":16,"exchangeCount":0,"sourceIp":"203.0.113.246"}
+[INFO] [wallet] Wallet created: interleave-30442-3 (evm 0x1c8ae2...) 
+[INFO] [vault] Vault DESBLOQUEADO — 17 carteira(s) + 0 exchange(s) carregadas  {"wallets":17,"exchanges":0,"unlockTime":"2026-07-13T23:24:08.052Z","sourceIp":"203.0.113.161"}
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 17 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":17,"exchangeCount":0,"sourceIp":"203.0.113.68"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 17 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":17,"exchangeRows":0,"failedCount":17,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.249"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 37.4s ago, window 60s  {"sourceIp":"203.0.113.249"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 17 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":17,"exchangeRows":0,"failedCount":17,"recentFailures":2,"cooldownActive":false,"sourceIp":"203.0.113.68"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 38.8s ago, window 60s  {"sourceIp":"203.0.113.68"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 17 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":17,"exchangeRows":0,"failedCount":17,"recentFailures":3,"cooldownActive":false,"sourceIp":"203.0.113.89"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 40.2s ago, window 60s  {"sourceIp":"203.0.113.89"}
+[INFO] [vault] Vault DESBLOQUEADO — 17 carteira(s) + 0 exchange(s) carregadas  {"wallets":17,"exchanges":0,"unlockTime":"2026-07-13T23:24:13.671Z","sourceIp":"203.0.113.253"}
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 17 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":17,"exchangeCount":0,"sourceIp":"203.0.113.101"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 17 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":17,"exchangeRows":0,"failedCount":17,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.2"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 43.2s ago, window 60s  {"sourceIp":"203.0.113.2"}
+[INFO] [vault] Vault DESBLOQUEADO — 17 carteira(s) + 0 exchange(s) carregadas  {"wallets":17,"exchanges":0,"unlockTime":"2026-07-13T23:24:16.637Z","sourceIp":"203.0.113.225"}
+[INFO] [wallet] Wallet created: lifecycle-30442-5 (evm 0xf22664...) 
+[INFO] [wallet] Wallet created: lifecycle-30442-5 (evm 0xdbe762...) 
+[INFO] [vault] Vault BLOQUEADO (manual via API) — 17 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"manual via API","walletCount":17,"exchangeCount":0,"sourceIp":"203.0.113.88"}
+[INFO] [vault] Vault DESBLOQUEADO — 17 carteira(s) + 0 exchange(s) carregadas  {"wallets":17,"exchanges":0,"unlockTime":"2026-07-13T23:24:18.125Z","sourceIp":"203.0.113.101"}
+[INFO] [wallet] Wallet created: interleave-30442-3 (evm 0x80a225...) 
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 17 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":17,"exchangeCount":0,"sourceIp":"203.0.113.3"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 20 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":20,"exchangeRows":0,"failedCount":20,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.3"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 47.8s ago, window 60s  {"sourceIp":"203.0.113.3"}
+[INFO] [vault] Vault DESBLOQUEADO — 20 carteira(s) + 0 exchange(s) carregadas  {"wallets":20,"exchanges":0,"unlockTime":"2026-07-13T23:24:21.434Z","sourceIp":"203.0.113.218"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 20 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":20,"exchangeRows":0,"failedCount":20,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.80"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 51.1s ago, window 60s  {"sourceIp":"203.0.113.80"}
+[INFO] [vault] Vault BLOQUEADO (manual via API) — 20 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"manual via API","walletCount":20,"exchangeCount":0,"sourceIp":"203.0.113.81"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 20 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":20,"exchangeRows":0,"failedCount":20,"recentFailures":2,"cooldownActive":false,"sourceIp":"203.0.113.178"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 52.7s ago, window 60s  {"sourceIp":"203.0.113.178"}
+[INFO] [vault] Vault DESBLOQUEADO — 20 carteira(s) + 0 exchange(s) carregadas  {"wallets":20,"exchanges":0,"unlockTime":"2026-07-13T23:24:26.356Z","sourceIp":"203.0.113.100"}
+[INFO] [vault] Vault DESBLOQUEADO — 20 carteira(s) + 0 exchange(s) carregadas  {"wallets":20,"exchanges":0,"unlockTime":"2026-07-13T23:24:27.987Z","sourceIp":"203.0.113.80"}
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 20 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":20,"exchangeCount":0,"sourceIp":"203.0.113.106"}
+[WARN] [api] !!! CRASH TEST ENDPOINT TRIGGERED — type=uncaught  {"pid":30558,"uptime":57.824779093}
+[INFO] [vault] Vault DESBLOQUEADO — 20 carteira(s) + 0 exchange(s) carregadas  {"wallets":20,"exchanges":0,"unlockTime":"2026-07-13T23:24:29.734Z","sourceIp":"203.0.113.106"}
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[WARN] [wallet] decryptSecret failed: Error: Unsupported state or unable to authenticate data 
+[ERROR] [vault] Unlock FALHOU — 20 blob(s) não descriptografados (passphrase incorreta?)  {"walletRows":20,"exchangeRows":0,"failedCount":20,"recentFailures":1,"cooldownActive":false,"sourceIp":"203.0.113.41"}
+[DEBUG] [vault] notifyVaultEvent(vault_unlock_failed) THROTTLED — last sent 59.4s ago, window 60s  {"sourceIp":"203.0.113.41"}
+[INFO] [wallet] Wallet created: interleave-30442-4 (evm 0xde04ba...) 
+[INFO] [vault] Vault BLOQUEADO (relock before unlock) — 20 carteira(s) + 0 exchange(s) limpas da memória  {"reason":"relock before unlock","walletCount":20,"exchangeCount":0,"sourceIp":"203.0.113.89"}
+Error: DELIBERATE CRASH TEST (uncaughtException) — pid=30558 uptime=61.3s
+    at Timeout._onTimeout (.next/server/chunks/[root-of-the-server]__694d0783._.js:1:4246)
+⨯ uncaughtException:  Error: DELIBERATE CRASH TEST (uncaughtException) — pid=30558 uptime=61.3s
+    at Timeout._onTimeout (.next/server/chunks/[root-of-the-server]__694d0783._.js:1:4246)
+
+!!! uncaughtException at 2026-07-13T23:24:31.469Z (uptime 60.6s) !!!
+!!! Crash dump written to: /home/z/my-project/logs/crash-uncaughtException-1783985071470.log
+!!! Run scripts/diag-oom-check.sh to also check kernel OOM-kill.
+
+Error: DELIBERATE CRASH TEST (uncaughtException) — pid=30558 uptime=61.3s
+    at Timeout._onTimeout (/home/z/my-project/.next/server/chunks/[root-of-the-server]__694d0783._.js:1:4246)
+    at listOnTimeout (node:internal/timers:605:17)
+    at process.processTimers (node:internal/timers:541:7)

@@ -122,7 +122,8 @@ import {
   type AuditSink,
   type SignerRequest,
 } from "../src/lib/chain/pipeline";
-import { type SignerTransport, type RpcResponse, type SignerWireRequest, SIGNER_PROTOCOL_VERSION } from "../src/lib/signer-protocol";
+import { SIGNER_PROTOCOL_VERSION } from "../src/lib/signer-protocol";
+import { type SignerTransport, type RpcResponse, type SignerWireRequest } from "../src/lib/chain/signer-adapter";
 import {
   buildRuntime,
   InMemoryMetricsRecorder,
@@ -272,18 +273,16 @@ class HappyTradeSimulator implements TradeSimulator {
   }
 }
 
-class HappySimulator implements Simulator {
-  async simulate(tx: { from: string; to: string; value: string; data: string }): Promise<SimulationResult> {
-    return {
-      ok: true,
-      changes: [
-        { kind: "erc20_transfer", token: TOKEN, from: ROUTER, to: BUYER, amount: "1000000000000000000" },
-      ],
-      gasUsed: 150000,
-      from: tx.from,
-    };
-  }
-}
+const happySimulator: Simulator = async (tx: { from: string; to: string; value: string; data: string }): Promise<SimulationResult> => {
+  return {
+    ok: true,
+    changes: [
+      { kind: "erc20_transfer", token: TOKEN, from: ROUTER, to: BUYER, amount: "1000000000000000000" },
+    ],
+    gasUsed: 150000,
+    from: tx.from,
+  };
+};
 
 // -------------------------------------------------------------------------
 // Mock RPC transport — happy-path responses (copied from dry-run).
@@ -500,6 +499,7 @@ interface InstrumentedRuntime {
   audit: RecordingAuditSink;
   leaseStore: InMemoryLeaseStore;
   metrics: InMemoryMetricsRecorder;
+  registry: ReturnType<InMemoryMetricsRecorder["getRegistry"]>;
   /** Count of "lease renewed" log messages observed. */
   leaseRenewCount: number;
   /** Count of "lease acquired" log messages observed. */
@@ -520,15 +520,16 @@ function freshRuntime(): InstrumentedRuntime {
   const audit = new RecordingAuditSink();
   const leaseStore = new InMemoryLeaseStore();
   const metrics = new InMemoryMetricsRecorder();
+  const registry = metrics.getRegistry();
 
   const chain = new HappyChainReader();
   const liquidity = new HappyLiquiditySource();
   const authority = new HappyAuthoritySource();
   const tradeSim = new HappyTradeSimulator();
-  const simulator = new HappySimulator();
+  const simulator = happySimulator;
   const ledger = new InMemoryApprovalLedger();
 
-  const simulation = new SimulationGate({ simulator: (tx) => simulator.simulate(tx) });
+  const simulation = new SimulationGate({ simulator: simulator });
   const contract = new ContractVerifier({ chain });
   const liquidityVerifier = new LiquidityVerifier(liquidity);
   const authorityVerifier = new TokenAuthorityVerifier(authority);
@@ -570,8 +571,8 @@ function freshRuntime(): InstrumentedRuntime {
     lease: { store: leaseStore, ttlMs: 10_000 },
     // canaryPct=100 — every op exercises the full lease → broadcast path.
     // This is required by assertion C.1/C.2 (lease stability).
-    canary: { pct: 100, deterministic: true },
-    metrics,
+    canary: { pct: 100 },
+    registry,
     signingAddress: BUYER,
     log,
     gates: { simulation, contract, liquidity: liquidityVerifier, authority: authorityVerifier, sellSim, approval, audit },
@@ -586,6 +587,7 @@ function freshRuntime(): InstrumentedRuntime {
     audit,
     leaseStore,
     metrics,
+    registry,
     get leaseRenewCount() { return leaseCounters.renew; },
     get leaseAcquireCount() { return leaseCounters.acquire; },
     get leaseRenewFailCount() { return leaseCounters.renewFail; },

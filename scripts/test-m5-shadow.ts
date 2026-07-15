@@ -336,8 +336,8 @@ function percentile(sortedAsc: number[], p: number): number {
 // -------------------------------------------------------------------------
 
 function hexToBigInt(hex: string): bigint {
-  if (typeof hex !== "string" || !hex.startsWith("0x")) return 0n;
-  try { return BigInt(hex); } catch { return 0n; }
+  if (typeof hex !== "string" || !hex.startsWith("0x")) return BigInt(0);
+  try { return BigInt(hex); } catch { return BigInt(0); }
 }
 
 /**
@@ -595,10 +595,10 @@ async function main(): Promise<void> {
         if (blocks.length < 2) {
           assert(false, `only ${blocks.length} endpoints returned a block number in round ${round}`);
         } else {
-          const max = blocks.reduce((m, b) => (b > m ? b : m), 0n);
+          const max = blocks.reduce((m, b) => (b > m ? b : m), BigInt(0));
           const min = blocks.reduce((m, b) => (b < m ? b : m), max);
           const delta = max - min;
-          assert(delta <= 2n, `block numbers disagree by ${delta} blocks in round ${round} (max=${max}, min=${min})`);
+          assert(delta <= BigInt(2), `block numbers disagree by ${delta} blocks in round ${round} (max=${max}, min=${min})`);
         }
       }
     }
@@ -618,15 +618,15 @@ async function main(): Promise<void> {
         for (let eIdx = 0; eIdx < endpoints.length; eIdx++) {
           const v = roundValue(3, eIdx, round);
           const p = extractComparable("eth_gasPrice", v);
-          if (p !== null && p > 0n) prices.push(p);
+          if (p !== null && p > BigInt(0)) prices.push(p);
         }
         if (prices.length < 2) {
           assert(false, `only ${prices.length} endpoints returned a gas price in round ${round}`);
         } else {
-          const max = prices.reduce((m, p) => (p > m ? p : m), 0n);
+          const max = prices.reduce((m, p) => (p > m ? p : m), BigInt(0));
           const min = prices.reduce((m, p) => (p < m ? p : m), max);
           // variance = (max - min) / min
-          const varianceBps = Number(((max - min) * 10000n) / min);
+          const varianceBps = Number(((max - min) * BigInt(10000)) / min);
           assert(varianceBps <= 2000, `gas price variance ${varianceBps / 100}% > 20% in round ${round} (max=${max}, min=${min})`);
         }
       }

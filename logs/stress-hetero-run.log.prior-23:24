@@ -1,0 +1,57 @@
+[2026-07-13T23:23:12.308Z] === v19.2 heterogeneous stress test (CHECK 1 + CHECK 2) ===
+[2026-07-13T23:23:12.309Z] Config: port=3100 duration=120s concurrency=2 workers/profile
+[2026-07-13T23:23:12.309Z]   → total workers: 8
+[2026-07-13T23:23:12.309Z]   → test passphrase: hetero-stress-passphrase-2026
+[2026-07-13T23:23:12.309Z]   → crash test secret: hetero-stress-test-2026
+[2026-07-13T23:23:12.309Z] Server log: /home/z/my-project/logs/stress-hetero-server.log
+[2026-07-13T23:23:12.309Z] Stress log: /home/z/my-project/logs/stress-hetero-run.log
+[2026-07-13T23:23:12.309Z] Crash logs at start: 0
+[2026-07-13T23:23:12.309Z] 
+[1/6] Building production bundle (next build)...
+[2026-07-13T23:23:29.784Z]   build OK (17.5s)
+[2026-07-13T23:23:29.784Z] 
+[2/6] Starting production server (crash test endpoint ENABLED)...
+[2026-07-13T23:23:29.789Z]   waiting for /api/status...
+[2026-07-13T23:23:31.109Z]   server ready after 2s
+[2026-07-13T23:23:31.109Z] 
+[3/6] Creating 5 baseline wallets with known passphrase...
+[2026-07-13T23:23:31.590Z]   5 baseline wallets created
+[2026-07-13T23:23:32.026Z]   VERIFY: wrong passphrase → 401 ✓ (crypto failure path is exercised)
+[2026-07-13T23:23:32.033Z] 
+[4/6] Starting heterogeneous stress loop: 120s
+[2026-07-13T23:23:32.036Z]   launched 8 workers (2 per profile)
+[2026-07-13T23:23:47.037Z]   [15.0s] total=40 ok=30 fail=10 err=0 | attacker=9 operator=12 lifecycle=11 interleaver=8
+[2026-07-13T23:24:02.038Z]   [30.0s] total=68 ok=51 fail=17 err=0 | attacker=15 operator=19 lifecycle=19 interleaver=15
+[2026-07-13T23:24:17.038Z]   [45.0s] total=94 ok=70 fail=22 err=2 | attacker=22 operator=25 lifecycle=26 interleaver=21
+[2026-07-13T23:24:20.034Z] 
+  [CHECK 2] Triggering deliberate crash via /api/debug/crash-test...
+[2026-07-13T23:24:20.034Z]   [CHECK 2] crash-*.log count before trigger: 0
+[2026-07-13T23:24:27.996Z]   [CHECK 2] debug endpoint response: HTTP 200 {"ok":true,"message":"Crash triggered (type=uncaught). Check logs/crash-*.log within ~200ms.","pid":30558}
+[2026-07-13T23:24:31.498Z]   [CHECK 2] crash-*.log count after trigger: 1 (polled for 3.5s)
+[2026-07-13T23:24:31.499Z]   [CHECK 2] PASSED — crash handler fired under load, new crash-*.log produced
+[2026-07-13T23:24:31.522Z]   SERVER EXITED code=1 signal=null
+[2026-07-13T23:24:31.547Z] 
+[5/6] Final analysis...
+[2026-07-13T23:24:31.547Z] 
+=== STRESS TEST SUMMARY ===
+[2026-07-13T23:24:31.547Z] Duration: 59.5s
+[2026-07-13T23:24:31.547Z] Server died: YES (exit=1)
+[2026-07-13T23:24:31.547Z] Crash logs: 0 before → 1 after (1 new)
+[2026-07-13T23:24:31.547Z] 
+Per-profile stats:
+[2026-07-13T23:24:31.547Z]   attacker    : sent=36 ok=6 fail=19 err=11
+[2026-07-13T23:24:31.547Z]   operator    : sent=39 ok=31 fail=0 err=8
+[2026-07-13T23:24:31.547Z]   lifecycle   : sent=36 ok=29 fail=0 err=7
+[2026-07-13T23:24:31.547Z]   interleaver : sent=36 ok=19 fail=7 err=10
+[2026-07-13T23:24:31.547Z] 
+Total: sent=147 ok=85 fail=26 err=36
+[2026-07-13T23:24:31.547Z] 
+[6/6] Outcome determination...
+[2026-07-13T23:24:31.547Z] 
+=== CHECK 2: PASSED — crash handler fires under concurrent load ===
+[2026-07-13T23:24:31.547Z] The debug crash endpoint produced a crash-*.log even with 147 requests in flight.
+[2026-07-13T23:24:31.547Z] This confirms the handler was armed and firing throughout the stress test.
+[2026-07-13T23:24:31.547Z] 
+=== CHECK 1: NEGATIVE — server did NOT crash organically in 120s ===
+[2026-07-13T23:24:31.547Z] Combined with CHECK 2 passing, the silent-crash investigation can be downgraded
+[2026-07-13T23:24:31.548Z] to MONITOR without reservation.

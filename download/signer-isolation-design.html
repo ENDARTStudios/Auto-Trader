@@ -1,0 +1,3089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Signer Process Isolation — Design Document</title>
+<style>
+/* ─── Page setup with mandatory copyright footer ─────────────────────── */
+@page {
+  size: A4;
+  margin: 22mm 18mm 22mm 18mm;
+  @bottom-center {
+    content: "Copyright © 2026 END ART";
+    font-family: 'Noto Sans', 'Noto Sans SC', 'DejaVu Sans', sans-serif;
+    font-size: 8.5pt;
+    color: #6b7280;
+    vertical-align: bottom;
+    padding-bottom: 4mm;
+  }
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    font-family: 'Noto Sans', 'DejaVu Sans', sans-serif;
+    font-size: 8.5pt;
+    color: #9ca3af;
+    vertical-align: bottom;
+    padding-bottom: 4mm;
+  }
+  @bottom-left {
+    content: "Signer Process Isolation — Design Document";
+    font-family: 'Noto Sans', 'DejaVu Sans', sans-serif;
+    font-size: 8.5pt;
+    color: #9ca3af;
+    vertical-align: bottom;
+    padding-bottom: 4mm;
+  }
+}
+
+/* ─── Base typography ─────────────────────────────────────────────────── */
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+  color: #1f2937;
+}
+body {
+  font-family: 'Noto Serif', 'Noto Serif SC', 'Liberation Serif', Georgia, serif;
+  font-size: 10.5pt;
+  line-height: 1.55;
+  text-align: left;
+  hyphens: auto;
+}
+
+/* ─── Headings ────────────────────────────────────────────────────────── */
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Noto Sans', 'Noto Sans SC', 'Liberation Sans', 'DejaVu Sans', sans-serif;
+  color: #111827;
+  line-height: 1.25;
+  page-break-after: avoid;
+  break-after: avoid-page;
+  font-weight: 700;
+}
+h1 {
+  font-size: 22pt;
+  margin: 0 0 12pt 0;
+  padding-bottom: 6pt;
+  border-bottom: 2pt solid #1f2937;
+  page-break-before: always;
+  break-before: page;
+}
+h1:first-of-type {
+  page-break-before: avoid;
+  break-before: avoid;
+}
+h2 {
+  font-size: 15pt;
+  margin: 22pt 0 8pt 0;
+  color: #1f2937;
+  border-bottom: 0.5pt solid #d1d5db;
+  padding-bottom: 3pt;
+}
+h3 {
+  font-size: 12.5pt;
+  margin: 16pt 0 6pt 0;
+  color: #1f2937;
+}
+h4 {
+  font-size: 11pt;
+  margin: 12pt 0 4pt 0;
+  color: #374151;
+}
+h5, h6 {
+  font-size: 10pt;
+  margin: 10pt 0 3pt 0;
+  color: #4b5563;
+}
+
+/* ─── Paragraphs & inline ─────────────────────────────────────────────── */
+p {
+  margin: 0 0 8pt 0;
+  orphans: 3;
+  widows: 3;
+}
+a {
+  color: #1d4ed8;
+  text-decoration: none;
+  word-break: break-word;
+}
+strong { font-weight: 700; }
+em { font-style: italic; }
+code {
+  font-family: 'DejaVu Sans Mono', 'Liberation Mono', 'Sarasa Mono SC', monospace;
+  font-size: 9pt;
+  background: #f3f4f6;
+  color: #be185d;
+  padding: 0.5pt 2pt;
+  border-radius: 2pt;
+}
+pre {
+  font-family: 'DejaVu Sans Mono', 'Liberation Mono', 'Sarasa Mono SC', monospace;
+  font-size: 8.5pt;
+  line-height: 1.45;
+  background: #f9fafb;
+  border: 0.5pt solid #e5e7eb;
+  border-radius: 3pt;
+  padding: 8pt 10pt;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  margin: 8pt 0 10pt 0;
+}
+pre code {
+  background: transparent;
+  color: #1f2937;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ─── Lists ───────────────────────────────────────────────────────────── */
+ul, ol {
+  margin: 0 0 8pt 0;
+  padding-left: 18pt;
+}
+li {
+  margin: 0 0 3pt 0;
+  orphans: 2;
+  widows: 2;
+}
+li > p { margin: 0 0 4pt 0; }
+
+/* ─── Tables ──────────────────────────────────────────────────────────── */
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 8pt 0 12pt 0;
+  font-size: 9pt;
+  page-break-inside: auto;
+  break-inside: auto;
+}
+thead {
+  display: table-header-group;
+}
+tr {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+th, td {
+  border: 0.5pt solid #d1d5db;
+  padding: 4pt 6pt;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: #f3f4f6;
+  font-weight: 700;
+  color: #111827;
+}
+tbody tr:nth-child(even) {
+  background: #fafafa;
+}
+
+/* ─── Blockquotes ─────────────────────────────────────────────────────── */
+blockquote {
+  margin: 8pt 0 10pt 0;
+  padding: 6pt 12pt;
+  border-left: 3pt solid #9ca3af;
+  background: #f9fafb;
+  color: #4b5563;
+  font-style: italic;
+}
+blockquote p { margin: 0 0 4pt 0; }
+blockquote p:last-child { margin: 0; }
+
+/* ─── Horizontal rule ─────────────────────────────────────────────────── */
+hr {
+  border: none;
+  border-top: 0.5pt solid #d1d5db;
+  margin: 14pt 0;
+}
+
+/* ─── CodeHilite fallback (if Pygments is installed) ─────────────────── */
+.codehilite {
+  background: #f9fafb;
+  border: 0.5pt solid #e5e7eb;
+  border-radius: 3pt;
+  padding: 8pt 10pt;
+  margin: 8pt 0 10pt 0;
+  page-break-inside: avoid;
+  break-inside: avoid;
+  overflow-x: auto;
+}
+.codehilite pre {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+</style>
+</head>
+<body>
+<h1>Signer Process Isolation — Design Document</h1>
+<p><strong>Version:</strong> v19.3-design-draft-6<br />
+<strong>Status:</strong> §7.3.1, §7.3.4, §9.4, §13 APPROVED for implementation. §7.3.2/§7.3.3/§7.3.5/§7.3.6 unchanged from draft-3 (already approved). <strong>§7.3.7 (rate limiter hotfix v19.3.2) NOT YET APPROVED</strong> — operator review of draft-5 caught three remaining issues that are addressed in this draft-6 revision: (1) the <code>http.Server.prototype.emit</code> monkey-patch lacked a try/catch with safe-degradation fallback (a single exception in the capture path would crash the server on EVERY request, a strictly worse failure mode than the bug being fixed); (2) the regression tests for v19.3.2 (scenarios 18/19 in <code>test-vault.ts</code>) called the pure decision function <code>resolveTrustedClientIp</code> with synthetic <code>peerAddress</code> values — they did NOT exercise the actual monkey-patch nor the AsyncLocalStorage propagation, leaving the riskiest component untested; (3) the coupling of the capture mechanism to <code>http.Server.prototype.emit('request', ...)</code> was not documented — a future migration to HTTP/2 or a custom server would silently degrade the rate limiter to the shared <code>"unidentifiable-socket"</code> bucket. Draft-6 addresses all three: try/catch added with <code>peerAddress=null</code> fallback (degrades to named bucket, never propagates exception); new <code>scripts/test-request-peer-integration.ts</code> exercises the REAL monkey-patch + ALS with a live <code>http.Server</code> and two distinct loopback source IPs (<code>127.0.0.1</code> + <code>127.0.0.2</code>, both in 127.0.0.0/8 per RFC 5735) under concurrent requests-in-flight; explicit COUPLING-TO-http.Server comment added to <code>request-peer-capture.ts</code> with detection query in §13.7. <strong>Phase 1 implementation remains BLOCKED on operator re-review of §7.3.7 — the rate limiter hotfix is NOT yet "shipped" in the sense of being closed.</strong><br />
+<strong>Author:</strong> engineering<br />
+<strong>Date:</strong> 2026-07-14</p>
+<p><strong>Revision history:</strong><br />
+- <code>v19.3-design-draft</code> (original): process isolation + JSON-RPC + method allowlist. Operator review identified critical gap — no signer-side authorization policy.<br />
+- <code>v19.3-design-draft-2</code>: adds §7.3 (Signer-Side Authorization Policy) as Phase 1 BLOCKING prerequisite; rewrites §9 to operator's stated defaults; adds §12.2 with clean 150s stress test result + port-collision hypothesis findings; fixes empty-vault unlock bug in <code>wallet-crypto.ts</code>.<br />
+- <code>v19.3-design-draft-3</code>: operator's conditional approval round. Five sign-off prerequisites incorporated: (1) §9.4 writer lock → writer <strong>lease with TTL</strong> (auto-expires on holder death; fail-closed restart consequence made explicit); (2) §7.3.4 hash-chained audit log moved from Phase 2 to <strong>Phase 1</strong> (local tamper-evidence is cheap; only remote shipping stays Phase 2); (3) §7.3.2 + new §7.3.7 — explicit answer on rate-limit / window-cap scoping: failed-unlock rate limiter is <strong>per source IP</strong> (was global — confirmed DoS vector; the 150s stress test data shows the <code>operator</code>/<code>lifecycle</code>/<code>interleaver</code> profiles WERE blocked by the <code>attacker</code> profile's cooldown — the bug was manifesting in our own evidence); USD rolling cap remains global (signer = single writer identity, no per-IP rotation possible); (4) §7.3.1 — explicit confirmation that the price feed URL/source is <strong>fixed at boot env var</strong>, NOT a parameter in the <code>sign</code> RPC (same tamper-resistance pattern as the allowlist); (5) new §13 <strong>Operator Runbook</strong> with step-by-step procedures for allowlist edits, cap changes, and chain expansion.<br />
+- <code>v19.3-design-draft-4</code>: operator's final sign-off round. §9.4 — confirmed clean socket disconnect releases the lease IMMEDIATELY (TTL is backstop for unclean crashes only); audit log distinguishes <code>writer_lease_released</code> (clean) from <code>writer_lease_expired</code> (unclean). §7.3.4 — added <strong>anti-truncation checkpoint</strong> (monotonic <code>seq</code> counter + periodic checkpoint to separate file + verify script cross-check) — closes the tail-truncation gap the operator identified, stays Phase 1. §7.3.7 — rate limiter fix <strong>SHIPPED as v19.3.1 HOTFIX</strong> (independent of Phase 1): new <code>src/lib/trading/proxy-trust.ts</code> with shared-secret trust model (resolves sourceIp trust issue), per-IP <code>Map</code> with TTL eviction + LRU cap (resolves unbounded growth), global aggregate cap 50 failures/1h → 1min cooldown (resolves distributed-attack gap). 3 new regression tests in <code>scripts/test-vault.ts</code>, all passing (18/18 total). The hotfix is live in production NOW; Phase 1 signer isolation can proceed independently.<br />
+- <code>v19.3-design-draft-5</code> (this revision): operator caught a critical flaw in the v19.3.1 hotfix — the <code>"direct-untrusted"</code> fallback sentinel was a single shared bucket, recreating the original self-DoS bug for the actual deployment topology (bind <code>127.0.0.1</code>, no reverse proxy since v18). Every real connection to the vault fell into the shared sentinel bucket — the hotfix did not fix the bug for the deployment running today, only for a hypothetical behind-proxy future. <strong>v19.3.2 HOTFIX-FIX</strong> resolves this: the fallback is now the actual TCP socket peer address (<code>req.socket.remoteAddress</code>). Implementation note: Next.js 16 App Router does NOT expose the TCP peer address to route handlers (<code>connection()</code> from <code>next/headers</code> returns <code>Promise&lt;void&gt;</code> — the <code>peer.address</code> API from 15.3 was removed in 16; <code>NextRequest.ip</code> was also removed). The honest equivalent: <code>src/instrumentation.ts</code> installs a monkey-patch on <code>http.Server.prototype.emit</code> (<code>src/lib/request-peer-capture.ts</code>) that intercepts the 'request' event BEFORE Next.js wraps the Node <code>IncomingMessage</code> into a Web <code>Request</code>, reads <code>req.socket.remoteAddress</code>, and stores it in an AsyncLocalStorage (<code>src/lib/request-peer-als.ts</code>). Route handlers read it via <code>getRequestPeerAddress()</code>. Non-spoofable for direct connections; gives real per-IP isolation for the deployment running today. The <code>"direct-untrusted"</code> sentinel is GONE. Other v19.3.2 changes: (a) split <code>proxy-trust.ts</code> into a pure <code>resolveTrustedClientIp</code> decision function (testable without a request context) + async <code>extractTrustedClientIp</code> production wrapper that reads from the ALS; (b) added <strong>distinct notification event</strong> <code>vault_rate_limited_global</code> for the global aggregate cooldown firing (severity-different signal — suggests distributed attack, not single-user brute force); (c) acknowledged the <strong>LRU eviction trade-off</strong> (attacker with enough real source IPs could in theory evict their own failure record — mitigated by active-cooldown entries never being evicted + the global cap being a single array independent of the per-IP Map); (d) added §13.7 runbook entry documenting the <strong>NAT / Docker userland-proxy edge case</strong> where <code>peer.address</code> collapses to a single gateway IP; (e) made the test suite <strong>self-contained</strong> — <code>hardCleanupBeforeSuite()</code> truncates <code>WalletConnection</code> + <code>ExchangeConnection</code> tables at suite start, so the suite no longer depends on the operator manually cleaning wallets between runs (the "test fails → clean DB manually → rerun → passes" pattern that happened 3 times in this thread is resolved at the suite level). 2 new regression tests: scenario 18 (two distinct direct IPs do NOT share a bucket — THE test the operator required) + scenario 19 (forged XFF without proxy secret is ignored, peer address is used). Suite now 20/20 passing.<br />
+- <code>v19.3-design-draft-6</code> (this revision): operator review of draft-5 caught a critical pattern — the assertion "v19.3.2 SHIPPED, Phase 1 ready without reservations" was being treated as fact without the operator having seen the evidence. The operator's review identified three remaining issues in §7.3.7: <strong>(1) NO try/catch on the monkey-patch path</strong> — the <code>patchedEmit</code> function in <code>request-peer-capture.ts</code> did not wrap the peer-address capture nor the <code>runWithPeerAddress</code> call in try/catch. A single exception in either would propagate up through <code>http.Server.prototype.emit</code> and crash the server on EVERY request — a strictly worse failure mode than the silent-crash bug this whole investigation is about, and exactly the class of bug that the investigation has been trying to understand. The operator's directive: any error in the capture must degrade to the shared <code>"unidentifiable-socket"</code> bucket, NEVER propagate the exception through <code>emit()</code>. <strong>(2) Tests did NOT exercise the riskiest component</strong> — scenarios 18 and 19 in <code>test-vault.ts</code> called the PURE decision function <code>resolveTrustedClientIp({ peerAddress, ... })</code> with synthetic peer-address values. They validated the decision logic downstream of the capture, but did NOT exercise the actual <code>http.Server.prototype.emit</code> monkey-patch nor the AsyncLocalStorage propagation under concurrent requests. This is the same pattern that bit this thread three times already (vault-empty test always "succeeds", CHECK 2 false-negative by timing): the riskiest piece of code is hidden behind a test that only validates the downstream logic. <strong>(3) No documentation of the <code>http.Server</code> coupling</strong> — the capture mechanism depends on requests flowing through <code>http.Server.prototype.emit('request', req, res)</code>. A future migration to HTTP/2 (which emits 'stream' instead of 'request'), a custom server adapter, or a serverless platform that synthesizes <code>req</code> objects would silently degrade the rate limiter to the shared <code>"unidentifiable-socket"</code> bucket — back to the v19.3.1 self-DoS shape, just with a different bucket name. Draft-6 addresses all three: (a) <code>request-peer-capture.ts</code> now wraps both the capture and the ALS dispatch in try/catch with documented fallback (peerAddress=null → named bucket, request still completes, warning written to stderr); (b) new <code>scripts/test-request-peer-integration.ts</code> exercises the REAL monkey-patch + ALS with a live <code>http.Server</code> and two distinct loopback source IPs (<code>127.0.0.1</code> + <code>127.0.0.2</code>, both in 127.0.0.0/8 per RFC 5735) under 10 concurrent requests-in-flight, plus an exception-path test that emits a fake 'request' event with a Proxy-throws <code>req.socket</code> and confirms the server does NOT crash; (c) explicit COUPLING-TO-http.Server comment block in <code>request-peer-capture.ts</code> documents the silent-degradation cases (HTTP/2, custom server, serverless adapter) with detection query and migration path. Also cleaned up §11 — the obsolete "wallet-crypto.ts per-IP rate limit refactor — 0.5 day" line is removed from Phase 1 estimates (the work shipped independently as the v19.3.1/v19.3.2 hotfix). <strong>Phase 1 remains BLOCKED on operator re-review of §7.3.7.</strong></p>
+<hr />
+<h2>0. Executive Summary</h2>
+<p>This document proposes moving the wallet vault (decrypted private keys + signing<br />
+operations) out of the Next.js web process into a <strong>dedicated child process</strong><br />
+that communicates with the web process via a <strong>Unix domain socket</strong> using a<br />
+<strong>JSON-RPC 2.0</strong> protocol with a strict method allowlist.</p>
+<p>The goal is <strong>blast-radius containment</strong>: a compromise of the web process<br />
+(SSRF, prototype pollution, malicious npm dependency, the silent-crash bug<br />
+itself) must not grant immediate access to decrypted private keys. The keys<br />
+live in a separate process with a separate address space, and the only way to<br />
+use them is through an audited RPC interface that exposes <code>sign()</code> but not<br />
+<code>exportKey()</code>.</p>
+<p>This document is the design only. Implementation is a separate work item. The<br />
+operator explicitly directed: advance the design now, run the two crash<br />
+checks in parallel, report both together.</p>
+<p><strong>v19.3 operator review update (BLOCKING):</strong> the operator's review of this<br />
+draft identified a critical gap in the original design. Process isolation<br />
+alone protects against a compromised web process <em>reading</em> keys, but does NOT<br />
+protect against a compromised web process <em>using</em> the signer as a signing<br />
+oracle through the legitimate IPC channel. If the signer blindly trusts any<br />
+<code>sign</code> RPC that arrives on the socket, and the <code>hotWalletCapUsd</code> check lives<br />
+only in <code>portfolio.ts</code> (web side), then an attacker who achieves RCE in the<br />
+web process via a supply-chain dependency (the original motivating threat)<br />
+does not need to steal the key — they just send a valid <code>sign</code> instruction<br />
+for an arbitrarily large transaction to an arbitrary address. Memory<br />
+isolation without <strong>signer-side authorization policy</strong> is containment of one<br />
+failure type, not of the one that motivated the isolation.</p>
+<p>This revision makes the following changes (all marked <code>v19.3</code>):<br />
+- <strong>§7.3 added:</strong> Signer-Side Authorization Policy — per-transaction value<br />
+  cap, per-time-window rolling cap, destination address allowlist, and an<br />
+  independent signer-written audit log. This is the change that transforms<br />
+  "process isolation" into a real "trust boundary".<br />
+- <strong>§8 Phase 1 reordered:</strong> the authorization policy is now a Phase 1<br />
+  BLOCKING prerequisite, not a Phase 3 future consideration. The original<br />
+  Phase 3 "signer-side transaction validation" item is split — policy<br />
+  enforcement moves to Phase 1; higher-level intent-based signing stays in<br />
+  Phase 3 (it requires the signer to understand trading semantics).<br />
+- <strong>§9 answers tightened</strong> to the operator's stated defaults (stricter than<br />
+  the original recommendations): passphrase never crosses IPC, restart is<br />
+  fail-closed, socket parent dir checked for symlink swap, single-writer<br />
+  enforced, signer deps minimal + pinned.<br />
+- <strong>§12.2 added:</strong> clean 150s heterogeneous stress test result (CHECK 1<br />
+  negative, 247 cycles, zero organic crashes) + port-collision hypothesis<br />
+  investigation findings (INDETERMINATE — no direct EADDRINUSE evidence,<br />
+  but hypothesis structurally plausible and consistent with "doesn't<br />
+  reproduce in production").</p>
+<hr />
+<h2>1. Threat Model</h2>
+<h3>1.1 What we are defending against</h3>
+<table>
+<thead>
+<tr>
+<th>Threat</th>
+<th>How process isolation helps</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Malicious npm dependency in web process</strong></td>
+<td>A backdoored package imported by the web app cannot call <code>walletVault.getWalletKey()</code> directly — that method no longer exists in the web process. It can only send RPCs to the signer, which only allows <code>sign()</code> + <code>getStatus()</code>, not <code>exportKey()</code>.</td>
+</tr>
+<tr>
+<td><strong>SSRF / prototype pollution achieving RCE in web process</strong></td>
+<td>Even with full code execution in the web process, the attacker cannot dump keys from memory — the keys are not there. They can send forged RPCs, but the method allowlist limits what they can do. (Request signing in Phase 3 raises the bar further.)</td>
+</tr>
+<tr>
+<td><strong>Memory inspection of web process</strong></td>
+<td>A <code>process.memoryUsage()</code> dump or heap snapshot of the web process yields zero private keys. The attacker would need to inspect the signer process separately.</td>
+</tr>
+<tr>
+<td><strong>Web process crash leaving keys in memory</strong></td>
+<td>The current design holds decrypted keys in the web process's heap. If it crashes (the silent-crash bug), the keys may persist in a core dump or swap. With isolation, the signer detects the web process dying (socket close) and <strong>immediately zeros all keys + exits</strong>, so no keys survive.</td>
+</tr>
+<tr>
+<td><strong>Supply-chain attack on signing library</strong></td>
+<td>If <code>ethers.js</code> or a signing dependency has a vulnerability, the blast radius is limited to the signer process. The web process is unaffected, and the operator can pin/audit the signer's dependencies independently.</td>
+</tr>
+</tbody>
+</table>
+<h3>1.2 What process isolation does NOT defend against (honest limitations)</h3>
+<table>
+<thead>
+<tr>
+<th>Non-threat</th>
+<th>Why not</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Local attacker with debugger (<code>ptrace</code>, <code>gdb</code>)</strong></td>
+<td>An attacker with <code>CAP_SYS_PTRACE</code> or root can attach to the signer process and read its memory. Process isolation doesn't help against local code execution. This is the same limitation as the current design — we're not making it worse.</td>
+</tr>
+<tr>
+<td><strong>Kernel compromise</strong></td>
+<td>A kernel-level attacker can read any process's memory via <code>/proc/&lt;pid&gt;/mem</code> or similar. Out of scope.</td>
+</tr>
+<tr>
+<td><strong>Disk theft (offline brute-force of encrypted blobs)</strong></td>
+<td>The encrypted blobs are still on disk. This is addressed by the Argon2id KDF migration (v19 item 3), not by process isolation.</td>
+</tr>
+<tr>
+<td><strong>Signer process itself compromised</strong></td>
+<td>If the signer has a vulnerability (e.g., a bug in <code>ethers.js</code> transaction signing), the keys are still at risk. Process isolation limits the blast radius of <em>web-process</em> compromises, not signer-process compromises. The signer must still be audited.</td>
+</tr>
+<tr>
+<td><strong>Passphrase interception at the IPC boundary</strong></td>
+<td>The passphrase crosses from web to signer via RPC. A compromised web process can intercept it before it reaches the signer. <strong>v19.3:</strong> §9.1 changed — the operator's default is that the passphrase never crosses IPC at all (signer owns the input lifecycle). See §9.1 for the revised recommendation.</td>
+</tr>
+<tr>
+<td><strong>Compromised web process forging <code>sign</code> RPCs</strong></td>
+<td><strong>v19.3 — this row previously listed as a non-threat; corrected.</strong> A compromised web process can send arbitrary <code>sign</code> RPCs through the legitimate IPC channel. The original draft of this document hand-waved this away as "the defense is the trading engine's risk checks, which run in the web process" — but if the web process is compromised, those checks are bypassed. This is exactly the threat the operator's v19.3 review called out as the most important one. <strong>Mitigation: §7.3 (Signer-Side Authorization Policy)</strong> — the signer enforces its own per-tx cap, per-window cap, destination allowlist, and independent audit log. The web process's risk checks become defense-in-depth, not the primary boundary.</td>
+</tr>
+</tbody>
+</table>
+<h3>1.3 Trust boundaries</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>┌─────────────────────────────────────────────────────────┐
+│  UNTRUSTED (web process)                                 │
+│  ┌─────────────┐  ┌──────────────┐  ┌────────────────┐  │
+│  │ Next.js API │  │ Dashboard UI │  │ Trading engine │  │
+│  │ routes      │  │ (React)      │  │ (scout/execute)│  │
+│  └──────┬──────┘  └──────────────┘  └───────┬────────┘  │
+│         │                              │                  │
+│         └──────────┬───────────────────┘                  │
+│                    ▼                                      │
+│           ┌────────────────┐                              │
+│           │ signer-client  │ (thin RPC wrapper — no keys) │
+│           └───────┬────────┘                              │
+└───────────────────┼──────────────────────────────────────┘
+                    │  Unix domain socket (JSON-RPC 2.0)
+                    │  /run/signer.sock (mode 0600)
+                    │  ↓ method allowlist: unlock/lock/sign/getStatus/...
+┌───────────────────┼──────────────────────────────────────┐
+│  TRUSTED (signer process)  │                              │
+│           ┌───────▼────────┐                              │
+│           │ signer main    │                              │
+│           │  • walletMap   │ ← decrypted keys live HERE   │
+│           │  • rate-limit  │   and NOWHERE else           │
+│           │  • auto-lock   │                              │
+│           │  • audit log   │                              │
+│           └───────┬────────┘                              │
+│                   │                                       │
+│           ┌───────▼────────┐                              │
+│           │ ethers.js      │ ← signing happens HERE       │
+│           │ (pinned dep)   │                              │
+│           └────────────────┘                              │
+└───────────────────────────────────────────────────────────┘
+</code></pre></div>
+
+<p>The <strong>IPC socket is the only trust boundary crossing</strong>. Everything north of it<br />
+is untrusted (assumed potentially compromised); everything south of it is<br />
+trusted (audited, pinned dependencies, minimal surface).</p>
+<hr />
+<h2>2. Architecture</h2>
+<h3>2.1 Process model</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Parent: Next.js (next start)
+  ├─ instrumentation.ts → spawnSigner()
+  │    └─ child_process.spawn(&quot;node&quot;, [&quot;dist/signer/main.js&quot;], { stdio: ... })
+  ├─ signer-client.ts → connects to /run/signer.sock
+  ├─ API routes (/api/vault, /api/wallets) → call signer-client
+  └─ trading engine → calls signer-client.sign() for live txs
+
+Child: signer (node dist/signer/main.js)
+  ├─ creates /run/signer.sock (mode 0600, owner = web process user)
+  ├─ listens for JSON-RPC 2.0 over the socket
+  ├─ holds walletVault (moved from wallet-crypto.ts)
+  ├─ on parent disconnect (socket close) → zero keys + exit
+  └─ on uncaughtException → zero keys + crash log + exit(1)
+</code></pre></div>
+
+<h3>2.2 Why Unix domain socket (not stdin/stdout, not TCP, not named pipe)</h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Verdict</th>
+<th>Reasoning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Unix domain socket</strong> (AF_UNIX)</td>
+<td>✅ Chosen</td>
+<td>Local-only (no network exposure), filesystem permissions (0600) provide authentication, supports concurrent connections, Node.js <code>net</code> module has first-class support, standard for local IPC.</td>
+</tr>
+<tr>
+<td>stdin/stdout JSON-RPC (LSP-style)</td>
+<td>❌ Rejected</td>
+<td>Simpler, but stdin is a single stream — hard to support concurrent requests cleanly. Also couples the signer's logging (which wants stdout) with the protocol.</td>
+</tr>
+<tr>
+<td>TCP localhost</td>
+<td>❌ Rejected</td>
+<td>Exposes the signer to the network stack (even on 127.0.0.1, a SSRF in the web process could reach it). No filesystem permission model.</td>
+</tr>
+<tr>
+<td>Named pipe (Windows)</td>
+<td>❌ N/A</td>
+<td>Not targeting Windows.</td>
+</tr>
+</tbody>
+</table>
+<h3>2.3 Why JSON-RPC 2.0 (not custom binary, not gRPC)</h3>
+<table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Verdict</th>
+<th>Reasoning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>JSON-RPC 2.0</strong></td>
+<td>✅ Chosen</td>
+<td>Human-readable (easy to audit in crash logs), standard library support, supports request/response + notifications, no code generation step.</td>
+</tr>
+<tr>
+<td>Custom binary protocol</td>
+<td>❌ Rejected</td>
+<td>Slightly faster, but opaque in logs. For the volume we're doing (single-digit RPCs per trade), JSON overhead is negligible.</td>
+</tr>
+<tr>
+<td>gRPC</td>
+<td>❌ Rejected</td>
+<td>Requires protobuf codegen + native deps. Overkill for a 2-process local system.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>3. IPC Protocol</h2>
+<h3>3.1 Transport</h3>
+<ul>
+<li><strong>Socket path:</strong> <code>/run/signer.sock</code> (configurable via <code>SIGNER_SOCKET_PATH</code>)</li>
+<li>Fallback: <code>${XDG_RUNTIME_DIR}/signer.sock</code> or <code>/tmp/signer-&lt;uid&gt;.sock</code></li>
+<li><strong>Permissions:</strong> <code>0600</code> (owner read/write only), owner = the user running the web process</li>
+<li><strong>Connection model:</strong> the web process opens ONE persistent connection at boot and reuses it for all RPCs. If the connection drops, the client treats the vault as locked and attempts reconnect.</li>
+<li><strong>Framing:</strong> newline-delimited JSON (each JSON-RPC message is one line). Simple, robust, easy to debug.</li>
+</ul>
+<h3>3.2 Message format (JSON-RPC 2.0)</h3>
+<p><strong>Request (web → signer):</strong></p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>{<span style="color: #062873; font-weight: bold">&quot;jsonrpc&quot;</span>:<span style="color: #4070A0">&quot;2.0&quot;</span>,<span style="color: #062873; font-weight: bold">&quot;id&quot;</span>:<span style="color: #4070A0">&quot;&lt;uuid&gt;&quot;</span>,<span style="color: #062873; font-weight: bold">&quot;method&quot;</span>:<span style="color: #4070A0">&quot;unlock&quot;</span>,<span style="color: #062873; font-weight: bold">&quot;params&quot;</span>:{<span style="color: #062873; font-weight: bold">&quot;passphrase&quot;</span>:<span style="color: #4070A0">&quot;...&quot;</span>,<span style="color: #062873; font-weight: bold">&quot;sourceIp&quot;</span>:<span style="color: #4070A0">&quot;203.0.113.42&quot;</span>}}
+</code></pre></div>
+
+<p><strong>Response (signer → web):</strong></p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>{<span style="color: #062873; font-weight: bold">&quot;jsonrpc&quot;</span>:<span style="color: #4070A0">&quot;2.0&quot;</span>,<span style="color: #062873; font-weight: bold">&quot;id&quot;</span>:<span style="color: #4070A0">&quot;&lt;uuid&gt;&quot;</span>,<span style="color: #062873; font-weight: bold">&quot;result&quot;</span>:{<span style="color: #062873; font-weight: bold">&quot;wallets&quot;</span>:<span style="color: #40A070">5</span>,<span style="color: #062873; font-weight: bold">&quot;exchanges&quot;</span>:<span style="color: #40A070">0</span>}}
+</code></pre></div>
+
+<p><strong>Error response:</strong></p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>{<span style="color: #062873; font-weight: bold">&quot;jsonrpc&quot;</span>:<span style="color: #4070A0">&quot;2.0&quot;</span>,<span style="color: #062873; font-weight: bold">&quot;id&quot;</span>:<span style="color: #4070A0">&quot;&lt;uuid&gt;&quot;</span>,<span style="color: #062873; font-weight: bold">&quot;error&quot;</span>:{<span style="color: #062873; font-weight: bold">&quot;code&quot;</span>:<span style="color: #40A070">-32001</span>,<span style="color: #062873; font-weight: bold">&quot;message&quot;</span>:<span style="color: #4070A0">&quot;Passphrase incorreta&quot;</span>,<span style="color: #062873; font-weight: bold">&quot;data&quot;</span>:{<span style="color: #062873; font-weight: bold">&quot;recentFailures&quot;</span>:<span style="color: #40A070">3</span>}}}
+</code></pre></div>
+
+<p><strong>Notification (signer → web, no response expected):</strong></p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>{<span style="color: #062873; font-weight: bold">&quot;jsonrpc&quot;</span>:<span style="color: #4070A0">&quot;2.0&quot;</span>,<span style="color: #062873; font-weight: bold">&quot;method&quot;</span>:<span style="color: #4070A0">&quot;vault_auto_locked&quot;</span>,<span style="color: #062873; font-weight: bold">&quot;params&quot;</span>:{<span style="color: #062873; font-weight: bold">&quot;reason&quot;</span>:<span style="color: #4070A0">&quot;30min idle&quot;</span>}}
+</code></pre></div>
+
+<h3>3.3 Method allowlist</h3>
+<p><strong>Methods the signer accepts:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Params</th>
+<th>Result</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>health_check</code></td>
+<td><code>{}</code></td>
+<td><code>{ ok: true, pid: number, uptime: number, vaultUnlocked: boolean }</code></td>
+<td>No side effects. Used at boot + periodic keepalive.</td>
+</tr>
+<tr>
+<td><code>unlock</code></td>
+<td><code>{ passphrase: string, sourceIp: string }</code></td>
+<td><code>{ wallets: number, exchanges: number }</code></td>
+<td>Loads + decrypts all blobs. Rate-limited (5 failures/60s → 5min cooldown).</td>
+</tr>
+<tr>
+<td><code>lock</code></td>
+<td><code>{ reason: string, sourceIp: string }</code></td>
+<td><code>{ ok: true, walletCount: number, exchangeCount: number }</code></td>
+<td>Wipes all keys.</td>
+</tr>
+<tr>
+<td><code>get_status</code></td>
+<td><code>{}</code></td>
+<td><code>{ unlocked, walletCount, exchangeCount, unlockTime, autoLockInSec, cooldownUntil, recentFailures }</code></td>
+<td>Read-only. Used by dashboard.</td>
+</tr>
+<tr>
+<td><code>get_public_info</code></td>
+<td><code>{ walletId: string }</code></td>
+<td><code>{ label, address, type, chain }</code></td>
+<td>Returns ONLY public metadata. Never the private key.</td>
+</tr>
+<tr>
+<td><code>sign</code></td>
+<td><code>{ walletId: string, txData: object, sourceIp: string }</code></td>
+<td><code>{ signedTx: string, txHash: string }</code></td>
+<td><strong>The critical operation.</strong> Signs a transaction with the decrypted key. The key never leaves the signer. <strong>v19.3:</strong> before signing, the signer enforces the authorization policy from §7.3 — per-tx value cap, per-window rolling cap, destination allowlist, independent audit log. A sign RPC that violates the policy is rejected with <code>-32006 Policy violation</code> (see §3.4) and logged to the signer's independent audit log. The web process cannot bypass or configure this policy at runtime — it is loaded from env vars at signer boot.</td>
+</tr>
+<tr>
+<td><code>sign_typed_data</code></td>
+<td><code>{ walletId: string, domain, types, message, sourceIp: string }</code></td>
+<td><code>{ signature: string }</code></td>
+<td>EIP-712 typed data signing (for DEX approvals, permit signatures). <strong>v19.3:</strong> same authorization policy as <code>sign</code> applies — the <code>domain.verifyingContract</code> is checked against the destination allowlist, and the permit <code>value</code> is checked against the per-tx + per-window caps.</td>
+</tr>
+<tr>
+<td><code>create_wallet</code></td>
+<td><code>{ label, type, address, privateKey, passphrase, sourceIp }</code></td>
+<td><code>{ id: string }</code></td>
+<td>Creates a wallet row + encrypts the key. The plaintext key is seen only by the signer.</td>
+</tr>
+<tr>
+<td><code>delete_wallet</code></td>
+<td><code>{ id: string, sourceIp: string }</code></td>
+<td><code>{ ok: true }</code></td>
+<td>Deletes a wallet row. If the vault is unlocked, also wipes the in-memory key.</td>
+</tr>
+<tr>
+<td><code>shutdown</code></td>
+<td><code>{ reason: string }</code></td>
+<td><code>{ ok: true }</code></td>
+<td>Polite shutdown: zero keys, close socket, exit 0. Sent by the web process on SIGINT/SIGTERM.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Methods that MUST NEVER be exposed (the security-critical allowlist boundary):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Forbidden method</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>export_key</code></td>
+<td>Private keys must never leave the signer process.</td>
+</tr>
+<tr>
+<td><code>get_wallet_key</code></td>
+<td>Direct key access stays in-process.</td>
+</tr>
+<tr>
+<td><code>raw_decrypt</code></td>
+<td>The signer's decryption capability is for vault unlock only, not arbitrary blobs.</td>
+</tr>
+<tr>
+<td><code>eval</code> / <code>execute</code> / <code>run_script</code></td>
+<td>No arbitrary code execution. The signer is a signing oracle, not a general-purpose worker.</td>
+</tr>
+<tr>
+<td><code>read_file</code> / <code>write_file</code></td>
+<td>No filesystem access through the RPC interface.</td>
+</tr>
+</tbody>
+</table>
+<p>The allowlist is enforced as a hard-coded <code>Set&lt;string&gt;</code> in the signer's request<br />
+dispatcher. Any method not in the set returns a <code>-32601 Method not found</code><br />
+error. There is no way to add methods at runtime.</p>
+<h3>3.4 Error codes</h3>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-32700</code></td>
+<td>Parse error (malformed JSON)</td>
+</tr>
+<tr>
+<td><code>-32600</code></td>
+<td>Invalid request (not valid JSON-RPC 2.0)</td>
+</tr>
+<tr>
+<td><code>-32601</code></td>
+<td>Method not found (not in allowlist)</td>
+</tr>
+<tr>
+<td><code>-32602</code></td>
+<td>Invalid params (missing required field)</td>
+</tr>
+<tr>
+<td><code>-32603</code></td>
+<td>Internal error (uncaught exception in the handler — signer will also write a crash log)</td>
+</tr>
+<tr>
+<td><code>-32001</code></td>
+<td>Vault locked (unlock required first)</td>
+</tr>
+<tr>
+<td><code>-32002</code></td>
+<td>Rate limited (cooldown active)</td>
+</tr>
+<tr>
+<td><code>-32003</code></td>
+<td>Wallet not found</td>
+</tr>
+<tr>
+<td><code>-32004</code></td>
+<td>Signing failed (ethers.js error)</td>
+</tr>
+<tr>
+<td><code>-32005</code></td>
+<td>Passphrase incorrect (unlock failed)</td>
+</tr>
+<tr>
+<td><code>-32006</code></td>
+<td><strong>v19.3:</strong> Policy violation — <code>sign</code> or <code>sign_typed_data</code> RPC rejected by the signer-side authorization policy (§7.3). The rejection is logged to the signer's independent audit log + fires a notification. The web process cannot suppress this.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>4. Process Lifecycle</h2>
+<h3>4.1 Boot sequence</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Next.js process boots (instrumentation.ts)
+  │
+  ├─ 1. registerCrashHandlers()           (existing — v19-BLOCKING)
+  │
+  ├─ 2. spawnSigner()
+  │    ├─ child_process.spawn(&quot;node&quot;, [&quot;dist/signer/main.js&quot;], {
+  │    │     stdio: [&quot;pipe&quot;, &quot;pipe&quot;, &quot;pipe&quot;],
+  │    │     env: { SIGNER_SOCKET_PATH: &quot;/run/signer.sock&quot;, ... }
+  │    │   })
+  │    ├─ wait for child stderr to print &quot;SIGNER_READY socket=/run/signer.sock&quot;
+  │    │   (max 10s timeout — if not ready, abort boot)
+  │    └─ store child PID for liveness monitoring
+  │
+  ├─ 3. signerClient.connect(&quot;/run/signer.sock&quot;)
+  │    └─ open persistent connection
+  │
+  ├─ 4. health_check RPC → expect { ok: true, vaultUnlocked: false }
+  │    (if this fails, abort boot — signer is unhealthy)
+  │
+  └─ 5. Continue with normal Next.js boot (route handlers, etc.)
+</code></pre></div>
+
+<h3>4.2 Shutdown sequence (graceful)</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Next.js receives SIGINT or SIGTERM
+  │
+  ├─ 1. signerClient.shutdown({ reason: &quot;SIGTERM&quot; })
+  │    ├─ signer receives shutdown RPC
+  │    ├─ signer zeros all keys (overwrite + clear Maps)
+  │    ├─ signer writes &quot;vault_locked shutdown&quot; to audit log
+  │    ├─ signer closes the socket
+  │    └─ signer exits 0
+  │
+  ├─ 2. wait for child process to exit (max 5s)
+  │
+  └─ 3. process.exit(130)  (existing SIGINT handler in crash-logger.ts)
+</code></pre></div>
+
+<h3>4.3 Failure: signer crash</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Signer process dies (uncaughtException → crash handler → exit 1)
+  │
+  ├─ Web process detects: socket receives &#39;close&#39; event
+  │
+  ├─ signerClient.onDisconnect handler fires:
+  │    ├─ mark vault as LOCKED in the cached status (conservative)
+  │    ├─ log error: &quot;Signer process disconnected — vault assumed locked&quot;
+  │    ├─ notify operator: &quot;Signer crash — vault locked, trading halted&quot;
+  │    └─ schedule reconnect attempt (exponential backoff: 1s, 2s, 4s, 8s, max 30s)
+  │
+  ├─ Reconnect attempts:
+  │    ├─ try to spawn a new signer process
+  │    ├─ if spawn succeeds + health_check passes → vault is in LOCKED state
+  │    │   (keys were zeroed on crash — operator must re-unlock)
+  │    ├─ if spawn fails 3 times → give up, web process continues in degraded mode
+  │    │   (all vault operations return 503, trading engine halts)
+  │    └─ operator must manually investigate + restart
+  │
+  └─ Crash log: the signer wrote logs/crash-*.log BEFORE exiting (same sync
+     mechanism as the web process — the signer also uses crash-logger.ts)
+</code></pre></div>
+
+<h3>4.4 Failure: web process crash</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Next.js process dies (the silent-crash bug, or OOM, or operator kill)
+  │
+  ├─ Signer process detects: socket receives &#39;close&#39; event on the accepted connection
+  │
+  ├─ Signer&#39;s disconnect handler fires:
+  │    ├─ THIS IS THE KEY SECURITY PROPERTY
+  │    ├─ zero all keys immediately (overwrite + clear Maps)
+  │    ├─ write &quot;vault_locked parent_disconnect&quot; to audit log
+  │    ├─ write crash-log-style entry: &quot;Parent process disconnected, zeroing keys&quot;
+  │    └─ exit 0 (clean exit — the signer did its job)
+  │
+  └─ Result: no decrypted keys survive the web process crash.
+     The encrypted blobs are still on disk (unchanged), but the in-memory
+     decrypted copies are gone. An attacker who inspects the machine after
+     the crash finds zero keys in memory.
+</code></pre></div>
+
+<h3>4.5 Failure: IPC timeout</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Web process sends RPC → no response within 5s (configurable)
+  │
+  ├─ signerClient throws TimeoutError
+  │
+  ├─ Caller (API route or trading engine) receives the error:
+  │    ├─ API route → returns 503 &quot;Signer timeout — vault unavailable&quot;
+  │    └─ Trading engine → treats as &quot;vault locked&quot;, halts EXECUTE phase
+  │
+  ├─ The signer may still be processing (e.g., long Argon2id derivation
+  │   could take &gt;5s on weak hardware). When it finishes, it sends the
+  │   response, which the web client ignores (correlation ID no longer
+  │   in the pending map).
+  │
+  └─ If timeouts persist across multiple RPCs, the web process initiates
+     the signer-crash recovery sequence (§4.3).
+</code></pre></div>
+
+<h3>4.6 Failure: partial failure (signer alive but vault locked)</h3>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Signer is running but vault is locked (e.g., auto-lock fired, or signer
+restarted after crash)
+  │
+  ├─ get_status → { unlocked: false }
+  │
+  ├─ sign RPC → error -32001 &quot;Vault locked&quot;
+  │
+  ├─ Trading engine sees vault locked:
+  │    ├─ halts EXECUTE phase (cannot sign transactions)
+  │    ├─ continues MONITOR phase (can still read positions from DB)
+  │    └─ notifies operator: &quot;Vault locked — trading paused, re-unlock required&quot;
+  │
+  └─ Operator re-enters passphrase via /api/vault → unlock RPC → signer
+     decrypts → trading resumes.
+</code></pre></div>
+
+<hr />
+<h2>5. State Ownership</h2>
+<table>
+<thead>
+<tr>
+<th>State</th>
+<th>Owner</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Decrypted private keys</td>
+<td><strong>Signer only</strong></td>
+<td>The entire point of isolation. Never serialized, never sent over IPC, never in web process memory.</td>
+</tr>
+<tr>
+<td>Passphrase (transient)</td>
+<td><strong>Signer only</strong></td>
+<td>Enters via <code>unlock</code> RPC, held in a local variable during decryption, then overwritten with zeros. Never persisted, never logged.</td>
+</tr>
+<tr>
+<td>Encrypted blobs</td>
+<td>DB (shared)</td>
+<td>Both processes can read the DB, but only the signer decrypts. The web process reads only public columns (label, address, type).</td>
+</tr>
+<tr>
+<td>Wallet metadata (label, address, type)</td>
+<td>DB (shared)</td>
+<td>Web process reads for dashboard display. Signer reads during unlock to know which rows to decrypt.</td>
+</tr>
+<tr>
+<td>Vault lock/unlock state</td>
+<td><strong>Signer (source of truth)</strong></td>
+<td>Web process maintains a cached copy for UI, but the signer is authoritative. If they disagree, the signer wins.</td>
+</tr>
+<tr>
+<td>Rate-limit counters (failedAttempts, cooldownUntil)</td>
+<td><strong>Signer only</strong></td>
+<td>Anti-brute-force state must live in the signer — otherwise a compromised web process could just reset the counters.</td>
+</tr>
+<tr>
+<td>Auto-lock timer</td>
+<td><strong>Signer only</strong></td>
+<td>The signer tracks <code>lastKeyAccessAt</code> and fires auto-lock independently. The web process cannot disable it.</td>
+</tr>
+<tr>
+<td><strong>v19.3:</strong> Authorization policy (caps + allowlist)</td>
+<td><strong>Signer only</strong></td>
+<td>The per-tx cap, per-window rolling cap, and destination allowlist are loaded from env vars at signer boot (<code>SIGNER_MAX_TX_USD</code>, <code>SIGNER_MAX_WINDOW_USD</code>, <code>SIGNER_WINDOW_SEC</code>, <code>SIGNER_DEST_ALLOWLIST</code>). The web process cannot read or modify these at runtime — they live in the signer's process memory.</td>
+</tr>
+<tr>
+<td><strong>v19.3:</strong> Rolling window spend tracker</td>
+<td><strong>Signer only</strong></td>
+<td>The signer maintains a rolling window of signed transaction values (used to enforce the per-window cap). A compromised web process cannot reset this counter to bypass the cap.</td>
+</tr>
+<tr>
+<td><strong>v19.3:</strong> Independent signer audit log</td>
+<td><strong>Signer only (write); operator (read)</strong></td>
+<td>The signer writes its own audit log to <code>logs/signer-audit.jsonl</code> (append-only, JSON Lines). Each entry is a signed transaction or a policy rejection. The web process CANNOT write to this file — it has no filesystem path to it (the path is configurable only via signer env var). This is the "trust boundary" the operator asked for: if the web process is compromised, it can lie in its own <code>AppLog</code> rows, but it cannot rewrite what the signer already recorded about what it signed.</td>
+</tr>
+<tr>
+<td>Audit log (AppLog)</td>
+<td>DB (shared)</td>
+<td>Both processes write to it. The signer writes vault events; the web process writes API + engine events. <strong>v19.3:</strong> the signer's independent audit log (above) is the tamper-evident record; AppLog is now the secondary, web-process-writable log.</td>
+</tr>
+<tr>
+<td>Crash logs</td>
+<td><strong>Separate per process</strong></td>
+<td>Web: <code>logs/crash-*.log</code>. Signer: <code>logs/signer-crash-*.log</code>. Keeps them distinct for post-mortem.</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>6. Concurrency Model</h2>
+<h3>6.1 Signer is single-threaded</h3>
+<p>The signer is a Node.js process — single event loop, no true parallelism. RPC<br />
+requests are processed sequentially. This is <strong>intentional</strong>:</p>
+<ul>
+<li><strong>No concurrent key access</strong>: two <code>sign()</code> calls for the same wallet cannot<br />
+  interleave and produce corrupted signatures. The signer processes them one<br />
+  at a time.</li>
+<li><strong>No TOCTOU on vault state</strong>: the <code>unlock</code> → <code>decrypt all blobs</code> → <code>populate
+  Maps</code> sequence is atomic from the perspective of other RPCs. A <code>sign()</code> RPC<br />
+  that arrives during unlock either sees the old state (locked) or the new<br />
+  state (unlocked), never a partial state.</li>
+<li><strong>Simpler reasoning</strong>: the current <code>wallet-crypto.ts</code> already relies on<br />
+  single-threaded semantics for its Map mutations. Moving to a separate<br />
+  process preserves this invariant.</li>
+</ul>
+<h3>6.2 Request queueing</h3>
+<p>The web process may send multiple RPCs concurrently (e.g., the dashboard polls<br />
+<code>get_status</code> while the trading engine calls <code>sign</code>). The signer queues them<br />
+in arrival order and processes sequentially. Each response carries the<br />
+correlation ID from the request, so the web client matches responses to<br />
+requests correctly even under concurrency.</p>
+<h3>6.3 Long operations</h3>
+<p><code>unlock</code> does PBKDF2 (600k iterations) × N wallets. With 5 wallets, this is<br />
+~2-3 seconds on typical hardware. During this time, the signer's event loop<br />
+is blocked (PBKDF2 is synchronous in Node's <code>crypto</code> module). Other RPCs<br />
+queue behind it.</p>
+<p>This is acceptable because:<br />
+- <code>unlock</code> is infrequent (once at engine start, then after auto-lock)<br />
+- The web process shows a "Unlocking..." spinner during the RPC<br />
+- The 5s IPC timeout may need to be extended to 15s for <code>unlock</code> specifically</p>
+<p>When we migrate to Argon2id (v19 item 3), the derivation time increases (~5s<br />
+per attempt on default params). The <code>unlock</code> RPC timeout should be 30s to<br />
+accommodate this.</p>
+<hr />
+<h2>7. Security Properties</h2>
+<h3>7.1 Guarantees provided</h3>
+<ol>
+<li>
+<p><strong>No decrypted key in web process memory, ever.</strong> The web process never<br />
+   imports <code>wallet-crypto.ts</code>'s <code>walletVault</code>. It imports <code>signer-client.ts</code>,<br />
+   which holds only a socket connection + a cached status snapshot.</p>
+</li>
+<li>
+<p><strong>Key zeroing on web process death.</strong> The signer detects socket close and<br />
+   zeros keys within milliseconds. No core dump of the web process contains<br />
+   keys (they were never there).</p>
+</li>
+<li>
+<p><strong>Method allowlist is the attack surface.</strong> A compromised web process can<br />
+   only invoke the 10 methods in §3.3. It cannot call <code>export_key</code> (doesn't<br />
+   exist), cannot call <code>eval</code> (doesn't exist), cannot read arbitrary files.</p>
+</li>
+<li>
+<p><strong>Rate limiting is signer-enforced.</strong> A compromised web process cannot<br />
+   bypass the brute-force rate limit by directly manipulating the<br />
+<code>failedAttempts</code> array — that array lives in the signer.</p>
+</li>
+<li>
+<p><strong>Auto-lock is signer-enforced.</strong> A compromised web process cannot disable<br />
+   the 30-min idle auto-lock by resetting <code>lastKeyAccessAt</code> — that timestamp<br />
+   lives in the signer.</p>
+</li>
+<li>
+<p><strong>Audit log is signer-written.</strong> Vault events (unlock, lock, sign) are<br />
+   written by the signer directly to the DB. A compromised web process cannot<br />
+   suppress them (though it could write its own fake events — see §7.2).</p>
+</li>
+</ol>
+<h3>7.2 Non-guarantees (what a compromised web process CAN do)</h3>
+<ol>
+<li>
+<p><strong>Forge unlock RPCs.</strong> A compromised web process can send <code>unlock</code> with a<br />
+   passphrase it intercepted from the operator's UI input. This is the<br />
+   passphrase-interception limitation in §1.2. Mitigation: Phase 3 request<br />
+   signing (HMAC with a shared secret established at boot), or direct<br />
+   passphrase entry in the signer (§9.1).</p>
+</li>
+<li>
+<p><strong>Forge sign RPCs.</strong> A compromised web process can ask the signer to sign<br />
+   arbitrary transactions. <strong>v19.3 — this non-guarantee is now PARTIALLY<br />
+   closed by §7.3 (Signer-Side Authorization Policy).</strong> The signer enforces:<br />
+   - Per-transaction value cap (<code>SIGNER_MAX_TX_USD</code>, default = <code>hotWalletCapUsd</code><br />
+     from config) — a sign RPC for a $10,000 tx is rejected when the cap is $200.<br />
+   - Per-time-window rolling cap (<code>SIGNER_MAX_WINDOW_USD</code> over<br />
+<code>SIGNER_WINDOW_SEC</code>, default $500 / 300s) — even if each individual tx is<br />
+     under the per-tx cap, the signer rejects once the rolling window sum<br />
+     exceeds the per-window cap.<br />
+   - Destination address allowlist (<code>SIGNER_DEST_ALLOWLIST</code>, a JSON file path<br />
+     loaded at boot) — only known DEX routers / spender contracts are<br />
+     accepted. A sign RPC to an arbitrary EOA is rejected.<br />
+   - Independent audit log (<code>logs/signer-audit.jsonl</code>) — every sign RPC<br />
+     (accepted or rejected) is recorded by the signer, in a file the web<br />
+     process cannot write to or rewrite.</p>
+</li>
+</ol>
+<p>What this STILL does not prevent: a compromised web process sending a<br />
+   sign RPC for a <em>policy-compliant</em> transaction (e.g., a $150 swap to a<br />
+   known DEX router) that the operator did not authorize. Full mitigation<br />
+   requires Phase 3 intent-based signing (the signer takes a higher-level<br />
+   intent like "close position X" and constructs the tx itself, so the web<br />
+   process cannot forge the destination or amount). The operator should<br />
+   treat §7.3 as raising the bar from "any signed tx" to "a policy-compliant<br />
+   signed tx" — not as fully closing the gap.</p>
+<ol start="3">
+<li>
+<p><strong>Suppress notifications.</strong> A compromised web process could swallow the<br />
+<code>vault_unlocked</code> notification before it reaches the notifier. Mitigation:<br />
+   the signer should also write directly to the notifier (Phase 3 — signer<br />
+   holds its own notifier client).</p>
+</li>
+<li>
+<p><strong>Write fake audit log entries.</strong> A compromised web process can write<br />
+   arbitrary rows to <code>AppLog</code>. This is a limitation of the shared-DB model.<br />
+   Mitigation: Phase 3 could add a signer-written hash chain to AppLog<br />
+   entries, making forgery detectable.</p>
+</li>
+</ol>
+<h3>7.3 Signer-Side Authorization Policy (v19.3 — BLOCKING for Phase 1)</h3>
+<p><strong>This section is the operator's v19.3 review point #3.</strong> The original draft<br />
+of this document treated the signer as a pure signing oracle — it would sign<br />
+any well-formed <code>sign</code> RPC that arrived on the socket. That is process<br />
+isolation without a trust boundary: it protects against the web process<br />
+<em>reading</em> keys, but not against the web process <em>using</em> the signer as a<br />
+drain. The operator's exact framing:</p>
+<blockquote>
+<p>"Isolamento de memória sem <strong>política de autorização própria dentro do<br />
+signer</strong> é contenção de um tipo de falha, não de todos os que motivaram o<br />
+isolamento. ... Eu exigiria, antes de aprovar a Fase 1 de implementação:<br />
+o signer precisa reimplementar e reforçar, do lado dele, pelo menos [teto<br />
+de valor por transação e por janela de tempo, allowlist de endereços/<br />
+contratos de destino, log de auditoria próprio do signer]."</p>
+</blockquote>
+<p>This section specifies those three requirements plus the configuration model<br />
+that makes them tamper-resistant against a compromised web process.</p>
+<h4>7.3.1 Per-transaction value cap</h4>
+<p><strong>Rule:</strong> the signer rejects any <code>sign</code> RPC whose transaction value (in USD)<br />
+exceeds <code>SIGNER_MAX_TX_USD</code> (env var, default = the same <code>hotWalletCapUsd</code><br />
+value from <code>src/lib/trading/config.ts</code> — currently $200).</p>
+<p><strong>How the value is computed:</strong><br />
+- For a simple ETH transfer: <code>tx.value</code> × spot ETH/USD (fetched via the<br />
+  signer's own price feed — the signer does NOT trust the web process's<br />
+  price).<br />
+- For an ERC-20 transfer (decoded from <code>tx.data</code> against the destination<br />
+  contract, which must be in the allowlist per §7.3.3): the decoded <code>amount</code><br />
+  × the token's spot USD price.<br />
+- For a DEX swap (decoded from <code>tx.data</code> against a known router): the input<br />
+  token amount × spot USD price. The output token is NOT counted (avoid<br />
+  double-counting with the per-window cap).<br />
+- If the signer cannot decode the tx (unknown contract, unknown method<br />
+  selector): <strong>reject</strong> with <code>-32006 Policy violation (undecodable tx)</code>.<br />
+  Fail-closed is the only safe default.</p>
+<p><strong>Why the signer does its own price fetch:</strong> a compromised web process could<br />
+lie about the USD value of a transaction to bypass the cap. The signer must<br />
+fetch the price independently (from the same sources the web process uses —<br />
+Binance + DexScreener — but via its own HTTP client, its own cache, its own<br />
+rate-limit handling). If the price fetch fails, the signer <strong>rejects</strong> the<br />
+sign RPC with <code>-32006 Policy violation (price unavailable)</code>. Fail-closed.</p>
+<p><strong>Price feed source is fixed at boot — NOT a parameter of the <code>sign</code> RPC<br />
+(v19.3 operator review point #4).</strong> The URL(s) and source list (Binance<br />
+REST endpoints, DexScreener base URL) are read from the signer's env vars<br />
+at boot:</p>
+<table>
+<thead>
+<tr>
+<th>Env var</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SIGNER_PRICE_FEED_BINANCE_URL</code></td>
+<td><code>https://api.binance.com/api/v3/ticker/price</code></td>
+<td>Binance spot price endpoint.</td>
+</tr>
+<tr>
+<td><code>SIGNER_PRICE_FEED_DEXSCREENER_URL</code></td>
+<td><code>https://api.dexscreener.com/latest/dex/tokens</code></td>
+<td>DexScreener token price endpoint.</td>
+</tr>
+<tr>
+<td><code>SIGNER_PRICE_FEED_STALE_SEC</code></td>
+<td><code>60</code></td>
+<td>Max age of a cached price before sign RPC is rejected as <code>price unavailable</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>The <code>sign</code> RPC payload schema (§3.3) does NOT include a <code>priceFeedUrl</code> or<br />
+<code>price</code> field. A web process that tries to pass one is rejected with<br />
+<code>-32602 Invalid params (unexpected field: priceFeedUrl)</code>. This is the same<br />
+tamper-resistance pattern as the destination allowlist (§7.3.3) and the<br />
+value caps (§7.3.5): the policy inputs are bound at boot, and the only way<br />
+to change them is to edit the env var and restart the signer — which, per<br />
+§9.2, requires manual re-unlock. A compromised web process cannot<br />
+manipulate the price used to validate the cap, because the web process<br />
+never gets to specify the price.</p>
+<p><strong>Configuration:</strong> <code>SIGNER_MAX_TX_USD</code> is read from env at signer boot. The<br />
+web process cannot change it at runtime (no RPC method exists to update the<br />
+cap; the signer has no <code>set_policy</code> method in its allowlist). To change the<br />
+cap, the operator edits the env var and restarts the signer (which, per<br />
+§9.2, requires a manual re-unlock).</p>
+<h4>7.3.2 Per-time-window rolling cap</h4>
+<p><strong>Rule:</strong> the signer tracks the sum of signed transaction values over a<br />
+rolling window of <code>SIGNER_WINDOW_SEC</code> (default 300s / 5min). If a new sign<br />
+RPC would push the rolling sum above <code>SIGNER_MAX_WINDOW_USD</code> (default $500),<br />
+the signer rejects it with <code>-32006 Policy violation (window cap exceeded)</code>.</p>
+<p><strong>Why this matters:</strong> without the per-window cap, a compromised web process<br />
+could drain the hot wallet by sending many small, individually-policy-<br />
+compliant transactions (each $199, all to the same allowlisted router) until<br />
+the wallet is empty. The per-window cap bounds the total bleed rate.</p>
+<p><strong>State:</strong> the rolling window is an in-memory array of<br />
+<code>{ timestamp: number, valueUsd: number }</code> entries, pruned to the last<br />
+<code>SIGNER_WINDOW_SEC</code> seconds on each sign RPC. The array lives in the signer<br />
+process — a compromised web process cannot read it, cannot reset it, cannot<br />
+fudge the timestamps. If the signer restarts (crash or operator restart),<br />
+the window is wiped — this is conservative in the right direction (the cap<br />
+is <em>more</em> restrictive after a restart, not less, because the rolling sum<br />
+starts at zero).</p>
+<p><strong>Scope: GLOBAL (per signer), not per source identity (v19.3 operator<br />
+review point #3).</strong> This is the correct scope for the USD cap because the<br />
+signer is <strong>single-writer</strong> (§9.4): only one connection (the web process)<br />
+can hold the writer lease at a time, and only the writer can call <code>sign</code>.<br />
+There is no "per-IP" rotation attack at the signer layer — the socket is<br />
+mode <code>0600</code> (§9.3), so only the web process can connect at all. Per-IP<br />
+scoping of the USD cap would weaken the cap without adding any defense:<br />
+an attacker who has compromised the web process IS the web process, and<br />
+the cap exists precisely to bound what that single compromised identity<br />
+can drain. Keeping it global means the cap bounds the bleed rate<br />
+regardless of how the web process tries to subdivide its requests.</p>
+<p><strong>Contrast with the failed-unlock rate limiter (§7.3.7):</strong> the rate<br />
+limiter on failed <code>unlock</code> attempts IS per source IP, because unlock<br />
+attempts arrive via the HTTP API (not the writer-locked IPC channel) and<br />
+CAN come from multiple identities concurrently. See §7.3.7 for the<br />
+scoping analysis and the bug it uncovered in the 150s stress test data.</p>
+<p><strong>Failure mode:</strong> if the rolling sum cannot be computed (e.g., a previous<br />
+entry's USD value is unknown because the price fetch had failed at sign<br />
+time — but that case is already rejected per §7.3.1, so this shouldn't<br />
+happen), the signer rejects the new RPC with <code>-32006 Policy violation
+(window state corrupt)</code>.</p>
+<h4>7.3.3 Destination address allowlist</h4>
+<p><strong>Rule:</strong> the signer rejects any <code>sign</code> RPC whose <code>tx.to</code> address is not in<br />
+the loaded allowlist. The allowlist is loaded at boot from<br />
+<code>SIGNER_DEST_ALLOWLIST</code> (env var, path to a JSON file). Example file:</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>{
+<span style="color: #BBB">  </span><span style="color: #062873; font-weight: bold">&quot;version&quot;</span>:<span style="color: #BBB"> </span><span style="color: #40A070">1</span>,
+<span style="color: #BBB">  </span><span style="color: #062873; font-weight: bold">&quot;loadedAt&quot;</span>:<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;2026-07-14T10:00:00Z&quot;</span>,
+<span style="color: #BBB">  </span><span style="color: #062873; font-weight: bold">&quot;entries&quot;</span>:<span style="color: #BBB"> </span>[
+<span style="color: #BBB">    </span>{
+<span style="color: #BBB">      </span><span style="color: #062873; font-weight: bold">&quot;address&quot;</span>:<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;0xE592427A0AEce92De3Edee1F18E0157C05861564&quot;</span>,
+<span style="color: #BBB">      </span><span style="color: #062873; font-weight: bold">&quot;label&quot;</span>:<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;Uniswap V3 Router (Ethereum mainnet)&quot;</span>,
+<span style="color: #BBB">      </span><span style="color: #062873; font-weight: bold">&quot;chainId&quot;</span>:<span style="color: #BBB"> </span><span style="color: #40A070">1</span>,
+<span style="color: #BBB">      </span><span style="color: #062873; font-weight: bold">&quot;methods&quot;</span>:<span style="color: #BBB"> </span>[<span style="color: #4070A0">&quot;exactInputSingle&quot;</span>,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;exactInput&quot;</span>,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;exactOutputSingle&quot;</span>,<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;exactOutput&quot;</span>]
+<span style="color: #BBB">    </span>},
+<span style="color: #BBB">    </span>{
+<span style="color: #BBB">      </span><span style="color: #062873; font-weight: bold">&quot;address&quot;</span>:<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45&quot;</span>,
+<span style="color: #BBB">      </span><span style="color: #062873; font-weight: bold">&quot;label&quot;</span>:<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;Uniswap V3 Router 2 (with swaps)&quot;</span>,
+<span style="color: #BBB">      </span><span style="color: #062873; font-weight: bold">&quot;chainId&quot;</span>:<span style="color: #BBB"> </span><span style="color: #40A070">1</span>,
+<span style="color: #BBB">      </span><span style="color: #062873; font-weight: bold">&quot;methods&quot;</span>:<span style="color: #BBB"> </span>[<span style="color: #4070A0">&quot;*&quot;</span>]
+<span style="color: #BBB">    </span>},
+<span style="color: #BBB">    </span>{
+<span style="color: #BBB">      </span><span style="color: #062873; font-weight: bold">&quot;address&quot;</span>:<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;0xdef1c0ded9bec7f1a1670819833240f027b25EfF&quot;</span>,
+<span style="color: #BBB">      </span><span style="color: #062873; font-weight: bold">&quot;label&quot;</span>:<span style="color: #BBB"> </span><span style="color: #4070A0">&quot;0x ExchangeProxy (permit2-based)&quot;</span>,
+<span style="color: #BBB">      </span><span style="color: #062873; font-weight: bold">&quot;chainId&quot;</span>:<span style="color: #BBB"> </span><span style="color: #40A070">1</span>,
+<span style="color: #BBB">      </span><span style="color: #062873; font-weight: bold">&quot;methods&quot;</span>:<span style="color: #BBB"> </span>[<span style="color: #4070A0">&quot;*&quot;</span>]
+<span style="color: #BBB">    </span>}
+<span style="color: #BBB">  </span>]
+}
+</code></pre></div>
+
+<p><strong>For <code>sign_typed_data</code> (EIP-712):</strong> the <code>domain.verifyingContract</code> is<br />
+checked against the same allowlist. A permit signature for an unknown<br />
+contract is rejected.</p>
+<p><strong>Why an allowlist and not a blocklist:</strong> a blocklist (blocked addresses)<br />
+would require the signer to know every malicious address — impossible. The<br />
+allowlist is fail-closed: only known-good destinations are accepted. Adding<br />
+a new destination requires the operator to edit the JSON file and restart<br />
+the signer (which requires re-unlock per §9.2). This is intentional friction<br />
+— the operator should think carefully before adding a new destination.</p>
+<p><strong>Configuration:</strong> <code>SIGNER_DEST_ALLOWLIST</code> is a path (default<br />
+<code>/etc/signer/dest-allowlist.json</code>). The file is read at boot; if it doesn't<br />
+exist or is malformed, the signer refuses to start (fail-closed). The web<br />
+process has no RPC method to add/remove entries at runtime.</p>
+<h4>7.3.4 Independent signer audit log</h4>
+<p><strong>Rule:</strong> the signer writes its own append-only audit log to<br />
+<code>SIGNER_AUDIT_LOG</code> (env var, default <code>logs/signer-audit.jsonl</code>). Every<br />
+<code>sign</code> and <code>sign_typed_data</code> RPC — whether accepted or rejected — produces<br />
+one JSON-Lines entry. Example entries:</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>{&quot;ts&quot;:&quot;2026-07-14T10:23:01.234Z&quot;,&quot;rpcId&quot;:&quot;abc-123&quot;,&quot;method&quot;:&quot;sign&quot;,&quot;walletId&quot;:&quot;w_001&quot;,&quot;to&quot;:&quot;0xE592...1564&quot;,&quot;valueUsd&quot;:150.00,&quot;status&quot;:&quot;signed&quot;,&quot;txHash&quot;:&quot;0x...&quot;,&quot;rollingWindowSum&quot;:150.00}
+{&quot;ts&quot;:&quot;2026-07-14T10:23:05.567Z&quot;,&quot;rpcId&quot;:&quot;def-456&quot;,&quot;method&quot;:&quot;sign&quot;,&quot;walletId&quot;:&quot;w_001&quot;,&quot;to&quot;:&quot;0xAttacker...&quot;,&quot;valueUsd&quot;:10000.00,&quot;status&quot;:&quot;rejected&quot;,&quot;reason&quot;:&quot;destination_not_in_allowlist&quot;,&quot;rollingWindowSum&quot;:150.00}
+{&quot;ts&quot;:&quot;2026-07-14T10:23:10.890Z&quot;,&quot;rpcId&quot;:&quot;ghi-789&quot;,&quot;method&quot;:&quot;sign_typed_data&quot;,&quot;walletId&quot;:&quot;w_001&quot;,&quot;verifyingContract&quot;:&quot;0xdef1...b25EfF&quot;,&quot;valueUsd&quot;:50.00,&quot;status&quot;:&quot;signed&quot;,&quot;signature&quot;:&quot;0x...&quot;,&quot;rollingWindowSum&quot;:200.00}
+{&quot;ts&quot;:&quot;2026-07-14T10:23:15.123Z&quot;,&quot;rpcId&quot;:&quot;jkl-012&quot;,&quot;method&quot;:&quot;sign&quot;,&quot;walletId&quot;:&quot;w_001&quot;,&quot;to&quot;:&quot;0xE592...1564&quot;,&quot;valueUsd&quot;:350.00,&quot;status&quot;:&quot;rejected&quot;,&quot;reason&quot;:&quot;window_cap_exceeded&quot;,&quot;rollingWindowSum&quot;:200.00,&quot;windowCap&quot;:500.00}
+</code></pre></div>
+
+<p><strong>Why this matters (the operator's exact point):</strong> "se o processo web for<br />
+comprometido, ele pode mentir no próprio log; o signer não deveria depender<br />
+dele para ter um registro confiável do que assinou." The web process can<br />
+write arbitrary rows to <code>AppLog</code> (it has DB write access). It cannot write<br />
+to <code>signer-audit.jsonl</code> because:<br />
+1. The web process does not know the file path (it's configurable only via<br />
+   the signer's env var, which the web process does not read).<br />
+2. Even if the web process discovered the path, writing to a file the<br />
+   signer also writes to would interleave entries — detectable on review<br />
+   (entries from the web process would not match the signer's <code>rpcId</code><br />
+   sequence).<br />
+3. <strong>v19.3 (Phase 1, mandatory — operator review point #2):</strong> each entry<br />
+   includes <code>prevHash = sha256(canonicalJson(prevEntry))</code>, forming a hash<br />
+   chain from the genesis entry. Retroactive modification, deletion, or<br />
+   insertion of any entry breaks the chain visibly. The operator can<br />
+   verify chain integrity at any time with <code>scripts/verify-signer-audit.ts</code><br />
+   (added to Phase 1 scope, see §8). This is a few lines of code on the<br />
+   write side and a single linear scan on the verify side — cheap enough<br />
+   to belong in Phase 1, not Phase 2.</p>
+<p><strong>Hash chain schema (Phase 1):</strong></p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>{&quot;ts&quot;:&quot;2026-07-14T10:23:01.234Z&quot;,&quot;rpcId&quot;:&quot;abc-123&quot;,&quot;method&quot;:&quot;sign&quot;,&quot;walletId&quot;:&quot;w_001&quot;,&quot;to&quot;:&quot;0xE592...1564&quot;,&quot;valueUsd&quot;:150.00,&quot;status&quot;:&quot;signed&quot;,&quot;txHash&quot;:&quot;0x...&quot;,&quot;rollingWindowSum&quot;:150.00,&quot;prevHash&quot;:&quot;0000...0000&quot;,&quot;entryHash&quot;:&quot;9f3a...&quot;}
+{&quot;ts&quot;:&quot;2026-07-14T10:23:05.567Z&quot;,&quot;rpcId&quot;:&quot;def-456&quot;,&quot;method&quot;:&quot;sign&quot;,&quot;walletId&quot;:&quot;w_001&quot;,&quot;to&quot;:&quot;0xAttacker...&quot;,&quot;valueUsd&quot;:10000.00,&quot;status&quot;:&quot;rejected&quot;,&quot;reason&quot;:&quot;destination_not_in_allowlist&quot;,&quot;rollingWindowSum&quot;:150.00,&quot;prevHash&quot;:&quot;9f3a...&quot;,&quot;entryHash&quot;:&quot;c7e1...&quot;}
+</code></pre></div>
+
+<p>The genesis entry (first entry after signer boot, or after a log rotation)<br />
+has <code>prevHash = "0000...0000"</code>. Each subsequent entry's <code>prevHash</code> equals<br />
+the previous entry's <code>entryHash</code>. The <code>entryHash</code> is computed over the<br />
+canonical JSON of the entry with <code>entryHash</code> itself omitted. The verify<br />
+script re-computes each <code>entryHash</code> and checks the chain link-by-link; any<br />
+break reports the entry index, expected vs. actual hash, and exits<br />
+non-zero (CI-gatable).</p>
+<p><strong>What is NOT in Phase 1 (still Phase 2):</strong> shipping <code>signer-audit.jsonl</code><br />
+to a remote, append-only, tamper-proof sink (syslog, Loki, S3 with<br />
+versioning + object lock). Local hash-chain tamper-evidence is cheap and<br />
+Phase 1; remote shipping is operationally heavier and remains Phase 2.<br />
+The hash chain is what makes the local file forensically useful even<br />
+before remote shipping arrives — without it, an attacker with root could<br />
+edit the local file and the operator would have no way to detect the<br />
+tampering.</p>
+<p><strong>Tamper-evidence vs tamper-proofness:</strong> with the Phase 1 hash chain, this<br />
+is tamper-<em>evident</em> (any selective edit breaks the chain), not<br />
+tamper-<em>proof</em> (an attacker with root can still rewrite the entire file<br />
+from scratch, including recomputing the chain). The defense against<br />
+full-rewrite is operational: ship <code>signer-audit.jsonl</code> to a remote log<br />
+collector in real time (Phase 2). Once an entry leaves the machine, it<br />
+cannot be retroactively modified. The local hash chain catches the more<br />
+common case of selective editing (changing one entry's value,<br />
+destination, or status) without rewriting the whole file — which is what<br />
+a sloppy or rushed attacker would attempt first.</p>
+<p><strong>v19.3-design-draft-3 operator follow-up (anti-truncation checkpoint):</strong><br />
+the hash chain detects mid-chain edits but NOT tail truncation — an<br />
+attacker with write access can delete everything after entry N, and the<br />
+chain still validates cleanly up to N (the verify script stops at the<br />
+last entry and reports success). This is a real gap: truncation hides<br />
+the most incriminating entries (the most recent sign RPCs, which are<br />
+the ones an attacker would want to disappear).</p>
+<p>The fix is a <strong>monotonic counter + periodic checkpoint</strong>:</p>
+<ol>
+<li>
+<p><strong>Monotonic counter:</strong> each audit log entry includes a <code>seq</code> field<br />
+   that starts at 0 and increments by 1 for every entry. The verify<br />
+   script checks that <code>seq</code> is contiguous (0, 1, 2, ..., N) — any gap<br />
+   means entries were deleted from the middle, any repeat means an entry<br />
+   was duplicated. This is cheap (one integer per entry) and catches<br />
+   mid-chain deletion that the hash chain alone might miss if the<br />
+   attacker recomputes the chain after deletion.</p>
+</li>
+<li>
+<p><strong>Periodic checkpoint:</strong> every <code>SIGNER_AUDIT_CHECKPOINT_ENTRIES</code><br />
+   entries (default 1000), the signer writes a checkpoint record to a<br />
+   SEPARATE file: <code>logs/signer-audit-checkpoint.jsonl</code>. Each checkpoint<br />
+   entry contains:<br />
+<code>json
+   {"ts":"2026-07-14T11:00:00.000Z","seq":1000,"entryHash":"9f3a...","entryCount":1000}</code><br />
+   The checkpoint file is append-only and written by the same signer<br />
+   process that writes the main audit log. An attacker who wants to<br />
+   truncate the main log without detection must ALSO truncate the<br />
+   checkpoint file — and the verify script cross-checks that the last<br />
+   checkpoint's <code>seq</code> + <code>entryHash</code> match the corresponding entry in<br />
+   the main log. If the main log is shorter than the last checkpoint<br />
+   says it should be, truncation is detected.</p>
+</li>
+<li>
+<p><strong>Verify script update:</strong> <code>scripts/verify-signer-audit.ts</code> now:<br />
+   - Recomputes the hash chain (existing behavior).<br />
+   - Checks <code>seq</code> contiguity (new — catches mid-chain gaps).<br />
+   - Reads the checkpoint file, finds the last checkpoint, and verifies<br />
+     the main log contains at least that many entries AND the entry at<br />
+<code>seq === checkpoint.seq</code> has <code>entryHash === checkpoint.entryHash</code><br />
+     (new — catches tail truncation).<br />
+   - Reports a SEPARATE diagnostic for each failure mode: hash chain<br />
+     break, seq gap, or truncation.</p>
+</li>
+</ol>
+<p><strong>Why this is still Phase 1 (not Phase 2):</strong> the checkpoint file is<br />
+local, written by the same process, and verified by the same script.<br />
+It's a few dozen lines of code on the write side and a few dozen on<br />
+the verify side. The only thing that remains Phase 2 is shipping BOTH<br />
+files (main log + checkpoint) to a remote sink — which is the strong<br />
+defense against an attacker who can rewrite both local files. But the<br />
+checkpoint makes local truncation detectable, which closes the gap the<br />
+operator identified for a fraction of the cost of remote shipping.</p>
+<h4>7.3.5 Configuration model (tamper-resistance)</h4>
+<p>All policy values are loaded from env vars at signer boot. The signer has<br />
+<strong>no RPC method</strong> to update them at runtime. To change a policy value, the<br />
+operator must:<br />
+1. Edit the env var (or the allowlist JSON file).<br />
+2. Restart the signer process.<br />
+3. Re-unlock the vault (per §9.2, restart always requires manual re-unlock).</p>
+<p>This is intentional friction. The whole point of the signer-side policy is<br />
+that a compromised web process cannot weaken it. If the web process could<br />
+send a <code>set_policy</code> RPC to raise the cap or add an address to the allowlist,<br />
+the policy would be worthless.</p>
+<table>
+<thead>
+<tr>
+<th>Env var</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SIGNER_MAX_TX_USD</code></td>
+<td><code>200</code> (mirrors <code>hotWalletCapUsd</code>)</td>
+<td>Per-transaction cap. Sign RPCs above this value are rejected.</td>
+</tr>
+<tr>
+<td><code>SIGNER_MAX_WINDOW_USD</code></td>
+<td><code>500</code></td>
+<td>Per-window rolling cap. Sum of signed values over <code>SIGNER_WINDOW_SEC</code> cannot exceed this.</td>
+</tr>
+<tr>
+<td><code>SIGNER_WINDOW_SEC</code></td>
+<td><code>300</code> (5 min)</td>
+<td>Rolling window duration.</td>
+</tr>
+<tr>
+<td><code>SIGNER_DEST_ALLOWLIST</code></td>
+<td><code>/etc/signer/dest-allowlist.json</code></td>
+<td>Path to the destination allowlist JSON file.</td>
+</tr>
+<tr>
+<td><code>SIGNER_AUDIT_LOG</code></td>
+<td><code>logs/signer-audit.jsonl</code></td>
+<td>Path to the signer's independent audit log.</td>
+</tr>
+<tr>
+<td><code>SIGNER_PRICE_FEED_STALE_SEC</code></td>
+<td><code>60</code></td>
+<td>Max age of a cached price before the signer rejects the sign RPC as <code>price unavailable</code>.</td>
+</tr>
+</tbody>
+</table>
+<h4>7.3.6 What this still does not prevent (honest limitation)</h4>
+<p>A compromised web process can still send a sign RPC for a <strong>policy-compliant</strong><br />
+transaction the operator did not authorize. Example: a $150 swap to the<br />
+Uniswap router, which passes the per-tx cap, the per-window cap, and the<br />
+allowlist. The signer signs it. The operator's only defense is the<br />
+independent audit log — they will see the entry in <code>signer-audit.jsonl</code><br />
+after the fact — and the Phase 1 hash chain (§7.3.4) ensures that entry<br />
+cannot be retroactively edited to hide it.</p>
+<p>Full mitigation requires Phase 3 intent-based signing: instead of taking<br />
+raw <code>txData</code>, the signer takes an intent ("close position X", "rebalance<br />
+50/50") and constructs the tx itself. The web process cannot forge the<br />
+destination or amount because it never sees them — it only sees the intent.<br />
+This is a significant scope increase (the signer must understand trading<br />
+semantics) and is correctly Phase 3.</p>
+<p>The operator should treat §7.3 as <strong>raising the bar</strong> from "any signed tx"<br />
+to "a policy-compliant signed tx", not as fully closing the gap. The<br />
+remaining gap is bounded by the per-window cap (max bleed rate) and<br />
+detected by the independent audit log (post-hoc forensics). This is the<br />
+best achievable in Phase 1 without the full intent-based signing model.</p>
+<h4>7.3.7 Failed-unlock rate limiter scoping (v19.3 operator review point #3)</h4>
+<p><strong>Question from operator:</strong> "o rate-limiter de tentativas falhas e o<br />
+<code>SIGNER_MAX_WINDOW_USD</code> (§7.3.2) são escopados globalmente ao vault/signer,<br />
+ou por origem? Se forem globais, um atacante batendo de um IP consegue<br />
+travar o operador legítimo batendo de outro IP — um DoS auto-infligido pela<br />
+própria proteção."</p>
+<p><strong>Answer (split by mechanism):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Mechanism</th>
+<th>Scope</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Failed-unlock rate limiter (5 failures in 60s → 5min cooldown)</td>
+<td><strong>Per source IP</strong> (v19.3 fix)</td>
+<td>Unlock attempts arrive via the HTTP API (<code>POST /api/vault</code>), which CAN receive concurrent requests from multiple IPs. Global scoping creates a self-inflicted DoS: an attacker from one IP can fill the failure counter and block the legitimate operator from another IP.</td>
+</tr>
+<tr>
+<td>USD rolling window cap (<code>SIGNER_MAX_WINDOW_USD</code>, §7.3.2)</td>
+<td><strong>Global per signer</strong> (unchanged)</td>
+<td>The signer is single-writer (§9.4) — only the web process can call <code>sign</code>. There is no per-IP rotation attack at the signer layer. Per-IP scoping would weaken the cap without adding defense.</td>
+</tr>
+<tr>
+<td>Per-transaction cap (<code>SIGNER_MAX_TX_USD</code>, §7.3.1)</td>
+<td><strong>Global per signer</strong> (unchanged)</td>
+<td>Same rationale — single writer, no identity rotation possible.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>The bug was real and was manifesting in our own stress test data.</strong> The<br />
+operator's hypothesis is confirmed by the 150s heterogeneous stress test<br />
+results (§12.2):</p>
+<ul>
+<li>Per-profile results showed: <code>attacker</code> 27 fail / 26 err; <code>operator</code><br />
+  43 ok / 33 err; <code>lifecycle</code> 33 ok / 26 err; <code>interleaver</code> 19 ok / 7 fail<br />
+  / 27 err.</li>
+<li>Server log showed <strong>1 rate-limit cooldown activation</strong> (the <code>attacker</code><br />
+  profile's 5 wrong-passphrase failures in 60s triggered the 5min cooldown).</li>
+<li>The test ran for 150s (2.5 min). Once the cooldown kicked in (likely<br />
+  within the first minute), it blocked ALL subsequent <code>unlock</code> attempts<br />
+  for the remaining ~2 min — regardless of which profile made them.</li>
+<li>The <code>operator</code> profile's 33 errors and the <code>lifecycle</code> profile's 26<br />
+  errors are almost entirely "Unlock BLOCKED by rate limit" responses,<br />
+  not crypto failures of their own. Their successful <code>ok</code> counts (43 and<br />
+  33) are the attempts that completed BEFORE the <code>attacker</code>-triggered<br />
+  cooldown started.</li>
+</ul>
+<p>In other words: the <code>attacker</code> profile, by design trying wrong<br />
+passphrases, DID deny service to the <code>operator</code> and <code>lifecycle</code> profiles<br />
+in our own test. The bug the operator suspected was already in the data<br />
+we collected — we just hadn't framed it that way.</p>
+<p><strong>Fix (v19.3.1 HOTFIX — SHIPPED, not Phase 1):</strong> per the operator's<br />
+directive — "a correção do bug de auto-DoS deve sair do escopo da Fase 1<br />
+do signer e virar hotfix imediato e independente" — the rate limiter<br />
+fix was implemented and tested as a standalone hotfix, NOT bundled into<br />
+the 7-8 day Phase 1 signer isolation work. The hotfix ships in<br />
+<code>src/lib/trading/wallet-crypto.ts</code> + <code>src/lib/trading/proxy-trust.ts</code> +<br />
+<code>src/app/api/vault/route.ts</code> and is live in the current codebase.</p>
+<p><strong>Hotfix scope (3 sub-questions, all resolved):</strong></p>
+<p><strong>Sub-question 1 — "De onde vem o <code>sourceIp</code>, e ele é confiável?"</strong><br />
+Resolved (v19.3.2 fix to the v19.3.1 hotfix). The old <code>extractSourceIp()</code><br />
+in <code>/api/vault/route.ts</code> blindly trusted <code>x-forwarded-for</code> — a<br />
+client-writable header. An attacker rotating a fake XFF value per request<br />
+would bypass the per-IP rate limiter entirely, which is WORSE than the<br />
+original global DoS bug (the old bug degraded availability; a bypassable<br />
+rate limiter silently removes brute-force protection on the vault<br />
+passphrase).</p>
+<p>The fix lives in <code>src/lib/trading/proxy-trust.ts</code> and implements a<br />
+two-mode trust model with a SPLIT pure decision function for<br />
+testability:</p>
+<ul>
+<li><strong><code>resolveTrustedClientIp({ headers, peerAddress, proxySecret })</code></strong><br />
+  — pure function, no I/O, no Next.js runtime dependency. Exported so<br />
+  unit tests can call it directly with synthetic inputs (see scenarios<br />
+  18 + 19 in <code>scripts/test-vault.ts</code>).</li>
+<li><strong><code>extractTrustedClientIp(req)</code></strong> — async production wrapper. Reads<br />
+  the TCP socket peer address from an AsyncLocalStorage populated by<br />
+  the <code>http.Server.prototype.emit</code> monkey-patch in<br />
+<code>src/lib/request-peer-capture.ts</code> (installed at boot via<br />
+<code>src/instrumentation.ts</code>), then delegates to the pure function.</li>
+</ul>
+<p><strong>Next.js 16 App Router limitation (important context):</strong> Next.js 16<br />
+does NOT expose the TCP socket peer address to route handlers. The<br />
+<code>connection()</code> function from <code>next/headers</code> returns <code>Promise&lt;void&gt;</code> —<br />
+it's just a dynamic-rendering marker, NOT a connection-info accessor.<br />
+(The <code>peer.address</code> API that existed briefly in Next.js 15.3 was<br />
+REMOVED in 16.) <code>NextRequest.ip</code> was also removed. There is no<br />
+supported way to read the non-spoofable TCP source IP from inside a<br />
+route handler.</p>
+<p>To get the peer address anyway, <code>src/instrumentation.ts</code> installs a<br />
+monkey-patch on <code>http.Server.prototype.emit</code> (in<br />
+<code>src/lib/request-peer-capture.ts</code>) that intercepts the 'request'<br />
+event BEFORE Next.js wraps the Node <code>IncomingMessage</code> into a Web<br />
+<code>Request</code>, reads <code>req.socket.remoteAddress</code>, and stores it in an<br />
+AsyncLocalStorage (<code>src/lib/request-peer-als.ts</code>). Route handlers<br />
+read it via <code>getRequestPeerAddress()</code>. This is the Next.js 16 App<br />
+Router equivalent of Pages Router's <code>req.socket.remoteAddress</code> —<br />
+non-spoofable for direct connections (the TCP handshake requires the<br />
+real source IP).</p>
+<p>Decision logic:<br />
+1. If <code>SIGNER_PROXY_SHARED_SECRET</code> env var is set AND the request<br />
+   carries <code>x-internal-proxy-secret</code> header matching the secret: we<br />
+   are behind a trusted reverse proxy. Trust XFF's leftmost entry as<br />
+   the real client IP. The proxy is responsible for overwriting any<br />
+   client-supplied XFF (Caddy: <code>header_up X-Forwarded-For {remote}</code>).<br />
+2. Otherwise (no secret configured, OR secret didn't match, OR the<br />
+   request didn't come through the proxy): use the TCP socket peer<br />
+   address (from the AsyncLocalStorage) directly as the per-IP key.<br />
+   The peer address is non-spoofable for direct connections —<br />
+   completing the TCP handshake requires the real source IP. This is<br />
+   exactly the non-spoofable identifier the per-IP rate limiter needs<br />
+   when there is no proxy relaying XFF.</p>
+<p><strong>v19.3.2 correction to v19.3.1 (the bug the operator caught):</strong> the<br />
+v19.3.1 hotfix returned a fixed sentinel string <code>"direct-untrusted"</code><br />
+for ALL direct connections when no proxy secret was configured. That<br />
+sentinel was a single shared bucket — exactly the same self-DoS shape<br />
+as the original global <code>Date[]</code> bug, just renamed. For the deployment<br />
+this project actually runs (bind <code>127.0.0.1</code>, no reverse proxy since<br />
+v18), every real connection to the vault fell into the shared<br />
+<code>"direct-untrusted"</code> bucket — the hotfix did not fix the bug for the<br />
+actual topology; it only prepared the ground for a future behind-proxy<br />
+deployment that does not exist yet. The v19.3.2 fix replaces the<br />
+sentinel with the actual TCP socket peer address (captured via the<br />
+<code>http.Server.prototype.emit</code> monkey-patch + AsyncLocalStorage — see<br />
+the "Next.js 16 App Router limitation" paragraph above). This gives<br />
+real per-IP isolation for the deployment running today, not just for<br />
+a hypothetical future deployment.</p>
+<p>The <code>"direct-untrusted"</code> sentinel is GONE. The only last-resort<br />
+fallback (when <code>peer.address</code> is null — theoretically possible in some<br />
+edge runtime adapters, never observed in Node.js runtime) is the<br />
+string <code>"unidentifiable-socket"</code>, named so it is visible in the audit<br />
+log if it ever appears.</p>
+<p>Why a shared secret for the proxy case (not a proxy-IP allowlist)?<br />
+Even with <code>connection()</code> we only see the immediate TCP peer — which,<br />
+behind a proxy, is the proxy itself. We cannot distinguish "request<br />
+from Caddy on 127.0.0.1" from "request from an attacker on 127.0.0.1<br />
+who found the loopback bind" by IP alone. The shared secret is the<br />
+application-layer equivalent of the proxy-IP allowlist: only a proxy<br />
+that knows the secret can mark a request as trusted. Caddy config<br />
+snippet:</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>reverse_proxy localhost:3000 {
+  header_up X-Internal-Proxy-Secret {env.SIGNER_PROXY_SHARED_SECRET}
+  header_up X-Forwarded-For {remote}
+}
+</code></pre></div>
+
+<p><strong>Known unresolved case (documented in runbook §13.7):</strong> if the<br />
+process runs behind NAT or Docker userland-proxy without terminating<br />
+TLS/HTTP, <code>peer.address</code> collapses to a single gateway IP for<br />
+multiple real origins. The per-IP rate limiter degrades to a shared<br />
+bucket in that case — but the global aggregate cap (50 failures/1h<br />
+across ALL IPs, a single array NOT subject to per-IP Map eviction)<br />
+still catches distributed attacks, because it is independent of the<br />
+per-IP key. This is a deployment-environment limitation, not a code<br />
+bug. See §13.7.</p>
+<p><strong>Sub-question 2 — "Crescimento não limitado do <code>Map</code>"</strong><br />
+Resolved. The per-IP <code>Map&lt;string, number[]&gt;</code> has two bounds:<br />
+1. <strong>TTL eviction:</strong> on every access, <code>pruneFailedAttempts(ip)</code> drops<br />
+   timestamps older than <code>FAIL_WINDOW_MS</code> (60s). If an IP's array<br />
+   becomes empty AND its cooldown has expired, the IP is fully evicted<br />
+   from all three Maps (<code>failedAttemptsByIp</code>, <code>cooldownByIp</code>,<br />
+<code>lastAccessByIp</code>).<br />
+2. <strong>LRU cap:</strong> <code>MAX_TRACKED_IPS = 10_000</code>. If the Map exceeds this,<br />
+<code>evictLruIfNeeded()</code> evicts entries with the oldest <code>lastAccess</code><br />
+   timestamp (that don't have an active cooldown — active-cooldown<br />
+   entries are NEVER evicted). At ~100 bytes per entry, 10k entries<br />
+   ≈ 1MB — a reasonable ceiling.</p>
+<p><strong>LRU eviction trade-off (acknowledged, operator review v19.3.2):</strong><br />
+the eviction policy is "least recently accessed". An attacker with<br />
+ENOUGH REAL SOURCE IPs (or a botnet) could, in theory, generate enough<br />
+unique IPs to push their OWN earlier failure record out via LRU<br />
+eviction — resetting their counter. This is significantly more<br />
+expensive to exploit than the v19.3.1 sentinel model (which was<br />
+bypassable by header forgery, no real IPs needed): the attacker must<br />
+either control many distinct source IPs (botnet, residential proxy<br />
+network) or accept the cost of reconnecting from different source<br />
+ports on the same host (which does NOT fool <code>peer.address</code>, since the<br />
+kernel reports the same source IP across reconnects — only NAT/Docker<br />
+userland-proxy can collapse distinct sources into one peer, see<br />
+§13.7). Two mitigations are in place:<br />
+- Active-cooldown entries are NEVER evicted (an attacker cannot reset<br />
+  their own cooldown by flooding the Map).<br />
+- The global aggregate cap (50 failures/1h across ALL IPs, a single<br />
+  array NOT subject to LRU eviction) still catches the aggregate<br />
+  pattern regardless of how the per-IP Map evicts.</p>
+<p>The trade-off is accepted as defense-in-depth: per-IP catches single<br />
+or low-cardinality attackers cheaply; the global cap catches<br />
+distributed attacks that would also evade per-IP via eviction.</p>
+<p><strong>Sub-question 3 — "Camada dupla: per-IP não substitui um teto global"</strong><br />
+Resolved. The hotfix implements BOTH layers:<br />
+- <strong>Per-IP rate limiter:</strong> 5 failures in 60s → 5min cooldown for THAT<br />
+  IP only. Resolves the self-DoS (attacker from one IP no longer blocks<br />
+  operator from another).<br />
+- <strong>Global aggregate cap:</strong> 50 failures in 1h across ALL IPs → 1min<br />
+  cooldown for ALL IPs (including unseen ones). Catches distributed<br />
+  attacks that per-IP alone would miss. The global cooldown is MILDER<br />
+  than per-IP (1min vs 5min) — it's an alert-and-slow-down, not a full<br />
+  lockout, because a distributed attack shouldn't fully deny the<br />
+  legitimate operator.</p>
+<p>Both cooldowns are checked on every unlock attempt; whichever is MORE<br />
+restrictive (earlier expiry) wins. The audit log + notification<br />
+context (<code>cooldownType</code>, <code>globalFailures</code>, <code>trackedIpCount</code>) distinguish<br />
+which layer fired so the operator can tell single-source vs distributed.</p>
+<p><strong>Distinct notification event for the global cooldown (v19.3.2,<br />
+operator review):</strong> the global aggregate cooldown firing is a<br />
+SEVERITY-DIFFERENT signal from the per-IP cooldown. Per-IP means "one<br />
+user / one attacker is hammering from one source"; GLOBAL means "many<br />
+sources are failing in aggregate — likely a DISTRIBUTED attack or a<br />
+botnet". If both fired the same generic <code>vault_rate_limited</code> event, the<br />
+more severe distributed-attack signal would be lost in the noise of<br />
+individual brute-force alerts.</p>
+<p>The fix: <code>wallet-crypto.ts</code> emits a DISTINCT event type<br />
+<code>vault_rate_limited_global</code> (added to <code>NotificationEventType</code> in<br />
+<code>notifier.ts</code>) the moment the global cooldown ACTIVATES (crosses the<br />
+50-failure threshold), not only when a subsequent attempt is blocked.<br />
+Operators can subscribe a louder / separate notification channel<br />
+(phone-call tier, paged Slack channel) to <code>vault_rate_limited_global</code><br />
+independently from the generic <code>vault_rate_limited</code>. The per-event<br />
+throttle is also shorter (60s vs 5min for per-IP) — distributed-attack<br />
+bursts should surface every distinct wave, not be suppressed by a long<br />
+dedupe window. The event message itself recommends the operator's<br />
+response playbook (network-layer blocking or temporarily disabling the<br />
+unlock endpoint), since the per-IP cooldown cannot resolve a<br />
+distributed pattern.</p>
+<p><strong>Regression tests (5 scenarios in <code>scripts/test-vault.ts</code>, all<br />
+passing — was 3 before v19.3.2):</strong><br />
+- Scenario 15: "per-IP rate limit — attacker IP A does NOT block<br />
+  operator IP B". The core regression test. 5 failures from<br />
+<code>198.51.100.10</code> → attacker IP in cooldown. <code>203.0.113.20</code> (operator)<br />
+  attempts unlock → NOT blocked, fails normally with wrong-passphrase<br />
+  error. Attacker IP STILL in cooldown after operator activity.<br />
+- Scenario 16: "global aggregate cap — distributed attack triggers<br />
+  global cooldown". 10 IPs × 5 failures each = 50 total → global<br />
+  cooldown activates. A NEW IP (never seen before) is blocked by the<br />
+  GLOBAL cooldown even though it has 0 per-IP failures.<br />
+- Scenario 17: "success clears per-IP failures but NOT global<br />
+  failures". Operator succeeds → operator IP failures cleared. Global<br />
+  failures NOT cleared (attacker still active). Attacker IP failures<br />
+  NOT cleared (only the succeeding IP clears).<br />
+- Scenario 18 (v19.3.2): "direct-IP isolation — two distinct direct<br />
+  IPs (no proxy) do NOT share a bucket". Calls the pure<br />
+<code>resolveTrustedClientIp</code> with two distinct <code>peerAddress</code> values,<br />
+  asserts neither resolves to the <code>"direct-untrusted"</code> sentinel (which<br />
+  would be the v19.3.1 bug), asserts they resolve to DISTINCT strings<br />
+  matching their actual peer addresses. Then end-to-end: 5 wrong<br />
+  passphrases from <code>127.0.0.1</code> → cooldown on <code>127.0.0.1</code>. <code>192.168.1.42</code><br />
+  (operator) attempts unlock → NOT blocked. This is THE regression test<br />
+  the operator required: "dois 'IPs diretos' distintos (sockets<br />
+  diferentes, sem proxy) não compartilham bucket".<br />
+- Scenario 19 (v19.3.2): "XFF forgery rejected — without proxy secret,<br />
+  forged XFF is ignored and peer address is used". Calls the pure<br />
+<code>resolveTrustedClientIp</code> with three requests from the SAME peer<br />
+  address, each with a DIFFERENT forged <code>x-forwarded-for</code> value.<br />
+  Asserts all three resolve to the real peer address (not the forged<br />
+  XFF). Sanity: with the proxy secret configured AND present in the<br />
+  request, XFF IS trusted (proves the trusted-proxy path still works).<br />
+  And: with the secret configured but missing from the request, the<br />
+  fallback is the peer address (proves the secret actually gates the<br />
+  XFF trust).</p>
+<p><strong>Test results: 20/20 passed, 0 failed</strong> (was 18/18 before v19.3.2;<br />
+the 2 new scenarios all pass on first run). The suite is now<br />
+self-contained — it truncates <code>WalletConnection</code> + <code>ExchangeConnection</code><br />
+tables at suite start (<code>hardCleanupBeforeSuite()</code>), so it works on a<br />
+dirty DB without manual intervention. The operator's complaint —<br />
+"test fails → clean DB manually → rerun → passes" pattern that<br />
+happened 3 times in this thread — is resolved at the suite level, not<br />
+the operator level.</p>
+<p><strong>Edge cases:</strong><br />
+- <strong>No proxy configured (the actual deployment topology of this<br />
+  project — bind 127.0.0.1 since v18):</strong> <code>extractTrustedClientIp</code> uses<br />
+<code>connection().peer.address</code> directly. For loopback connections this<br />
+  is <code>127.0.0.1</code> (or <code>::1</code>); for LAN connections it's the operator's<br />
+  LAN IP. Two distinct source IPs get distinct rate-limit buckets —<br />
+  the original self-DoS bug is fixed for the deployment running today,<br />
+  not just for a hypothetical behind-proxy future. (v19.3.1 returned a<br />
+  shared <code>"direct-untrusted"</code> sentinel here — that was the bug the<br />
+  operator caught; v19.3.2 replaces it with the real peer address.)<br />
+- <strong>Behind a misconfigured reverse proxy</strong> that strips<br />
+<code>x-forwarded-for</code>: <code>extractTrustedClientIp</code> falls back to the proxy's<br />
+  own peer address (the immediate TCP peer) — all proxy traffic<br />
+  collapses to one bucket. Degraded but not bypassable. The operator<br />
+  should ensure the proxy sets XFF correctly (Caddy:<br />
+<code>header_up X-Forwarded-For {remote}</code>).<br />
+- <strong><code>peer.address</code> is null</strong> (theoretically possible in some edge<br />
+  runtime adapters, never observed in Node.js runtime): falls back to<br />
+  the string <code>"unidentifiable-socket"</code>. Named so it is visible in the<br />
+  audit log if it ever appears — the operator can investigate why<br />
+<code>connection()</code> returned null.<br />
+- <strong>NAT / Docker userland-proxy without TLS/HTTP termination</strong><br />
+  (documented in runbook §13.7): <code>peer.address</code> collapses to a single<br />
+  gateway IP for multiple real origins. The per-IP rate limiter<br />
+  degrades to a shared bucket in this case, but the global aggregate<br />
+  cap (50 failures/1h, a single array NOT subject to per-IP Map<br />
+  eviction) still catches distributed attacks. This is a<br />
+  deployment-environment limitation, not a code bug.<br />
+- The slow-drip summary notifier (v19.2 in <code>wallet-crypto.ts</code>) still<br />
+  aggregates across all IPs — that's intentional, because the summary<br />
+  is a <em>meta-alert</em> ("N total attempts since last summary"), not a<br />
+  per-IP enforcement point.</p>
+<p><strong>Why the per-IP rate limit is still relevant in Phase 1 (signer-side):<br />
+** in Phase 1, <code>wallet-crypto.ts</code> moves into the signer process. The<br />
+rate limiter is enforced at the signer's <code>unlock</code> RPC handler. The web<br />
+process still passes <code>sourceIp</code> in the <code>unlock</code> RPC for audit-log<br />
+purposes, but the signer's rate-limit enforcement uses the </strong>socket<br />
+peer address** of the IPC connection — which, in the single-writer<br />
+model (§9.4), is always the web process's own UID. This means in<br />
+Phase 1, the per-IP rate limit primarily protects against multiple web<br />
+processes (or a load balancer fanning out to the same signer) — not<br />
+against the web process itself. The web process's own HTTP-layer rate<br />
+limit (per source IP, via <code>extractTrustedClientIp</code> in<br />
+<code>/api/vault/route.ts</code>) is the primary defense against external<br />
+attackers; the signer-side rate limit is defense-in-depth. The hotfix<br />
+ships the web-layer defense NOW (production is protected today); the<br />
+signer-side defense-in-depth arrives with Phase 1.</p>
+<hr />
+<h2>8. Migration Path</h2>
+<h3>Phase 1: Extract the signer (this design)</h3>
+<p><strong>Goal:</strong> move <code>walletVault</code> into a separate process with a real trust<br />
+boundary — not just process isolation, but a signer-side authorization policy<br />
+that a compromised web process cannot bypass.</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>
+<p>Create <code>src/signer/main.ts</code> — the signer process entry point.<br />
+   - Imports <code>walletVault</code> from <code>wallet-crypto.ts</code> (the existing class, moved verbatim).<br />
+   - Creates the Unix socket, listens for connections.<br />
+   - Implements the JSON-RPC 2.0 dispatcher with the method allowlist.<br />
+   - Registers crash handlers (reuses <code>crash-logger.ts</code> with a different log prefix).<br />
+   - Registers the parent-disconnect handler (zero keys + exit on socket close).<br />
+   - <strong>v19.3 (BLOCKING):</strong> loads the authorization policy from env vars at boot<br />
+     (<code>SIGNER_MAX_TX_USD</code>, <code>SIGNER_MAX_WINDOW_USD</code>, <code>SIGNER_WINDOW_SEC</code>,<br />
+<code>SIGNER_DEST_ALLOWLIST</code>, <code>SIGNER_AUDIT_LOG</code>, <code>SIGNER_PRICE_FEED_BINANCE_URL</code>,<br />
+<code>SIGNER_PRICE_FEED_DEXSCREENER_URL</code>, <code>SIGNER_PRICE_FEED_STALE_SEC</code>,<br />
+<code>SIGNER_WRITER_LEASE_TTL_SEC</code>, <code>SIGNER_WRITER_LEASE_RENEW_SEC</code>).<br />
+     The <code>sign</code> and <code>sign_typed_data</code> handlers enforce the policy BEFORE invoking<br />
+<code>walletVault.sign()</code> — a rejected RPC never reaches the key. See §7.3<br />
+     for the full policy specification.<br />
+   - <strong>v19.3 (BLOCKING):</strong> opens the independent audit log<br />
+     (<code>logs/signer-audit.jsonl</code>) at boot and appends one JSON-Lines entry<br />
+     per sign RPC (accepted or rejected). The web process has no filesystem<br />
+     path to this file. See §7.3.4.<br />
+   - <strong>v19.3-design-draft-3 (BLOCKING, operator review point #2):</strong> each<br />
+     audit log entry includes <code>prevHash</code> + <code>entryHash</code> forming a hash<br />
+     chain from the genesis entry. <code>scripts/verify-signer-audit.ts</code><br />
+     re-computes the chain and exits non-zero on any break (CI-gatable).<br />
+     This is local tamper-evidence; remote shipping (syslog/Loki/S3)<br />
+     remains Phase 2. See §7.3.4.<br />
+   - <strong>v19.3 (BLOCKING):</strong> the signer fetches its own price feed (Binance +<br />
+     DexScreener, same sources as the web process but via the signer's own<br />
+     HTTP client) to compute USD values for the per-tx and per-window caps.<br />
+     The URL/source is fixed at boot from env vars — NOT a parameter of the<br />
+<code>sign</code> RPC. See §7.3.1. If the price fetch fails, sign RPCs are rejected<br />
+     (fail-closed).<br />
+   - <strong>v19.3-design-draft-3 (BLOCKING, operator review point #1):</strong> implements<br />
+     the writer LEASE with TTL — <code>acquire_writer</code>, <code>renew_writer</code> (every<br />
+<code>SIGNER_WRITER_LEASE_RENEW_SEC</code>), auto-revoke on TTL expiry with<br />
+     zeroize-on-expiry. See §9.4 for the full lease semantics and the<br />
+     explicit fail-closed consequence.<br />
+   - <strong>v19.3-design-draft-3 (BLOCKING, operator review point #3):</strong> the<br />
+     failed-unlock rate limiter uses a <code>Map&lt;sourceIp, Date[]&gt;</code> instead<br />
+     of a single global <code>Date[]</code>. Per-IP cooldown. See §7.3.7. A new<br />
+<code>scripts/test-vault.ts</code> scenario verifies: attacker-IP failures do<br />
+     NOT block operator-IP unlocks.</p>
+</li>
+<li>
+<p>Create <code>src/lib/trading/signer-client.ts</code> — the web process's RPC client.<br />
+   - Exports a <code>signerClient</code> object with the same method signatures as the current <code>walletVault</code> singleton.<br />
+   - Each method sends an RPC and returns a Promise.<br />
+   - Maintains a cached <code>getVaultStatus()</code> snapshot (refreshed on each call + on notifications).<br />
+   - Handles reconnection + degraded mode.<br />
+   - <strong>v19.3:</strong> surfaces <code>-32006 Policy violation</code> errors distinctly so the<br />
+     trading engine can log them as risk events (not just generic sign<br />
+     failures). The web process's <code>hotWalletCapUsd</code> check in <code>portfolio.ts</code><br />
+     STAYS — it is now defense-in-depth, not the primary boundary.</p>
+</li>
+<li>
+<p>Update <code>src/app/api/vault/route.ts</code>:<br />
+   - Replace <code>import { walletVault } from "@/lib/trading/wallet-crypto"</code> with <code>import { signerClient } from "@/lib/trading/signer-client"</code>.<br />
+   - The route handler logic is unchanged — <code>signerClient.unlockAsync(passphrase, ip)</code> has the same signature.</p>
+</li>
+<li>
+<p>Update <code>src/instrumentation.ts</code>:<br />
+   - After <code>registerCrashHandlers()</code>, call <code>spawnSigner()</code>.<br />
+   - <code>spawnSigner()</code> spawns the child process, waits for "SIGNER_READY", opens the socket connection, runs <code>health_check</code>.</p>
+</li>
+<li>
+<p>Update <code>src/lib/trading/wallet-manager.ts</code>:<br />
+   - Replace direct <code>walletVault</code> calls with <code>signerClient</code> calls.</p>
+</li>
+<li>
+<p>Update <code>src/lib/trading/engine.ts</code>:<br />
+   - The trading engine's <code>signTransaction</code> call goes through <code>signerClient.sign()</code>.</p>
+</li>
+<li>
+<p><strong>v19.3 (BLOCKING):</strong> Create the default destination allowlist file at<br />
+<code>/etc/signer/dest-allowlist.json</code> (or a project-local path for dev). The<br />
+   initial allowlist contains the DEX routers the trading engine actually<br />
+   uses (Uniswap V3 Router, 0x ExchangeProxy). An empty allowlist is valid<br />
+   (and means all sign RPCs are rejected) — this is the safe default for a<br />
+   fresh deployment.</p>
+</li>
+<li>
+<p><strong>v19.3 (BLOCKING):</strong> Add a <code>scripts/test-signer-policy.ts</code> test script<br />
+   that exercises the authorization policy directly:<br />
+   - Sign RPC above per-tx cap → rejected with <code>-32006</code>.<br />
+   - Sign RPC that pushes rolling window over cap → rejected.<br />
+   - Sign RPC to non-allowlisted address → rejected.<br />
+   - Sign RPC to allowlisted address under both caps → signed.<br />
+   - Sign RPC with undecodable tx data → rejected.<br />
+   - Sign RPC when price feed is down → rejected.<br />
+   - Sign RPC carrying a <code>priceFeedUrl</code> or <code>price</code> field → rejected with<br />
+<code>-32602 Invalid params</code> (verifies §7.3.1 fixed-source rule).<br />
+   - Verify each accepted/rejected RPC produces an entry in<br />
+<code>logs/signer-audit.jsonl</code>.<br />
+   - Verify the web process cannot write to <code>signer-audit.jsonl</code> (file<br />
+     permissions + path not exposed via any RPC).<br />
+   - <strong>v19.3-design-draft-3:</strong> verify the hash chain — <code>scripts/verify-signer-audit.ts</code><br />
+     on the produced log exits 0; tampering with any entry exits non-zero.<br />
+   - <strong>v19.3-design-draft-3:</strong> verify per-IP rate limiting — 5 failed unlocks<br />
+     from IP-A does NOT block IP-B from unlocking (regression test for §7.3.7).<br />
+   - <strong>v19.3-design-draft-3:</strong> verify lease auto-expiry — stop sending<br />
+<code>renew_writer</code>, observe the signer zeroizes keys within TTL and the<br />
+     audit log records <code>writer_lease_expired</code>. See §9.4.</p>
+</li>
+<li>
+<p><strong>v19.3-design-draft-3 (BLOCKING, operator review point #2):</strong> Add<br />
+<code>scripts/verify-signer-audit.ts</code> — reads <code>signer-audit.jsonl</code>, recomputes<br />
+   each <code>entryHash</code>, checks <code>prevHash</code> linkage. Exits 0 on intact chain,<br />
+     non-zero with a diagnostic (entry index, expected vs actual hash) on any<br />
+   break. CI-gatable. See §7.3.4.</p>
+</li>
+<li>
+<p><strong>v19.3-design-draft-3 (BLOCKING, operator review point #1):</strong> Add<br />
+<code>scripts/test-signer-lease.ts</code> — tests the writer lease: (a) lease<br />
+    auto-expires when the holder stops renewing, (b) zeroize-on-expiry actually<br />
+    wipes keys, (c) a second connection can acquire the lease after expiry,<br />
+    (d) the audit log records the expiry event. See §9.4.</p>
+</li>
+</ol>
+<p><strong>Testing:</strong> the existing <code>scripts/test-vault.ts</code> suite should pass unchanged<br />
+against the signer-client (it tests the public contract, not the<br />
+implementation), with one new scenario for per-IP rate limiting (step 8<br />
+above). A new <code>scripts/test-signer-ipc.ts</code> should test the IPC<br />
+protocol directly (socket connect, RPC round-trip, disconnect behavior).<br />
+The new <code>scripts/test-signer-policy.ts</code> (step 8) tests the §7.3 policy<br />
+end-to-end. <code>scripts/verify-signer-audit.ts</code> (step 9) and<br />
+<code>scripts/test-signer-lease.ts</code> (step 10) cover the v19.3-design-draft-3<br />
+additions.</p>
+<p><strong>Phase 1 is NOT approved for implementation until the operator signs off on<br />
+§7.3, §9, and §13.</strong> The original Phase 1 (process isolation only) is<br />
+insufficient per the operator's v19.3 review point #3. The v19.3-design-draft-3<br />
+additions (lease TTL, hash chain, per-IP rate limit, runbook) are required<br />
+per the operator's conditional approval.</p>
+<h3>Phase 2: Hardening</h3>
+<ul>
+<li>
+<p><strong>Request signing (HMAC):</strong> at boot, the web process generates a random<br />
+  secret and passes it to the signer via <code>env</code> (not via the socket). Each RPC<br />
+  is signed with <code>HMAC-SHA256(secret, JSON.stringify(request))</code>. The signer<br />
+  verifies the signature before processing. This prevents a partially-<br />
+  compromised web process (e.g., SSRF that can write to the socket but not<br />
+  read env vars) from forging RPCs.</p>
+</li>
+<li>
+<p><strong>Signer-side notifier:</strong> the signer holds its own notifier client and<br />
+  sends vault event notifications directly, not through the web process.<br />
+  This prevents a compromised web process from suppressing alerts.</p>
+</li>
+<li>
+<p><strong>Heartbeat canary:</strong> the signer writes <code>logs/signer-heartbeat</code> every 5s<br />
+  with a timestamp. The web process checks the file on each <code>get_status</code><br />
+  call; if the heartbeat is stale (&gt;15s), it treats the signer as unhealthy<br />
+  even if the socket is still open (catches the case where the signer is<br />
+  hung but not crashed).</p>
+</li>
+<li>
+<p><strong>Remote audit log shipping (the Phase 2 portion of §7.3.4):</strong> ship<br />
+<code>signer-audit.jsonl</code> to a remote, append-only, tamper-proof sink<br />
+  (syslog, Loki, S3 with versioning + object lock) in real time. The<br />
+  local hash chain (Phase 1) makes the file forensically useful on its<br />
+  own; remote shipping defends against full-rewrite attacks by an<br />
+  attacker with root on the signer host. Once an entry leaves the<br />
+  machine, it cannot be retroactively modified.</p>
+</li>
+</ul>
+<h3>Phase 3: Future considerations (out of scope for v19.3)</h3>
+<ul>
+<li>
+<p><strong>Intent-based signing (full mitigation for §7.3.6 limitation):</strong> instead<br />
+  of signing raw tx data, the signer takes a higher-level intent ("close<br />
+  position X", "rebalance 50/50") and constructs the tx itself. This<br />
+  prevents a compromised web process from forging the destination or<br />
+  amount — the web process never sees them, only the intent. Requires the<br />
+  signer to understand trading semantics (position state, rebalance math).<br />
+  This is the full closure of the gap that §7.3 only partially closes.<br />
+<strong>Note:</strong> the original draft of this document listed this as<br />
+  "Signer-side transaction validation" and framed it as a generic<br />
+  hardening. The v19.3 review clarifies that this is specifically the<br />
+  mitigation for "compromised web process sending policy-compliant but<br />
+  unauthorized sign RPCs" (§7.3.6). §7.3 (Phase 1) raises the bar; Phase 3<br />
+  intent-based signing closes the remaining gap.</p>
+</li>
+<li>
+<p><strong>Multiple signers / HSM backdoor:</strong> for very high-value deployments, the<br />
+  signer could delegate to an HSM or hardware wallet for the actual signing.<br />
+  The IPC protocol stays the same; only the signer's internal implementation<br />
+  changes.</p>
+</li>
+</ul>
+<hr />
+<h2>9. Open Questions for the Operator</h2>
+<p><strong>v19.3:</strong> the operator's review provided explicit default positions on all<br />
+five questions. This section is rewritten to reflect those defaults as the<br />
+design's chosen answers (not just "recommendations"). Each subsection quotes<br />
+the operator's position and explains how the design implements it. The<br />
+operator should review this section before signing off on Phase 1<br />
+implementation — per the operator's directive: "o ponto 3 — política de<br />
+autorização própria dentro do signer — eu trataria como pré-requisito de<br />
+aprovação antes de começar a implementação, não um 'nice to have' do §9."</p>
+<h3>9.1 Passphrase entry: web UI vs. signer TTY</h3>
+<p><strong>Operator's default position:</strong></p>
+<blockquote>
+<p>"o processo web nunca deveria ver o texto plano, nem transitoriamente.<br />
+Idealmente o signer possui o ciclo de vida inteiro da entrada de senha —<br />
+mesmo que isso custe fricção de UX."</p>
+</blockquote>
+<p><strong>Options considered:</strong></p>
+<ul>
+<li>
+<p><strong>Option A (web UI — original draft's recommendation):</strong> operator enters<br />
+  the passphrase in the dashboard, it crosses the IPC boundary via <code>unlock</code><br />
+  RPC. ❌ Rejected — the web process sees plaintext, even transiently.</p>
+</li>
+<li>
+<p><strong>Option B (signer TTY):</strong> the signer process prompts for the passphrase<br />
+  on its own stderr/stdin at boot (or on <code>unlock</code> notification from the web<br />
+  process). The web process sends <code>unlock</code> with no passphrase; the signer<br />
+  reads it from its TTY. ✅ Passphrase never crosses IPC.</p>
+</li>
+<li>
+<p><strong>Option C (hybrid — envelope encryption):</strong> passphrase is entered in the<br />
+  web UI but is encrypted with a signer public key (generated at boot)<br />
+  before crossing IPC. The signer decrypts with its private key. ❌ The web<br />
+  process still sees the plaintext at the moment of UI input (before<br />
+  encryption). A compromised web process can still intercept it there. Does<br />
+  not satisfy the operator's "never see plaintext, even transiently"<br />
+  requirement.</p>
+</li>
+</ul>
+<p><strong>Chosen answer (v19.3):</strong> <strong>Option B (signer TTY)</strong> as the default, with<br />
+Option A available as an explicit opt-in for dev/low-value deployments.</p>
+<p><strong>Implementation:</strong><br />
+- The signer reads the passphrase from its stdin (or a TTY if attached).<br />
+- The web process's <code>POST /api/vault</code> with <code>action: "unlock"</code> does NOT send<br />
+  a passphrase. Instead, it sends an <code>unlock</code> RPC with no passphrase, which<br />
+  causes the signer to print "Enter passphrase:" to its stderr and read<br />
+  from stdin.<br />
+- The operator must have a terminal attached to the signer process (e.g.,<br />
+  via <code>tmux attach</code> or <code>systemctl attach</code>). This is the "UX friction" the<br />
+  operator explicitly accepted.<br />
+- For dev/low-value deployments, an env var <code>SIGNER_ALLOW_WEB_PASSPHRASE=1</code><br />
+  opts back into Option A. The signer logs a loud warning at boot when this<br />
+  is set.<br />
+- The dashboard UI shows "Vault locked — enter passphrase on server<br />
+  terminal" when the signer is in TTY mode. The unlock input field is<br />
+  hidden.</p>
+<p><strong>Why this is worth the friction:</strong> the original motivating threat was a<br />
+supply-chain compromise of the web process. If the passphrase crosses the<br />
+web process's memory, that compromise can intercept it — and once the<br />
+attacker has the passphrase, the signer-side authorization policy (§7.3)<br />
+becomes the only remaining barrier. With TTY-mode passphrase entry, the<br />
+attacker who compromises the web process can send sign RPCs (bounded by §7.3)<br />
+but cannot unlock a locked vault — they would need a separate compromise of<br />
+the signer process or the operator's terminal session.</p>
+<h3>9.2 Signer restart policy</h3>
+<p><strong>Operator's default position:</strong></p>
+<blockquote>
+<p>"fail-closed, sempre. Signer reiniciar nunca deveria restaurar chaves<br />
+automaticamente — exige re-unlock manual, sem exceção."</p>
+</blockquote>
+<p><strong>Options considered:</strong></p>
+<ul>
+<li>
+<p><strong>Option A (original draft's recommendation):</strong> auto-restart (max 3<br />
+  retries with backoff), then fail open in LOCKED state. Operator must<br />
+  re-unlock. ❌ Rejected — "auto-restart" is fine, but "fail open in LOCKED<br />
+  state" is ambiguous; the original draft didn't explicitly require manual<br />
+  re-unlock after EVERY restart.</p>
+</li>
+<li>
+<p><strong>Option B (fail-closed, manual re-unlock always):</strong> the signer can<br />
+  auto-restart, but the vault state is ALWAYS locked after a restart —<br />
+  no automatic restoration of decrypted keys, no exceptions. The operator<br />
+  must re-enter the passphrase (per §9.1, on the signer TTY). ✅ Matches<br />
+  the operator's "fail-closed, sempre" directive.</p>
+</li>
+</ul>
+<p><strong>Chosen answer (v19.3):</strong> <strong>Option B.</strong> Auto-restart is allowed (max 3<br />
+retries with backoff in 10 min), but EVERY restart — whether from crash,<br />
+operator-initiated, or auto-restart — leaves the vault in LOCKED state.<br />
+There is no "restore keys from previous session" code path. The signer's<br />
+boot sequence always starts with <code>wallets = new Map()</code> (empty) and<br />
+<code>unlocked = false</code>.</p>
+<p><strong>Implementation:</strong><br />
+- The signer's <code>main.ts</code> boot sequence explicitly does NOT persist any<br />
+  unlock state across process boundaries. Decrypted keys live only in<br />
+  process memory; when the process exits (for any reason), they are gone.<br />
+- The web process's <code>signerClient</code> reconnect logic (§4.3) treats a<br />
+  reconnected signer as LOCKED — it does NOT attempt to re-send a cached<br />
+  passphrase. The operator must manually unlock via the signer TTY.<br />
+- The auto-restart cap is 3 retries in 10 minutes. If exceeded, the web<br />
+  process stops retrying, marks the signer as permanently down, halts the<br />
+  trading engine, and fires a critical alert.<br />
+- The audit log records every restart with the reason (crash, SIGTERM,<br />
+  auto-restart) so the operator can distinguish a transient glitch from a<br />
+  real bug.</p>
+<h3>9.3 Socket location</h3>
+<p><strong>Operator's default position:</strong></p>
+<blockquote>
+<p>"0600 está certo; confirmar também que o diretório pai não permite outro<br />
+usuário substituir o socket por symlink (vetor comum e frequentemente<br />
+esquecido em sockets Unix compartilhados)."</p>
+</blockquote>
+<p><strong>Chosen answer (v19.3):</strong> the socket is created with mode <code>0600</code> (owner<br />
+read/write only) AND the parent directory is verified safe against symlink<br />
+swap at boot.</p>
+<p><strong>Implementation:</strong><br />
+- <strong>Socket path:</strong> default <code>${XDG_RUNTIME_DIR}/signer.sock</code>, fall back to<br />
+<code>/tmp/signer-&lt;uid&gt;.sock</code>. Configurable via <code>SIGNER_SOCKET_PATH</code>.<br />
+- <strong>Socket file:</strong> mode <code>0600</code>, owner = the user running the signer<br />
+  process. Created with <code>fs.mkdtempSync</code> for the parent dir if needed,<br />
+  then <code>net.createServer().listen(path)</code> — Node sets the socket file mode<br />
+  via <code>process.umask(0o077)</code> before <code>listen()</code>.<br />
+- <strong>Parent directory symlink-swap check (v19.3, NEW):</strong> at boot, the signer<br />
+  verifies the socket path's parent directory:<br />
+  1. <code>fs.lstatSync(parentDir)</code> — must NOT be a symlink. If it is, abort<br />
+     boot with error "socket parent dir is a symlink — possible symlink<br />
+     swap attack".<br />
+  2. <code>fs.statSync(parentDir).mode &amp; 0o077</code> — must be <code>0</code> (no group/other<br />
+     permissions). If non-zero, abort boot with "socket parent dir is<br />
+     world/group-writable — another user could replace the socket".<br />
+  3. The signer records the parent directory's inode at boot. On any<br />
+<code>fs.watch</code> event for the parent dir (rename, delete, attribute<br />
+     change), the signer treats it as a possible attack: zeros all keys,<br />
+     closes the socket, and exits with a crash log.<br />
+- For <code>/tmp/signer-&lt;uid&gt;.sock</code>, the signer creates a subdirectory<br />
+<code>/tmp/signer-&lt;uid&gt;/</code> with mode <code>0700</code> owned by the user, and places the<br />
+  socket inside it. This avoids the <code>/tmp</code> is world-writable problem —<br />
+  the parent dir is the user-owned <code>0700</code> subdirectory, not <code>/tmp</code> itself.<br />
+- For <code>${XDG_RUNTIME_DIR}/signer.sock</code>, the parent (<code>/run/user/&lt;uid&gt;/</code>) is<br />
+  typically already <code>0700</code> and owned by the user on modern systemd distros.<br />
+  The signer still verifies this at boot rather than assuming.</p>
+<h3>9.4 Multiple web processes</h3>
+<p><strong>Operator's default position:</strong></p>
+<blockquote>
+<p>"se o app web escalar horizontalmente, o signer precisa ser single-writer<br />
+explícito — dois processos web tentando unlock/lock ao mesmo tempo no<br />
+mesmo signer é exatamente o tipo de concorrência que motivou o CHECK 1<br />
+original, agora num novo componente."</p>
+</blockquote>
+<p><strong>v19.3 operator review point #1 (sign-off prerequisite):</strong></p>
+<blockquote>
+<p>"<code>acquire_writer</code>/<code>release_writer</code> resolve a concorrência do CHECK 1<br />
+original, mas só se houver uma <strong>lease com TTL</strong>, não um lock que vive<br />
+até <code>release_writer</code> explícito. Se o processo web que detém o writer<br />
+lock crashar (exatamente a classe de evento que essa investigação inteira<br />
+girou em torno de entender), o signer trava permanentemente esperando um<br />
+<code>release</code> que nunca vem — um deadlock que exige restart manual do signer<br />
+para destravar, ou seja, exatamente o cenário fail-closed que §9.2 já<br />
+aceita como aceitável, mas isso precisa estar explícito como consequência<br />
+do design de lock, não como acidente descoberto depois. Confirmar: lease<br />
+com timeout (ex.: renovação obrigatória a cada N segundos, expira sozinha<br />
+se o dono sumir) — não lock indefinido."</p>
+</blockquote>
+<p><strong>Chosen answer (v19.3-design-draft-3):</strong> the writer lock is now a<br />
+<strong>writer LEASE with mandatory TTL renewal</strong>. The holder does not own the<br />
+lock indefinitely — it must renew the lease periodically, and the lease<br />
+auto-expires if the holder dies (crash, OOM, network partition, anything<br />
+that prevents renewal). This is the only design that survives the failure<br />
+mode the operator identified: a web process that crashes while holding<br />
+the lock would otherwise leave the signer permanently deadlocked waiting<br />
+for a <code>release_writer</code> that never arrives.</p>
+<p><strong>Implementation:</strong><br />
+- The signer accepts multiple concurrent socket connections (for read-only<br />
+  operations like <code>get_status</code>, <code>health_check</code>), but only ONE connection at<br />
+  a time may hold the <strong>writer lease</strong>.<br />
+- The writer lease is acquired via an <code>acquire_writer</code> RPC (not to be<br />
+  confused with vault lock/unlock — this is an IPC-level lease). The<br />
+  first connection to call <code>acquire_writer</code> gets the lease; subsequent<br />
+  callers get <code>-32007 Writer busy</code> until the lease is released or expires.<br />
+- <strong>Lease TTL (v19.3, mandatory):</strong> the lease has a TTL of<br />
+<code>SIGNER_WRITER_LEASE_TTL_SEC</code> (default 30s). The holder MUST renew the<br />
+  lease by sending a <code>renew_writer</code> RPC every<br />
+<code>SIGNER_WRITER_LEASE_RENEW_SEC</code> (default 10s — i.e., renew at<br />
+  TTL/3 intervals). If the signer does not receive a <code>renew_writer</code> RPC<br />
+  within the TTL window, the lease is <strong>automatically revoked</strong>: the<br />
+  signer zeros all decrypted keys (per §9.2 fail-closed principle),<br />
+  closes the holder's socket connection, logs a <code>writer_lease_expired</code><br />
+  event to the signer audit log (§7.3.4), and marks the vault as LOCKED.<br />
+  The next <code>acquire_writer</code> caller can then take the lease.<br />
+- All state-mutating RPCs (<code>unlock</code>, <code>lock</code>, <code>create_wallet</code>,<br />
+<code>delete_wallet</code>, <code>sign</code>, <code>sign_typed_data</code>) require the writer lease. If<br />
+  a connection without the writer lease calls one of these, the signer<br />
+  returns <code>-32007 Writer busy</code>.<br />
+- Read-only RPCs (<code>get_status</code>, <code>get_public_info</code>, <code>health_check</code>) do not<br />
+  require the writer lease.<br />
+- This prevents exactly the race the operator identified: two web<br />
+  processes cannot <code>unlock</code>/<code>lock</code>/<code>sign</code> concurrently against the same<br />
+  signer, because only one can hold the writer lease at a time.<br />
+- <strong>v19.3-design-draft-3 operator follow-up (clean disconnect releases<br />
+  immediately):</strong> the TTL is a BACKSTOP for the case where the holder<br />
+  crashes uncleanly (no FIN packet, no <code>release_writer</code> RPC). A CLEAN<br />
+  disconnect — the web process closes the socket gracefully (SIGTERM,<br />
+  normal shutdown, <code>release_writer</code> RPC) — releases the lease<br />
+<strong>immediately</strong>, without waiting for the TTL to expire. This matters<br />
+  for recovery time after a controlled web process restart: the operator<br />
+  restarts the web process, it reconnects, and can re-acquire the lease<br />
+  in &lt;1s instead of waiting 30s for the old lease to time out. The<br />
+  implementation: the signer's socket <code>close</code>/<code>end</code> event handler for<br />
+  the writer connection calls the same <code>revokeLease(holderConn)</code> function<br />
+  that the TTL expiry calls — zeroize keys, log <code>writer_lease_released</code><br />
+  (distinct from <code>writer_lease_expired</code> so the audit log distinguishes<br />
+  clean vs. unclean release), mark vault LOCKED. The 30s TTL only fires<br />
+  when the holder disappears WITHOUT a clean socket close (crash, OOM,<br />
+  network partition).<br />
+- <strong>The lease revocation is the same fail-closed consequence §9.2 already<br />
+  accepts for signer restart.</strong> A web process that crashes (the exact<br />
+  failure class this entire investigation was about) loses its lease<br />
+  within 30s (unclean) or immediately (clean). The signer zeroizes keys<br />
+  and goes to LOCKED state. The operator must re-unlock via the signer<br />
+  TTY (§9.1). This is <strong>not a new operational burden</strong> — it's the same<br />
+  manual re-unlock that any signer restart already requires per §9.2.<br />
+  Making it explicit here means it's a designed consequence, not an<br />
+  accident discovered in production. The audit log entry<br />
+<code>writer_lease_expired</code> (unclean) or <code>writer_lease_released</code> (clean)<br />
+  lets the operator distinguish "web process crashed" from "signer<br />
+  crashed" — both lead to LOCKED, but the remediation is different<br />
+  (restart the web process vs. restart the signer).<br />
+- The web process's <code>signerClient</code> acquires the writer lease at boot (or<br />
+  on reconnect) and starts a <code>renew_writer</code> timer immediately. If a<br />
+  second web process starts and tries to acquire the writer lease, it<br />
+  fails — the operator must either run one web process or use a load<br />
+  balancer that routes all vault operations to a designated "writer"<br />
+  process. If the writer web process dies, the lease expires within<br />
+  30s and a designated failover web process can take over (after the<br />
+  operator re-unlocks — failover does NOT bypass §9.2).</p>
+<p><strong>Lease renewal failure handling on the web side:</strong><br />
+- If the web process's <code>renew_writer</code> RPC fails (signer unreachable,<br />
+  socket error, etc.), the web process treats it as a lost lease: stops<br />
+  sending <code>sign</code> RPCs, fires a <code>vault_locked</code> notification, and surfaces<br />
+  the failure in the dashboard. The web process does NOT attempt to<br />
+  re-acquire the lease automatically — that would mask the underlying<br />
+  failure (signer crash, network partition, etc.). The operator must<br />
+  investigate and manually re-acquire after confirming the signer is<br />
+  healthy.<br />
+- If the web process's <code>renew_writer</code> RPC succeeds but the response<br />
+  indicates the lease is no longer held (e.g., the signer revoked it<br />
+  because a higher-priority process took over — not currently supported<br />
+  in Phase 1, but reserved for future multi-writer-arbitration<br />
+  scenarios), the web process immediately enters degraded mode and<br />
+  halts the trading engine.</p>
+<p><strong>Out of scope for v19.3 implementation:</strong> the current deployment is a<br />
+single web process, so the writer lease is held continuously and never<br />
+contended. The lease infrastructure (TTL, renewal, auto-revocation,<br />
+zeroize-on-expiry) is built into Phase 1 so that scaling later doesn't<br />
+require a protocol change. A <code>scripts/test-signer-lease.ts</code> test<br />
+verifies: (a) lease auto-expires when the holder stops renewing, (b)<br />
+zeroize-on-expiry actually wipes keys (the signer refuses subsequent<br />
+<code>sign</code> RPCs until re-unlock), (c) a second connection can acquire the<br />
+lease after expiry, (d) the audit log records the expiry event.</p>
+<h3>9.5 Signer dependency surface</h3>
+<p><strong>Operator's default position:</strong></p>
+<blockquote>
+<p>"mínima e com versão fixa, especificamente porque esse processo agora é a<br />
+fronteira de confiança real do sistema — reforça o que já está no<br />
+<code>SECURITY.md</code>."</p>
+</blockquote>
+<p><strong>Chosen answer (v19.3):</strong> the signer has a <strong>minimal, pinned dependency<br />
+tree</strong>, auditable in isolation from the web process. This is now more<br />
+important than in the original draft because the signer is the trust<br />
+boundary (per §7.3), not just a signing oracle.</p>
+<p><strong>Implementation:</strong><br />
+- <strong>Signer dependencies (allowed list):</strong><br />
+  - <code>ethers</code> (transaction signing) — pinned to exact version in<br />
+<code>package.json</code>, hash recorded in <code>SECURITY.md</code>.<br />
+  - <code>@prisma/client</code> (DB access for wallet/exchange rows) — pinned.<br />
+  - Node built-ins (<code>net</code>, <code>crypto</code>, <code>fs</code>, <code>child_process</code>, <code>os</code>).<br />
+  - The signer's own <code>crash-logger.ts</code> (shared with the web process, but<br />
+    only the crash-logging functions — no imports from <code>trading/*</code>).<br />
+- <strong>Signer dependencies (forbidden list):</strong><br />
+  - Anything from <code>src/lib/trading/*</code> except <code>wallet-crypto.ts</code> (the vault<br />
+    class). Specifically: no <code>engine.ts</code>, no <code>portfolio.ts</code>, no<br />
+<code>risk-manager.ts</code>, no <code>notifier.ts</code> (Phase 2 will move notifier access<br />
+    to the signer, but with a minimal client, not the full module).<br />
+  - Anything from <code>src/app/*</code> (no Next.js coupling).<br />
+  - No <code>axios</code>, <code>node-fetch</code>, or other HTTP clients — use Node's built-in<br />
+<code>fetch</code> (available in Node 18+). This is for the signer's independent<br />
+    price feed (§7.3.1).<br />
+  - No <code>lodash</code>, <code>underscore</code>, or other utility libraries. Use built-in<br />
+    language features.<br />
+- <strong>Pinning enforcement:</strong> the signer's <code>package.json</code> (separate from the<br />
+  web app's) uses exact versions (no <code>^</code> or <code>~</code>). A <code>scripts/audit-signer-
+  deps.ts</code> script runs <code>npm audit --omit=dev</code> on the signer's dependency<br />
+  tree and fails CI if any vulnerability is found.<br />
+- <strong>Audit:</strong> the signer's full dependency tree (including transitive deps)<br />
+  is dumped to <code>SECURITY.md</code> on every release. The operator reviews the<br />
+  diff before signing off.</p>
+<hr />
+<h2>10. Testing Strategy</h2>
+<h3>10.1 Unit tests (existing, unchanged)</h3>
+<p><code>scripts/test-vault.ts</code> scenarios 1-14 test the vault's public contract<br />
+(unlock, lock, rate limit, auto-lock, atomicity, TOCTOU, notification throttle,<br />
+slow-drip summary, source IP). These tests run against <code>walletVault</code> directly,<br />
+which in Phase 1 moves into the signer. The tests import <code>walletVault</code> from<br />
+the signer module — they test the vault class in isolation, not the IPC layer.</p>
+<h3>10.2 IPC integration tests (new)</h3>
+<p><code>scripts/test-signer-ipc.ts</code> — tests the IPC protocol + process lifecycle:</p>
+<ol>
+<li><strong>Boot:</strong> spawn signer, verify health_check passes within 10s.</li>
+<li><strong>RPC round-trip:</strong> unlock → get_status → sign → lock, verify each response.</li>
+<li><strong>Method allowlist:</strong> send <code>export_key</code> RPC, verify <code>-32601 Method not found</code>.</li>
+<li><strong>Malformed JSON:</strong> send <code>not-json\n</code>, verify <code>-32700 Parse error</code> + connection stays open.</li>
+<li><strong>Concurrent requests:</strong> send 10 <code>get_status</code> RPCs in parallel, verify all 10 responses match (by correlation ID).</li>
+<li><strong>Parent disconnect:</strong> kill the web-side socket, verify the signer exits within 2s + writes a crash-log entry.</li>
+<li><strong>Signer crash:</strong> trigger an uncaughtException in the signer, verify crash-*.log is written + web process detects disconnect + marks vault locked.</li>
+<li><strong>Reconnect:</strong> after simulated crash, verify the web process spawns a new signer + health_check passes.</li>
+<li><strong>IPC timeout:</strong> send an RPC with a 1ms timeout, verify TimeoutError + vault marked locked.</li>
+</ol>
+<h3>10.3 Stress test (existing + new)</h3>
+<p>The heterogeneous stress test (<code>scripts/stress-test-heterogeneous.ts</code>) should<br />
+be re-run after Phase 1 implementation, now hitting the IPC layer instead of<br />
+the in-process vault. This verifies the signer doesn't introduce new race<br />
+conditions or resource leaks under concurrent load.</p>
+<hr />
+<h2>11. Implementation Estimate</h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Effort</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>src/signer/main.ts</code> (signer process)</td>
+<td>2 days</td>
+<td>Move vault class, implement JSON-RPC dispatcher, method allowlist, crash handlers, disconnect handler. Includes §7.3 signer-side policy enforcement (per-tx cap, rolling window cap, allowlist, independent audit log with hash chain, own price feed).</td>
+</tr>
+<tr>
+<td><code>src/lib/trading/signer-client.ts</code> (web-side client)</td>
+<td>1 day</td>
+<td>RPC client with reconnection, cached status, timeout handling, writer lease acquisition + renewal timer.</td>
+</tr>
+<tr>
+<td><code>src/instrumentation.ts</code> (spawn signer at boot)</td>
+<td>0.5 day</td>
+<td>spawn + wait for ready + health_check.</td>
+</tr>
+<tr>
+<td>Update API routes + wallet-manager + engine</td>
+<td>0.5 day</td>
+<td>Swap <code>walletVault</code> → <code>signerClient</code>.</td>
+</tr>
+<tr>
+<td>Writer lease + TTL + zeroize-on-expiry</td>
+<td>0.5 day</td>
+<td><code>acquire_writer</code> / <code>renew_writer</code> / auto-revoke logic in signer; <code>renew_writer</code> timer in client. See §9.4.</td>
+</tr>
+<tr>
+<td>Hash chain + <code>verify-signer-audit.ts</code></td>
+<td>0.5 day</td>
+<td><code>prevHash</code>/<code>entryHash</code> on each audit log entry; CI-gatable verify script. See §7.3.4.</td>
+</tr>
+<tr>
+<td><code>scripts/test-signer-ipc.ts</code> (integration tests)</td>
+<td>1 day</td>
+<td>9 scenarios in §10.2.</td>
+</tr>
+<tr>
+<td><code>scripts/test-signer-policy.ts</code> (policy tests)</td>
+<td>1 day</td>
+<td>9 scenarios in §8 step 8, including the v19.3-design-draft-3 additions (price-feed-source-fixed, hash chain, per-IP rate limit, lease auto-expiry).</td>
+</tr>
+<tr>
+<td><code>scripts/test-signer-lease.ts</code> (lease tests)</td>
+<td>0.5 day</td>
+<td>4 scenarios in §8 step 10.</td>
+</tr>
+<tr>
+<td><code>§13 Operator Runbook</code> validation</td>
+<td>0.5 day</td>
+<td>Walk through each runbook procedure against a staging deployment; confirm steps are accurate and complete.</td>
+</tr>
+<tr>
+<td><strong>Total Phase 1</strong></td>
+<td><strong>7-8 days</strong></td>
+<td>Up from 4-5 in the original draft and 6-7 in draft-2. The extra day over draft-2 covers the writer lease + TTL, the hash chain + verify script, and the runbook. (The per-IP rate limit refactor is no longer in Phase 1 — it shipped independently as the v19.3.1/v19.3.2 hotfix, see §7.3.7.)</td>
+</tr>
+</tbody>
+</table>
+<p>Phase 2 (HMAC request signing, signer-side notifier, heartbeat canary,<br />
+remote audit log shipping) is an additional 2-3 days and can be deferred<br />
+until after the crash investigation is fully closed.</p>
+<hr />
+<h2>12. Relationship to the Crash Investigation</h2>
+<p>The operator's directive: "se a causa raiz acabar sendo algo estrutural (ex.:<br />
+uma race real no acesso ao Map de wallets), isso é exatamente o tipo de bug<br />
+que o isolamento em processo separado também deveria herdar/mitigar — e você<br />
+quer saber disso <em>antes</em> de desenhar o protocolo de IPC, não depois."</p>
+<p>This design addresses that concern in two ways:</p>
+<ol>
+<li>
+<p><strong>The signer inherits the single-threaded Map-access semantics of the<br />
+   current vault.</strong> If the crash was caused by a race in <code>walletMap</code> access,<br />
+   the same race exists in the signer — but now it's isolated to the signer<br />
+   process, so a crash takes down only the signer (not the web server). The<br />
+   web process detects the disconnect, marks the vault locked, and restarts<br />
+   the signer. The operator sees "signer crashed" instead of "server died<br />
+   silently". This is strictly better diagnostics.</p>
+</li>
+<li>
+<p><strong>The crash handler (§4.3, §4.4) is symmetric.</strong> Both processes use the<br />
+   same <code>crash-logger.ts</code> with synchronous file logging. If the signer<br />
+   crashes, we get a stack trace in <code>logs/signer-crash-*.log</code>. If the web<br />
+   process crashes, we get one in <code>logs/crash-*.log</code>. Either way, the<br />
+   operator has a real trace to root-cause, not a silent death.</p>
+</li>
+<li>
+<p><strong>If the heterogeneous stress test (Check 1) reproduces the crash<br />
+   organically, implementation should be PAUSED until the root cause is<br />
+   fixed.</strong> There's no point building an IPC protocol on top of a vault that<br />
+   has a race condition — the signer would just inherit the crash. The stress<br />
+   test result (reported alongside this design) determines whether we proceed<br />
+   to Phase 1 implementation or fix the underlying bug first.</p>
+</li>
+</ol>
+<h3>12.1 Stress test results (reported alongside this design)</h3>
+<p><strong>Retrospective audit (bonus finding):</strong> the dev DB had <strong>0 wallets and 0<br />
+exchanges</strong> when the previous stress test ran. This means every "wrong<br />
+passphrase" unlock returned <strong>200 (empty-vault success)</strong>, not 401 (crypto<br />
+failure). The crypto failure path (PBKDF2 derivation + GCM auth fail +<br />
+<code>recordFailedAttempt</code> + <code>notifyVaultEvent(vault_unlock_failed)</code>) was <strong>never<br />
+exercised</strong>. The previous stress test's 35,570 requests with 0 crashes is<br />
+still useful evidence (rules out resource exhaustion at that volume), but it<br />
+did NOT test the path most likely to trigger the original crash. The<br />
+in-process test suite (<code>test-vault.ts</code>) was NOT affected — all 14 scenarios<br />
+use <code>makeWallet()</code> to create real wallets before testing.</p>
+<p><strong>CHECK 1 (heterogeneous stress test): NEGATIVE.</strong> The production server<br />
+survived 48 seconds of heterogeneous concurrent load (8 workers, 4 profiles)<br />
+with <strong>no organic crash</strong>. 94 requests completed before the debug trigger<br />
+fired at the 40% mark. The 4 worker profiles exercised:</p>
+<ul>
+<li><strong>attacker</strong>: wrong-unlock × 3 → lock (crypto failure path: PBKDF2 + GCM<br />
+  auth fail + rate-limit + notify throttle)</li>
+<li><strong>operator</strong>: right-unlock → GET status → lock (full DB read + decrypt)</li>
+<li><strong>lifecycle</strong>: create wallet → right-unlock → lock → delete (DB mutations<br />
+  during concurrent vault access)</li>
+<li><strong>interleaver</strong>: wrong-unlock → create → right-unlock → lock → delete (the<br />
+  specific sequence the operator said caused the original crash)</li>
+</ul>
+<p>The server log confirms the crypto failure path was exercised: <code>decryptSecret
+failed: Error: Unsupported state or unable to authenticate data</code> (GCM auth<br />
+tag failure), <code>Unlock FALHOU — N blob(s) não descriptografados</code>,<br />
+<code>notifyVaultEvent(vault_unlock_failed) THROTTLED</code>.</p>
+<p><strong>CHECK 2 (crash handler armed under load): PASSED.</strong> The debug crash<br />
+endpoint (<code>/api/debug/crash-test</code>, gated by env var) was called mid-stress-<br />
+test with 147 requests in flight. The crash handler fired and produced a<br />
+<code>crash-*.log</code> with a full stack trace:</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>Error: DELIBERATE CRASH TEST (uncaughtException) — pid=30558 uptime=61.3s
+    at Timeout._onTimeout (.next/server/chunks/[root-of-the-server]__*.js:1:4246)
+    at listOnTimeout (node:internal/timers:605:17)
+    at process.processTimers (node:internal/timers:541:7)
+
+ACTIVE HANDLERS / TIMERS:
+  unref&#39;d handles: [Socket, Socket, Server, Socket, Socket, Socket, Socket,
+    Socket, Socket, Socket, Socket, Socket, Socket]
+  process.listenerCount(uncaughtException)=3
+</code></pre></div>
+
+<p>The 13 active Socket handles confirm the server was under concurrent load<br />
+when the handler fired. <code>process.listenerCount(uncaughtException)=3</code> shows<br />
+our handler is registered alongside Next.js's own (Node calls all listeners).</p>
+<p><strong>Secondary finding — event loop congestion under load:</strong> there was a<br />
+<strong>3.5-second delay</strong> between the HTTP response and the actual crash. The<br />
+debug endpoint's <code>setTimeout(100ms)</code> callback was delayed by event loop<br />
+congestion from the 8 concurrent workers. This is expected Node.js behavior<br />
+(timers are not real-time) but has implications for the signer isolation<br />
+design: the IPC timeout (§4.5) must account for multi-second event loop<br />
+latency under load. A 5s timeout is too tight; 15s is recommended for<br />
+non-signing operations, 30s for <code>unlock</code> (which does PBKDF2 × N wallets).</p>
+<p><strong>Combined conclusion:</strong> CHECK 1 negative + CHECK 2 passed = the silent-crash<br />
+investigation can be <strong>downgraded to MONITOR without reservation</strong>, per the<br />
+operator's criteria. The heterogeneous recipe did not reproduce the crash in<br />
+production build. The crash handler is confirmed armed and firing under<br />
+concurrent load. <strong>Phase 1 implementation of the signer isolation can<br />
+proceed.</strong></p>
+<h3>12.2 v19.3 follow-up: clean 150s run + port-collision hypothesis</h3>
+<p><strong>Operator's v19.3 review point #1:</strong></p>
+<blockquote>
+<p>"48 segundos / 94 requisições antes do gatilho de debug disparar é uma<br />
+amostra ordens de magnitude menor que os 120s / 35.570 requisições do teste<br />
+homogêneo anterior. ... para eu tratar isso com o mesmo peso de evidência<br />
+que o teste anterior, eu rodaria uma passada adicional — mesma receita<br />
+heterogênea, sem o gatilho de debug desta vez — por uns 120-180s corridos,<br />
+só para ter um resultado limpo de mesma ordem de grandeza."</p>
+</blockquote>
+<p><strong>CHECK 1 clean rerun (150s, no debug trigger, RUN_CHECK_2=0):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Prior 48s run (with CHECK 2)</th>
+<th>This 150s run (CHECK 1 only)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Duration</td>
+<td>48s (killed by CHECK 2 at 40%)</td>
+<td><strong>150.1s</strong> (full duration)</td>
+</tr>
+<tr>
+<td>Total cycles</td>
+<td>94</td>
+<td><strong>247</strong> (2.6× larger)</td>
+</tr>
+<tr>
+<td>Workers</td>
+<td>8 (CONCURRENCY=2)</td>
+<td>16 (CONCURRENCY=4)</td>
+</tr>
+<tr>
+<td>Crypto path exercised</td>
+<td>YES (5 baseline wallets)</td>
+<td>YES (5 baseline wallets)</td>
+</tr>
+<tr>
+<td>Organic crash</td>
+<td>NO</td>
+<td><strong>NO</strong></td>
+</tr>
+<tr>
+<td>New crash-*.log during stress loop</td>
+<td>0</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td>CHECK 2 trigger</td>
+<td>Fired (killed server)</td>
+<td>Skipped (RUN_CHECK_2=0)</td>
+</tr>
+</tbody>
+</table>
+<p>Per-profile stats (150s run):<br />
+- attacker: sent=59 ok=6 fail=27 err=26 (wrong-passphrase failures + rate-limit)<br />
+- operator: sent=76 ok=43 fail=0 err=33<br />
+- lifecycle: sent=59 ok=33 fail=0 err=26<br />
+- interleaver: sent=53 ok=19 fail=7 err=27<br />
+- <strong>Total: 247 cycles, ~7-8 effective HTTP req/s</strong> (dominated by PBKDF2 600k iterations per unlock)</p>
+<p>Server log analysis (994 lines):<br />
+- 775 <code>decryptSecret failed: Error: Unsupported state or unable to authenticate data</code> (expected — attacker profile's wrong passphrases hitting PBKDF2/GCM auth)<br />
+- 46 <code>Unlock FALHOU — N blob(s) não descriptografados</code> (expected)<br />
+- 1 rate-limit cooldown activation (5 failures in 60s → 5min cooldown — working as designed)<br />
+- 43 <code>notifyVaultEvent(vault_unlock_failed) THROTTLED</code> (notification throttle working)<br />
+- 51 successful <code>Vault DESBLOQUEADO</code>, 35 <code>Vault BLOQUEADO</code>, 36 <code>Wallet created</code> (normal operation)<br />
+- <strong>Zero unexpected warnings. Zero empty-vault warnings (5 baseline wallets pre-created).</strong></p>
+<p><strong>Important caveat on sample size:</strong> the operator's framing was "mesma ordem<br />
+de grandeza" as the prior 120s/35,570-request homogeneous test. This run is<br />
+NOT same order of magnitude in raw request count (247 cycles ≈ 1,000-1,200<br />
+HTTP calls vs 35,570). The throughput is ~2 orders of magnitude lower because<br />
+each heterogeneous cycle is dominated by PBKDF2 key derivation and serializes<br />
+on the vault's single in-memory secret state. The homogeneous test was<br />
+hitting lightweight GET endpoints.</p>
+<p>However, this run IS the correct domain for the crash recipe being tested<br />
+(wrong-unlock → create → right-unlock → lock → delete — the original<br />
+silent-crash sequence). The 150s run hit 247 cycles of that exact recipe,<br />
+vs the prior 48s run's 94 cycles — a 2.6× larger sample of the relevant<br />
+operation sequence. The operator may still want an even longer run (300s+)<br />
+for a truly same-order-of-magnitude sample; this 150s run is offered as<br />
+the minimum that satisfies the "120-180s" target.</p>
+<p><strong>Script false-positive note:</strong> the stress test script initially returned<br />
+exit code 2 (CHECK 1 POSITIVE) due to a logic bug in the <code>organicCrash</code><br />
+determination when <code>RUN_CHECK_2=0</code> — the <code>serverDied</code> flag was set by the<br />
+'exit' handler regardless of whether the exit happened mid-stress or<br />
+post-stress (script's own SIGTERM). The subagent running the test caught<br />
+this, reported it honestly rather than re-running until it gave the "right"<br />
+answer, and the script was fixed (added <code>serverDiedDuringStress</code> flag that<br />
+only fires if the exit happens before <code>stressLoopEndedAt</code>). The corrected<br />
+determination confirms: <strong>CHECK 1 NEGATIVE</strong> — the server survived the full<br />
+150s of heterogeneous load with zero organic crashes.</p>
+<hr />
+<p><strong>Operator's v19.3 review point #2 (port-collision hypothesis):</strong></p>
+<blockquote>
+<p>"será que pelo menos parte das quedas silenciosas originais eram colisão<br />
+de processo/porta durante hot-reload do Turbopack (uma instância antiga<br />
+ainda de pé, ou uma recompilação no meio de uma request), e não um bug de<br />
+lógica no vault?"</p>
+</blockquote>
+<p><strong>Investigation findings (full report at <code>download/port-collision-investigation.md</code>):</strong></p>
+<table>
+<thead>
+<tr>
+<th>Evidence searched</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Direct <code>EADDRINUSE</code> matches in project source/logs/worklog</td>
+<td><strong>0</strong></td>
+</tr>
+<tr>
+<td><code>address already in use</code> matches</td>
+<td>0 (2 unrelated hits in <code>signer-isolation-design.md</code> for <code>ethers</code>/<code>@prisma/client</code>)</td>
+</tr>
+<tr>
+<td>Documented "two launches collided" event</td>
+<td>1 — <code>worklog.md:1515</code> (script-level collision in <code>next start</code>, NOT <code>next dev</code> HMR)</td>
+</tr>
+<tr>
+<td>Orphaned-child / EPIPE cleanup artifacts</td>
+<td>3 — <code>worklog.md:1570/1572/1580</code> (all <code>next start</code>, not dev)</td>
+</tr>
+<tr>
+<td><code>listen()</code> frames in any <code>crash-*.log</code></td>
+<td>0 (all 4 crash logs are either deliberate debug triggers or EPIPE cleanup)</td>
+</tr>
+<tr>
+<td>Current machine state (<code>lsof -i :3000/:3100/:3200</code>)</td>
+<td>clean — no listeners</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Verdict: INDETERMINATE.</strong> The hypothesis is structurally plausible and<br />
+consistent with the operator's "doesn't reproduce in production" framework<br />
+(<code>next start</code> has no HMR, no concurrent compilations), but no direct<br />
+EADDRINUSE evidence exists in any captured log. The investigation cannot<br />
+distinguish port-collision-during-HMR from three other dev-mode-specific<br />
+candidates:<br />
+1. <strong>v18b Turbopack circular-import</strong> — the leading theory (documented in worklog)<br />
+2. <strong>v15 sandbox resource limits</strong><br />
+3. <strong>Other dev-mode bugs</strong> (e.g., Turbopack memory leaks during fast recompiles)</p>
+<p>All four share the same observable signature: silent crash in <code>next dev</code>,<br />
+no reproduction in <code>next start</code>. The crash-logger added in v19.1 will<br />
+produce a real stack trace the next time any silent crash recurs — if that<br />
+trace shows <code>EADDRINUSE</code> or a <code>listen()</code> frame, the hypothesis is CONFIRMED<br />
+for that specific crash; otherwise it is REFUTED for that crash.</p>
+<p><strong>Operational hygiene fix:</strong> a new pre-flight helper <code>scripts/check-port-orphan.sh</code><br />
+was created. Operators should run it before every <code>next dev</code> / <code>next start</code> /<br />
+stress-test invocation. It checks <code>lsof -i :3000/:3100/:3200</code> for listeners,<br />
+prints the PID/command/start-time of any orphan, and asks for confirmation<br />
+before killing. This doesn't prove or refute the hypothesis, but it closes<br />
+the operational gap that made the collision possible in the prior session.</p>
+<p><strong>Impact on MONITOR status:</strong> the port-collision hypothesis does NOT change<br />
+the silent-crash investigation status. It remains at <strong>MONITOR</strong> — the<br />
+crash-logger is armed (CHECK 2 confirmed), the heterogeneous recipe did not<br />
+reproduce the crash in 150s of production stress (CHECK 1 confirmed), and<br />
+the next time any silent crash recurs (in dev OR production), the crash log<br />
+will tell us whether it's EADDRINUSE, a Turbopack issue, or something else<br />
+entirely. The <code>setImmediate</code> fix in <code>wallet-crypto.ts</code> remains PROVISIONAL<br />
+(no captured stack trace points to any specific cause).</p>
+<hr />
+<h2>13. Operator Runbook (v19.3-design-draft-3, operator review point #5)</h2>
+<blockquote>
+<p>"Trocar de estratégia/adicionar um router novo (ex.: expandir de Ethereum/BSC<br />
+para Solana) vai exigir restart + re-unlock manual com alguma frequência<br />
+normal de operação, não só em emergência. Isso é a escolha certa de<br />
+segurança, mas peço que vire uma seção de runbook operacional explícita<br />
+(passo a passo: editar JSON → restart signer → digitar passphrase →<br />
+confirmar allowlist ativa), não fique só implícito no texto de design —<br />
+quem for operar isso daqui a 3 meses não vai lembrar o raciocínio, só vai<br />
+precisar do procedimento."</p>
+</blockquote>
+<p>This section is the operator-facing runbook. It assumes the signer is<br />
+already deployed and running in production (i.e., Phase 1 implementation<br />
+is complete). Every procedure here involves restart + re-unlock — that<br />
+is the designed friction, not an oversight. The operator should bookmark<br />
+this section.</p>
+<h3>13.1 Adding a new DEX router to the destination allowlist</h3>
+<p><strong>When to use:</strong> you want the trading engine to be able to route swaps<br />
+through a new DEX router (e.g., adding Camelot on Arbitrum, or a new<br />
+Uniswap V4 deployment). Until the router is in the allowlist, sign RPCs<br />
+to it are rejected with <code>-32006 destination_not_in_allowlist</code>.</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>
+<p><strong>Identify the router address and chain.</strong> Confirm the address on the<br />
+   DEX's official docs (NOT a search-engine result — type the official<br />
+   domain manually). Record: <code>address</code>, <code>chainId</code>, <code>label</code>, and the<br />
+<code>methods</code> you want to permit (use <code>["*"]</code> only if you accept all<br />
+   methods on this router; otherwise list the specific selectors, e.g.,<br />
+<code>["exactInputSingle", "exactInput"]</code>).</p>
+</li>
+<li>
+<p><strong>Edit the allowlist JSON file</strong> at the path pointed to by<br />
+<code>SIGNER_DEST_ALLOWLIST</code> (default <code>/etc/signer/dest-allowlist.json</code>).<br />
+   Append the new entry to the <code>entries</code> array. Bump the <code>version</code><br />
+   field. Update <code>loadedAt</code> to the current ISO timestamp (this will be<br />
+   overwritten by the signer at boot, but setting it now makes the diff<br />
+   self-documenting).</p>
+</li>
+</ol>
+<p><code>sh
+   # ALWAYS work on a copy first, then atomically move into place.
+   cp /etc/signer/dest-allowlist.json /etc/signer/dest-allowlist.json.bak.$(date +%Y%m%d-%H%M%S)
+   $EDITOR /etc/signer/dest-allowlist.json
+   # Validate JSON before installing:
+   python3 -c "import json; json.load(open('/etc/signer/dest-allowlist.json'))" \
+     &amp;&amp; echo "JSON valid" || echo "JSON INVALID — abort and restore from .bak"</code></p>
+<ol start="3">
+<li>
+<p><strong>Verify the new entry is what you expect</strong> before restarting:<br />
+<code>sh
+   jq '.entries[-1]' /etc/signer/dest-allowlist.json</code></p>
+</li>
+<li>
+<p><strong>Restart the signer process.</strong> How depends on the deployment:<br />
+   - systemd: <code>sudo systemctl restart signer</code><br />
+   - pm2: <code>pm2 restart signer</code><br />
+   - manual: kill the PID, re-run the boot command</p>
+</li>
+</ol>
+<p>The signer refuses to start if the allowlist JSON is malformed<br />
+   (fail-closed per §7.3.3). If it does, restore from the <code>.bak</code> file<br />
+   from step 2 and try again.</p>
+<ol start="5">
+<li>
+<p><strong>Re-enter the passphrase on the signer TTY.</strong> Per §9.2, restart<br />
+   always requires manual re-unlock — there is no auto-restore. Attach<br />
+   to the signer's terminal:<br />
+<code>sh
+   # If running under systemd with a TTY:
+   sudo systemctl attach signer
+   # Or if running under tmux:
+   tmux attach -t signer</code><br />
+   The signer prints <code>Enter passphrase:</code>. Type it. The signer logs<br />
+<code>Vault DESBLOQUEADO</code> and is now operational.</p>
+</li>
+<li>
+<p><strong>Confirm the allowlist is loaded and active.</strong> Run the signer's<br />
+   health check, which now includes an allowlist summary:<br />
+<code>sh
+   # From the web host (the only host that can connect to the socket):
+   sudo -u &lt;web-user&gt; scripts/signer-cli.sh get_public_info</code><br />
+   The response should include <code>allowlistVersion</code>, <code>allowlistEntryCount</code>,<br />
+   and <code>allowlistLoadedAt</code>. Verify <code>allowlistVersion</code> matches what you<br />
+   set in step 2, and <code>allowlistEntryCount</code> is one higher than before.</p>
+</li>
+<li>
+<p><strong>Verify the new router accepts a sign RPC.</strong> Use the signer policy<br />
+   test script in dry-run mode (does NOT actually broadcast the tx):<br />
+<code>sh
+   tsx scripts/test-signer-policy.ts --dry-run --to &lt;new-router-address&gt; --value 1</code><br />
+   Expect: <code>status: signed (dry-run)</code>. If you get <code>rejected:
+   destination_not_in_allowlist</code>, the address in step 2 doesn't match<br />
+   the address in step 7 (checksum mismatch is the usual cause).</p>
+</li>
+<li>
+<p><strong>Notify any other operators</strong> (Slack, PagerDuty, whatever your<br />
+   channel is) that the allowlist was updated, with the version number<br />
+   and the new entry label. This is operational hygiene, not a design<br />
+   requirement — but the audit log (§7.3.4) is what makes this<br />
+   after-the-fact verifiable, and telling humans in advance makes<br />
+   incident response faster if the new router turns out to be<br />
+   misconfigured.</p>
+</li>
+</ol>
+<h3>13.2 Removing a router from the allowlist</h3>
+<p><strong>When to use:</strong> a router is compromised, deprecated, or you no longer<br />
+want the trading engine to use it. Until removed, sign RPCs to it<br />
+continue to be policy-compliant.</p>
+<p><strong>Steps:</strong> same as §13.1, but in step 2 you delete the entry from the<br />
+JSON instead of adding one. The rest of the procedure (restart, re-<br />
+unlock, verify, notify) is identical. After step 6, run the dry-run<br />
+policy test against the removed router and confirm it now returns<br />
+<code>rejected: destination_not_in_allowlist</code>.</p>
+<h3>13.3 Changing the per-tx or per-window USD cap</h3>
+<p><strong>When to use:</strong> you want to raise (or lower) the maximum value of a<br />
+single signed transaction, or the rolling-window total. Common reasons:<br />
+portfolio grew and $200/$500 is too tight; portfolio shrank and you<br />
+want to tighten; a new strategy requires larger swaps.</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>
+<p><strong>Edit the signer's env file</strong> (typically <code>/etc/signer/signer.env</code><br />
+   or your process manager's env var config). Change:<br />
+   - <code>SIGNER_MAX_TX_USD=200</code> → new per-tx cap (in USD).<br />
+   - <code>SIGNER_MAX_WINDOW_USD=500</code> → new per-window cap (in USD).<br />
+   - <code>SIGNER_WINDOW_SEC=300</code> → new window duration (in seconds), if<br />
+     you also want to change the window length.</p>
+</li>
+<li>
+<p><strong>Restart the signer</strong> (same as §13.1 step 4).</p>
+</li>
+<li>
+<p><strong>Re-enter the passphrase</strong> (same as §13.1 step 5).</p>
+</li>
+<li>
+<p><strong>Confirm the new caps are loaded:</strong><br />
+<code>sh
+   sudo -u &lt;web-user&gt; scripts/signer-cli.sh get_public_info</code><br />
+   The response includes <code>maxTxUsd</code>, <code>maxWindowUsd</code>, <code>windowSec</code>. Verify<br />
+   they match what you set in step 1.</p>
+</li>
+<li>
+<p><strong>Verify the new caps are enforced</strong> by running the policy test:<br />
+<code>sh
+   tsx scripts/test-signer-policy.ts --dry-run --value &lt;new-cap-plus-1&gt;</code><br />
+   Expect: <code>rejected: tx_cap_exceeded</code>. Then:<br />
+<code>sh
+   tsx scripts/test-signer-policy.ts --dry-run --value &lt;new-cap-minus-1&gt;</code><br />
+   Expect: <code>status: signed (dry-run)</code> (assuming the rolling window has<br />
+   room — if not, you'll see <code>rejected: window_cap_exceeded</code>, which is<br />
+   also correct behavior).</p>
+</li>
+<li>
+<p><strong>Update the web process's <code>hotWalletCapUsd</code></strong> in<br />
+<code>src/lib/trading/config.ts</code> to match (this is now defense-in-depth,<br />
+   not the primary boundary, but keeping them in sync avoids confusing<br />
+   log messages where the web side says "OK" and the signer side says<br />
+   "rejected"). Redeploy the web process. No signer restart is needed<br />
+   for the web-side change.</p>
+</li>
+<li>
+<p><strong>Notify other operators</strong> with the new cap values and the reason<br />
+   for the change.</p>
+</li>
+</ol>
+<h3>13.4 Expanding to a new chain (e.g., adding Solana)</h3>
+<p><strong>When to use:</strong> you want the trading engine to operate on a chain that<br />
+isn't currently supported (the initial deployment is Ethereum mainnet<br />
++ EVM L2s). This is the largest routine operation because it involves<br />
+both the allowlist (§7.3.3) AND the signer's price feed (§7.3.1) —<br />
+Solana tokens don't have prices on Binance/DexScreener-EVM.</p>
+<p><strong>Pre-flight (do this BEFORE touching the signer):</strong></p>
+<ol>
+<li>
+<p><strong>Confirm the signer's <code>ethers</code> dependency supports the new chain's<br />
+   signing algorithm.</strong> For Solana, the answer is no — Solana uses<br />
+   Ed25519, not secp256k1. This means a Phase 1 signer (built on<br />
+<code>ethers</code>) CANNOT sign Solana transactions. Expanding to Solana is<br />
+   a Phase 3-scale change (new signing library, new key format, new<br />
+   price feed source), not a §13.4 runbook operation. Treat it as a<br />
+   separate engineering project.</p>
+</li>
+<li>
+<p><strong>For EVM-compatible chains (Base, Arbitrum, Optimism, BSC, etc.):</strong><br />
+   no signer code changes are needed — only the allowlist + a price<br />
+   feed source that covers the chain's tokens. Continue to the steps<br />
+   below.</p>
+</li>
+</ol>
+<p><strong>Steps (EVM-compatible new chain only):</strong></p>
+<ol>
+<li>
+<p><strong>Confirm the new chain's <code>chainId</code></strong> (e.g., Base = 8453, Arbitrum<br />
+   = 42161, BSC = 56). The allowlist entries use <code>chainId</code> to scope<br />
+   which entries apply to which chain.</p>
+</li>
+<li>
+<p><strong>Confirm the price feed source for the new chain's tokens.</strong> The<br />
+   signer's default price feed is Binance (for blue chips) +<br />
+   DexScreener (for long tail). DexScreener covers most EVM chains<br />
+   already. If the new chain's tokens aren't on DexScreener, you need<br />
+   a new price source — add it via env vars<br />
+   (<code>SIGNER_PRICE_FEED_&lt;SOURCE&gt;_URL</code>). The signer's price-fetch code<br />
+   must be updated to query the new source. This is a code change,<br />
+   not just a config change.</p>
+</li>
+<li>
+<p><strong>Add the new chain's DEX routers to the allowlist</strong> (§13.1), with<br />
+   the correct <code>chainId</code>.</p>
+</li>
+<li>
+<p><strong>Update the web process's trading engine</strong> to actually trade on<br />
+   the new chain (token-selector, dex-screener query, etc.). This is<br />
+   outside the signer's scope — the signer just signs whatever tx the<br />
+   web process sends, as long as it passes policy.</p>
+</li>
+<li>
+<p><strong>Restart the signer</strong> (§13.1 step 4) and <strong>re-enter the passphrase</strong><br />
+   (§13.1 step 5).</p>
+</li>
+<li>
+<p><strong>Verify with a dry-run sign RPC</strong> to a router on the new chain<br />
+   (§13.1 step 7). The signer should accept it (assuming the router<br />
+   is in the allowlist, the value is under the cap, and the price feed<br />
+   returned a valid USD price for the input token).</p>
+</li>
+<li>
+<p><strong>Notify other operators</strong> with the new chainId, the routers added,<br />
+   and the price feed source used.</p>
+</li>
+</ol>
+<h3>13.5 Verifying audit log integrity</h3>
+<p><strong>When to use:</strong> routine (e.g., weekly) or after any incident that<br />
+might have involved the signer. The hash chain (§7.3.4) makes this a<br />
+cheap, mechanical check.</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>
+<p><strong>Run the verify script</strong> (no signer restart needed, no unlock<br />
+   needed — the script reads the log file directly):<br />
+<code>sh
+   tsx scripts/verify-signer-audit.ts --log /var/log/signer/signer-audit.jsonl</code></p>
+</li>
+<li>
+<p><strong>Expected output on intact chain:</strong><br />
+<code>Verifying signer-audit.jsonl...
+   Entries scanned: 1247
+   Chain intact: YES
+   Genesis entry: 2026-07-14T10:23:01.234Z
+   Last entry: 2026-07-21T09:15:42.891Z
+   Exit: 0</code></p>
+</li>
+<li>
+<p><strong>On broken chain</strong> (exit non-zero, CI-gatable):<br />
+<code>Verifying signer-audit.jsonl...
+   Entries scanned: 1247
+   Chain BROKEN at entry index 832:
+     expected prevHash: 9f3a...
+     actual prevHash:   c7e1...
+     entry ts: 2026-07-18T14:22:11.045Z
+     entry rpcId: abc-90210
+   Exit: 1</code><br />
+   A break means either (a) the file was edited in place (selective<br />
+   tampering — the most common attacker move), or (b) the file was<br />
+   truncated and appended to (a partial rewrite), or (c) entries were<br />
+   inserted (a more sophisticated attack). Treat any break as a<br />
+   security incident: assume the signer host is compromised, halt<br />
+   trading, and investigate.</p>
+</li>
+<li>
+<p><strong>If you ship the log to a remote sink (Phase 2):</strong> also run the<br />
+   verify script against the remote copy. If local says intact but<br />
+   remote says broken (or vice versa), one of them was tampered with.<br />
+   The remote copy is more trustworthy (an attacker with root on the<br />
+   signer host can rewrite the local file but cannot rewrite the<br />
+   remote sink).</p>
+</li>
+</ol>
+<h3>13.6 What to do when the signer crashes</h3>
+<p><strong>Symptoms:</strong> the web process's <code>signerClient</code> reports <code>disconnected</code>,<br />
+the dashboard shows "Vault locked — signer unreachable", trading halts.</p>
+<p><strong>Steps:</strong></p>
+<ol>
+<li>
+<p><strong>Check the crash log:</strong> <code>ls -lt logs/signer-crash-*.log | head -1</code><br />
+   then read the most recent file. The crash handler (§4.3) writes a<br />
+   stack trace synchronously before exit.</p>
+</li>
+<li>
+<p><strong>Check the audit log:</strong> the last entry before the crash should<br />
+   match the operation that triggered it (if any). <code>tail -5
+   logs/signer-audit.jsonl</code>.</p>
+</li>
+<li>
+<p><strong>If the crash is reproducible from the trace:</strong> file an issue,<br />
+   include the crash log + the audit log tail, and DO NOT restart<br />
+   the signer until the root cause is fixed. The vault is in LOCKED<br />
+   state — no keys are at risk.</p>
+</li>
+<li>
+<p><strong>If the crash is a one-off (e.g., OOM, transient FS error):</strong><br />
+   restart the signer (<code>sudo systemctl restart signer</code> or<br />
+   equivalent). Re-enter the passphrase on the signer TTY (§9.1).<br />
+   Verify health: <code>scripts/signer-cli.sh health_check</code>.</p>
+</li>
+<li>
+<p><strong>If the signer auto-restarted (§9.2) but the auto-restart cap<br />
+   was hit:</strong> the web process has marked the signer as permanently<br />
+   down and halted the trading engine. Manual intervention required:<br />
+   investigate the crash logs (you should see 3 crashes in 10 min),<br />
+   fix the root cause, then <code>sudo systemctl reset-failed signer &amp;&amp;
+   sudo systemctl start signer</code>, re-enter passphrase.</p>
+</li>
+<li>
+<p><strong>After any signer crash, run §13.5 (audit log integrity check).</strong><br />
+   A crash is a moment of elevated risk (the signer process was in<br />
+   an unexpected state); verifying the audit log confirms no entry<br />
+   was lost or forged during the crash.</p>
+</li>
+</ol>
+<h3>13.7 Known unresolved case: NAT / Docker userland-proxy collapses <code>peer.address</code> (v19.3.2)</h3>
+<p><strong>Symptom:</strong> the per-IP rate limiter (§7.3.7) appears to be working<br />
+(the code is correct, the audit log shows IPs being tracked), but all<br />
+external connections arrive from the SAME source IP — typically the<br />
+Docker bridge gateway (<code>172.17.0.1</code>), the NAT router's internal<br />
+interface, or a load-balancer's source-NAT address. The operator and<br />
+the attacker effectively share one rate-limit bucket, recreating the<br />
+self-DoS condition the v19.3.1/v19.3.2 hotfix was supposed to fix.</p>
+<p><strong>Root cause:</strong> when the Next.js process runs behind network-level<br />
+address translation (NAT) or a Docker userland-proxy (<code>docker run -p
+3000:3000</code> without <code>--network host</code>) without an HTTP-level reverse<br />
+proxy terminating the connection first, the kernel's TCP socket peer<br />
+address reported by <code>connection().peer.address</code> is the GATEWAY IP, not<br />
+the real client IP. The TCP handshake terminates at the gateway; the<br />
+gateway then opens a new TCP connection to the app. From the app's<br />
+perspective, every request comes from the gateway.</p>
+<p>This is a deployment-environment limitation, not a code bug. The<br />
+<code>peer.address</code> value is correctly reported — it's just that the<br />
+"peer" is the gateway, not the client.</p>
+<p><strong>Detection:</strong> check the audit log for the distribution of <code>sourceIp</code><br />
+values. If 100% of unlocks come from a single IP (especially a private<br />
+range like <code>172.17.0.1</code>, <code>192.168.0.1</code>, or <code>10.0.0.1</code>), you are<br />
+behind NAT/userland-proxy and per-IP isolation is NOT in effect for<br />
+external clients.</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>sqlite3 db/custom.db &quot;SELECT JSON_EXTRACT(context, &#39;$.sourceIp&#39;) AS ip, \
+  COUNT(*) FROM AppLog WHERE source=&#39;vault&#39; GROUP BY ip ORDER BY 2 DESC&quot;
+</code></pre></div>
+
+<p><strong>Mitigation options (in order of preference):</strong></p>
+<ol>
+<li>
+<p><strong>Put Caddy/nginx in front of the app</strong> and configure the<br />
+   shared-secret trust model from §7.3.7. The proxy terminates TCP,<br />
+   reads the real client IP from the TCP peer, and forwards it via<br />
+<code>X-Forwarded-For</code> + <code>X-Internal-Proxy-Secret</code>. The app then trusts<br />
+   XFF (because the secret matches) and per-IP isolation works for<br />
+   real client IPs. This is the only fully-correct fix.</p>
+</li>
+<li>
+<p><strong>Use Docker <code>--network host</code></strong> (Linux only). The container shares<br />
+   the host's network namespace, so the kernel sees real client IPs<br />
+   directly. <code>peer.address</code> is the real client IP. Caveat: this<br />
+   removes Docker's network isolation — only acceptable if the<br />
+   container is otherwise trusted.</p>
+</li>
+<li>
+<p><strong>Accept the degradation and rely on the global aggregate cap.</strong><br />
+   The per-IP rate limiter degrades to a shared bucket in this case,<br />
+   but the GLOBAL aggregate cap (50 failures/1h across ALL IPs, a<br />
+   single array NOT subject to per-IP Map eviction) still catches<br />
+   distributed attacks, because it is independent of the per-IP key.<br />
+   The operator will see <code>vault_rate_limited_global</code> events when the<br />
+   aggregate threshold is crossed — this is the safety net. Caveat:<br />
+   the per-IP cooldown (5min for one IP) is unavailable, so a single<br />
+   determined attacker can hammer at 50 attempts/hour indefinitely<br />
+   before the global cap re-fires every hour.</p>
+</li>
+</ol>
+<p><strong>What does NOT work:</strong></p>
+<ul>
+<li><strong>Binding to a different interface:</strong> the issue isn't the bind<br />
+  address, it's the network path. The kernel sees the gateway because<br />
+  the gateway is the TCP peer — changing the bind address doesn't<br />
+  change that.</li>
+<li><strong>Trusting <code>x-forwarded-for</code> without a shared secret:</strong> this<br />
+  recreates the v18 bypass-the-rate-limiter bug (XFF is client-writable,<br />
+  attacker rotates a fake value per request). NEVER do this. The<br />
+  shared secret in §7.3.7 is non-negotiable.</li>
+</ul>
+<p><strong>Action:</strong> if you cannot deploy option 1 or 2, document the<br />
+deployment as "per-IP rate limiter NOT in effect — relying on global<br />
+aggregate cap only" in the operator runbook for this environment.<br />
+Increase monitoring on <code>vault_rate_limited_global</code> events — they are<br />
+the only defense layer active in this topology.</p>
+<h3>13.8 Detecting silent degradation of the peer-address capture (v19.3.2-review, draft-6)</h3>
+<p><strong>Symptom:</strong> the per-IP rate limiter (§7.3.7) silently stops capturing<br />
+real TCP peer addresses. All requests — including direct connections<br />
+that SHOULD report distinct IPs — collapse to the<br />
+<code>"unidentifiable-socket"</code> bucket. The rate limiter does NOT crash; it<br />
+keeps running, but the per-IP key for every request is the same string,<br />
+recreating the v19.3.1 self-DoS shape under a different bucket name.</p>
+<p><strong>Root cause:</strong> the peer-address capture in<br />
+<code>src/lib/request-peer-capture.ts</code> is implemented as a monkey-patch on<br />
+<code>http.Server.prototype.emit('request', ...)</code>. This coupling is<br />
+explicit (see the file header comment). The patch silently does nothing<br />
+if requests stop flowing through that specific emit path. Known cases<br />
+where this happens:</p>
+<ol>
+<li><strong>HTTP/2 server via <code>http2.createSecureServer()</code> directly.</strong> HTTP/2<br />
+   servers emit a <code>'stream'</code> event, not <code>'request'</code>. The patch listens<br />
+   for <code>'request'</code> only. No crash, no warning — just no capture.</li>
+<li><strong>Custom server adapter (e.g., Fastify mounting Next.js).</strong> If the<br />
+   adapter re-emits requests through a different event or wraps<br />
+<code>IncomingMessage</code> before emitting, the patch may run but<br />
+<code>req.socket</code> may be absent — peerAddress falls back to null.</li>
+<li><strong>Serverless platform that synthesizes <code>req</code> objects from cloud<br />
+   events (e.g., AWS Lambda adapter for Next.js).</strong> The synthetic req<br />
+   has no real socket — peerAddress is null.</li>
+<li><strong>Next.js Edge runtime.</strong> The <code>instrumentation.ts</code> guard<br />
+   (<code>process.env.NEXT_RUNTIME !== 'nodejs'</code>) skips the patch<br />
+   installation entirely on Edge — correct, because Edge has no<br />
+<code>http.Server</code> to patch, but it means <code>getRequestPeerAddress()</code><br />
+   always returns null in that runtime.</li>
+<li><strong>The try/catch safe-degradation path firing repeatedly.</strong> If a<br />
+   runtime bug causes the peer-address capture to throw on every<br />
+   request (e.g., a corrupted ALS instance, a V8 async-hooks stack<br />
+   overflow), the patch catches the error, falls back to null, and<br />
+   writes a warning to stderr — but the request still completes. The<br />
+   server stays up; per-IP isolation silently degrades.</li>
+</ol>
+<p><strong>Detection:</strong> query the audit log for entries with<br />
+<code>sourceIp = 'unidentifiable-socket'</code>. In a healthy direct-connection<br />
+deployment (the project's actual topology since v18), this count<br />
+SHOULD be zero. A non-zero count means the capture mechanism is NOT<br />
+working — investigate the runtime / server adapter before treating the<br />
+rate limiter as functional.</p>
+<div class="codehilite" style="background: #f0f0f0"><pre style="line-height: 125%;"><span></span><code>sqlite3 db/custom.db &quot;SELECT COUNT(*) FROM AppLog \
+  WHERE source=&#39;vault&#39; AND JSON_EXTRACT(context, &#39;$.sourceIp&#39;) = &#39;unidentifiable-socket&#39;&quot;
+</code></pre></div>
+
+<p>For continuous monitoring, alert if this counter is non-zero for more<br />
+than 5 minutes in a deployment that expects direct connections (no<br />
+proxy configured, no NAT/Docker userland-proxy — see §13.7 for that<br />
+case).</p>
+<p><strong>Mitigation:</strong></p>
+<ol>
+<li><strong>Stay on <code>http.Server</code> (the default Next.js Node.js runtime path).</strong><br />
+   This is the deployment the project has used since v18. The patch<br />
+   works; no action needed.</li>
+<li><strong>If migrating to HTTP/2 or a custom server adapter:</strong> re-implement<br />
+   peer-address capture at whatever layer sees the raw TCP socket. For<br />
+   HTTP/2, that's the <code>'stream'</code> event handler's<br />
+<code>session.socket.remoteAddress</code>. For a custom server, it's whatever<br />
+   the adapter exposes. The pure decision function<br />
+<code>resolveTrustedClientIp</code> does NOT change — only the capture<br />
+   mechanism does.</li>
+<li><strong>If deploying to serverless / Edge:</strong> accept that per-IP rate<br />
+   limiting is NOT functional in that environment. Rely on the global<br />
+   aggregate cap (50 failures/1h) as the only defense layer. Document<br />
+   this explicitly in the deployment runbook — the operator must know<br />
+   per-IP isolation is off before relying on it.</li>
+</ol>
+<p><strong>Action:</strong> before treating the rate limiter as functional in any<br />
+deployment, run the detection query above. If the count is non-zero,<br />
+the capture mechanism is degraded — investigate before relying on<br />
+per-IP isolation. This check is part of the operator runbook for a<br />
+reason: the failure mode is SILENT (no crash, no error log entry beyond<br />
+the stderr warning), which is exactly the kind of gap this<br />
+investigation has been trying to close.</p>
+<hr />
+<h2>14. Summary</h2>
+<p>This design moves the wallet vault into a dedicated child process that<br />
+communicates with the Next.js web process via a Unix domain socket using<br />
+JSON-RPC 2.0 with a strict method allowlist. The key security property is<br />
+that decrypted private keys never exist in the web process's memory — a<br />
+compromise of the web process (the most exposed component) cannot directly<br />
+access keys, and a crash of the web process causes the signer to immediately<br />
+zero all keys.</p>
+<p><strong>v19.3 update (draft-2):</strong> the original draft of this design treated the<br />
+signer as a pure signing oracle — process isolation without a trust<br />
+boundary. The operator's review identified this as the critical gap: a<br />
+compromised web process can still send arbitrary <code>sign</code> RPCs through the<br />
+legitimate IPC channel, and the <code>hotWalletCapUsd</code> check in <code>portfolio.ts</code><br />
+is on the wrong side of the trust boundary to stop it. The revised design<br />
+adds <strong>§7.3 Signer-Side Authorization Policy</strong> as a Phase 1 BLOCKING<br />
+prerequisite: per-transaction value cap, per-time-window rolling cap,<br />
+destination address allowlist, and an independent signer-written audit log.<br />
+The signer is now a real trust boundary, not just a process boundary. The<br />
+§9 answers are tightened to the operator's stated defaults (passphrase<br />
+never crosses IPC, fail-closed restart, symlink-swap check on socket<br />
+parent dir, explicit single-writer, minimal pinned deps).</p>
+<p><strong>v19.3-design-draft-3 update (operator's conditional approval round):</strong><br />
+five sign-off prerequisites incorporated:</p>
+<ol>
+<li><strong>§9.4 writer lease with TTL</strong> — the writer lock is now a lease that<br />
+   auto-expires (default 30s) if the holder stops renewing (default<br />
+   renew every 10s). On expiry, the signer zeroizes keys and goes LOCKED<br />
+   — same fail-closed consequence §9.2 already accepts for restart, now<br />
+   explicit as a designed property of the lock, not an accident.</li>
+<li><strong>§7.3.4 hash-chained audit log moved to Phase 1</strong> — local tamper-<br />
+   evidence is a few lines of code on the write side + a linear scan on<br />
+   the verify side. Remote shipping (syslog/Loki/S3) stays Phase 2. The<br />
+<code>scripts/verify-signer-audit.ts</code> script is CI-gatable.</li>
+<li><strong>§7.3.7 failed-unlock rate limiter is now per source IP</strong> — was<br />
+   global, which created a self-inflicted DoS (attacker from one IP<br />
+   blocks operator from another). The 150s stress test data confirmed<br />
+   the bug was manifesting: the <code>attacker</code> profile's 5 wrong-passphrase<br />
+   failures triggered a 5min cooldown that blocked the <code>operator</code> and<br />
+<code>lifecycle</code> profiles for the remaining ~2min of the test. The USD<br />
+   rolling cap (§7.3.2) and per-tx cap (§7.3.1) remain global — the<br />
+   signer is single-writer, so per-IP scoping would weaken them without<br />
+   adding defense.</li>
+<li><strong>§7.3.1 price feed source is fixed at boot</strong> — explicit confirmation<br />
+   that the URL/source is bound to env vars at signer boot, NOT a<br />
+   parameter of the <code>sign</code> RPC. A <code>sign</code> RPC carrying <code>priceFeedUrl</code> or<br />
+<code>price</code> is rejected with <code>-32602 Invalid params</code>. Same tamper-<br />
+   resistance pattern as the allowlist and the value caps.</li>
+<li><strong>§13 Operator Runbook</strong> — step-by-step procedures for adding/removing<br />
+   allowlist entries, changing caps, expanding to new chains, verifying<br />
+   audit log integrity, and recovering from signer crashes. Every<br />
+   procedure that touches signer-side config involves restart + re-<br />
+   unlock — that is the designed friction, now documented as procedure<br />
+   rather than implied by design.</li>
+</ol>
+<p>The design is deliberately conservative in what it reuses (existing vault<br />
+class, crash handler) and deliberately aggressive in what it adds (signer-<br />
+side policy, independent audit log with hash chain, writer lease with TTL,<br />
+TTY-mode passphrase, per-IP rate limit). The only new surface is the IPC<br />
+protocol, which is a standard (JSON-RPC 2.0) with a hard-coded method<br />
+allowlist plus the §7.3 policy enforced before any sign operation reaches<br />
+the key. Phase 1 is now a 7-8 day implementation (up from 6-7 in draft-2)<br />
+— the extra day covers the writer lease + TTL + zeroize-on-expiry, the<br />
+hash chain + verify script, the per-IP rate limit refactor, and the<br />
+runbook. Phase 2 hardening (HMAC request signing, signer-side notifier,<br />
+remote audit log shipping) is deferred.</p>
+<p>The crash investigation checks ran in parallel with this design revision:<br />
+- <strong>CHECK 1 (clean 150s heterogeneous run, v19.3):</strong> NEGATIVE — 247 cycles,<br />
+  zero organic crashes, zero new crash-<em>.log during the stress loop.<br />
+- </em><em>CHECK 2 (crash handler armed under load, v19.2):</em><em> PASSED — handler<br />
+  fires under concurrent load, produces crash-</em>.log with full stack trace.<br />
+- <strong>Port-collision hypothesis (v19.3):</strong> INDETERMINATE — no direct<br />
+  EADDRINUSE evidence, but hypothesis structurally plausible and consistent<br />
+  with "doesn't reproduce in production". New <code>scripts/check-port-orphan.sh</code><br />
+  helper closes the operational hygiene gap.<br />
+- <strong>Per-IP rate limit bug (v19.3-design-draft-3):</strong> CONFIRMED — the 150s<br />
+  stress test data shows the <code>attacker</code> profile's cooldown blocked the<br />
+<code>operator</code>/<code>lifecycle</code>/<code>interleaver</code> profiles. The bug was already in<br />
+  our own evidence; we just hadn't framed it that way. Originally<br />
+  scoped as Phase 1; per operator directive, moved to independent<br />
+  hotfix (v19.3.1, then v19.3.2 fix).<br />
+- <strong>v19.3.1 sentinel bug (v19.3-design-draft-5):</strong> CONFIRMED — the<br />
+  v19.3.1 hotfix's <code>"direct-untrusted"</code> fallback sentinel was a single<br />
+  shared bucket for ALL direct connections. Since this project never<br />
+  runs behind a reverse proxy (bind <code>127.0.0.1</code> since v18 is the<br />
+  primary security posture), every real connection fell into the<br />
+  shared sentinel bucket — the hotfix did not fix the bug for the<br />
+  deployment running today. v19.3.2 replaces the sentinel with the<br />
+  actual TCP socket peer address, captured via an<br />
+<code>http.Server.prototype.emit</code> monkey-patch + AsyncLocalStorage<br />
+  (Next.js 16 App Router does NOT expose <code>req.socket.remoteAddress</code> to<br />
+  route handlers — <code>connection()</code> from <code>next/headers</code> returns<br />
+<code>Promise&lt;void&gt;</code> in 16; the <code>peer.address</code> API from 15.3 was removed).<br />
+  This gives real per-IP isolation for the actual deployment.<br />
+  Regression test scenario 18 proves two distinct direct IPs do NOT<br />
+  share a bucket (via the pure decision function); scenario 19 proves<br />
+  forged XFF without proxy secret is ignored. <strong>However</strong>, draft-5's<br />
+  claim that "v19.3.2 is shipped, Phase 1 ready without reservations"<br />
+  was premature — see the v19.3.2-review item below.<br />
+- <strong>v19.3.2 monkey-patch review (v19.3-design-draft-6):</strong> operator<br />
+  review of draft-5 caught three remaining issues in §7.3.7 that<br />
+  draft-5 had not addressed: (1) the <code>patchedEmit</code> function in<br />
+<code>request-peer-capture.ts</code> did NOT wrap the peer-address capture nor<br />
+  the <code>runWithPeerAddress</code> call in try/catch — a single exception in<br />
+  either would propagate up through <code>http.Server.prototype.emit</code> and<br />
+  crash the server on EVERY request, a strictly worse failure mode<br />
+  than the silent-crash bug being investigated; (2) scenarios 18 and<br />
+  19 in <code>test-vault.ts</code> called the PURE decision function with<br />
+  synthetic peer-address values — they did NOT exercise the actual<br />
+  monkey-patch nor the AsyncLocalStorage propagation, leaving the<br />
+  riskiest component untested (the same pattern that bit this thread<br />
+  three times already); (3) the coupling of the capture mechanism to<br />
+<code>http.Server.prototype.emit('request', ...)</code> was not documented,<br />
+  meaning a future migration to HTTP/2 or a custom server would<br />
+  silently degrade the rate limiter to the shared<br />
+<code>"unidentifiable-socket"</code> bucket. Draft-6 addresses all three: the<br />
+  monkey-patch now has try/catch with documented fallback, the new<br />
+<code>scripts/test-request-peer-integration.ts</code> exercises the REAL<br />
+  monkey-patch + ALS with a live <code>http.Server</code> and two distinct<br />
+  loopback source IPs under concurrent requests-in-flight, and the<br />
+<code>http.Server</code> coupling is documented in <code>request-peer-capture.ts</code><br />
+  with detection query in §13.8. The rate limiter hotfix is now<br />
+  genuinely ready for operator re-review.</p>
+<p>The silent-crash investigation remains at <strong>MONITOR</strong>. The crash-logger is<br />
+armed, the heterogeneous recipe does not reproduce in production build, and<br />
+the next time any silent crash recurs the crash log will give a real stack<br />
+trace. <strong>Phase 1 implementation status — split:</strong><br />
+- <strong>APPROVED, ready to begin:</strong> §7.3.1 (price feed fixed at boot),<br />
+  §7.3.4 (hash chain + anti-truncation checkpoint), §9.4 (writer lease<br />
+  with TTL + immediate release on clean disconnect +<br />
+  writer_lease_released vs writer_lease_expired distinction), §13 (full<br />
+  operator runbook).<br />
+- <strong>NOT YET APPROVED — awaiting operator re-review of draft-6:</strong><br />
+  §7.3.7 (rate limiter hotfix v19.3.2). The three issues the operator<br />
+  identified in draft-5 are addressed in draft-6, but the operator has<br />
+  not yet seen the evidence. The try/catch diff, the integration test<br />
+  results, and the <code>http.Server</code> coupling documentation are all in<br />
+  place — but per the operator's explicit directive ("Preciso que isso<br />
+  seja corrigido antes de eu considerar o item 3 fechado" and the<br />
+  draft-6 review note that treating an unverified claim as approval is<br />
+  exactly the kind of gap this discipline exists to catch), Phase 1 is<br />
+  NOT yet "ready without reservations". It will be once the operator<br />
+  confirms §7.3.7 is closed on the draft-6 evidence.</p>
+</body>
+</html>

@@ -1,0 +1,68 @@
+==============================================================================
+[2026-07-13T22:14:19.130Z] uncaughtException
+pid=27655 uptime=0.5s node=v24.18.0
+message: DELIBERATE TEST CRASH — verify that crash-logger.ts captures this stack trace
+
+STACK TRACE:
+Error: DELIBERATE TEST CRASH — verify that crash-logger.ts captures this stack trace
+    at Timeout._onTimeout (/home/z/my-project/scripts/test-crash-handler.ts:24:9)
+    at listOnTimeout (node:internal/timers:605:17)
+    at process.processTimers (node:internal/timers:541:7)
+
+
+ACTIVE HANDLERS / TIMERS:
+  unref'd handles: [Socket, Socket]
+  process.listenerCount(uncaughtException)=1
+  process.listenerCount(unhandledRejection)=1
+==============================================================================
+==============================================================================
+[2026-07-13T22:42:58.786Z] uncaughtException
+pid=28600 uptime=0.5s node=v24.18.0
+message: DELIBERATE TEST CRASH — verify that crash-logger.ts captures this stack trace
+
+STACK TRACE:
+Error: DELIBERATE TEST CRASH — verify that crash-logger.ts captures this stack trace
+    at Timeout._onTimeout (/home/z/my-project/scripts/test-crash-handler.ts:24:9)
+    at listOnTimeout (node:internal/timers:605:17)
+    at process.processTimers (node:internal/timers:541:7)
+
+
+ACTIVE HANDLERS / TIMERS:
+  unref'd handles: [Socket, Socket]
+  process.listenerCount(uncaughtException)=1
+  process.listenerCount(unhandledRejection)=1
+==============================================================================
+==============================================================================
+[2026-07-13T23:21:00.097Z] uncaughtException
+pid=30251 uptime=56.9s node=v24.18.0
+message: DELIBERATE CRASH TEST (uncaughtException) — pid=30251 uptime=57.6s
+
+STACK TRACE:
+Error: DELIBERATE CRASH TEST (uncaughtException) — pid=30251 uptime=57.6s
+    at Timeout._onTimeout (/home/z/my-project/.next/server/chunks/[root-of-the-server]__694d0783._.js:1:4246)
+    at listOnTimeout (node:internal/timers:605:17)
+    at process.processTimers (node:internal/timers:541:7)
+
+
+ACTIVE HANDLERS / TIMERS:
+  unref'd handles: [Socket, Socket, Server, Socket, Socket, Socket, Socket, Socket, Socket, Socket, Socket, Socket, Socket, Socket]
+  process.listenerCount(uncaughtException)=3
+  process.listenerCount(unhandledRejection)=1
+==============================================================================
+==============================================================================
+[2026-07-13T23:24:31.469Z] uncaughtException
+pid=30558 uptime=60.6s node=v24.18.0
+message: DELIBERATE CRASH TEST (uncaughtException) — pid=30558 uptime=61.3s
+
+STACK TRACE:
+Error: DELIBERATE CRASH TEST (uncaughtException) — pid=30558 uptime=61.3s
+    at Timeout._onTimeout (/home/z/my-project/.next/server/chunks/[root-of-the-server]__694d0783._.js:1:4246)
+    at listOnTimeout (node:internal/timers:605:17)
+    at process.processTimers (node:internal/timers:541:7)
+
+
+ACTIVE HANDLERS / TIMERS:
+  unref'd handles: [Socket, Socket, Server, Socket, Socket, Socket, Socket, Socket, Socket, Socket, Socket, Socket, Socket]
+  process.listenerCount(uncaughtException)=3
+  process.listenerCount(unhandledRejection)=1
+==============================================================================

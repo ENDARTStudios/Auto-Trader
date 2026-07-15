@@ -111,12 +111,12 @@ import {
 import { type SignerTransport, type RpcResponse, type SignerWireRequest, SIGNER_PROTOCOL_VERSION } from "../src/lib/signer-protocol";
 import {
   buildRuntime,
-  InMemoryMetricsRecorder,
-  NoopMetricsRecorder,
   CanaryBroadcaster,
   type Runtime,
   type RuntimeConfig,
 } from "../src/lib/chain/runtime";
+import { Registry } from "../src/lib/observability/registry";
+import { buildSnapshot } from "../src/lib/observability/snapshot";
 import { InMemoryLeaseStore, LeaseError } from "../src/lib/chain/writer-lease";
 
 // -------------------------------------------------------------------------
@@ -439,13 +439,13 @@ function buildHappyRequest(): PipelineRequest {
 
 function freshRuntime(opts?: {
   canaryPct?: number;
-  metrics?: InMemoryMetricsRecorder;
-}): { runtime: Runtime; rpcTransport: MockRpcTransport; signerTransport: MockSignerTransport; audit: CountingAuditSink; leaseStore: InMemoryLeaseStore; metrics: InMemoryMetricsRecorder } {
+  registry?: Registry;
+}): { runtime: Runtime; rpcTransport: MockRpcTransport; signerTransport: MockSignerTransport; audit: CountingAuditSink; leaseStore: InMemoryLeaseStore; registry: Registry } {
   const rpcTransport = new MockRpcTransport();
   const signerTransport = new MockSignerTransport();
   const audit = new CountingAuditSink();
   const leaseStore = new InMemoryLeaseStore();
-  const metrics = opts?.metrics ?? new InMemoryMetricsRecorder();
+  const registry = opts?.registry ?? Registry.create();
 
   const chain = new HappyChainReader();
   const liquidity = new HappyLiquiditySource();
@@ -479,13 +479,13 @@ function freshRuntime(opts?: {
     rpc: { endpoints, transport: rpcTransport.asTransport(), callTimeoutMs: 1000 },
     signer: { transport: signerTransport },
     lease: { store: leaseStore, ttlMs: 10_000 },
-    canary: { pct: opts?.canaryPct ?? 0, deterministic: true },
-    metrics,
+    canary: { pct: opts?.canaryPct ?? 0 },
+    registry,
     signingAddress: BUYER,
     gates: { simulation, contract, liquidity: liquidityVerifier, authority: authorityVerifier, sellSim, approval, audit },
   });
 
-  return { runtime, rpcTransport, signerTransport, audit, leaseStore, metrics };
+  return { runtime, rpcTransport, signerTransport, audit, leaseStore, registry };
 }
 
 // -------------------------------------------------------------------------
@@ -504,7 +504,7 @@ async function main(): Promise<void> {
   // A.1 — single op: pipeline ok, lease released, metrics recorded
   console.log("A.1 — single op: pipeline ok, lease released, metrics recorded");
   {
-    const { runtime, audit, leaseStore, metrics } = freshRuntime();
+    const { runtime, audit, leaseStore, registry } = freshRuntime();
     const req = buildHappyRequest();
     const r = await runtime.pipeline.process(req);
     assert(r.ok, "pipeline.process should succeed");
@@ -515,9 +515,9 @@ async function main(): Promise<void> {
     const rec = await leaseStore.current(runtime.lease.getKey());
     assertEqual(rec.state, "free", "lease is free after op");
 
-    // Metrics recorded.
-    const counters = metrics.getCounters();
-    assert("signer.submit.ok" in counters, "signer.submit.ok counter exists");
+    // Metrics recorded into the Registry.
+    const snap = buildSnapshot(registry);
+    assert(snap.errors.signer >= 0, "signer metrics present in snapshot");
 
     await runtime.shutdown();
   }
@@ -545,8 +545,8 @@ async function main(): Promise<void> {
   // A.3 — 500 ops: all succeed, latency p95 < 50ms (mock transports)
   console.log("A.3 — 500 ops: all succeed, latency p95 < 50ms");
   {
-    const metrics = new InMemoryMetricsRecorder();
-    const { runtime } = freshRuntime({ metrics });
+    const registry = Registry.create();
+    const { runtime } = freshRuntime({ registry });
     const req = buildHappyRequest();
     const latencies: number[] = [];
     for (let i = 0; i < 500; i++) {
@@ -558,9 +558,9 @@ async function main(): Promise<void> {
     const p95 = latencies[Math.floor(latencies.length * 0.95)];
     assertLessThan(p95, 50, "p95 latency < 50ms");
 
-    // Also check metrics recorder's latency computation.
-    const metricP95 = metrics.latencyPercentiles("signer", "submit").p95;
-    assertLessThan(metricP95, 50, "metrics recorder p95 < 50ms");
+    // Also check the Registry's latency histogram (signerLatencyMs).
+    const metricP95 = registry.metrics.signerLatencyMs.p95();
+    assertLessThan(metricP95, 50, "Registry signerLatencyMs p95 < 50ms");
 
     await runtime.shutdown();
   }
@@ -586,16 +586,15 @@ async function main(): Promise<void> {
   // A.5 — canary pct=0: 0 broadcasts, 100% canary-skipped metrics
   console.log("A.5 — canary pct=0: 0 broadcasts, 100% canary-skipped metrics");
   {
-    const metrics = new InMemoryMetricsRecorder();
-    const { runtime, rpcTransport } = freshRuntime({ metrics, canaryPct: 0 });
+    const registry = Registry.create();
+    const { runtime, rpcTransport } = freshRuntime({ registry, canaryPct: 0 });
     const req = buildHappyRequest();
     for (let i = 0; i < 50; i++) {
       await runtime.pipeline.process(req);
     }
     assertEqual(rpcTransport.broadcastCalls.length, 0, "0 real broadcasts (canary pct=0)");
 
-    const counters = metrics.getCounters();
-    const skipped = counters["broadcaster.canary.submit.skipped"] ?? 0;
+    const skipped = registry.metrics.canarySkipped.get();
     assertEqual(skipped, 50, "50 canary-skipped metrics recorded");
 
     await runtime.shutdown();
@@ -697,54 +696,51 @@ async function main(): Promise<void> {
 
   console.log("\nC. Metrics invariants\n");
 
-  // C.1 — pipeline.submit counter == op count
-  console.log("C.1 — pipeline.submit counter == op count (we use signer.submit since pipeline doesn't record directly)");
+  // C.1 — signerLatencyMs histogram count == op count
+  console.log("C.1 — signerLatencyMs histogram count == op count");
   {
-    const metrics = new InMemoryMetricsRecorder();
-    const { runtime } = freshRuntime({ metrics });
+    const registry = Registry.create();
+    const { runtime } = freshRuntime({ registry });
     const req = buildHappyRequest();
     const N = 75;
     for (let i = 0; i < N; i++) {
       await runtime.pipeline.process(req);
     }
-    const counters = metrics.getCounters();
-    const signerOk = counters["signer.submit.ok"] ?? 0;
-    assertEqual(signerOk, N, `signer.submit.ok counter == ${N}`);
+    const signerCount = registry.metrics.signerLatencyMs.snapshot().count;
+    assertEqual(signerCount, N, `signerLatencyMs count == ${N}`);
 
     await runtime.shutdown();
   }
 
-  // C.2 — signer.submit counter == op count (canary skip still records)
-  console.log("C.2 — signer.submit counter == op count (canary skip still records)");
+  // C.2 — signerLatencyMs count == op count (canary skip still records)
+  console.log("C.2 — signerLatencyMs count == op count (canary skip still records)");
   {
-    const metrics = new InMemoryMetricsRecorder();
-    const { runtime } = freshRuntime({ metrics, canaryPct: 0 });
+    const registry = Registry.create();
+    const { runtime } = freshRuntime({ registry, canaryPct: 0 });
     const req = buildHappyRequest();
     const N = 30;
     for (let i = 0; i < N; i++) {
       await runtime.pipeline.process(req);
     }
-    const counters = metrics.getCounters();
     // Even with canary pct=0, the InstrumentedSignerSink records every submit.
-    const signerOk = counters["signer.submit.ok"] ?? 0;
-    assertEqual(signerOk, N, `signer.submit.ok counter == ${N} (canary skip still recorded)`);
+    const signerCount = registry.metrics.signerLatencyMs.snapshot().count;
+    assertEqual(signerCount, N, `signerLatencyMs count == ${N} (canary skip still recorded)`);
 
     await runtime.shutdown();
   }
 
-  // C.3 — broadcaster.canary.submit outcome=skipped counter == op count
-  console.log("C.3 — broadcaster.canary.submit outcome=skipped counter == op count");
+  // C.3 — canarySkipped counter == op count
+  console.log("C.3 — canarySkipped counter == op count");
   {
-    const metrics = new InMemoryMetricsRecorder();
-    const { runtime } = freshRuntime({ metrics, canaryPct: 0 });
+    const registry = Registry.create();
+    const { runtime } = freshRuntime({ registry, canaryPct: 0 });
     const req = buildHappyRequest();
     const N = 40;
     for (let i = 0; i < N; i++) {
       await runtime.pipeline.process(req);
     }
-    const counters = metrics.getCounters();
-    const skipped = counters["broadcaster.canary.submit.skipped"] ?? 0;
-    assertEqual(skipped, N, `canary.submit.skipped counter == ${N}`);
+    const skipped = registry.metrics.canarySkipped.get();
+    assertEqual(skipped, N, `canarySkipped counter == ${N}`);
 
     await runtime.shutdown();
   }

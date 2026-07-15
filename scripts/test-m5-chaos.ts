@@ -128,6 +128,7 @@ import {
   InMemoryMetricsRecorder,
   type Runtime,
 } from "../src/lib/chain/runtime";
+import { Registry } from "../src/lib/observability/registry";
 import {
   InMemoryLeaseStore,
   WriterLease,
@@ -274,18 +275,18 @@ class HappyTradeSimulator implements TradeSimulator {
   }
 }
 
-class HappySimulator implements Simulator {
-  async simulate(tx: { from: string; to: string; value: string; data: string }): Promise<SimulationResult> {
-    return {
-      ok: true,
-      changes: [
-        { kind: "erc20_transfer", token: TOKEN, from: ROUTER, to: BUYER, amount: "1000000000000000000" },
-      ],
-      gasUsed: 150000,
-      from: tx.from,
-    };
-  }
-}
+// Simulator is a type alias for a function (not an interface), so we
+// implement it as a function rather than a class.
+const happySimulator: Simulator = async (tx: { from: string; to: string; value: string; data: string }): Promise<SimulationResult> => {
+  return {
+    ok: true,
+    changes: [
+      { kind: "erc20_transfer", token: TOKEN, from: ROUTER, to: BUYER, amount: "1000000000000000000" },
+    ],
+    gasUsed: 150000,
+    from: tx.from,
+  };
+};
 
 // -------------------------------------------------------------------------
 // Mock RPC transport — ENHANCED with fault injection.
@@ -615,6 +616,7 @@ interface ChaosRuntime {
   leaseStore: LeaseStore;
   lease: WriterLease;
   metrics: InMemoryMetricsRecorder;
+  registry: Registry;
 }
 
 function freshRuntime(opts?: {
@@ -628,15 +630,15 @@ function freshRuntime(opts?: {
   const audit = new CountingAuditSink();
   const leaseStore = opts?.leaseStore ?? new InMemoryLeaseStore();
   const metrics = new InMemoryMetricsRecorder();
+  const registry = metrics.getRegistry();
 
   const chain = new HappyChainReader();
   const liquidity = new HappyLiquiditySource();
   const authority = new HappyAuthoritySource();
   const tradeSim = new HappyTradeSimulator();
-  const simulator = new HappySimulator();
+  const simulator = happySimulator;
   const ledger = new InMemoryApprovalLedger();
-
-  const simulation = new SimulationGate({ simulator: (tx) => simulator.simulate(tx) });
+  const simulation = new SimulationGate({ simulator });
   const contract = new ContractVerifier({ chain });
   const liquidityVerifier = new LiquidityVerifier(liquidity);
   const authorityVerifier = new TokenAuthorityVerifier(authority);
@@ -656,8 +658,8 @@ function freshRuntime(opts?: {
     rpc: { endpoints, transport: rpcTransport.asTransport(), callTimeoutMs: opts?.callTimeoutMs ?? 1000 },
     signer: { transport: signerTransport },
     lease: { store: leaseStore, ttlMs: opts?.leaseTtlMs ?? 10_000 },
-    canary: { pct: opts?.canaryPct ?? 100, deterministic: true },
-    metrics,
+    canary: { pct: opts?.canaryPct ?? 100 },
+    registry,
     signingAddress: BUYER,
     gates: { simulation, contract, liquidity: liquidityVerifier, authority: authorityVerifier, sellSim, approval, audit },
     // Use fixed gas/fee overrides so the Broadcaster skips eth_estimateGas
@@ -669,11 +671,11 @@ function freshRuntime(opts?: {
     // checked at the START of each call, so 0.4 > 0.2 passes). With 4
     // quorumReads, the 4th call sees health=0.1 < 0.2 → endpoint excluded
     // → quorum impossible (only 1 healthy endpoint).
-    fixedGasLimit: 21000n,
-    fixedMaxPriorityFeePerGas: 2_500_000_000n, // 2.5 gwei
+    fixedGasLimit: BigInt(21000),
+    fixedMaxPriorityFeePerGas: BigInt(2500000000), // 2.5 gwei
   });
 
-  return { runtime, rpcTransport, signerTransport, audit, leaseStore, lease: runtime.lease, metrics };
+  return { runtime, rpcTransport, signerTransport, audit, leaseStore, lease: runtime.lease, metrics, registry };
 }
 
 // -------------------------------------------------------------------------
@@ -1090,15 +1092,16 @@ async function main(): Promise<void> {
     // Rebuild the runtime with the custom transport.
     await runtime.shutdown();
     const metrics = new InMemoryMetricsRecorder();
+    const registry = metrics.getRegistry();
     const audit2 = new CountingAuditSink();
     const leaseStore2 = new InMemoryLeaseStore();
     const chain = new HappyChainReader();
     const liquidity = new HappyLiquiditySource();
     const authority = new HappyAuthoritySource();
     const tradeSim = new HappyTradeSimulator();
-    const simulator = new HappySimulator();
+    const simulator = happySimulator;
     const ledger = new InMemoryApprovalLedger();
-    const simulation = new SimulationGate({ simulator: (tx) => simulator.simulate(tx) });
+    const simulation = new SimulationGate({ simulator });
     const contract = new ContractVerifier({ chain });
     const liquidityVerifier = new LiquidityVerifier(liquidity);
     const authorityVerifier = new TokenAuthorityVerifier(authority);
@@ -1116,12 +1119,12 @@ async function main(): Promise<void> {
       rpc: { endpoints, transport: customTransport, callTimeoutMs: 150 },
       signer: { transport: new MockSignerTransport() },
       lease: { store: leaseStore2, ttlMs: 10_000 },
-      canary: { pct: 100, deterministic: true },
-      metrics,
+      canary: { pct: 100 },
+      registry,
       signingAddress: BUYER,
       gates: { simulation, contract, liquidity: liquidityVerifier, authority: authorityVerifier, sellSim, approval, audit: audit2 },
-      fixedGasLimit: 21000n,
-      fixedMaxPriorityFeePerGas: 2_500_000_000n,
+      fixedGasLimit: BigInt(21000),
+      fixedMaxPriorityFeePerGas: BigInt(2500000000),
     });
 
     const req = buildHappyRequest();
