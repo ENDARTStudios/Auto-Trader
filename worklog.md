@@ -2382,3 +2382,35 @@ Stage Summary:
   - Canary: distribuição determinística ✓ (keccak256 bucket)
   - Long Duration: execução contínua sem vazamento ✓ (60s, 74k ops, heap estável) — 24h/72h/7d pode ser rodado pelo operador via `npx tsx scripts/test-m5-long-duration.ts --duration 86400000`
 - Próximo milestone: Live Trading (canaryPct ramp 1% → 5% → 10% → 25% → 100% com rollback automático via setCanaryPct).
+
+---
+Task ID: governance-layer
+Agent: main (super-z)
+Task: Criar camada permanente de governança do projeto (.ai/) com README, CORE_RULES, ENGINEERING_RULES, PROMPTING_RULES, OUTPUT_RULES, PROJECT_STATE, DECISION_LOG, TASK_TEMPLATE. Estes documentos passam a ser a fonte oficial de verdade do projeto e devem ser consultados antes de qualquer implementação futura.
+
+Work Log:
+- Lido `/home/z/my-project/worklog.md` (tail) para confirmar estado atual do projeto — M5 está CONCLUÍDO (todas as sub-fases M5.0–M5.7 validadas, 0 regressões H0–M4).
+- Lido `/home/z/my-project/HARDENING-ROADMAP.md` (head) para alinhar regras de teste adversarial e fases FROZEN.
+- Ls `/home/z/my-project` para mapear módulos existentes (chain, runtime, observability, signer, trading).
+- Criado diretório `/home/z/my-project/.ai/`.
+- Escrito `.ai/README.md` (58 linhas) — propósito da pasta, regra de conflito (precedência: CORE_RULES > PROJECT_STATE > SECURITY > HARDENING-ROADMAP > worklog), protocolo de uso, fontes oficiais de verdade.
+- Escrito `.ai/CORE_RULES.md` (130 linhas) — 10 regras absolutas: contexto primeiro, instrução depois da leitura, jamais inventar APIs, nunca criar elementos fictícios, sempre reutilizar, identificar dependentes antes de alterar, escopo mínimo, não modificar FROZEN sem autorização, não quebrar compatibilidade, preservar comportamento anterior.
+- Escrito `.ai/ENGINEERING_RULES.md` (81 linhas) — fluxo obrigatório (Ler → Mapear → Planejar → Executar → Validar → Documentar), restrições (sem deps/renomear/mover/abstrair/refatorar fora do escopo), regras de teste (incluindo princípio de teste adversarial herdado do HARDENING-ROADMAP), persistência de scripts.
+- Escrito `.ai/PROMPTING_RULES.md` (92 linhas) — uso máximo da context window, ordem Contexto→Restrições→Objetivo, parada em ambiguidade, raciocínio máximo para tarefas complexas, nunca assumir requisitos/arquitetura/intenção/comportamento.
+- Escrito `.ai/OUTPUT_RULES.md` (90 linhas) — formato obrigatório de 7 seções (Resumo, Arquivos afetados, Plano, Implementação, Validação, Riscos, Próximos passos) e regra suprema "jamais responder apenas com código quando a tarefa envolver arquitetura".
+- Escrito `.ai/PROJECT_STATE.md` (202 linhas) — snapshot do estado atual: stack, banco, modo, status M5 (CONCLUÍDO), arquitetura canônica (fluxo Market Data → Pipeline → SignerAdapter → Signer RPC → Writer Lease → LeasedBroadcaster → Broadcaster → RPC Quorum → Blockchain), tabela de módulos FROZEN (H0–M4), módulos não congelados (validados em M5), roadmap, critérios objetivos M5, histórico append-only.
+- Escrito `.ai/DECISION_LOG.md` (178 linhas) — template de entrada + 5 decisões seed: DEC-001 (audit hash-chain replacer-array fix H0.3), DEC-002 (signer isolado em processo próprio M3.2), DEC-003 (writer lease com fencing tokens Kleppmann M4, REG-015/016/017/018), DEC-004 (ordem corrigida M5 — observability primeiro), DEC-005 (prefixo BROADCAST_* em erros do signer, correção M5.4).
+- Escrito `.ai/TASK_TEMPLATE.md` (113 linhas) — template padrão com 8 campos (Objetivo, Contexto, Arquivos envolvidos, Dependências, Plano, Implementação, Validação, Resultado, Pendências) alinhado às 7 seções de OUTPUT_RULES, com 6 regras de uso.
+- Corrigido PROJECT_STATE.md após ler worklog tail: estado M5 mudou de "em curso / próxima prioridade observability" para "CONCLUÍDO" — worklog mostra M5.5/M5.4/M5.2/M5.3/M5.6 todos validados. Aplicada Regra 1 de CORE_RULES (contexto primeiro, nunca assumir sem evidência).
+- Atualizada tabela de roadmap (M5: 🔄 → ✅) e tabela de critérios M5 (adicionada coluna Status com todos ✅).
+- Atualizada seção "Módulos não congelados" de "em evolução ativa" para "validados em M5 — não devem ser alterados sem nova entrada em DECISION_LOG.md".
+
+Stage Summary:
+- Camada de governança permanente `.ai/` criada com 8 arquivos (944 linhas total) — todos em Português (linguagem do prompt do operador).
+- Estes documentos passam a ser a fonte oficial de verdade do projeto. Toda tarefa futura DEVE: (1) ler `.ai/` antes de implementar; (2) atualizar PROJECT_STATE.md quando o estado mudar; (3) consultar DECISION_LOG.md antes de decisões arquiteturais; (4) respeitar ENGINEERING_RULES.md (fluxo); (5) só então executar; (6) registrar em worklog.md.
+- Regra de conflito: se um prompt do usuário conflitar com regras estruturais (ex.: tocar arquivo FROZEN, inventar API, quebrar compatibilidade), o modelo DEVE solicitar confirmação antes de violar.
+- Precedência: CORE_RULES > PROJECT_STATE > SECURITY > HARDENING-ROADMAP > worklog.
+- PROJECT_STATE.md reflete estado real do projeto (M5 completo, próximo milestone sugerido: Live Trading com canaryPct ramp 1%→5%→10%→25%→100% e rollback automático).
+- DECISION_LOG.md seed com 5 decisões-chave da história do projeto (H0.3, M3.2, M4, M5 order, M5.4 bug fix). Entradas futuras devem seguir o template.
+- TASK_TEMPLATE.md alinha com OUTPUT_RULES.md (7 seções) — toda resposta técnica futura deve seguir este modelo.
+- Nenhum arquivo FROZEN foi tocado. Nenhuma dependência adicionada. Nenhum arquivo renomeado ou movido. Escopo mínimo respeitado.
