@@ -472,9 +472,15 @@ export class Broadcaster implements SignerSink {
 
     const result = await this.cfg.signerAdapter.signAndReturnRaw(finalReq);
     if (!result.ok) {
+      // Wrap the signer/adapter error with BROADCAST_SIGN_FAILED so the
+      // Broadcaster's contract is honored: every error it returns is
+      // prefixed with one of the BroadcasterError codes. The original
+      // signer/adapter error (e.g. SIGNER_UNAVAILABLE, SIGNER_INVALID_RESPONSE,
+      // SIGNER_VAULT_LOCKED) is preserved as the detail suffix so callers
+      // and operators can still see the root cause.
       return {
         ok: false,
-        error: result.error ?? `${BroadcasterError.SIGN_FAILED}: signer returned ok=false with no error`,
+        error: `${BroadcasterError.SIGN_FAILED}: ${result.error ?? "signer returned ok=false with no error"}`,
       };
     }
     if (!result.rawSignedTx) {

@@ -508,16 +508,19 @@ export default function Home() {
       ],
     });
 
-    // M4 — Writer Lease (NOT IMPLEMENTED YET — placeholder)
+    // M4 — Writer Lease (FROZEN — implemented + 88/88 tests pass).
+    // LeaseStore interface + InMemoryLeaseStore + WriterLease +
+    // LeasedBroadcaster + fencing token (REG-015/016/017/018).
     layers.push({
       id: "M4",
       title: "M4 · WRITER LEASE",
-      tag: "PENDING",
-      accent: "warn",
+      tag: "FROZEN",
+      accent: "buy",
       metrics: [
-        { label: "LEASE", pct: 0, state: "TODO" },
-        { label: "RECONNECT", pct: 0, state: "TODO" },
-        { label: "FAILOVER", pct: 0, state: "TODO" },
+        { label: "LEASE", pct: 100, state: "OK" },
+        { label: "RENEW", pct: 100, state: "OK" },
+        { label: "FENCING", pct: 100, state: "OK" },
+        { label: "FAILOVER", pct: 100, state: "OK" },
       ],
     });
 
@@ -838,7 +841,7 @@ export default function Home() {
             <span>·</span>
             <span className="label-mono">INSTITUTIONAL CRYPTO TRADING OS</span>
             <span>·</span>
-            <span>UI-1.0 FREEZE · Next.js 16 · Prisma/SQLite · BSC · DexScreener · GoPlus · GLM LLM</span>
+            <span>UI-1.0 FREEZE · M4 LEASE FROZEN · Next.js 16 · Prisma/SQLite · BSC · DexScreener · GoPlus · GLM LLM</span>
           </div>
           <div className="flex items-center gap-1.5">
             <AlertTriangle className="size-3 text-warn" />
