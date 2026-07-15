@@ -193,3 +193,38 @@ camada de chain.
   adicionar novas entradas datadas abaixo desta, sem remover texto anterior.
 
 ### [Entradas futuras vêm aqui — nunca sobrescrever acima]
+
+### 2026-07-15 (posterior) — Expansão para Project Operating System (Project OS)
+
+- Criados 4 subdiretórios adicionais em `.ai/`:
+  - `architecture/` (5 arquivos): `modules.md`, `dependencies.md`,
+    `frozen-files.md`, `runtime.md`, `roadmap.md`.
+  - `context/` (4 arquivos): `project-summary.md`, `terminology.md`,
+    `conventions.md`, `glossary.md`.
+  - `memory/` (4 arquivos): `implementation-history.md`,
+    `known-problems.md`, `technical-debt.md`, `future-ideas.md`.
+  - `decisions/` (1 arquivo): `ADR-0001.md` (defense-in-depth
+    architecture com signer isolado e fencing-token lease).
+- 14 arquivos novos totalizando ~2200 linhas adicionais de
+  documentação estrutural.
+- Edições direcionadas (não-rewrite) em 5 arquivos existentes:
+  - `README.md`: expandido para refletir árvore Project OS completa
+    + nova sequência obrigatória de leitura + regras adicionais.
+  - `CORE_RULES.md`: adicionada Regra 11 ("Todo bug deve produzir
+    aprendizado") com referência a `memory/known-problems.md`,
+    `DECISION_LOG.md` e `SECURITY.md`.
+  - `ENGINEERING_RULES.md`: adicionada seção "Toda alteração deve
+    informar" com 6 itens (Arquivos, Dependências, Impacto, Risco,
+    Como validar, **Rollback**).
+  - `TASK_TEMPLATE.md`: adicionado campo "Rollback" entre "Resultado"
+    e "Pendências".
+  - `PROJECT_STATE.md`: esta entrada (append-only).
+- Nenhum arquivo FROZEN do código-fonte foi tocado. Nenhuma
+  dependência adicionada. Nenhum arquivo renomeado ou movido.
+  Escopo mínimo respeitado.
+- Estado do projeto (M5 concluído, próximo milestone M6) mantido
+  sem alteração — apenas adicionada camada de documentação
+  estrutural.
+- Próxima tarefa de implementação deverá seguir a sequência
+  obrigatória: ler `CORE_RULES` → `PROJECT_STATE` → `DECISION_LOG`
+  → `architecture/roadmap.md` → arquivos necessários → implementar.

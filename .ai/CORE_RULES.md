@@ -128,3 +128,30 @@ comportamento anterior era o bug que está sendo corrigido.
 **Aplicação prática:** quando corrigir um bug, registrar no plano qual era o
 comportamento antigo, qual é o novo, e por que o novo está correto. Adicionar
 teste de regressão (`SECURITY.md` REG-NNN) que pinne o novo comportamento.
+
+---
+
+## Regra 11 — Todo bug deve produzir aprendizado
+
+Nenhum bug é corrigido silenciosamente. Toda correção deve produzir
+registro permanente do aprendizado em **um** destes locais (escolher
+conforme o escopo):
+
+- **`memory/known-problems.md`** — para bugs operacionais ou
+  integrações de API (causa, status, mitigação). Padrão KP-NNN.
+- **`DECISION_LOG.md`** (e/ou `.ai/decisions/ADR-NNNN.md`) — para
+  bugs que revelam falha de arquitetura e exigem mudança
+  estrutural. Padrão DEC-NNN ou ADR-NNNN.
+- **`SECURITY.md`** — para bugs de segurança, com teste adversarial
+  REG-NNN que pinne o invariant corrigido.
+
+**Aplicação prática:** antes de marcar uma correção como completa,
+verificar se o aprendizado foi registrado. Se não foi, criar a
+entrada antes de fechar a tarefa. Um bug que se repete sem
+aprendizado registrado é sintoma de processo quebrado.
+
+**Exemplo canônico:** Bug H0.3 (hash-chain com replacer-array
+dropava nested keys) produziu DEC-001 + REG adversarial +
+formalização do "princípio de teste adversarial" em
+`ENGINEERING_RULES.md`. Hoje, qualquer primitivo criptográfico sem
+teste adversarial é considerado incompleto por definição.

@@ -2414,3 +2414,45 @@ Stage Summary:
 - DECISION_LOG.md seed com 5 decisões-chave da história do projeto (H0.3, M3.2, M4, M5 order, M5.4 bug fix). Entradas futuras devem seguir o template.
 - TASK_TEMPLATE.md alinha com OUTPUT_RULES.md (7 seções) — toda resposta técnica futura deve seguir este modelo.
 - Nenhum arquivo FROZEN foi tocado. Nenhuma dependência adicionada. Nenhum arquivo renomeado ou movido. Escopo mínimo respeitado.
+
+---
+Task ID: project-os-expansion
+Agent: main (super-z)
+Task: Expandir a camada de governança `.ai/` de 8 arquivos simples para Project Operating System (Project OS) completo, com 4 subdiretórios adicionais (architecture/, context/, memory/, decisions/) contendo 14 arquivos novos, mais edições direcionadas em 5 arquivos existentes para alinhamento às novas regras (campo Rollback, regra "bug produz aprendizado", sequência obrigatória de leitura).
+
+Work Log:
+- Lido prompt do operador: versão "Project OS" do MASTER PROMPT, mais robusta que a versão anterior (já implementada). Operador explicitamente escolheu "1. Nenhuma ação" para a versão simples anterior, então esta é uma expansão, não rewrite.
+- Aplicado PROMPTING_RULES > Ambiguidade: prompt é claro (criar nova estrutura + editar existentes para alinhamento), sem parada necessária.
+- Ls `/home/z/my-project/.ai/` confirma 8 arquivos base já existentes (937 linhas). Nenhum deve ser sobrescrito — apenas editado para alinhamento.
+- Criados 4 subdiretórios: `architecture/`, `context/`, `memory/`, `decisions/`.
+- Escrito `.ai/architecture/modules.md` (~150 linhas): lista de módulos chain (H0-M4 FROZEN), runtime (M5 validado), observability (M5.5), signer (M3.2 FROZEN), trading (não-hardening). Cada módulo com responsabilidade, interface pública, dependências, consumidores, REG-NNN quando aplicável.
+- Escrito `.ai/architecture/dependencies.md` (~120 linhas): mapa direto da topologia DAG (Market Data → Pipeline → SignerAdapter → Signer RPC → Writer Lease → LeasedBroadcaster → Broadcaster → RPC Quorum → Blockchain), matriz inbound (quem consome quem), classificação de alterabilidade (FROZEN / Validado M5 / Livre / Externo), ciclos proibidos.
+- Escrito `.ai/architecture/frozen-files.md` (~110 linhas): lista canônica por fase H0/H1/H2/H2.6/M3/M4 com motivo de congelamento e critério para alteração. Exceção M5.4 (broadcaster.ts) documentada.
+- Escrito `.ai/architecture/runtime.md` (~180 linhas): diagrama ASCII do sistema, pipeline H2.6 com 7 gates, IPC signer, fencing tokens Kleppmann, Registry único, eventos e cronologia de um round, entradas, saídas, eventos.
+- Escrito `.ai/architecture/roadmap.md` (~150 linhas): estado atual (pós-M5), fases concluídas (H0→M5 com detalhes), próximos milestones (M6 Live Trading, M7 Multi-chain, M8 Observer), ataques defendidos, lições permanentes, histórico append-only.
+- Escrito `.ai/context/project-summary.md` (~110 linhas): visão de uma linha, objetivos, escopo (dentro/fora), tecnologias, arquitetura resumo, modos de operação, estado do hardening, documentação complementar.
+- Escrito `.ai/context/terminology.md` (~200 linhas): termos por categoria (Hardening Roadmap, M4 Lease, M5 Validation, H1 RPC, H2 Contract, M3 Signer, H0 Audit, operacionais, governança).
+- Escrito `.ai/context/conventions.md` (~190 linhas): organização de diretórios, nomenclatura (arquivos/tipos/funções/constantes/variáveis), estrutura de código (imports, exports, error handling, async/await, tipagem), convenções específicas (API routes, Prisma, testes, UI), comentários, commits, LGTM checklist.
+- Escrito `.ai/context/glossary.md` (~150 linhas): termos em ordem alfabética A-Z + números, referência cruzada com terminology.md.
+- Escrito `.ai/memory/implementation-history.md` (~140 linhas): registro cronológico do início do projeto → enhancement-v2 → H0 → H1 → H2 → H2.6 → M3.1 → M3.2 → M3.3 → M4 → M5 (todas sub-fases) → criação .ai/ → expansão Project OS. Append-only.
+- Escrito `.ai/memory/known-problems.md` (~140 linhas): 6 problemas resolvidos (KP-001 a KP-006, incluindo H0.3 hash-chain bug e M5.4 broadcaster bug), 3 em observação (KP-007 duplicação runtime.ts, KP-008 live stub, KP-009 SQLite), 2 riscos operacionais.
+- Escrito `.ai/memory/technical-debt.md` (~150 linhas): 3 alto impacto (TD-001 duplicação, TD-002 live stub, TD-003 SQLite), 3 médio (CI/CD, monitoramento, E2E UI), 4 baixo (OpenAPI, logs estruturados, magic numbers, retry notif), 2 deliberados (sem framework teste, sem repository pattern).
+- Escrito `.ai/memory/future-ideas.md` (~180 linhas): 13 ideias (FI-001 a FI-013) cobrindo Vault/KMS, WebSocket, replay rounds, anomaly detection, multi-sig, hardware wallet, backtesting on-chain, forense dashboard, rate limiting, TPS limiter, snapshot recovery, i18n, mobile. 3 descartadas (irrastreável, alavancagem, custodial).
+- Escrito `.ai/decisions/ADR-0001.md` (~190 linhas): ADR-0001 "Defense-in-Depth Architecture with Process-Isolated Signer and Fencing-Token Lease". Contexto, 8 alternativas consideradas (A1-A8) com motivo de descarte, escolha, motivação, impacto, arquivos, rollback, referências. Sugestões de ADR-0002 a ADR-0005.
+- Editado `.ai/README.md`: substituído completamente por versão Project OS com árvore completa, sequência obrigatória de leitura, regra de precedência atualizada (inclui ADR), regras adicionais, fontes oficiais.
+- Editado `.ai/CORE_RULES.md`: adicionada Regra 11 "Todo bug deve produzir aprendizado" com referência a known-problems.md / DECISION_LOG.md / SECURITY.md. Exemplo canônico: bug H0.3.
+- Editado `.ai/ENGINEERING_RULES.md`: adicionada seção "Toda alteração deve informar" com 6 itens obrigatórios (Arquivos, Dependências, Impacto, Risco, Como validar, Rollback).
+- Editado `.ai/TASK_TEMPLATE.md`: adicionado campo "Rollback" entre "Resultado" e "Pendências", com subcampos (Mecanismo, Arquivos a reverter, Validação pós-rollback, Janela de observação).
+- Editado `.ai/PROJECT_STATE.md`: append de entrada datada sobre expansão Project OS (append-only, sem sobrescrever histórico).
+
+Stage Summary:
+- `.ai/` expandida de 8 arquivos (937 linhas) para 22 arquivos em 5 diretórios (~3100 linhas total). Estrutura Project OS completa.
+- 14 arquivos novos criados: 5 architecture + 4 context + 4 memory + 1 decision (ADR-0001).
+- 5 arquivos existentes editados de forma direcionada (preserva DEC-001 a DEC-005, snapshot M5, FROZEN list, 10 regras originais — apenas alinhamento às novas exigências do Project OS).
+- ADR-0001 estabelece base formal para futuros ADRs (ADR-0002 a ADR-0005 sugeridos para M6 Vault/KMS, M7 Multi-chain, M8 Observer, anomaly detection).
+- Novos campos obrigatórios em TODO template: "Rollback" (entre Resultado e Pendências).
+- Nova regra absoluta: Regra 11 (bug produz aprendizado → registro em known-problems.md / DECISION_LOG / SECURITY).
+- Nova sequência obrigatória de leitura antes de implementar: CORE_RULES → PROJECT_STATE → DECISION_LOG → architecture/roadmap.md → arquivos necessários → implementar.
+- Nenhum arquivo FROZEN do código-fonte tocado. Nenhuma dependência adicionada. Nenhum arquivo renomeado. Escopo mínimo respeitado.
+- Estado do projeto (M5 concluído, próximo M6) preservado — expansão é puramente documentação estrutural.
+- Worklog atualizado seguindo protocolo multi-agente (Task ID, Work Log, Stage Summary).

@@ -71,6 +71,22 @@ Persistir scripts longos em `/home/z/my-project/scripts/` antes de rodar.>
 <Sumário do que foi entregue. Estado final do módulo. Métricas-chave
 (testes passando, latência, memória, etc.).>
 
+### Rollback
+
+<Como reverter esta mudança se a validação falhar ou se regressão for
+detectada em produção. Especificar o mecanismo concreto:>
+
+- Mecanismo: <git revert / Edit manual para restaurar versão anterior /
+  feature flag / restaurar backup de banco / etc.>
+- Arquivos a reverter: <lista>
+- Validação pós-rollback: <quais testes rodar para confirmar que o
+  rollback restaurou o comportamento anterior>
+- Janela de observação: <quanto tempo monitorar após rollback antes
+  de considerar estável>
+
+Se a mudança for trivialmente reversível (ex.: typo), afirmar
+explicitamente: "Reversível via git revert do commit <hash>."
+
 ### Pendências
 
 <Itens identificados durante a tarefa mas fora do escopo. Cada um vira

@@ -37,6 +37,26 @@ justificativa explícita no plano da tarefa:
 
 ---
 
+## Toda alteração deve informar
+
+Antes de executar, o plano da tarefa deve explicitar:
+
+1. **Arquivos modificados** — lista completa com ação (criar/editar/deletar).
+2. **Dependências** — quem usa os símbolos tocados (validar via `Grep`).
+3. **Impacto** — o que muda no sistema (contratos, performance, segurança,
+   compatibilidade).
+4. **Risco** — severidade (baixa/média/alta) e probabilidade. Riscos de
+   regressão, performance, segurança, compatibilidade.
+5. **Como validar** — testes a rodar (unidade, adversariais, integração),
+   build, lint, validação manual.
+6. **Rollback** — como reverter a mudança se a validação falhar em produção.
+   Especificar: git revert? Edit manual? Variável de feature flag? Restaurar
+   backup de banco?
+
+Sem estes 6 itens, a tarefa não está pronta para execução.
+
+---
+
 ## Testes
 
 Toda alteração deve indicar explicitamente, no plano da tarefa:
