@@ -1,8 +1,15 @@
-# PROJECT_STATE.md — Memória do Estado do Projeto
+# PROJECT_STATE.md — Snapshot do Estado Atual
 
-> **Regra de manutenção:** nunca apagar histórico. Somente acrescentar.
-> Toda mudança de estado deve adicionar uma nova entrada datada no final
-> da seção "Histórico de estado" e atualizar a seção "Estado atual".
+> **Este arquivo contém APENAS o snapshot corrente do projeto.**
+> Histórico de mudanças de estado (linha do tempo) está em
+> `memory/implementation-history.md`. Decisões arquiteturais estão em
+> `DECISION_LOG.md` (resumos) e `decisions/ADR-*.md` (detalhes).
+> Roadmap canônico está em `architecture/roadmap.md`.
+>
+> **Regra de manutenção:** quando o estado do projeto mudar (nova fase
+> concluída, novo módulo FROZEN, mudança de stack), atualizar este
+> snapshot E adicionar entrada datada em
+> `memory/implementation-history.md`. Nunca acumular histórico aqui.
 
 ---
 
@@ -113,118 +120,48 @@ camada de chain.
 
 ---
 
-## Roadmap (resumo — fonte canônica: `HARDENING-ROADMAP.md`)
+## Roadmap
 
-| Fase  | Status       | Descrição                                              |
-| ----- | ------------ | ------------------------------------------------------ |
-| H0    | ✅ Concluído | Crypto foundation: KDF, audit hash-chain, key rotation |
-| H1    | ✅ Concluído | RPC/Sim/Approval/MEV (4 sub-fases)                     |
-| H2    | ✅ Concluído | Contract/Liquidity/TokenAuthority/SellSim              |
-| H2.6  | ✅ Concluído | Pipeline (composição gate → signer)                    |
-| M3.1  | ✅ Concluído | SignerAdapter                                          |
-| M3.2  | ✅ Concluído | Signer RPC (processo isolado)                          |
-| M3.3  | ✅ Concluído | Broadcaster                                            |
-| M4    | ✅ Concluído | Writer Lease (fencing tokens, REG-015/016/017/018)     |
-| M5    | ✅ Concluído | Production Validation (6 sub-fases + finalização M5.7) |
-| M6+   | ⏳ Pendente  | Próximo milestone sugerido: Live Trading com canaryPct ramp |
+**Fonte canônica:** `architecture/roadmap.md` (sub-fases, critérios de
+aceitação, próximos milestones) e `HARDENING-ROADMAP.md` na raiz
+(mapeamento de 30 attack vectors).
 
-### Sub-fases M5 (ordem corrigida pelo operador — todas concluídas)
+**Resumo do snapshot atual:**
 
-> **PRINCÍPIO:** observabilidade antes de chaos/shadow/canary/long-duration,
-> para evitar que cada harness implemente sua própria coleta de métricas
-> (duplicação). Todos os harnesses consomem o **mesmo Registry**.
-
-1. M5.0 Runtime factory — ✅
-2. M5.1 Dry Run — ✅ (26/26)
-3. M5.5 Observability — ✅ (Registry único + `/api/runtime/status`)
-4. M5.4 Chaos — ✅ (99/99, ChaosInjector pattern, bug fix broadcaster)
-5. M5.2 Shadow — ✅ (11/11, 600 RPC reais BSC mainnet, 0 diffs)
-6. M5.3 Canary — ✅ (`keccak256(txHash) % 100` determinístico)
-7. M5.6 Long-Duration — ✅ (7/7, 74k ops, 0 leak, loop `while(running)`)
-8. M5.7 Finalização — ✅ (critérios objetivos atendidos, 0 regressões H0–M4)
-
-### Critérios objetivos para declarar M5 completo (todos atendidos)
-
-| Sub-fase        | Critério de aceitação                                    | Status |
-| --------------- | -------------------------------------------------------- | ------ |
-| M5.0            | `buildRuntime()` compõe stack completa sem erros de tipo | ✅ |
-| M5.1 Dry Run    | 1000 ops, lease invariants preservadas, memória estável | ✅ (26/26) |
-| M5.5 Observability | Registry único, `/api/runtime/status` retorna JSON válido, todos os harnesses consomem o Registry | ✅ |
-| M5.4 Chaos      | ChaosInjector classes independentes com `before/after/cleanup`, 0 `if (chaos)` espalhados | ✅ (99/99) |
-| M5.2 Shadow     | Mesma Pipeline, fork output, `shadowDiffs` incrementado em divergência | ✅ (0 diffs em 600 RPC) |
-| M5.3 Canary     | `bucket = keccak256(txHash) % 100; bucket < canaryPct` determinístico | ✅ |
-| M5.6 Long-Duration | Loop `while(running) { tick(); sleep(); }`, uptime ≥ 1h sem leak | ✅ (74k ops, 0 leak) |
-| M5.7            | Todos os testes M5 passam, 0 regressões H0–M4, worklog atualizado | ✅ |
+- Fases H0 → M5: ✅ todas concluídas (0 regressões).
+- Próximo milestone: M6 (Live Trading com canaryPct ramp), condicionado
+  a integração Vault/KMS e definição de thresholds de rollback pelo
+  operador.
 
 ---
 
-## Decisões importantes (resumo — detalhes em `DECISION_LOG.md`)
+## Decisões arquiteturais ativas
 
-1. **H0.3 — Audit hash-chain** usa `JSON.stringify(entry, sortedKeysArray)`
-   bugado que silenciosamente dropava nested keys. Corrigido + REG-NNN
-   adversarial. **Lição:** todo primitivo criptográfico precisa de teste
-   que tente quebrá-lo.
-2. **M3.2 — Signer isolado em processo próprio.** Não é uma função
-   importada; é um processo separado comunicando via protocolo. Design
-   em `docs/signer-isolation-design.md`.
-3. **M4 — Writer Lease com fencing tokens** (Kleppmann pattern).
-   `LeasedBroadcaster` faz pre-broadcast fencing check.
-   REG-015/016/017/018 travam os invariantes.
-4. **M5 — Ordem corrigida pelo operador.** Não desenvolver Shadow/Chaos/
-   Observability/Long-Duration em paralelo. Observability primeiro,
-   depois cada harness consome o Registry único.
-5. **M5 — Broadcaster bug corrigido durante M5.4.** Erros do signer não
-   estavam prefixados com `BROADCAST_*`, fazendo `LeasedBroadcaster`
-   misclassificá-los. Fix preserva o contrato público.
+**Fonte canônica:** `DECISION_LOG.md` (DEC-NNN com template completo) e
+`decisions/ADR-*.md` (ADRs com contexto, alternativas, consequências).
+
+**Resumo do snapshot atual (5 decisões ativas):**
+
+- **DEC-001:** Audit hash-chain com replacer-function (H0.3 fix).
+- **DEC-002:** Signer isolado em processo próprio (M3.2).
+- **DEC-003:** Writer Lease com fencing tokens Kleppmann (M4).
+- **DEC-004:** Observability antes de Chaos/Shadow/Canary/Long-Duration (M5).
+- **DEC-005:** Prefixo `BROADCAST_SIGNER_*` em erros do signer (M5.4 fix).
 
 ---
 
-## Histórico de estado (append-only)
+## Histórico de mudanças de estado
 
-### 2026-07-15 — Criação da camada de governança `.ai/`
+**Este arquivo não acumula histórico.** Toda mudança de estado (nova fase
+concluída, novo módulo FROZEN, mudança de stack, expansão de governança)
+deve ser registrada em `memory/implementation-history.md` (append-only,
+linha do tempo cronológica com data e contexto).
 
-- Criada pasta `.ai/` na raiz do projeto com 8 arquivos de governança:
-  README, CORE_RULES, ENGINEERING_RULES, PROMPTING_RULES, OUTPUT_RULES,
-  PROJECT_STATE, DECISION_LOG, TASK_TEMPLATE.
-- Antes desta entrada, o projeto operava sem camada formal de governança;
-  decisões estavam dispersas no `worklog.md` (2385+ linhas) e no
-  `HARDENING-ROADMAP.md`.
-- Esta é a entrada inicial de `PROJECT_STATE.md`. Snapshots futuros devem
-  adicionar novas entradas datadas abaixo desta, sem remover texto anterior.
+**Entradas recentes relevantes** (ver arquivo completo para detalhes):
 
-### [Entradas futuras vêm aqui — nunca sobrescrever acima]
-
-### 2026-07-15 (posterior) — Expansão para Project Operating System (Project OS)
-
-- Criados 4 subdiretórios adicionais em `.ai/`:
-  - `architecture/` (5 arquivos): `modules.md`, `dependencies.md`,
-    `frozen-files.md`, `runtime.md`, `roadmap.md`.
-  - `context/` (4 arquivos): `project-summary.md`, `terminology.md`,
-    `conventions.md`, `glossary.md`.
-  - `memory/` (4 arquivos): `implementation-history.md`,
-    `known-problems.md`, `technical-debt.md`, `future-ideas.md`.
-  - `decisions/` (1 arquivo): `ADR-0001.md` (defense-in-depth
-    architecture com signer isolado e fencing-token lease).
-- 14 arquivos novos totalizando ~2200 linhas adicionais de
-  documentação estrutural.
-- Edições direcionadas (não-rewrite) em 5 arquivos existentes:
-  - `README.md`: expandido para refletir árvore Project OS completa
-    + nova sequência obrigatória de leitura + regras adicionais.
-  - `CORE_RULES.md`: adicionada Regra 11 ("Todo bug deve produzir
-    aprendizado") com referência a `memory/known-problems.md`,
-    `DECISION_LOG.md` e `SECURITY.md`.
-  - `ENGINEERING_RULES.md`: adicionada seção "Toda alteração deve
-    informar" com 6 itens (Arquivos, Dependências, Impacto, Risco,
-    Como validar, **Rollback**).
-  - `TASK_TEMPLATE.md`: adicionado campo "Rollback" entre "Resultado"
-    e "Pendências".
-  - `PROJECT_STATE.md`: esta entrada (append-only).
-- Nenhum arquivo FROZEN do código-fonte foi tocado. Nenhuma
-  dependência adicionada. Nenhum arquivo renomeado ou movido.
-  Escopo mínimo respeitado.
-- Estado do projeto (M5 concluído, próximo milestone M6) mantido
-  sem alteração — apenas adicionada camada de documentação
-  estrutural.
-- Próxima tarefa de implementação deverá seguir a sequência
-  obrigatória: ler `CORE_RULES` → `PROJECT_STATE` → `DECISION_LOG`
-  → `architecture/roadmap.md` → arquivos necessários → implementar.
+- 2026-07-15 — M5 marcado como concluído (0 regressões H0–M4).
+- 2026-07-15 — Ordem das sub-fases M5 corrigida (DEC-004).
+- 2026-07-15 — Criação da camada de governança `.ai/` (8 arquivos raiz).
+- 2026-07-15 — Expansão para Project OS (4 subpastas + 14 arquivos).
+- 2026-07-15 — Refinamento Project OS v2 (contracts/, standards/,
+  invariants.md, interfaces.md, INDEX.md, separação estado/histórico).

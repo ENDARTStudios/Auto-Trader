@@ -13,37 +13,66 @@ e mantida sincronizada com o estado real do projeto.
 ```
 .ai/
 │
-├── README.md                    # Este arquivo. Visão geral + protocolo de uso.
-├── CORE_RULES.md                # 11 regras absolutas (leis permanentes).
-├── ENGINEERING_RULES.md         # Fluxo obrigatório + restrições + testes.
-├── PROMPTING_RULES.md           # Uso de contexto + ambiguidade + raciocínio.
-├── OUTPUT_RULES.md              # Formato obrigatório de 7 seções.
-├── PROJECT_STATE.md             # Memória viva: arquitetura, roadmap, fase.
-├── DECISION_LOG.md              # Registro de decisões arquiteturais (DEC-NNN).
-├── TASK_TEMPLATE.md             # Template padrão para toda tarefa futura.
+├── INDEX.md                    # Ponto de entrada único (índice geral).
+├── README.md                   # Este arquivo. Visão geral + protocolo de uso.
+├── CORE_RULES.md               # 11 regras absolutas (leis permanentes).
+├── ENGINEERING_RULES.md        # Fluxo obrigatório + restrições + testes + Rollback.
+├── PROMPTING_RULES.md          # Uso de contexto + ambiguidade + raciocínio + idioma.
+├── OUTPUT_RULES.md             # Formato obrigatório de 7 seções.
+├── PROJECT_STATE.md            # Snapshot atual (estado + arquitetura + FROZEN).
+├── DECISION_LOG.md             # Registro de decisões arquiteturais (DEC-NNN).
+├── TASK_TEMPLATE.md            # Template padrão para toda tarefa (com Rollback).
 │
-├── architecture/                # Mapa estrutural do projeto
-│   ├── modules.md               # Lista de módulos, responsabilidades, interfaces.
-│   ├── dependencies.md          # Quem depende de quem, alterabilidade.
-│   ├── frozen-files.md          # Lista canônica de arquivos FROZEN.
-│   ├── runtime.md               # Fluxo completo, diagramas, pipeline, eventos.
-│   └── roadmap.md               # Roadmap técnico, histórico, próximos milestones.
+├── architecture/               # Mapa estrutural do projeto
+│   ├── modules.md              # Lista de módulos, responsabilidades, FROZEN status.
+│   ├── interfaces.md           # Contratos públicos (apenas assinaturas).
+│   ├── runtime.md              # Fluxo canônico, diagramas, pipeline, eventos.
+│   ├── dependencies.md         # Quem depende de quem; blast radius.
+│   ├── invariants.md           # Garantias arquiteturais (INV-001 a INV-010).
+│   ├── frozen-files.md         # Lista canônica de arquivos FROZEN.
+│   └── roadmap.md              # Roadmap técnico, histórico, próximos milestones.
 │
-├── context/                     # Contexto imutável do projeto
-│   ├── project-summary.md       # Objetivos, escopo, tecnologias, arquitetura.
-│   ├── terminology.md           # Significado dos termos (por categoria).
-│   ├── conventions.md           # Padrões de código, nomenclatura, estrutura.
-│   └── glossary.md              # Glossário alfabético de referência rápida.
+├── contracts/                  # Contratos de integração
+│   ├── api-contracts.md        # Endpoints HTTP (paths, métodos, schemas).
+│   ├── database-contracts.md   # Schema Prisma (models, índices, invariantes).
+│   ├── rpc-contracts.md        # RPC blockchain + protocolo IPC do signer.
+│   └── event-contracts.md      # Eventos emitidos/consumidos (audit, observability).
 │
-├── memory/                      # Memória histórica e operacional
-│   ├── implementation-history.md # Registro cronológico (o que, quando, por quê).
-│   ├── known-problems.md        # Problemas conhecidos, causa, status, mitigação.
-│   ├── technical-debt.md        # Débitos técnicos, prioridade, impacto.
-│   └── future-ideas.md          # Ideias futuras (não implementar automaticamente).
+├── standards/                  # Padrões de engenharia detalhados
+│   ├── coding-style.md         # Estilo TypeScript/React (naming, formatting).
+│   ├── testing.md              # Padrões de teste (unidade, adversarial, harnesses).
+│   ├── security.md             # Padrões de segurança (crypto, key handling, REG-NNN).
+│   ├── documentation.md        # Padrões de documentação (.ai/, JSDoc, ADRs).
+│   └── git-workflow.md         # Commits, branches, PRs, conventional commits.
 │
-└── decisions/                   # Architecture Decision Records (ADRs)
-    └── ADR-0001.md              # ADR-0001: arquitetura defense-in-depth escolhida.
+├── context/                    # Contexto imutável do projeto
+│   ├── project-summary.md      # Objetivos, escopo, tecnologias, arquitetura.
+│   ├── terminology.md          # Nomes oficiais de módulos + acrônimos + significado operacional.
+│   ├── conventions.md          # Padrões de nomenclatura, estrutura de pastas, convenções.
+│   └── glossary.md             # Dicionário alfabético de termos técnicos externos.
+│
+├── memory/                     # Memória histórica e operacional
+│   ├── implementation-history.md # Linha do tempo cronológica (append-only).
+│   ├── known-problems.md       # Problemas conhecidos (KP-NNN): causa, status, mitigação.
+│   ├── technical-debt.md       # Débitos técnicos (TD-NNN): prioridade, impacto, prazo.
+│   └── future-ideas.md         # Ideias futuras (não implementar automaticamente).
+│
+└── decisions/                  # Architecture Decision Records (ADRs)
+    ├── ADR-0001.md             # Arquitetura defense-in-depth canônica (H0 → M5).
+    └── ADR-0002.md             # (placeholder — futuros ADRs seguem numeração sequencial).
 ```
+
+> **Divisão de responsabilidade entre arquivos:**
+>
+> - `terminology.md` (interna: módulos, acrônimos, convenções operacionais)
+>   vs `glossary.md` (externa: blockchain, trading, Ethereum, segurança, IA).
+> - `PROJECT_STATE.md` (snapshot atual) vs
+>   `memory/implementation-history.md` (linha do tempo cronológica).
+> - `ENGINEERING_RULES.md` (resumo executivo) vs
+>   `standards/*.md` (regras detalhadas que crescerão ao longo do projeto).
+> - `architecture/modules.md` (lista de módulos) vs
+>   `architecture/interfaces.md` (apenas assinaturas públicas) vs
+>   `contracts/*.md` (contratos de integração completos).
 
 ---
 

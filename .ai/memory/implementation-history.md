@@ -189,6 +189,54 @@
 - Edições direcionadas em README, CORE_RULES, ENGINEERING_RULES,
   TASK_TEMPLATE, PROJECT_STATE para alinhamento.
 
+## 2026-07-15 (final) — Refinamento Project OS v2 (7 ajustes do operador)
+
+- **Refinamento #1 (terminology vs glossary):** confirmada divisão clara
+  de responsabilidade. `terminology.md` = interna (módulos, acrônimos,
+  significado operacional). `glossary.md` = externa (blockchain, trading,
+  Ethereum, segurança, IA). Headers explicativos adicionados em ambos.
+- **Refinamento #2 (standards/):** criada pasta `standards/` com 5
+  arquivos: `coding-style.md`, `testing.md`, `security.md`,
+  `documentation.md`, `git-workflow.md`. `ENGINEERING_RULES.md`
+  permanece como resumo executivo; `standards/` contém regras
+  detalhadas.
+- **Refinamento #3 (INDEX.md):** criado `INDEX.md` como ponto de
+  entrada único. Lista todas as seções (CORE, STATE, ARCHITECTURE,
+  CONTRACTS, STANDARDS, CONTEXT, MEMORY, DECISIONS) com função de
+  cada arquivo, precedência em conflito, e sequência obrigatória de
+  10 passos antes de implementar.
+- **Refinamento #4 (separar estado de histórico):** `PROJECT_STATE.md`
+  refinado para conter APENAS snapshot corrente. Seção "Histórico de
+  estado" removida (já estava migrada para este arquivo). Seções
+  "Roadmap" e "Decisões importantes" substituídas por pointers breves
+  para `architecture/roadmap.md` e `DECISION_LOG.md`. Header atualizado
+  com regra de manutenção: mudança de estado = atualizar snapshot +
+  adicionar entrada datada aqui.
+- **Refinamento #5 (contracts/):** criada pasta `contracts/` com 4
+  arquivos: `api-contracts.md`, `database-contracts.md`,
+  `rpc-contracts.md`, `event-contracts.md`. Cada um com convenções,
+  schemas, invariantes, e regras de evolução.
+- **Refinamento #6 (invariants.md):** criado `architecture/invariants.md`
+  com 10 invariantes (INV-001 a INV-010): pipeline order, broadcaster
+  immutability, FROZEN protection, error cause preservation, audit
+  exactly-once, signer key isolation, fence monotonicity, canary
+  determinism, shadow shared pipeline, registry singleton.
+- **Refinamento #7 (interfaces.md):** criado `architecture/interfaces.md`
+  com contratos públicos de Pipeline, SignerSink, Broadcaster,
+  WriterLease, Registry, Runtime, SignerProtocol. Apenas assinaturas
+  (sem implementação) para reduzir necessidade de abrir múltiplos
+  arquivos.
+- **README.md atualizado:** árvore de estrutura expandida para mostrar
+  todas as 6 subpastas (architecture, contracts, standards, context,
+  memory, decisions) + INDEX.md. Adicionada seção "Divisão de
+  responsabilidade entre arquivos" documentando os 4 pares de arquivos
+  com escopo deliberadamente separado.
+- **Total de arquivos `.ai/` após refinamento:** 9 raiz + 7 architecture
+  + 4 contracts + 5 standards + 4 context + 4 memory + 1 decisions =
+  34 arquivos de governança.
+- Nenhum arquivo FROZEN do código-fonte foi tocado. Nenhuma
+  dependência adicionada. Escopo mínimo respeitado.
+
 ---
 
 ### [Entradas futuras vêm aqui — nunca sobrescrever acima]
