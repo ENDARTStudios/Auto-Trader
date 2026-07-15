@@ -16,12 +16,26 @@ export interface HealthBarItem {
   detail?: string;
 }
 
+/** Technical status cell — appears in the SYSTEM HEALTH BAR row */
+export interface TechCell {
+  label: string;
+  value: string;
+  detail?: string;
+  health: Health;
+  pulse?: boolean;
+}
+
 interface WorkspaceHeaderProps {
   engineStatus: "stopped" | "running" | "killed" | "paused";
   engineMode: "paper" | "live";
   loopState: string;
   healthBars: HealthBarItem[];
-  blockNumber?: string | number | null;
+  /** Always-visible technical status cells (ENGINE/RPC/SIGNER/PIPELINE/DATABASE/BLOCK/NETWORK) */
+  techCells: TechCell[];
+  /** Software version string e.g. "v0.3.1" */
+  version?: string;
+  /** Engine uptime in seconds (for the UTC-clock-adjacent uptime chip) */
+  uptimeSec?: number;
   onStart: () => void;
   onStop: () => void;
   onKill: () => void;
@@ -50,22 +64,50 @@ const healthDotClass: Record<Health, string> = {
   idle: "idle",
 };
 
+function fmtUptime(sec: number): string {
+  if (!Number.isFinite(sec) || sec <= 0) return "00:00:00";
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  if (d > 0) return `${d}d ${pad(h)}:${pad(m)}:${pad(s)}`;
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+function useUtcClock(): string {
+  const [now, setNow] = React.useState<string>("");
+  React.useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      const hh = d.getUTCHours().toString().padStart(2, "0");
+      const mm = d.getUTCMinutes().toString().padStart(2, "0");
+      const ss = d.getUTCSeconds().toString().padStart(2, "0");
+      setNow(`${hh}:${mm}:${ss} UTC`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, []);
+  return now;
+}
+
 /**
- * WorkspaceHeader
+ * WorkspaceHeader — institutional terminal top bar.
  *
- * Top bar of the institutional workspace. Two rows:
- *   Row 1: Brand · Engine controls · Notifications
- *   Row 2: Health-bar strip (ENGINE · RPC · SIGNER · PIPELINE · DATABASE · BLOCK)
- *
- * The health-bar strip is always visible — it's the "system health bar"
- * the operator requested. Each item is a colored dot + label + value.
+ * Three rows:
+ *   Row 1: Brand · Engine controls · Notifications · UTC clock · Uptime · Version
+ *   Row 2: (conditional) Kill-switch banner
+ *   Row 3: TECH STRIP — ENGINE · RPC · SIGNER · PIPELINE · DATABASE · BLOCK · NETWORK
+ *          Always visible. Each cell: dot + label + value + detail.
  */
 export function WorkspaceHeader({
   engineStatus,
   engineMode,
   loopState,
-  healthBars,
-  blockNumber,
+  techCells,
+  version = "v0.3.1",
+  uptimeSec = 0,
   onStart,
   onStop,
   onKill,
@@ -80,10 +122,12 @@ export function WorkspaceHeader({
 }: WorkspaceHeaderProps) {
   const isRunning = engineStatus === "running";
   const isKilled = engineStatus === "killed";
+  const utcClock = useUtcClock();
+  const uptimeStr = fmtUptime(uptimeSec);
 
   return (
     <header className="sticky top-0 z-50 ws-panel rounded-none border-x-0 border-t-0 scan-line">
-      {/* ---------- Row 1: brand + controls ---------- */}
+      {/* ---------- Row 1: brand + controls + meta ---------- */}
       <div className="px-4 lg:px-6 h-14 flex items-center justify-between gap-4">
         {/* Brand */}
         <div className="flex items-center gap-2.5 min-w-0 shrink-0">
@@ -99,12 +143,15 @@ export function WorkspaceHeader({
               <span
                 className={cn(
                   "label-mono text-[9px] font-bold leading-none px-1.5 py-0.5 rounded border",
-                  isLive(engineMode)
+                  engineMode === "live"
                     ? "bg-red-500/15 text-red-300 border-red-500/40"
                     : "bg-cyan-500/10 text-cyan-300 border-cyan-500/30"
                 )}
               >
-                {isLive(engineMode) ? "LIVE" : "PAPER"} · {engineStatus.toUpperCase()}
+                {engineMode.toUpperCase()} · {engineStatus.toUpperCase()}
+              </span>
+              <span className="label-mono text-[9px] text-muted-foreground/60 leading-none">
+                {version}
               </span>
             </div>
             <p className="text-[9px] text-muted-foreground/80 leading-tight mt-0.5 label-mono">
@@ -121,8 +168,28 @@ export function WorkspaceHeader({
           </div>
         </div>
 
-        {/* Engine controls + notifications */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        {/* Right: meta + controls */}
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Uptime + UTC clock — technical meta strip */}
+          <div className="hidden sm:flex items-center gap-3 pr-3 border-r border-border/40">
+            <div className="flex flex-col items-end leading-none gap-0.5">
+              <span className="label-mono text-[8px] text-muted-foreground tracking-[0.14em]">
+                UPTIME
+              </span>
+              <span className="label-mono text-[10px] font-bold tabular text-foreground/90">
+                {uptimeStr}
+              </span>
+            </div>
+            <div className="flex flex-col items-end leading-none gap-0.5">
+              <span className="label-mono text-[8px] text-muted-foreground tracking-[0.14em]">
+                CLOCK
+              </span>
+              <span className="label-mono text-[10px] font-bold tabular text-chain">
+                {utcClock}
+              </span>
+            </div>
+          </div>
+
           {onNotificationsClick && (
             <button
               onClick={onNotificationsClick}
@@ -193,44 +260,34 @@ export function WorkspaceHeader({
         </div>
       )}
 
-      {/* ---------- Row 3: SYSTEM HEALTH BAR (always visible) ---------- */}
-      <div className="border-t border-border/40 px-4 lg:px-6 py-2 flex items-center gap-2 overflow-x-auto">
-        <span className="label-mono text-[9px] text-muted-foreground shrink-0 mr-1 tracking-[0.16em]">
-          SYSTEM
-        </span>
-        {healthBars.map((it) => (
-          <div
-            key={it.label}
-            className={cn("health-bar shrink-0", healthAccent[it.health])}
-            title={it.detail ?? it.value}
-          >
-            <span
-              className={cn(
-                "health-dot",
-                healthDotClass[it.health],
-                it.pulse && "pulse"
+      {/* ---------- Row 3: TECH STRIP (always visible status bar) ---------- */}
+      <div className="border-t border-border/40 px-4 lg:px-6 py-1.5">
+        <div className="tech-strip">
+          <span className="label-mono text-[9px] text-muted-foreground shrink-0 mr-1 tracking-[0.16em]">
+            STATUS
+          </span>
+          {techCells.map((cell) => (
+            <div
+              key={cell.label}
+              className={cn("tech-cell", healthAccent[cell.health])}
+              title={cell.detail ?? cell.value}
+            >
+              <span
+                className={cn(
+                  "tech-cell-dot",
+                  healthDotClass[cell.health],
+                  cell.pulse && "pulse"
+                )}
+              />
+              <span className="tech-cell-label">{cell.label}</span>
+              <span className="tech-cell-value">{cell.value}</span>
+              {cell.detail && (
+                <span className="tech-cell-detail hidden xl:inline">· {cell.detail}</span>
               )}
-            />
-            <span className="health-bar-label">{it.label}</span>
-            <span className="health-bar-value">{it.value}</span>
-          </div>
-        ))}
-        {blockNumber != null && (
-          <div className="health-bar accent-chain shrink-0 ml-auto">
-            <span className="health-dot ok pulse" />
-            <span className="health-bar-label">BLOCK</span>
-            <span className="health-bar-value">
-              {typeof blockNumber === "number"
-                ? blockNumber.toLocaleString("en-US")
-                : blockNumber}
-            </span>
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
       </div>
     </header>
   );
-}
-
-function isLive(mode: string): boolean {
-  return mode === "live";
 }

@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { TrendingUp, TrendingDown } from "lucide-react";
 import type { PositionRow } from "@/hooks/use-trading-data";
 
 interface PortfolioPanelProps {
@@ -22,6 +21,7 @@ function fmtUsd(n: number, decimals = 2): string {
 }
 
 function fmtUsdCompact(n: number): string {
+  if (Math.abs(n) >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
   if (Math.abs(n) >= 1000) return `$${(n / 1000).toFixed(2)}k`;
   return fmtUsd(n, 2);
 }
@@ -32,13 +32,29 @@ function fmtPrice(n: number): string {
   return n.toPrecision(4);
 }
 
+function fmtQty(n: number): string {
+  if (n >= 1000) return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  if (n >= 1) return n.toFixed(4);
+  return n.toFixed(6);
+}
+
+function fmtTimeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0) return "now";
+  if (diff < 60_000) return `${Math.floor(diff / 1000)}s`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
+  return `${Math.floor(diff / 86_400_000)}d`;
+}
+
 /**
- * PortfolioPanel — Level-2 panel showing open positions as compact rows.
+ * PortfolioPanel — institutional professional positions table.
  *
- * Layout: PAIR | QTY | ENTRY | CURRENT | uP&L | SCAM
+ * Columns (9):
+ *   PAIR · SIDE · ENTRY · MARK · SIZE · PnL$ · PnL% · TIME · STATUS
  *
- * Color: P&L drives the row accent (positive=buy, negative=sell).
- * Compact density, monospace numbers, optional scroll.
+ * Color rule (per operator spec): only PnL columns are colored
+ * (green positive / red negative). All other cells stay neutral.
  */
 export function PortfolioPanel({
   positions,
@@ -57,86 +73,94 @@ export function PortfolioPanel({
         <span className="label-mono text-[9px] text-muted-foreground">LIVE</span>
       </div>
 
-      {/* Column headers */}
-      <div
-        className="portfolio-row-header grid"
-        style={{ gridTemplateColumns: "1.2fr 0.8fr 0.9fr 0.9fr 0.7fr 0.9fr", gap: "0.5rem" }}
-      >
-        <span>PAIR</span>
-        <span className="text-right">QTY</span>
-        <span className="text-right">ENTRY</span>
-        <span className="text-right">CURRENT</span>
-        <span className="text-right">uP&L</span>
-        <span className="text-right">SCAM</span>
-      </div>
-
-      <div className="flex-1 overflow-y-auto" style={{ maxHeight: maxHeight ?? 320 }}>
-        {isLoading && positions.length === 0 ? (
-          <div className="p-4 text-center text-[11px] text-muted-foreground label-mono">
-            Carregando posições…
-          </div>
-        ) : positions.length === 0 ? (
-          <div className="p-4 text-center text-[11px] text-muted-foreground label-mono">
-            Nenhuma posição aberta.
-          </div>
-        ) : (
-          positions.map((p) => {
-            const pnl = p.unrealizedPnlUsd ?? 0;
-            const pnlPct = p.unrealizedPnlPct ?? 0;
-            const isProfit = pnl >= 0;
-            return (
-              <div
-                key={p.id}
-                className={cn("portfolio-row", isProfit ? "accent-buy" : "accent-sell")}
-              >
-                <div className="min-w-0">
-                  <div className="font-semibold text-[12px] text-foreground truncate">
-                    {p.symbol}
-                  </div>
-                  <div className="label-mono text-[8px] text-muted-foreground tracking-wider">
-                    {p.source}
-                    {p.chain && ` · ${p.chain}`}
-                  </div>
-                </div>
-                <span className="text-right text-[11px] text-muted-foreground tabular">
-                  {p.entryQty.toLocaleString("en-US", { maximumFractionDigits: 4 })}
-                </span>
-                <span className="text-right text-[11px] text-foreground/80 tabular">
-                  ${fmtPrice(p.entryPriceUsd)}
-                </span>
-                <span className="text-right text-[11px] text-foreground/80 tabular">
-                  {p.currentPriceUsd ? `$${fmtPrice(p.currentPriceUsd)}` : "—"}
-                </span>
-                <span
-                  className="text-right text-[11px] font-bold tabular flex items-center justify-end gap-0.5"
-                  style={{ color: isProfit ? "var(--color-buy)" : "var(--color-sell)" }}
-                >
-                  {isProfit ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
-                  {pnl >= 0 ? "+" : ""}
-                  {fmtUsdCompact(pnl)}
-                  <span className="text-[9px] opacity-70 ml-0.5">
-                    ({pnlPct >= 0 ? "+" : ""}
-                    {pnlPct.toFixed(1)}%)
-                  </span>
-                </span>
-                <span className="text-right">
-                  <span
-                    className={cn(
-                      "label-mono text-[9px] font-bold px-1.5 py-0.5 rounded border tabular",
-                      p.scamScore >= 80
-                        ? "bg-sell-10 text-sell border-sell-30"
-                        : p.scamScore >= 60
-                        ? "bg-warn-10 text-warn border-warn-30"
-                        : "bg-buy-10 text-buy border-buy-30"
-                    )}
-                  >
-                    {p.scamScore}
-                  </span>
-                </span>
-              </div>
-            );
-          })
-        )}
+      <div className="flex-1 overflow-auto" style={{ maxHeight: maxHeight ?? 360 }}>
+        <table className="portfolio-table">
+          <thead>
+            <tr>
+              <th className="text-left">PAIR</th>
+              <th>SIDE</th>
+              <th>ENTRY</th>
+              <th>MARK</th>
+              <th>SIZE</th>
+              <th>PnL $</th>
+              <th>PnL %</th>
+              <th>TIME</th>
+              <th>STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && positions.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="text-center text-[11px] text-muted-foreground label-mono py-6">
+                  Carregando posições…
+                </td>
+              </tr>
+            ) : positions.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="text-center text-[11px] text-muted-foreground label-mono py-6">
+                  Nenhuma posição aberta.
+                </td>
+              </tr>
+            ) : (
+              positions.map((p) => {
+                const pnl = p.unrealizedPnlUsd ?? 0;
+                const pnlPct = p.unrealizedPnlPct ?? 0;
+                const pnlClass = pnl > 0 ? "pnl-pos" : pnl < 0 ? "pnl-neg" : "pnl-flat";
+                const mark = p.currentPriceUsd ?? p.entryPriceUsd;
+                // Status inference: open=OPEN, otherwise derive from exitReason
+                let statusLabel = "OPEN";
+                let statusClass = "status-open";
+                if (p.status && p.status.toLowerCase() !== "open") {
+                  if (p.status.toLowerCase().includes("clos")) {
+                    statusLabel = "CLOSED";
+                    statusClass = "status-closing";
+                  } else if (p.status.toLowerCase().includes("error") || p.status.toLowerCase().includes("fail")) {
+                    statusLabel = "ERROR";
+                    statusClass = "status-error";
+                  } else {
+                    statusLabel = p.status.toUpperCase();
+                    statusClass = "status-closing";
+                  }
+                }
+                return (
+                  <tr key={p.id}>
+                    <td className="text-left">
+                      <div className="flex flex-col leading-tight">
+                        <span className="font-semibold text-[11.5px] text-foreground">
+                          {p.symbol}
+                        </span>
+                        <span className="label-mono text-[8px] text-muted-foreground tracking-wider">
+                          {p.source}
+                          {p.chain && ` · ${p.chain}`}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="side-buy">LONG</span>
+                    </td>
+                    <td>${fmtPrice(p.entryPriceUsd)}</td>
+                    <td>${fmtPrice(mark)}</td>
+                    <td>{fmtQty(p.entryQty)}</td>
+                    <td className={pnlClass}>
+                      {pnl >= 0 ? "+" : ""}{fmtUsdCompact(pnl)}
+                    </td>
+                    <td className={pnlClass}>
+                      {pnlPct >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
+                    </td>
+                    <td className="text-muted-foreground">
+                      {fmtTimeAgo(p.entryAt)}
+                    </td>
+                    <td>
+                      <span className={cn("status-pill", statusClass)}>
+                        {statusLabel}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

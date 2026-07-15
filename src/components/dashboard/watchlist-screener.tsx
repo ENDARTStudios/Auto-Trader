@@ -12,6 +12,16 @@ export interface ScreenerRow {
   vol24h: number;
   source?: "cex" | "dex";
   chain?: string;
+  /** Bid-ask spread in basis points (DEX) or pips (CEX). 0 if unknown. */
+  spreadBps?: number;
+  /** Pool liquidity USD (DEX) or depth USD (CEX). 0 if unknown. */
+  liquidityUsd?: number;
+  /** Token age in days (DEX tokens only). */
+  ageDays?: number;
+  /** Risk classification 0-100 (higher = riskier). Derived from scam score. */
+  riskScore?: number;
+  /** Composite signal score -100..100. */
+  signalScore?: number;
 }
 
 interface WatchlistScreenerProps {
@@ -34,23 +44,43 @@ function fmtVol(n: number): string {
   return n.toFixed(0);
 }
 
+function fmtLiq(n: number): string {
+  if (n <= 0) return "—";
+  return `$${fmtVol(n)}`;
+}
+
 function fmtPct(n: number): string {
   const sign = n >= 0 ? "+" : "";
   return `${sign}${n.toFixed(2)}`;
 }
 
+function fmtAge(days?: number): string {
+  if (days == null) return "—";
+  if (days < 1) return "<1d";
+  if (days < 30) return `${Math.floor(days)}d`;
+  if (days < 365) return `${Math.floor(days / 30)}mo`;
+  return `${(days / 365).toFixed(1)}y`;
+}
+
+function riskClass(score?: number): string {
+  if (score == null) return "screener-risk-med";
+  if (score < 40) return "screener-risk-low";
+  if (score < 70) return "screener-risk-med";
+  return "screener-risk-high";
+}
+
+function riskLabel(score?: number): string {
+  if (score == null) return "—";
+  if (score < 40) return "LOW";
+  if (score < 70) return "MED";
+  return "HIGH";
+}
+
 /**
- * WatchlistScreener — institutional-grade token screener.
+ * WatchlistScreener — institutional token screener.
  *
- * Layout: PAIR | PRICE | 1m | 5m | VOL
- *
- * Color-coded change cells:
- *   - Positive change → buy/emerald
- *   - Negative change → sell/red
- *   - Zero / null → muted
- *
- * Compact rows with monospaced numbers for instant scanning.
- * Source/chain badge inline with pair name.
+ * Columns (9): PAIR · PRICE · 1m · 5m · VOL · SPREAD · LIQ · AGE · RISK
+ * Plus inline SCORE badge next to PAIR.
  */
 export function WatchlistScreener({ rows, isLoading, className }: WatchlistScreenerProps) {
   const [filter, setFilter] = React.useState("");
@@ -80,63 +110,105 @@ export function WatchlistScreener({ rows, isLoading, className }: WatchlistScree
         </div>
       </div>
 
-      {/* Column headers */}
-      <div className="screener-row-header grid" style={{ gridTemplateColumns: "1.4fr 1fr 0.7fr 0.7fr 0.9fr", gap: "0.5rem" }}>
-        <span>PAIR</span>
-        <span className="text-right">PRICE</span>
-        <span className="text-right">1m</span>
-        <span className="text-right">5m</span>
-        <span className="text-right">VOL</span>
-      </div>
-
-      {/* Rows */}
-      <div className="flex-1 overflow-y-auto" style={{ maxHeight: 360 }}>
-        {isLoading && rows.length === 0 ? (
-          <div className="p-4 text-center text-[11px] text-muted-foreground label-mono">
-            Carregando…
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-4 text-center text-[11px] text-muted-foreground label-mono">
-            {filter ? "Nenhum par corresponde ao filtro." : "Watchlist vazia."}
-          </div>
-        ) : (
-          filtered.map((r, i) => {
-            const chg1Color = r.change1m > 0 ? "text-buy" : r.change1m < 0 ? "text-sell" : "text-muted-foreground";
-            const chg5Color = r.change5m > 0 ? "text-buy" : r.change5m < 0 ? "text-sell" : "text-muted-foreground";
-            return (
-              <div key={`${r.pair}-${i}`} className="screener-row">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="screener-pair truncate">{r.pair}</span>
-                  {r.source && (
-                    <span
-                      className={cn(
-                        "label-mono text-[8px] px-1 rounded shrink-0",
-                        r.source === "cex" ? "bg-chain-10 text-chain" : "bg-ai-10 text-ai"
-                      )}
-                    >
-                      {r.source}
-                    </span>
-                  )}
-                  {r.chain && (
-                    <span className="label-mono text-[8px] text-muted-foreground/70 shrink-0">
-                      {r.chain}
-                    </span>
-                  )}
-                </div>
-                <span className="screener-price">${fmtPrice(r.price)}</span>
-                <span className={cn("screener-chg", chg1Color)}>
-                  {r.change1m > 0 ? <ArrowUp className="inline size-2.5 mr-0.5" /> : r.change1m < 0 ? <ArrowDown className="inline size-2.5 mr-0.5" /> : null}
-                  {fmtPct(r.change1m)}
-                </span>
-                <span className={cn("screener-chg", chg5Color)}>
-                  {r.change5m > 0 ? <ArrowUp className="inline size-2.5 mr-0.5" /> : r.change5m < 0 ? <ArrowDown className="inline size-2.5 mr-0.5" /> : null}
-                  {fmtPct(r.change5m)}
-                </span>
-                <span className="screener-vol">${fmtVol(r.vol24h)}</span>
-              </div>
-            );
-          })
-        )}
+      {/* Table */}
+      <div className="flex-1 overflow-auto" style={{ maxHeight: 360 }}>
+        <table className="portfolio-table">
+          <thead>
+            <tr>
+              <th className="text-left">PAIR</th>
+              <th>PRICE</th>
+              <th>1m</th>
+              <th>5m</th>
+              <th>VOL</th>
+              <th>SPREAD</th>
+              <th>LIQ</th>
+              <th>AGE</th>
+              <th>RISK</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && rows.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="text-center text-[11px] text-muted-foreground label-mono py-6">
+                  Carregando…
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="text-center text-[11px] text-muted-foreground label-mono py-6">
+                  {filter ? "Nenhum par corresponde ao filtro." : "Watchlist vazia."}
+                </td>
+              </tr>
+            ) : (
+              filtered.map((r, i) => {
+                const chg1Color = r.change1m > 0 ? "pnl-pos" : r.change1m < 0 ? "pnl-neg" : "pnl-flat";
+                const chg5Color = r.change5m > 0 ? "pnl-pos" : r.change5m < 0 ? "pnl-neg" : "pnl-flat";
+                return (
+                  <tr key={`${r.pair}-${i}`}>
+                    <td className="text-left">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <div className="flex flex-col leading-tight min-w-0">
+                          <span className="font-semibold text-[11px] text-foreground truncate">
+                            {r.pair}
+                          </span>
+                          <span className="label-mono text-[8px] text-muted-foreground tracking-wider">
+                            {r.source ?? "—"}
+                            {r.chain && ` · ${r.chain}`}
+                          </span>
+                        </div>
+                        {typeof r.signalScore === "number" && (
+                          <span
+                            className={cn(
+                              "screener-row-score shrink-0",
+                              r.signalScore >= 50
+                                ? "screener-risk-low"
+                                : r.signalScore >= 0
+                                ? "screener-risk-med"
+                                : "screener-risk-high"
+                            )}
+                            title={`Signal score: ${r.signalScore}`}
+                          >
+                            {r.signalScore > 0 ? "+" : ""}
+                            {r.signalScore}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td>${fmtPrice(r.price)}</td>
+                    <td className={chg1Color}>
+                      <span className="inline-flex items-center justify-end gap-0.5">
+                        {r.change1m > 0 ? <ArrowUp className="size-2.5" /> : r.change1m < 0 ? <ArrowDown className="size-2.5" /> : null}
+                        {fmtPct(r.change1m)}
+                      </span>
+                    </td>
+                    <td className={chg5Color}>
+                      <span className="inline-flex items-center justify-end gap-0.5">
+                        {r.change5m > 0 ? <ArrowUp className="size-2.5" /> : r.change5m < 0 ? <ArrowDown className="size-2.5" /> : null}
+                        {fmtPct(r.change5m)}
+                      </span>
+                    </td>
+                    <td className="text-muted-foreground">${fmtVol(r.vol24h)}</td>
+                    <td className="text-muted-foreground">
+                      {r.spreadBps != null && r.spreadBps > 0 ? `${r.spreadBps.toFixed(1)}bp` : "—"}
+                    </td>
+                    <td className="text-muted-foreground">{fmtLiq(r.liquidityUsd ?? 0)}</td>
+                    <td className="text-muted-foreground">{fmtAge(r.ageDays)}</td>
+                    <td>
+                      <span
+                        className={cn(
+                          "screener-row-score",
+                          riskClass(r.riskScore)
+                        )}
+                      >
+                        {riskLabel(r.riskScore)}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

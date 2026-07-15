@@ -814,3 +814,35 @@ export function useSystemInfo() {
     refetchInterval: 15000,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Source health — external API reliability tracking
+// ---------------------------------------------------------------------------
+export interface SourceHealthRow {
+  source: string;
+  lastSuccessAt: string | null;
+  lastErrorAt: string | null;
+  lastErrorMsg: string | null;
+  successCount24h: number;
+  errorCount24h: number;
+  rateLimited: boolean;
+  rateLimitUntil: string | null;
+  windowStartedAt: string;
+  windowSuccessCount: number;
+  windowErrorCount: number;
+  windowErrorRate: number;
+  status: "healthy" | "degraded" | "down";
+  isCritical: boolean;
+}
+
+export function useSourceHealth() {
+  return useQuery<{ sources: SourceHealthRow[] }>({
+    queryKey: ["source-health"],
+    queryFn: async () => {
+      const r = await fetch("/api/source-health");
+      if (!r.ok) throw new Error("source-health failed");
+      return r.json();
+    },
+    refetchInterval: 10000,
+  });
+}

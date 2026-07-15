@@ -2,11 +2,29 @@
 
 import * as React from "react";
 import { cn } from "@/lib/utils";
-import { Brain, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { Brain, CheckCircle2, XCircle, AlertCircle, MinusCircle } from "lucide-react";
 import type { AIInsightRow } from "@/hooks/use-trading-data";
+
+/** Pre-computed gate statuses, sourced from real backend (H1/H2 layers) */
+export interface GateStatus {
+  /** Liquidity gate (H2) — pool liquidity verification */
+  liquidity: GateState;
+  /** Authority gate (H2) — token authority check */
+  authority: GateState;
+  /** Simulation gate (H1) — pre-trade simulation */
+  simulation: GateState;
+  /** MEV gate (H1) — MEV baseline / sandwich protection */
+  mev: GateState;
+  /** Approval gate (H1) — token approval hardening */
+  approval: GateState;
+}
+
+export type GateState = "pass" | "fail" | "warn" | "unknown";
 
 interface AIDecisionPanelProps {
   insights: AIInsightRow[];
+  /** If provided, replaces the parser-derived gates with real backend gate data */
+  gates?: GateStatus;
   isLoading?: boolean;
   className?: string;
 }
@@ -18,11 +36,10 @@ interface NormalizedDecision {
   confidence: number;
   symbol: string | null;
   reason: string;
-  checks: { label: string; status: "pass" | "fail" | "warn" | "neutral"; detail?: string }[];
   timestamp: string | null;
 }
 
-/* Map raw AI recommendation to canonical action + accent class */
+/* Map raw AI recommendation to canonical action */
 function normalizeRecommendation(rec: string): Action {
   const r = (rec ?? "").toLowerCase();
   if (r.includes("buy") || r.includes("long")) return "BUY";
@@ -55,80 +72,82 @@ function actionColorVar(a: Action): string {
   }
 }
 
-function extractChecks(insight: AIInsightRow): NormalizedDecision["checks"] {
-  const checks: NormalizedDecision["checks"] = [];
-  // Try to read keySignals — they often contain PASS/FAIL markers
-  for (const sig of insight.keySignals.slice(0, 6)) {
-    const lower = sig.toLowerCase();
-    let status: "pass" | "fail" | "warn" | "neutral" = "neutral";
-    let label = sig;
-    let detail: string | undefined;
+const GATE_META: { key: keyof GateStatus; label: string; layer: string }[] = [
+  { key: "liquidity", label: "LIQUIDITY", layer: "H2" },
+  { key: "authority", label: "AUTHORITY", layer: "H2" },
+  { key: "simulation", label: "SIMULATION", layer: "H1" },
+  { key: "mev", label: "MEV", layer: "H1" },
+  { key: "approval", label: "APPROVAL", layer: "H1" },
+];
 
-    // Try to split "Label: Value" pairs
-    const colonIdx = sig.indexOf(":");
-    if (colonIdx > 0) {
-      label = sig.slice(0, colonIdx).trim();
-      detail = sig.slice(colonIdx + 1).trim();
-    }
-
-    if (lower.includes("pass") || lower.includes("ok") || lower.includes("good") || lower.includes("low risk")) {
-      status = "pass";
-    } else if (lower.includes("fail") || lower.includes("reject") || lower.includes("critical") || lower.includes("high risk")) {
-      status = "fail";
-    } else if (lower.includes("warn") || lower.includes("caution") || lower.includes("medium")) {
-      status = "warn";
-    }
-
-    checks.push({ label, status, detail });
+function gateAccentClass(state: GateState): string {
+  switch (state) {
+    case "pass": return "accent-buy";
+    case "warn": return "accent-warn";
+    case "fail": return "accent-sell";
+    case "unknown": return "accent-neutral";
   }
+}
 
-  // Always ensure we have at least the standard 4 checks
-  const defaults = [
-    { label: "LIQUIDITY", status: "neutral" as const },
-    { label: "MEV", status: "neutral" as const },
-    { label: "SIMULATION", status: "neutral" as const },
-    { label: "AUTHORITY", status: "neutral" as const },
-  ];
-  if (checks.length < 4) return defaults;
-  return checks.slice(0, 6);
+function gateIcon(state: GateState) {
+  switch (state) {
+    case "pass": return <CheckCircle2 className="size-3" />;
+    case "warn": return <AlertCircle className="size-3" />;
+    case "fail": return <XCircle className="size-3" />;
+    case "unknown": return <MinusCircle className="size-3" />;
+  }
+}
+
+function gateLabel(state: GateState): string {
+  switch (state) {
+    case "pass": return "PASS";
+    case "warn": return "WARN";
+    case "fail": return "FAIL";
+    case "unknown": return "—";
+  }
 }
 
 /**
- * AIDecisionPanel — permanent panel showing LATEST AI decision.
+ * AIDecisionPanel — permanent panel showing LATEST AI decision + 5 gate approvals.
  *
  * Layout:
  *   ┌──────────────────────────────────┐
  *   │ AI DECISION         · latest     │
  *   │                                  │
- *   │   BUY                            │  ← large 36px action
- *   │   Confidence                     │
- *   │   ████████░░  91%                │  ← progress bar
+ *   │   BUY                  92%       │  ← large 36px action + confidence
+ *   │   ████████████████████░░░░       │
+ *   │                                  │
+ *   │   ─── GATES (H1/H2 hardening) ─  │
+ *   │   LIQUIDITY              PASS    │
+ *   │   AUTHORITY              PASS    │
+ *   │   SIMULATION             PASS    │
+ *   │   MEV                     LOW    │
+ *   │   APPROVAL               OK      │
  *   │                                  │
  *   │   ─── REASON ────────────────    │
- *   │   Liquidity OK, MEV LOW, ...     │  ← short reasoning text
- *   │                                  │
- *   │   ─── CHECKS ─────────────────   │
- *   │   LIQUIDITY              PASS    │
- *   │   MEV                     LOW    │
- *   │   SIMULATION             PASS    │
- *   │   AUTHORITY              PASS    │
+ *   │   Liquidity locked, MEV LOW...   │
  *   └──────────────────────────────────┘
- *
- * Color: action drives the accent (Buy=emerald, Sell=red, Hold=amber, Wait=neutral).
- * Symbol/timestamp shown in header for context.
  */
-export function AIDecisionPanel({ insights, isLoading, className }: AIDecisionPanelProps) {
+export function AIDecisionPanel({ insights, gates, isLoading, className }: AIDecisionPanelProps) {
   const latest = insights[0];
   const decision: NormalizedDecision | null = latest
     ? {
         action: normalizeRecommendation(latest.recommendation),
         confidence: latest.confidence,
         symbol: latest.symbol,
-        reason: latest.keySignals.slice(0, 3).join(" · ") || latest.promptSummary.slice(0, 120),
-        checks: extractChecks(latest),
+        reason: latest.keySignals.slice(0, 3).join(" · ") || latest.promptSummary.slice(0, 140),
         timestamp: latest.createdAt,
       }
     : null;
+
+  // Default gates: unknown unless backend provides real values
+  const resolvedGates: GateStatus = gates ?? {
+    liquidity: "unknown",
+    authority: "unknown",
+    simulation: "unknown",
+    mev: "unknown",
+    approval: "unknown",
+  };
 
   return (
     <div className={cn("ws-panel ws-panel-l3 rounded-lg flex flex-col", className)}>
@@ -156,14 +175,37 @@ export function AIDecisionPanel({ insights, isLoading, className }: AIDecisionPa
             Carregando decisão…
           </div>
         ) : !decision ? (
-          <div className="text-center text-[11px] text-muted-foreground label-mono py-8">
-            Sem decisões ainda.
-            <br />
-            Inicie a engine para gerar a primeira.
-          </div>
+          <>
+            {/* Placeholder action when no decision yet */}
+            <div className="flex items-center gap-3 accent-neutral">
+              <span
+                className="ai-decision-action"
+                style={{ color: "oklch(0.65 0.005 264)" }}
+              >
+                WAIT
+              </span>
+            </div>
+            <div className="ai-decision-confidence accent-neutral">
+              <span className="label-mono text-[9px] text-muted-foreground tracking-[0.16em]">
+                CONFIDENCE
+              </span>
+              <div className="telemetry-bar-track flex-1">
+                <div className="telemetry-bar-fill" style={{ width: "0%" }} />
+              </div>
+              <span
+                className="label-mono text-[12px] font-bold tabular"
+                style={{ color: "oklch(0.65 0.005 264)" }}
+              >
+                —%
+              </span>
+            </div>
+            <div className="text-center text-[11px] text-muted-foreground label-mono py-1">
+              Sem decisões ainda. Inicie a engine para gerar a primeira.
+            </div>
+          </>
         ) : (
           <>
-            {/* ACTION — large 36px */}
+            {/* ACTION + CONFIDENCE — large 36px */}
             <div className={cn("flex items-center gap-3", actionAccentClass(decision.action))}>
               <span
                 className="ai-decision-action"
@@ -173,7 +215,6 @@ export function AIDecisionPanel({ insights, isLoading, className }: AIDecisionPa
               </span>
             </div>
 
-            {/* CONFIDENCE — bar */}
             <div className={cn("ai-decision-confidence", actionAccentClass(decision.action))}>
               <span className="label-mono text-[9px] text-muted-foreground tracking-[0.16em]">
                 CONFIDENCE
@@ -191,45 +232,54 @@ export function AIDecisionPanel({ insights, isLoading, className }: AIDecisionPa
                 {decision.confidence}%
               </span>
             </div>
+          </>
+        )}
 
-            {/* REASON */}
-            <div className="ai-decision-reason">
-              <span className="label-mono text-[9px] text-muted-foreground tracking-[0.16em] block mb-1">
-                REASON
-              </span>
-              <p className="text-[11px] text-foreground/90 leading-snug line-clamp-3">
-                {decision.reason}
-              </p>
-            </div>
-
-            {/* CHECKS */}
-            <div className="ai-decision-reason">
-              <span className="label-mono text-[9px] text-muted-foreground tracking-[0.16em] block mb-1">
-                CHECKS
-              </span>
-              <div>
-                {decision.checks.map((c, i) => (
-                  <div key={i} className="ai-decision-check">
-                    <span className="text-muted-foreground">{c.label}</span>
-                    <span
-                      className={cn(
-                        "flex items-center gap-1",
-                        c.status === "pass" && "text-buy",
-                        c.status === "fail" && "text-sell",
-                        c.status === "warn" && "text-warn",
-                        c.status === "neutral" && "text-muted-foreground"
-                      )}
-                    >
-                      {c.status === "pass" && <CheckCircle2 className="size-2.5" />}
-                      {c.status === "fail" && <XCircle className="size-2.5" />}
-                      {c.status === "warn" && <AlertCircle className="size-2.5" />}
-                      {c.detail ?? c.status.toUpperCase()}
+        {/* GATES — 5 hardening gates (Liquidity / Authority / Simulation / MEV / Approval)
+            ALWAYS visible per operator spec — even without a decision. */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="label-mono text-[9px] text-muted-foreground tracking-[0.16em]">
+              GATES
+            </span>
+            <span className="label-mono text-[8px] text-muted-foreground/70 tracking-[0.10em]">
+              H1/H2 HARDENING
+            </span>
+          </div>
+          <div className="gate-list">
+            {GATE_META.map((g) => {
+              const state = resolvedGates[g.key];
+              return (
+                <div
+                  key={g.key}
+                  className={cn("gate-row", gateAccentClass(state))}
+                >
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="gate-row-label">{g.label}</span>
+                    <span className="label-mono text-[7.5px] text-muted-foreground/60 tracking-[0.08em]">
+                      {g.layer}
                     </span>
                   </div>
-                ))}
-              </div>
-            </div>
-          </>
+                  <span className="gate-row-value">
+                    {gateIcon(state)}
+                    {gateLabel(state)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* REASON */}
+        {decision && (
+          <div className="ai-decision-reason">
+            <span className="label-mono text-[9px] text-muted-foreground tracking-[0.16em] block mb-1">
+              REASON
+            </span>
+            <p className="text-[11px] text-foreground/90 leading-snug line-clamp-3">
+              {decision.reason}
+            </p>
+          </div>
         )}
       </div>
     </div>

@@ -3,7 +3,27 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 import { EquityCurveChart, type EquityPoint } from "./equity-curve-chart";
-import { TrendingUp, TrendingDown, Activity, Zap, Target, Crosshair } from "lucide-react";
+import { TrendingUp, TrendingDown, Activity, Zap } from "lucide-react";
+
+/** Pre-computed performance metrics derived from rounds + history in page.tsx */
+export interface PerformanceMetrics {
+  /** Return on investment (%) vs initial capital */
+  roiPct: number;
+  /** Periodic Sharpe ratio (mean/std of per-round returns). 0 if not computable. */
+  sharpe: number;
+  /** Current drawdown from peak equity (%) */
+  drawdownPct: number;
+  /** Current deployed capital (USD) — trading balance + unrealized PnL */
+  capital: number;
+  /** Win rate (%) — wins / (wins + losses) */
+  winRate: number;
+  /** Profit factor = sum(wins) / abs(sum(losses)). Infinity if no losses. */
+  profitFactor: number;
+  /** Expectancy (USD) = average PnL per trade */
+  expectancy: number;
+  /** Number of trades used for stats */
+  trades: number;
+}
 
 interface EquityCurvePanelProps {
   data: EquityPoint[];
@@ -15,6 +35,7 @@ interface EquityCurvePanelProps {
   isLive: boolean;
   isRunning: boolean;
   lastLoopAt?: string | null;
+  metrics?: PerformanceMetrics;
   className?: string;
 }
 
@@ -33,30 +54,32 @@ function fmtUsdCompact(n: number): string {
   return fmtUsd(n, 2);
 }
 
+function fmtNum(n: number, decimals = 2): string {
+  if (!Number.isFinite(n)) return "—";
+  return n.toFixed(decimals);
+}
+
+function fmtProfitFactor(n: number): string {
+  if (!Number.isFinite(n)) return "∞";
+  if (n >= 100) return `${n.toFixed(0)}`;
+  return n.toFixed(2);
+}
+
 /**
  * EquityCurvePanel — DOMINANT focal element of the workspace.
  *
- * Per operator spec: "O gráfico principal deve ocupar quase toda a largura"
- * and "Gráfico principal ocupando aproximadamente metade da área acima da dobra."
- *
  * Layout:
  *   ┌──────────────────────────────────────────────────────────────────┐
- *   │ EQUITY CURVE                          $12,832.45  +11.58%  ●LIVE │
+ *   │ EQUITY CURVE                  $12,832.45  +11.58%  ●LIVE          │
  *   │                                                                  │
- *   │                                                                  │
- *   │                  (full-width chart, ~360-420px tall)             │
- *   │                                                                  │
+ *   │              (full-width chart, ~340-380px tall)                 │
  *   │                                                                  │
  *   │ ───────────────────────────────────────────────────────────────  │
- *   │ ROI          REALIZED     UNREALIZED    DRAWDOWN                 │
- *   │ +18.52%      +$1,253      +$49.50       -4.10%                   │
- *   │ ▲ +$1,332    ▲ +18.42%    OPEN 2        PEAK $13,380             │
- *   │ ████████     ────────     ────────      ████████                 │
- *   │ ───────────────────────────────────────────────────────────────  │
- *   │ TRADING      RESERVE      EXPOSURE      WIN RATE                 │
- *   │ $11,549      $1,283       $324          78.0%                    │
- *   │ DEPLOYABLE   COLD         AT RISK 28%   W7 L2 9 TRADES           │
+ *   │ ROI | SHARPE | DRAWDOWN | CAPITAL | WIN% | PF | EXPECT | TRADES  │
+ *   │ 18.52 | 1.84 | -4.10% | $12,832 | 78.0% | 2.34 | +$49 | 9        │
  *   └──────────────────────────────────────────────────────────────────┘
+ *
+ * The 7 KPIs sit inline with the chart in a single strip.
  */
 export function EquityCurvePanel({
   data,
@@ -68,14 +91,12 @@ export function EquityCurvePanel({
   isLive,
   isRunning,
   lastLoopAt,
+  metrics,
   className,
 }: EquityCurvePanelProps) {
-  const roi =
-    initialCapital > 0 ? ((currentEquity - initialCapital) / initialCapital) * 100 : 0;
-  const drawdown = peakEquity > 0 ? ((peakEquity - currentEquity) / peakEquity) * 100 : 0;
+  const roi = metrics?.roiPct ?? (initialCapital > 0 ? ((currentEquity - initialCapital) / initialCapital) * 100 : 0);
+  const drawdown = metrics?.drawdownPct ?? (peakEquity > 0 ? ((peakEquity - currentEquity) / peakEquity) * 100 : 0);
   const deltaAbsolute = currentEquity - initialCapital;
-  const pnlPositive = realizedPnl >= 0;
-  const unrealPositive = unrealizedPnl >= 0;
   const roiPositive = roi >= 0;
 
   // "Live" pulse — last loop tick animation
@@ -90,6 +111,15 @@ export function EquityCurvePanel({
     }
   }, [lastLoopAt]);
 
+  // KPI cells (8 cells, last is TRADES count)
+  const sharpe = metrics?.sharpe ?? 0;
+  const sharpePositive = sharpe >= 0;
+  const winRate = metrics?.winRate ?? 0;
+  const profitFactor = metrics?.profitFactor ?? 0;
+  const expectancy = metrics?.expectancy ?? 0;
+  const trades = metrics?.trades ?? 0;
+  const capital = metrics?.capital ?? currentEquity;
+
   return (
     <section
       className={cn(
@@ -99,7 +129,7 @@ export function EquityCurvePanel({
     >
       <div className="absolute inset-0 grid-overlay opacity-30 pointer-events-none" />
 
-      {/* ============== HEADER ROW — brand + live equity + status ============== */}
+      {/* ============== HEADER ROW ============== */}
       <div className="relative flex items-start justify-between px-6 pt-4 pb-2 flex-wrap gap-4">
         {/* Left: brand + label */}
         <div className="flex items-center gap-3 min-w-0">
@@ -205,12 +235,12 @@ export function EquityCurvePanel({
         </div>
       </div>
 
-      {/* ============== CHART — full width, dominant ============== */}
+      {/* ============== CHART ============== */}
       <div className="relative px-4 pb-1">
         {data.length >= 2 ? (
-          <EquityCurveChart data={data} height={380} />
+          <EquityCurveChart data={data} height={340} />
         ) : (
-          <div className="h-[380px] flex flex-col items-center justify-center text-center gap-3 relative">
+          <div className="h-[340px] flex flex-col items-center justify-center text-center gap-3 relative">
             <div className="absolute inset-0 grid-overlay opacity-20" />
             <Activity className="size-10 text-muted-foreground/30 relative" />
             <div className="label-mono text-[11px] text-muted-foreground relative tracking-wider">
@@ -225,60 +255,75 @@ export function EquityCurvePanel({
         )}
       </div>
 
-      {/* ============== STAT GRID — 2 rows of 4 cells ============== */}
-      <div className="panel-divider mx-6 mt-2" />
-      <div className="px-6 py-3 grid grid-cols-2 md:grid-cols-4 gap-3">
-        <HeroStatCell
+      {/* ============== KPI STRIP — 8 metrics inline with chart ============== */}
+      <div className="panel-divider mx-6 mt-1" />
+      <div className="kpi-strip">
+        <KpiCell
           label="ROI"
-          value={`${roi >= 0 ? "+" : ""}${roi.toFixed(2)}%`}
+          value={`${roi >= 0 ? "+" : ""}${fmtNum(roi)}%`}
           sub={`delta ${deltaAbsolute >= 0 ? "+" : ""}${fmtUsdCompact(deltaAbsolute)}`}
           accent={roiPositive ? "buy" : "sell"}
-          icon={roiPositive ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-          hint="ALL-TIME"
-          progress={Math.max(0, Math.min(100, roi + 50))}
+          icon={roiPositive ? <TrendingUp className="size-2.5" /> : <TrendingDown className="size-2.5" />}
         />
-        <HeroStatCell
-          label="REALIZED"
-          value={`${pnlPositive ? "+" : ""}${fmtUsdCompact(realizedPnl)}`}
-          sub="lifetime"
-          accent={pnlPositive ? "buy" : "sell"}
-          icon={pnlPositive ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
-          hint="PNL"
+        <KpiCell
+          label="SHARPE"
+          value={fmtNum(sharpe, 2)}
+          sub="periodic · non-annualized"
+          accent={sharpePositive ? "buy" : "sell"}
         />
-        <HeroStatCell
-          label="UNREALIZED"
-          value={`${unrealPositive ? "+" : ""}${fmtUsdCompact(unrealizedPnl)}`}
-          sub="open positions"
-          accent={unrealPositive ? "buy" : "sell"}
-          icon={<Zap className="size-3" />}
-          hint="OPEN"
-        />
-        <HeroStatCell
+        <KpiCell
           label="DRAWDOWN"
-          value={`-${drawdown.toFixed(2)}%`}
+          value={`-${fmtNum(drawdown)}%`}
           sub={`peak ${fmtUsdCompact(peakEquity)}`}
           accent="sell"
-          icon={<TrendingDown className="size-3" />}
-          hint="FROM PEAK"
-          progress={Math.min(100, drawdown * 4)}
+          icon={<TrendingDown className="size-2.5" />}
+        />
+        <KpiCell
+          label="CAPITAL"
+          value={fmtUsdCompact(capital)}
+          sub={`deployed · ${trades} trades`}
+          accent="chain"
+        />
+        <KpiCell
+          label="WIN RATE"
+          value={`${fmtNum(winRate, 1)}%`}
+          sub={metrics ? `${metrics.trades ? Math.round(winRate * trades / 100) : 0}W / ${trades - Math.round(winRate * trades / 100)}L` : "—"}
+          accent="ai"
+        />
+        <KpiCell
+          label="PROFIT FACTOR"
+          value={fmtProfitFactor(profitFactor)}
+          sub="gross win / gross loss"
+          accent={profitFactor >= 1 ? "buy" : "sell"}
+        />
+        <KpiCell
+          label="EXPECTANCY"
+          value={`${expectancy >= 0 ? "+" : ""}${fmtUsdCompact(expectancy)}`}
+          sub="per trade"
+          accent={expectancy >= 0 ? "buy" : "sell"}
+          icon={<Zap className="size-2.5" />}
+        />
+        <KpiCell
+          label="REALIZED"
+          value={`${realizedPnl >= 0 ? "+" : ""}${fmtUsdCompact(realizedPnl)}`}
+          sub={`unreal ${unrealizedPnl >= 0 ? "+" : ""}${fmtUsdCompact(unrealizedPnl)}`}
+          accent={realizedPnl >= 0 ? "buy" : "sell"}
         />
       </div>
     </section>
   );
 }
 
-/* ----------------------------------------------------- hero stat cell */
-interface HeroStatCellProps {
+/* ----------------------------------------------------- KPI cell */
+interface KpiCellProps {
   label: string;
   value: string;
   sub?: string;
   accent: "buy" | "sell" | "chain" | "warn" | "ai" | "neutral";
   icon?: React.ReactNode;
-  hint?: string;
-  progress?: number;
 }
 
-const heroAccentVar: Record<HeroStatCellProps["accent"], string> = {
+const kpiAccentVar: Record<KpiCellProps["accent"], string> = {
   buy: "var(--color-buy)",
   sell: "var(--color-sell)",
   chain: "var(--color-chain)",
@@ -287,45 +332,25 @@ const heroAccentVar: Record<HeroStatCellProps["accent"], string> = {
   neutral: "oklch(0.65 0.005 264)",
 };
 
-function HeroStatCell({ label, value, sub, accent, icon, hint, progress }: HeroStatCellProps) {
-  const color = heroAccentVar[accent];
+function KpiCell({ label, value, sub, accent, icon }: KpiCellProps) {
+  const color = kpiAccentVar[accent];
   return (
     <div
-      className="mini-panel rounded-md px-3 py-2.5 flex flex-col gap-1.5"
+      className="kpi-cell"
       style={{ ["--accent" as string]: color } as React.CSSProperties}
     >
-      <div className="flex items-center justify-between gap-2 min-w-0">
-        <div className="flex items-center gap-1.5 min-w-0">
-          {icon && (
-            <span className="shrink-0 size-3" style={{ color }}>
-              {icon}
-            </span>
-          )}
-          <span className="label-mono text-[9px] text-muted-foreground truncate tracking-wider">
-            {label}
+      <div className="flex items-center justify-between gap-1.5 min-w-0">
+        <span className="kpi-cell-label">{label}</span>
+        {icon && (
+          <span className="shrink-0 size-2.5" style={{ color }}>
+            {icon}
           </span>
-        </div>
-        {hint && (
-          <span className="label-mono text-[8px] text-muted-foreground/70 shrink-0">{hint}</span>
         )}
       </div>
-      <div
-        className="tabular text-[20px] font-bold leading-none tracking-tight truncate"
-        style={{ color }}
-      >
+      <span className="kpi-cell-value" style={{ color }}>
         {value}
-      </div>
-      {typeof progress === "number" && (
-        <div className="telemetry-bar-track" style={{ height: 4 }}>
-          <div
-            className="telemetry-bar-fill"
-            style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}
-          />
-        </div>
-      )}
-      {sub && (
-        <div className="label-mono text-[8.5px] text-muted-foreground/70 truncate">{sub}</div>
-      )}
+      </span>
+      {sub && <span className="kpi-cell-sub">{sub}</span>}
     </div>
   );
 }
