@@ -1,161 +1,183 @@
-# architecture/dependencies.md — Mapa de Dependências
+# `architecture/dependencies.md` — Quem Depende de Quem
 
-> Quem depende de quem. Quem pode ser alterado. Quem está congelado.
-> Setas `A → B` significam "A depende de B" (A consome a interface de B).
+> Mapa de dependências entre módulos. Use para calcular **blast
+> radius** antes de alterar qualquer símbolo público.
+> Símbolos marcados ⚠️ têm muitos consumers — alterar com cautela
+> extrema e preferir extensão (não breaking change).
 
 ---
 
-## Mapa direto (topologia do fluxo canônico)
+## Camada de Chain — dependências internas
 
 ```
-Market Data (Binance REST, DexScreener, GoPlus, alternative.me, CoinGecko)
-        │
-        ▼
-src/lib/trading/*  (engine de trading — paper mode default)
-        │
-        ▼
-src/lib/chain/pipeline.ts  [H2.6, FROZEN]
-        │
-        ├──► liquidity-verification.ts  [H2.2, FROZEN]
-        │       └──► contract-verification.ts  [H2.1, FROZEN]
-        │              └──► rpc-resilience.ts  [H1.1, FROZEN]
-        │                     └──► ethers.js JsonRpcProvider
-        │
-        ├──► token-authority.ts  [H2.3, FROZEN]
-        │       └──► contract-verification.ts
-        │
-        ├──► simulation-gate.ts  [H1.2, FROZEN]
-        │       └──► rpc-resilience.ts
-        │
-        ├──► mev-baseline.ts  [H1.4, FROZEN]
-        │       └──► rpc-resilience.ts
-        │
-        ├──► approval-hardening.ts  [H1.3, FROZEN]
-        │       └──► rpc-resilience.ts
-        │
-        └──► sell-simulation.ts  [H2.4, FROZEN]
-                └──► simulation-gate.ts
-
-        ▼ (PipelineResult aprovado)
-src/lib/chain/signer-adapter.ts  [M3.1, FROZEN]
-        │
-        └──► src/lib/signer-protocol.ts  (contrato IPC)
-                │
-                ▼ (IPC message)
-src/signer/main.ts  [M3.2, FROZEN]  (processo isolado)
-        ├──► wallet-methods.ts
-        ├──► sign-methods.ts
-        └──► audit.ts  [H0.3 hash-chain]
-
-        ▼ (tx assinada)
-src/lib/chain/writer-lease.ts  [M4, FROZEN]
-        │  (fencing token emitido em acquire)
-        ▼
-src/lib/chain/leased-broadcaster.ts  [M4, FROZEN]
-        │  (pre-broadcast fencing check)
-        ├──► writer-lease.ts (verifyToken)
-        └──► src/lib/chain/broadcaster.ts  [M3.3, FROZEN]
-                │
-                ├──► rpc-resilience.ts  (quorum broadcast)
-                │
-                ▼
-            Blockchain
-
-        ▼ (em paralelo: métricas)
-src/lib/observability/registry.ts  [M5.5]
-        ▲
-        ├──► src/lib/runtime/runtime.ts  [M5.0]
-        │       └──► (todos os módulos chain acima)
-        ├──► src/lib/runtime/canary.ts  [M5.3]
-        ├──► src/lib/runtime/shadow.ts  [M5.2]
-        ├──► src/lib/runtime/chaos.ts  [M5.4]
-        └──► src/lib/runtime/long-duration.ts  [M5.6]
-                │
-                ▼
-        src/lib/observability/snapshot.ts  [M5.5]
-                │
-                ▼
-        src/lib/observability/exporter.ts  [M5.5]
-                │
-                ▼
-        src/app/api/runtime/status/route.ts  [M5.5]
+Pipeline
+  ├── SimulationGate        (H1.2)
+  ├── ContractVerification  (H2.1)
+  ├── LiquidityVerification (H2.2)
+  ├── TokenAuthority        (H2.3)
+  ├── SellSimulation        (H2.4)
+  ├── ApprovalHardening     (H1.3)
+  ├── MEVBaseline           (H1.4)
+  ├── SignerAdapter         (M3.1)
+  │     └── signer-protocol (IPC binário, FROZEN)
+  ├── WriterLease           (M4)
+  │     └── LeaseStore      (interface; InMemoryLeaseStore default)
+  ├── LeasedBroadcaster     (M4)
+  │     ├── Broadcaster     (M3.3)
+  │     │     └── rpc-resilience (H1.1, RPC quorum)
+  │     └── WriterLease.verifyToken()
+  └── audit-log             (H0, hash-chain)
 ```
 
----
+### Blast radius por módulo
 
-## Matriz de dependências (inbound)
-
-> "Quem me consome?" — lista arquivos que importam/exportam de cada módulo.
-
-| Módulo                          | Inbound (consumidores)                                          |
-| ------------------------------- | --------------------------------------------------------------- |
-| `audit-log.ts`                  | broadcaster, signer/audit, risk-manager, logger                |
-| `rpc-resilience.ts`             | broadcaster, liquidity-verif, contract-verif, token-authority, simulation-gate, mev-baseline, approval-hardening, sell-simulation |
-| `simulation-gate.ts`            | pipeline, sell-simulation                                       |
-| `approval-hardening.ts`         | pipeline                                                        |
-| `mev-baseline.ts`               | pipeline                                                        |
-| `contract-verification.ts`      | pipeline, liquidity-verif, token-authority                      |
-| `liquidity-verification.ts`     | pipeline                                                        |
-| `token-authority.ts`            | pipeline                                                        |
-| `sell-simulation.ts`            | pipeline                                                        |
-| `pipeline.ts`                   | signer-adapter, runtime, shadow                                 |
-| `signer-adapter.ts`             | runtime, leased-broadcaster                                     |
-| `signer-protocol.ts`            | signer-adapter, signer/main                                     |
-| `signer/main.ts`                | (processo separado; spawnado por runtime)                       |
-| `broadcaster.ts`                | leased-broadcaster                                              |
-| `writer-lease.ts`               | leased-broadcaster                                              |
-| `leased-broadcaster.ts`         | runtime                                                         |
-| `runtime.ts`                    | engine de trading, scripts/test-m5-*, API /api/runtime/status   |
-| `canary.ts`                     | runtime                                                         |
-| `shadow.ts`                     | runtime, scripts/test-m5-shadow                                 |
-| `chaos.ts`                      | scripts/test-m5-chaos                                           |
-| `long-duration.ts`              | scripts/test-m5-long-duration                                   |
-| `observability/registry.ts`     | runtime, canary, shadow, chaos, long-duration, snapshot         |
-| `observability/snapshot.ts`     | exporter                                                        |
-| `observability/exporter.ts`     | /api/runtime/status/route.ts                                    |
+| Módulo              | Consumers diretos                                            | Blast radius |
+| ------------------- | ------------------------------------------------------------ | ------------ |
+| `Pipeline`          | `runtime.ts`, `shadow.ts` (M5.2 fork), test harnesses        | ⚠️ Alto      |
+| `SignerAdapter`     | `Pipeline`, test harnesses M3/M4/M5                          | ⚠️ Alto      |
+| `signer-protocol`   | `SignerAdapter` (engine), `signer/main.ts` (signer)         | ⚠️ Crítico   |
+| `WriterLease`       | `LeasedBroadcaster`, test harnesses M4/M5                    | Médio        |
+| `LeasedBroadcaster` | `Pipeline`, `CanaryBroadcaster`, test harnesses             | Médio        |
+| `Broadcaster`       | `LeasedBroadcaster`, test harnesses M3/M4                    | ⚠️ Alto      |
+| `rpc-resilience`    | `Broadcaster`, `ContractVerification`, `LiquidityVerification` | ⚠️ Alto   |
+| `audit-log`         | Praticamente todos (Pipeline, Signer, Lease, Broadcaster)    | ⚠️ Crítico   |
 
 ---
 
-## Classificação de alterabilidade
+## Camada de Observability — Registry único (DEC-004)
 
-### 🟥 FROZEN — só alterar com autorização explícita + entrada em DECISION_LOG.md
+```
+Registry (src/lib/observability/registry.ts)  ← FONTE DE VERDADE
+  ▲
+  ├── metrics.ts          (define interfaces Counter/Gauge/Histogram)
+  ├── snapshot.ts         (snapshot read-only)
+  ├── exporter.ts         (exporta para /api/runtime/status)
+  │
+  └── Consumers (todos os harnesses M5):
+        ├── runtime.ts            (factory: cria Registry e injeta)
+        ├── chaos.ts              (ChaosInjector classes)
+        ├── shadow.ts             (fork Live + Shadow)
+        ├── canary.ts             (CanaryBroadcaster)
+        └── long-duration.ts      (loop while(running))
+```
 
-Toda a camada H0–M4 em `src/lib/chain/` + `src/signer/`. Lista completa
-em `frozen-files.md`. Exceções só para correção de bug que **preserva**
-o contrato público (CORE_RULES Regra 9 e 10).
-
-### 🟨 Validado em M5 — não alterar sem nova entrada em DECISION_LOG.md
-
-`src/lib/runtime/*`, `src/lib/observability/*`,
-`src/app/api/runtime/status/route.ts`, `src/lib/chain/runtime.ts` (a
-factory; mover para `src/lib/runtime/runtime.ts` exige decisão).
-
-### 🟩 Livre para evoluir
-
-`src/lib/trading/*` (engine de paper trading), `src/components/dashboard/*`
-(UI), `src/app/api/*` (exceto `/api/runtime/status`), `prisma/schema.prisma`
-(com migrations), `scripts/test-*.ts` (com coordenação — ver
-`memory/known-problems.md`).
-
-### 🟦 Externo — não alterar
-
-`node_modules/`, `.next/`, `prisma/migrations/*` (já aplicadas),
-`package.json` deps já instaladas.
+**Invariante (DEC-004):** nenhum harness cria sua própria coleta de
+métricas. Todos consomem o Registry injetado pelo `buildRuntime()`.
 
 ---
 
-## Ciclos proibidos
+## Camada de Trading — dependências
 
-A topologia é **DAG** (grafo acíclico dirigido). Adicionar uma aresta
-que crie ciclo é proibido e deve ser detectado em code review. Em
-particular:
+```
+Engine (state machine)
+  ├── ConfigManager
+  ├── Logger                  → audit-log (H0)
+  ├── RiskManager             (5 circuit breakers)
+  ├── ScamDetector            (6 sub-scorers + LLM squad)
+  │     ├── TokenSelector     → Binance REST + DexScreener
+  │     ├── PriceFeed         → Binance + DexScreener (cache 15s)
+  │     └── LLM Squad         → z-ai-web-dev-sdk (GLM-4.6)
+  ├── PaperTrader             (slippage 0.3%)
+  ├── Portfolio               (split 50/50 USDC cold / reinvest)
+  └── Pipeline                (camada de chain — descrita acima)
+```
 
-- `signer/*` **não pode** importar de `src/lib/chain/*` (processo
-  isolado — comunicação só via `signer-protocol.ts`).
-- `src/lib/observability/*` **não pode** importar de `src/lib/runtime/*`
-  ou `src/lib/chain/*` (Registry é sink; não é source de dependência
-  cíclica).
-- `src/lib/runtime/*` **pode** importar de `src/lib/chain/*` e
-  `src/lib/observability/*`, mas não o contrário.
+### Notas de alterabilidade
 
-Em caso de dúvida, validar via `Grep "from '@/.*/(runtime|chain|observability)/"` antes de adicionar import.
+- `Engine` é o orchestrador; mudanças no state machine (adicionar
+  estados, alterar transições) têm blast radius médio — afeta
+  dashboard e API.
+- `ScamDetector` é composto por 6 sub-scorers independentes; adicionar
+  novo sub-scorer é baixo risco (registra via factory pattern).
+- `RiskManager` circuit breakers são independentes entre si; adicionar
+  novo breaker é baixo risco. Remover breaker existente é médio risco
+  (testes adversariais REG-NNN dependem dos breakers atuais).
+
+---
+
+## Camada de API — dependências HTTP
+
+```
+/api/engine/start, /api/engine/stop
+  └── Engine (state machine)
+
+/api/positions, /api/history, /api/rounds, /api/logs
+  └── Prisma (read-only queries)
+
+/api/config (GET, PUT)
+  └── ConfigManager (PUT escreve em DB; GET lê com cache)
+
+/api/kill-switch
+  └── RiskManager (toggle flag persistente)
+
+/api/reserve (GET, PUT)
+  └── Portfolio (USDC cold reserve)
+
+/api/scam-reports
+  └── ScamDetector (read-only)
+
+/api/runtime/status (M5.5)
+  └── Registry.snapshot()  (read-only, sem side-effects)
+
+/api/initialize
+  └── Prisma migrations + seed
+```
+
+### Regras para novos endpoints
+
+- Todo novo endpoint DEVE ser adicionado também em
+  `contracts/api-contracts.md`.
+- Endpoints `read-only` (GET) podem ler do Registry sem locks.
+- Endpoints `write` (POST/PUT/DELETE) que tocam estado do Engine
+  DEVE adquirir WriterLease antes de mutar (Regra 8 — frozen pattern).
+
+---
+
+## Dependências externas (npm)
+
+| Pacote             | Versão  | Uso                                            | Substituível? |
+| ------------------ | ------- | ---------------------------------------------- | ------------- |
+| `next`             | 16.x    | Framework web (App Router)                     | ❌            |
+| `react`            | 19.x    | UI                                             | ❌            |
+| `typescript`       | 5.x     | Type system                                    | ❌            |
+| `tailwindcss`      | 4.x     | Styling                                        | ❌            |
+| `@prisma/client`   | 5.x     | ORM                                            | ❌            |
+| `prisma`           | 5.x     | Schema migration CLI                           | ❌            |
+| `zod`              | 3.x     | Runtime validation                             | ✅ (valibot)  |
+| `ethers`           | 6.x     | Blockchain interaction, ABI encoding           | ✅ (viem)     |
+| `viem`             | 2.x     | (alternativo) Lightweight blockchain client    | —             |
+| `z-ai-web-dev-sdk` | latest  | LLM squad (GLM-4.6) para ScamDetector         | ❌            |
+
+### Regras para novas dependências (ENGINEERING_RULES.md)
+
+- Antes de `npm install X`, verificar se a funcionalidade já existe
+  em dependências instaladas.
+- Toda nova dependência DEVE ser justificada em `DECISION_LOG.md`.
+- Toda remoção de dependência DEVE verificar consumers via Grep
+  (imports do nome do pacote).
+
+---
+
+## Diagrama de módulos FROZEN (blast radius máximo)
+
+```
+              ┌──────────────────────────────────┐
+              │      audit-log (H0) ⚠️ CRÍTICO    │
+              │   consumido por ~todos os módulos│
+              └──────────────────────────────────┘
+                              ▲
+              ┌───────────────┼───────────────┐
+              │               │               │
+   ┌──────────┴─────┐  ┌──────┴───────┐  ┌────┴────────────┐
+   │ signer-protocol│  │  Pipeline    │  │  rpc-resilience │
+   │  (M3.2) ⚠️     │  │  (H2.6) ⚠️   │  │  (H1.1) ⚠️      │
+   └────────────────┘  └──────────────┘  └─────────────────┘
+```
+
+**Regra prática:** alterar qualquer um destes 4 módulos é
+extremamente arriscado. Sempre que possível:
+
+1. Estender (novo método, novo campo opcional) em vez de modificar.
+2. Adicionar通路 paralelo (novo módulo) em vez de tocar o FROZEN.
+3. Se realmente precisa modificar, abrir ADR antes e validar com
+   o operador.

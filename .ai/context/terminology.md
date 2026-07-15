@@ -1,303 +1,223 @@
-# context/terminology.md — Terminologia Técnica
+# `context/terminology.md` — Terminologia Interna do Projeto
 
-> Significado dos termos utilizados neste projeto. Quando um termo
-> aparecer em qualquer documento `.ai/` ou no código, seu significado
-> é o definido aqui. Para termos por ordem alfabética ver
-> `glossary.md`.
-
----
-
-## Hardening Roadmap (fases)
-
-### H0 — Crypto Foundation
-
-Camada fundacional de primitivos criptográficos: KDF versionada,
-audit hash-chain, key rotation. Sem H0, nada acima é confiável.
-
-### H1 — RPC/Sim/Approval/MEV
-
-Camada de defesa da interação com a blockchain: RPC quorum
-(resiliência contra endpoint malicioso), simulation gate (simula
-tx antes de broadcastar), approval hardening (rejeita approvals
-ilimitados), MEV baseline (detecta sandwich opportunity).
-
-### H2 — Contract/Liquidity/TokenAuthority/SellSim
-
-Camada de verificação do ativo antes de trade: contract
-verification (source code via Etherscan/Sourcify), liquidity
-verification (LP lock, concentração), token authority (mint/freeze/
-upgrade), sell simulation (honeypot detection via simulação de
-sell antes de buy).
-
-### H2.6 — Pipeline
-
-Composição dos gates H1+H2 em sequência. `PipelineResult` é o
-contrato consumido por `signer-adapter`.
-
-### M3 — SignerAdapter / Signer RPC / Broadcaster
-
-- **M3.1 SignerAdapter:** adaptador IPC entre engine e processo
-  signer.
-- **M3.2 Signer RPC:** signer isolado em processo próprio. Chave
-  privada nunca sai do processo.
-- **M3.3 Broadcaster:** submete tx ao RPC quorum, aguarda receipt,
-  classifica erros.
-
-### M4 — Writer Lease
-
-Lease distribuído com fencing tokens (Kleppmann pattern). Cada
-acquire recebe token monotônico. LeasedBroadcaster verifica token
-antes de broadcastar.
-
-### M5 — Production Validation
-
-Validação operacional sem adicionar funcionalidade. 7 sub-fases:
-M5.0 Runtime factory, M5.1 Dry Run, M5.5 Observability, M5.4 Chaos,
-M5.2 Shadow, M5.3 Canary, M5.6 Long-Duration, M5.7 Finalização.
-
-### M6 — Live Trading (proposto)
-
-Transição controlada de paper para live via canaryPct ramp 1% →
-5% → 10% → 25% → 100% com rollback automático.
+> **Divisão de responsabilidade (vs `glossary.md`):**
+>
+> - **`terminology.md` (este arquivo):** convenções internas do
+>   projeto. Nomes oficiais de módulos, acrônimos utilizados,
+>   significado operacional.
+> - **`glossary.md`:** dicionário alfabético de termos técnicos
+>   externos (Blockchain, Trading, RPC, Ethereum, Segurança, IA).
+>
+> Não duplicar. Se um termo é interno do projeto, vai aqui. Se é
+> técnico geral da indústria, vai em `glossary.md`.
 
 ---
 
-## Conceitos do M4 (Writer Lease)
+## Nomes oficiais de módulos
 
-### Fencing token
+Os nomes abaixo são canônicos. Qualquer referência em docs, commits,
+ADRs, ou discussão DEVE usar exatamente estes nomes (casing
+sensível).
 
-Número monotônico estrito emitido a cada lease acquire. O
-`LeasedBroadcaster` verifica o token antes de broadcastar. Writer
-stale (com token antigo) é rejeitado mesmo que acredite ter a lease.
+### Camada de audit
 
-### Kleppmann pattern
+| Nome              | Arquivo                          | Fase | Descrição operacional                          |
+| ----------------- | -------------------------------- | ---- | ---------------------------------------------- |
+| `AuditLog`        | `src/lib/audit/audit-log.ts`     | H0   | Audit log tamper-evident com hash-chain.       |
 
-Padrão de distributed locking descrito por Martin Kleppmann ("How to
-do distributed locking"): lease + fencing token monotônico. Sem
-fencing, time-based locks são vulneráveis a clock skew e GC pauses.
+### Camada de chain (hardening)
 
-### LeaseStore
+| Nome                       | Arquivo                                       | Fase |
+| -------------------------- | --------------------------------------------- | ---- |
+| `RpcQuorum`                | `src/lib/chain/rpc-resilience.ts`             | H1.1 |
+| `SimulationGate`           | `src/lib/chain/simulation-gate.ts`            | H1.2 |
+| `ApprovalHardening`        | `src/lib/chain/approval-hardening.ts`         | H1.3 |
+| `MevBaseline`              | `src/lib/chain/mev-baseline.ts`               | H1.4 |
+| `ContractVerification`     | `src/lib/chain/contract-verification.ts`      | H2.1 |
+| `LiquidityVerification`    | `src/lib/chain/liquidity-verification.ts`     | H2.2 |
+| `TokenAuthority`           | `src/lib/chain/token-authority.ts`            | H2.3 |
+| `SellSimulation`           | `src/lib/chain/sell-simulation.ts`            | H2.4 |
+| `Pipeline`                 | `src/lib/chain/pipeline.ts`                   | H2.6 |
+| `SignerAdapter`            | `src/lib/chain/signer-adapter.ts`             | M3.1 |
+| `SignerRpc` (processo)     | `src/signer/main.ts` + sub-arquivos           | M3.2 |
+| `Broadcaster`              | `src/lib/chain/broadcaster.ts`                | M3.3 |
+| `WriterLease`              | `src/lib/chain/writer-lease.ts`               | M4   |
+| `LeasedBroadcaster`        | `src/lib/chain/leased-broadcaster.ts`         | M4   |
 
-Interface que persiste o estado da lease. `InMemoryLeaseStore` é a
-default. Produção pode usar Redis/Postgres backend sem tocar a
-interface.
+### Camada de runtime (M5)
 
-### LeaseOwner
+| Nome                  | Arquivo                                |
+| --------------------- | -------------------------------------- |
+| `Runtime` (factory)   | `src/lib/chain/runtime.ts`             |
+| `Runtime` (principal) | `src/lib/runtime/runtime.ts`           |
+| `CanaryBroadcaster`   | `src/lib/runtime/canary.ts`            |
+| `ShadowHarness`       | `src/lib/runtime/shadow.ts`            |
+| `ChaosInjector`       | `src/lib/runtime/chaos.ts`             |
+| `LongDurationLoop`    | `src/lib/runtime/long-duration.ts`     |
 
-Identificador único de um writer. Gerado por `generateOwnerId()`
-combinando `hostname + pid + random`.
+### Camada de observability (M5.5)
 
-### FENCING_TOKEN_STALE
+| Nome       | Arquivo                                     |
+| ---------- | ------------------------------------------- |
+| `Registry` | `src/lib/observability/registry.ts`         |
+| `Counter`  | `src/lib/observability/metrics.ts`          |
+| `Gauge`    | `src/lib/observability/metrics.ts`          |
+| `Histogram`| `src/lib/observability/metrics.ts`          |
+| `Snapshot` | `src/lib/observability/snapshot.ts`         |
 
-Erro emitido pelo `LeasedBroadcaster` quando o token apresentado é
-menor que o token atual do LeaseStore. Indica que o writer está
-stale e sua lease foi revogada.
+### Camada de trading (não-hardening)
 
----
-
-## Conceitos do M5 (Production Validation)
-
-### Registry
-
-Objeto único que acumula todas as métricas do runtime. Fonte de
-verdade para todos os harnesses (dry-run, chaos, shadow, canary,
-long-duration) e para o endpoint `/api/runtime/status`.
-
-### Histogram
-
-Tipo de métrica que registra distribuição de valores (ex.:
-latência em ms). Permite calcular P50/P95/P99. Usado para
-`signerLatencyMs`, `pipelineLatencyMs`, `broadcastLatencyMs`,
-`leaseAcquireMs`.
-
-### Counter
-
-Tipo de métrica que só incrementa (ex.: contagem de erros, rounds
-sucedidos). `rpcErrors`, `signerErrors`, `broadcastErrors`,
-`gateRejects.*`, `canaryAccepted`, `canarySkipped`, `shadowDiffs`,
-`roundsStarted/Succeeded/Failed`.
-
-### Gauge
-
-Tipo de métrica que pode subir ou descer (ex.: owner ativo da
-lease, uptime em segundos). `activeLeaseOwner`, `uptimeSeconds`.
-
-### Shadow Mode
-
-Modo onde a MESMA Pipeline é executada, mas o output é forkado
-para Live + Shadow. Shadow compara com Live; em divergência,
-incrementa `shadowDiffs`. Não roda duas pipelines paralelas.
-
-### Canary Mode
-
-Modo onde apenas uma fração das tx (determinística por txHash) é
-broadcastada. `bucket = keccak256(txHash) % 100; bucket < canaryPct`.
-Permite ramp gradual de paper → live.
-
-### ChaosInjector
-
-Classe independente que injeta falhas em um componente específico
-(RPC, signer, lease, broadcaster, rede). Interface: `before()`,
-`after()`, `cleanup()`. Sem `if (chaos)` espalhado no código.
-
-### Long-Duration loop
-
-Padrão de execução contínua `while (running) { await
-runtime.tick(); await sleep(period); }`. Não usar `setInterval`
-(pois este não aguarda o tick completar e pode acumular em background).
+| Nome             | Arquivo                                |
+| ---------------- | -------------------------------------- |
+| `ConfigManager`  | `src/lib/trading/config.ts`            |
+| `Logger`         | `src/lib/trading/logger.ts`            |
+| `RiskManager`    | `src/lib/trading/risk-manager.ts`      |
+| `ScamDetector`   | `src/lib/trading/scam-detector.ts`     |
+| `TokenSelector`  | `src/lib/trading/token-selector.ts`    |
+| `PriceFeed`      | `src/lib/trading/price-feed.ts`        |
+| `PaperTrader`    | `src/lib/trading/paper-trader.ts`      |
+| `Portfolio`      | `src/lib/trading/portfolio.ts`         |
+| `Engine`         | `src/lib/trading/engine.ts`            |
 
 ---
 
-## Conceitos do H1 (RPC/Sim/Approval/MEV)
+## Acrônimos utilizados no projeto
 
-### Quorum
-
-Conjunto de N endpoints RPC. Chamada é feita a todos; resposta é
-validada por maioria. Endpoint em desacordo é quarantine.
-
-### Quarantine
-
-Endpoint RPC temporariamente removido do quorum por comportamento
-suspeito (chain id errado, block stale, balance errado).
-
-### Simulation gate
-
-Gate que simula a tx via `eth_call` antes de broadcastar. Se a
-simulação reverte, broadcast é bloqueado.
-
-### MEV (Maximal Extractable Value)
-
-Valor que miner/validator pode extrair reordenando txs. Sandwich
-attack é a forma mais comum em DEX: attacker compra antes da vítima
-e vende depois, capturando o slippage.
-
-### Approval hardening
-
-Gate que rejeita approvals de ERC-20 que sejam `type(uint256).max`
-(ilimitado), maiores que o cap configurado, ou maiores que o saldo
-on-chain do approver.
+| Acrônimo | Significado operacional no projeto                          |
+| -------- | ----------------------------------------------------------- |
+| `ADR`    | Architecture Decision Record (em `.ai/decisions/ADR-NNNN.md`)|
+| `DEC`    | Decisão arquitetural resumida (em `DECISION_LOG.md`, DEC-NNN)|
+| `REG`    | Regressão de segurança (em `SECURITY.md`, REG-NNN)         |
+| `KP`     | Known Problem (em `memory/known-problems.md`, KP-NNN)      |
+| `TD`     | Technical Debt (em `memory/technical-debt.md`, TD-NNN)     |
+| `INV`    | Invariante arquitetural (em `architecture/invariants.md`, INV-NNN) |
+| `H0`-`H2`| Fases de hardening hierárquico (H = Hardening)             |
+| `M3`-`M5`| Fases de hardening de milestones (M = Milestone)           |
+| `LLM`    | Large Language Model (GLM-4.6 via z-ai-web-dev-sdk)        |
+| `KMS`    | Key Management Service (M6+, ainda não integrado)          |
+| `IPC`    | Inter-Process Communication (stdin/stdout entre engine e signer)|
+| `RPC`    | Remote Procedure Call (JSON-RPC para nodes blockchain)     |
+| `CEX`    | Centralized Exchange (Binance)                             |
+| `DEX`    | Decentralized Exchange (PancakeSwap via DexScreener)       |
+| `BSC`    | Binance Smart Chain (rede mainnet primária do projeto)     |
+| `USDC`   | Stablecoin USDC (unidade de reserve e trading)             |
+| `SL`     | Stop Loss (em Strategy do Portfolio)                       |
+| `TP`     | Take Profit (em Strategy do Portfolio)                     |
+| `DD`     | Drawdown (um dos 5 circuit breakers do RiskManager)        |
 
 ---
 
-## Conceitos do H2 (Contract/Liquidity/TokenAuthority/SellSim)
+## Fases do hardening (ordem canônica)
 
-### LP lock
-
-Token lock do liquidity provider. Se expirado ou inexistente, LP
-pode ser removido a qualquer momento (rug pull).
-
-### Mint authority
-
-Capacidade de mintar novos tokens. Se não renunciada, owner pode
-inflar supply e dumpar.
-
-### Freeze authority
-
-Capacidade de congelar saldos de holders. Se ativa, owner pode
-impedir sells (honeypot variant).
-
-### Honeypot
-
-Token cuja buy funciona mas sell reverte. Detectado via sell
-simulation antes de buy.
-
-### Proxy oculto
-
-Contrato que delega chamadas para outro (implementação). Se não
-declarado, permite upgrade stealth que muda a lógica.
-
----
-
-## Conceitos do M3 (SignerAdapter / Signer RPC / Broadcaster)
-
-### IPC (Inter-Process Communication)
-
-Comunicação entre processo engine e processo signer. Definida em
-`src/lib/signer-protocol.ts`. Mensagens serializadas com reqId
-para correlação.
-
-### Domain separator
-
-String constante usada em assinaturas para evitar cross-protocol
-signature reuse. Definida em `src/signer/sign-methods.ts`.
-
-### BroadcastError
-
-Tipo de erro do Broadcaster. Prefixos `BROADCAST_*` permitem
-classificação pelo LeasedBroadcaster sem introspecção de mensagem.
-`BROADCAST_SIGNER_*` para erros do signer, `BROADCAST_RPC_*` para
-erros do RPC, etc.
+| Fase  | Nome                          | Significado operacional                              |
+| ----- | ----------------------------- | --------------------------------------------------- |
+| H0    | Crypto foundation             | KDF, audit hash-chain, key rotation.                |
+| H1.1  | RPC resilience / quorum       | Quorum de RPCs com fallback e retry.                |
+| H1.2  | Simulation gate               | Pre-broadcast simulation rejeita txs que revertem. |
+| H1.3  | Approval hardening            | Verificação de approvals ERC-20 com cap.            |
+| H1.4  | MEV baseline                  | Detecção básica de sandwich/front-run.              |
+| H2.1  | Contract verification         | Verifica source + ABI via Etherscan/Sourcify.       |
+| H2.2  | Liquidity verification        | Valida liquidez mínima + slippage.                  |
+| H2.3  | Token authority               | Whitelist de tokens autorizados.                    |
+| H2.4  | Sell simulation               | Simula saída antes de buy.                          |
+| H2.6  | Pipeline                      | Composição canônica dos gates.                      |
+| M3.1  | SignerAdapter                 | Cliente IPC do signer.                              |
+| M3.2  | Signer RPC (processo)         | Processo isolado que segura a chave.                |
+| M3.3  | Broadcaster                   | Envia tx assinada para RPC quorum.                  |
+| M4    | Writer Lease + LeasedBroadcaster | Lease com fencing tokens (Kleppmann).            |
+| M5.0  | Runtime factory               | `buildRuntime()` compõe stack completa.             |
+| M5.1  | Dry Run                       | 26/26 testes — lease invariants preservadas.        |
+| M5.5  | Observability                 | Registry único + `/api/runtime/status`.             |
+| M5.4  | Chaos                         | 99/99 — ChaosInjector pattern.                      |
+| M5.2  | Shadow                        | 11/11 — 600 RPC reais, 0 diffs.                     |
+| M5.3  | Canary                        | `keccak256(txHash) % 100` determinístico.           |
+| M5.6  | Long-Duration                 | 7/7 — 74k ops, 0 leak.                              |
+| M5.7  | Finalização                   | 0 regressões H0-M4.                                 |
+| M6+   | Live Trading                  | (futuro) canaryPct ramp com rollback automático.    |
 
 ---
 
-## Conceitos de Audit (H0.3)
+## Termos operacionais específicos do projeto
 
-### Hash-chain
+### "FROZEN"
 
-Sequência de entradas onde cada entrada inclui o hash da anterior.
-Permite detectar tampering: modificar qualquer entrada quebra a
-cadeia a partir dali.
+Arquivo ou módulo cuja modificação requer ADR + entrada em
+`DECISION_LOG.md` + aprovação explícita do operador. Lista
+canônica: `architecture/frozen-files.md`. Aplica-se a todos os
+módulos da camada de chain H0-M4 + protocolo IPC do signer.
 
-### Replacer-function (JSON.stringify)
+### "Audit hash-chain"
 
-Forma de `JSON.stringify` que usa função (não array) como segundo
-argumento. Permite ordenar chaves recursivamente em todos os
-níveis, garantindo determinismo. Bug H0.3: forma replacer-array
-silenciosamente dropava nested keys.
+Sequência append-only de entradas onde cada entrada inclui o hash
+da anterior. Tampering em qualquer entrada quebra a cadeia.
+Implementado em H0 (`AuditLog`), corrigido em H0.3 (DEC-001 — bug
+do `sortedKeysArray` que dropava nested keys).
 
-### REG-NNN
+### "Fencing token"
 
-Identificador de regressão em `SECURITY.md`. Cada REG é um teste
-que pinna um invariant de segurança. REG adversarial = teste que
-tenta explicitamente quebrar o invariant.
+Inteiro monotônico crescente emitido pelo `WriterLease` a cada
+`acquire()` bem-sucedido. Verificado pelo `LeasedBroadcaster`
+antes de delegar ao `Broadcaster`. Garante que writer stale (com
+token antigo) não consegue broadcastar tx com nonce já usado.
+Padrão Kleppmann (DEC-003).
+
+### "Canary bucket"
+
+Bucket determinístico computado como `bucket = keccak256(txHash) %
+100`. Se `bucket < canaryPct`, a tx é roteada para Live; caso
+contrário, para Paper/Shadow. Garantia: a mesma txHash sempre cai
+no mesmo bucket (INV-008), independente de instância ou timing.
+
+### "Shadow diff"
+
+Divergência detectada entre Live path e Shadow path no mesmo
+`Pipeline.process()`. Incrementa counter `shadow_diffs`. Em
+produção, qualquer diff > 0 em janela de 1 minuto deve disparar
+rollback automático (M6).
+
+### "ChaosInjector"
+
+Classe com métodos `before()`, `after()`, `cleanup()` que injeta
+falha controlada em um módulo alvo (RPC, signer, lease, etc.).
+Substitui `if (chaos) { ... }` espalhado. Padrão obrigatório em
+todo novo harness de teste M5.4+ (DEC-004).
+
+### "Long-Duration loop"
+
+Padrão `while (running) { await tick(); await sleep(period); }`
+(em oposição a `setInterval`). Permite controle granular do sleep,
+parada graciosa, e validação de leak de heap em runs 24h+. Padrão
+obrigatório em `src/lib/runtime/long-duration.ts` (M5.6).
+
+### "LLM squad"
+
+Conjunto de 3 prompts LLM (bullish, bearish, neutral) para
+validar tokens no ScamDetector. Score final = média dos 3.
+Threshold de rejeição: score > 60 (configurável).
 
 ---
 
-## Conceitos operacionais
+## Convenções de nomeação (resumo)
 
-### Paper mode
+Para detalhes completos, ver `standards/coding-style.md` e
+`context/conventions.md`.
 
-Modo onde tx são simuladas; nada vai on-chain. Default do sistema.
-
-### Live mode
-
-Modo onde tx são broadcastadas para a blockchain. Controlado por
-canaryPct em M6.
-
-### Kill switch
-
-Botão de parada global. Ativa via `/api/kill-switch`. Toda
-atividade de trading para imediatamente.
-
-### Canary ramp
-
-Estratégia de rollout gradual: 1% → 5% → 10% → 25% → 100% das tx
-em live mode. Se taxa de falha > threshold, rollback automático
-para o nível anterior via `setCanaryPct`.
+| Tipo                | Convenção             |
+| ------------------- | --------------------- |
+| Módulo / classe     | PascalCase            |
+| Função / variável   | camelCase             |
+| Constante imutável  | SCREAMING_SNAKE_CASE  |
+| Arquivo (módulo)    | kebab-case            |
+| Arquivo (componente)| PascalCase.tsx        |
+| Tipo / interface    | PascalCase            |
 
 ---
 
-## Termos de processo (governança)
+## Quando usar qual nome
 
-### FROZEN
-
-Marca de arquivo que não deve ser alterado sem autorização
-explícita + entrada em `DECISION_LOG.md`. Ver
-`architecture/frozen-files.md` para lista completa.
-
-### ADR (Architecture Decision Record)
-
-Documento em `.ai/decisions/ADR-NNNN.md` que registra uma
-decisão arquitetural. Formato: Data, Título, Contexto,
-Alternativas, Escolha, Motivação, Impacto, Arquivos, Rollback.
-
-### DEC-NNN
-
-Identificador de decisão em `DECISION_LOG.md`. Mesmo conceito que
-ADR mas com formato mais compacto.
-
-### Project OS
-
-Conceito desta pasta `.ai/`: camada permanente de memória,
-governança, arquitetura e documentação viva que acompanha o
-projeto durante todo o seu ciclo de desenvolvimento.
+- **Em código:** sempre o nome PascalCase da classe/export.
+- **Em commits:** pode ser kebab-case do arquivo (ex.: `feat(chain):
+  add writer-lease`).
+- **Em ADRs/DECISION_LOG:** preferir nome PascalCase da classe
+  (mais legível).
+- **Em discussão oral:** qualquer um é aceito.

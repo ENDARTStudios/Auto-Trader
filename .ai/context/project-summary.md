@@ -1,147 +1,151 @@
-# context/project-summary.md — Resumo do Projeto
+# `context/project-summary.md` — Resumo do Projeto
 
-> Snapshot atualizado do projeto. Objetivos, escopo, tecnologias,
-> arquitetura. Atualizar quando o escopo mudar; nunca apagar histórico
-> (append novas versões datadas no final).
-
----
-
-## Visão de uma linha
-
-Sistema de **trading autônomo de criptomoedas em paper mode default**,
-com camada de hardening defense-in-depth (H0 → M5 concluído) que o
-prepara para eventual live trading via canary ramp.
+> Página única de contexto imutável. Objetivos, escopo,
+> tecnologias, arquitetura em alto nível. Para detalhes, veja
+> arquivos em `architecture/`, `contracts/`, `standards/`.
 
 ---
 
-## Objetivos
+## O quê
 
-1. **Scam-resistance, não "100% seguro".** O sistema deve resistir a
-   padrões conhecidos de scam (honeypot, LP rug, mint authority rug,
-   proxy oculto, contrato não-verificado) e a vetores de ataque na
-   camada de chain (RPC poisoning, MEV sandwich, approval ilimitado,
-   revert de broadcast, stale writer).
-2. **Audit trail completo.** Toda decisão de trading, toda tx
-   broadcastada, toda assinatura, todo gate reject é registrado em
-   audit log append-only com hash-chain determinística.
-3. **Defense-in-depth.** Múltiplas camadas independentes (gates H1+H2,
-   signer isolado, writer lease com fencing tokens, observability) —
-   falha de uma camada não derruba o sistema.
-4. **Paper mode default.** Live trading só via canary ramp explícita
-   com rollback automático. Operador nunca perde o controle.
-5. **100% open-source / free tier.** Binance REST, DexScreener,
-   GoPlus, alternative.me, CoinGecko, Etherscan — todas APIs
-   gratuitas. LLM via z-ai-web-dev-sdk.
+**GLM 5.1 Crypto Trading** é um sistema de trading automatizado de
+criptomoedas com detecção de scam multicamada, circuit breakers de
+risco, isolamento defensivo do signer (processo separado), e
+writer lease com fencing tokens (Kleppmann pattern).
 
----
+## Por quê
+
+Operar trading automatizado em cripto exige defesa em profundidade:
+scam tokens são frequentes, contratos podem ser rug-pulled, RPCs
+podem mentir, e chaves privadas são o ativo mais sensível. Sem
+hardening explícito por camadas, qualquer bug em uma camada
+compromete o sistema inteiro.
+
+O projeto adota a filosofia **"hardening antes de features"**:
+cada fase do roadmap (H0 → M5) valida invariantes de segurança
+antes de avançar. Features de trading só são introduzidas após o
+hardening da camada de chain estar completo.
+
+## Para quem
+
+- **Operador** (usuário único no estágio atual): configura,
+  monitora, e decide ramp de canary em produção.
+- **Auditores** (futuro): podem revisar ADRs, audit log, e
+  SECURITY.md para validar que as garantias de segurança são reais.
+
+## Stack
+
+| Camada       | Tecnologia                                |
+| ------------ | ----------------------------------------- |
+| Web framework| Next.js 16 (App Router)                   |
+| UI           | React 19 + Tailwind CSS 4 + shadcn/ui     |
+| Linguagem    | TypeScript 5                              |
+| ORM          | Prisma 5 + SQLite (dev) / Postgres (M6+)  |
+| Blockchain   | ethers 6 (BSC mainnet primário)           |
+| LLM          | z-ai-web-dev-sdk (GLM-4.6) p/ ScamDetector|
+| Runtime      | Node.js 20+                               |
+| Testing      | Vitest (unidade) + tsx scripts (adversarial) |
+
+## Arquitetura em alto nível
+
+```
+┌─────────────────────────────────────────────────────┐
+│                  Dashboard (React)                   │
+│  positions | history | scam | rounds | logs | config │
+└───────────────────────┬─────────────────────────────┘
+                        │ HTTP
+                        ▼
+┌─────────────────────────────────────────────────────┐
+│              Next.js API Routes                      │
+│  /api/status | /api/positions | /api/engine/* | ... │
+└───────────────────────┬─────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────┐
+│                  Engine (TS)                         │
+│  SCOUT → ANALYZE → EXECUTE → MONITOR → EXIT → REBAL.│
+│  ┌─────────────┐ ┌─────────────┐ ┌──────────────┐  │
+│  │ScamDetector │ │RiskManager  │ │ Portfolio    │  │
+│  │  6 sub + LLM│ │  5 breakers │ │ split 50/50  │  │
+│  └─────────────┘ └─────────────┘ └──────────────┘  │
+└───────────────────────┬─────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────┐
+│              Pipeline (chain hardening)              │
+│  H1.1 RPC → H1.2 Sim → H1.3 Approval → H1.4 MEV    │
+│  → H2.1 Contract → H2.2 Liquidity → H2.3 Authority │
+│  → H2.4 SellSim → H2.6 Pipeline composition        │
+└───────────────────────┬─────────────────────────────┘
+                        │
+                        ▼
+┌──────────────────────┐   IPC   ┌────────────────────┐
+│  SignerAdapter M3.1  │◄───────►│  Signer RPC M3.2   │
+│  (engine processo)   │         │  (processo isolado)│
+└──────────┬───────────┘         │  segura chave      │
+           │                     └────────────────────┘
+           ▼
+┌─────────────────────────────────────────────────────┐
+│  WriterLease M4 (fencing) → LeasedBroadcaster       │
+│  → Broadcaster M3.3 → RPC Quorum H1.1 → Blockchain │
+└─────────────────────────────────────────────────────┘
+                        │
+                        ▼
+┌─────────────────────────────────────────────────────┐
+│              Audit Log H0 (hash-chain)               │
+│              Append-only, tamper-evident             │
+└─────────────────────────────────────────────────────┘
+```
 
 ## Escopo
 
-### Dentro do escopo
+### Incluído
 
-- Engine de trading autônomo (scout → analyze → execute → monitor →
-  exit → rebalance).
-- Scam detection multicamada: regex + Etherscan + GoPlus + market TA
-  + AI LLM squad (thesis + contract auditor + news/sentiment) com
-  consensus veto.
-- Risk management com 5 circuit breakers: kill switch, daily loss,
-  per-trade loss, exposure per token, drawdown.
-- Portfolio com split 50/50 (50% USDC cold reserve, 50% reinvestido).
-- Watchlist e platform scanner (multi-DEX).
-- Hardening roadmap H0–M5 (ver `architecture/roadmap.md`).
-- Dashboard Next.js com 16+ tabs (Posições, Histórico, Mercado, AI
-  Agents, Scam Audit, Site Audit, Rounds, Logs, Vigilância, etc.).
+- Engine de paper trading (modo default).
+- Hardening completo H0 → M5 (6 sub-fases de M5 concluídas).
+- Dashboard Next.js para monitoramento local.
+- ScamDetector com LLM squad (GLM-4.6).
+- 5 circuit breakers de risco.
+- Split 50/50 (cold reserve / reinvest).
 
-### Fora do escopo
+### Excluído (por design)
 
-- Live trading real (M6 — proposto, não iniciado). Atualmente paper
-  mode default; live é stub.
-- Multi-chain (M7 — proposto). Atualmente BSC mainnet.
-- Compliance AML/KYC (responsabilidade do operador).
-- Custody de fundos (operador mantém custódia; app não é custodial).
-- "Irrastreável" (incompatível com AML/KYC — removido do escopo
-  original em negociação com o operador).
+- Live trading real (requer M6 com Vault/KMS).
+- Multi-chain (BSC only atualmente; M7+ para Base/Arbitrum/Optimism).
+- Frontend mobile (dashboard é desktop-only).
+- Auth multi-usuário (operador único atualmente).
+- Backtesting (M11+ hipotético).
+- Withdrawal automatizado (saída para cold wallet é manual).
 
----
+## Modo padrão
 
-## Tecnologias
+**Paper trading:** todas as ordens são simuladas com slippage 0.3%.
+Nenhuma tx real é enviada para a blockchain. Permite validação
+completa do engine sem risco de fundos.
 
-| Camada           | Tecnologia                                            |
-| ---------------- | ----------------------------------------------------- |
-| Frontend         | Next.js 16 (App Router), React 19, TypeScript         |
-| UI               | Tailwind CSS, shadcn/ui (40+ componentes)             |
-| Backend          | Next.js API Routes (Route Handlers)                   |
-| ORM              | Prisma                                                |
-| Banco            | SQLite (`prisma/dev.db`) — produção: Postgres recomendado |
-| Runtime          | Node.js                                               |
-| EVM              | ethers.js (`JsonRpcProvider`)                         |
-| WebSocket        | Next.js SSE (`/api/stream`)                           |
-| LLM              | z-ai-web-dev-sdk (thesis, contract auditor, news)     |
-| API market data  | Binance REST, DexScreener, GoPlus, alternative.me, CoinGecko, Etherscan |
-| Dev server       | `next dev` porta 3000                                 |
-| Proxy externo    | Caddy (`Caddyfile`)                                   |
-| Build            | `next build`, `tsc --noEmit`, `eslint`                |
+**Live trading (M6+):** txs reais enviadas via `canaryPct` ramp
+(1% → 5% → 10% → 25% → 50% → 100%) com rollback automático em
+detecção de regressão.
 
----
+## Fase atual
 
-## Arquitetura (resumo)
+**Pós-M5.** Hardening completo. Próximo milestone: M6 (Live Trading
+com canaryPct ramp), condicionado a:
 
-Ver `architecture/modules.md`, `architecture/dependencies.md`,
-`architecture/runtime.md` para detalhes.
+1. Operador configurar Vault/KMS para mnemonic.
+2. Operador definir thresholds de rollback automáticos.
+3. Operador confirmar rede (BSC mainnet) e funding inicial.
 
-```
-Market Data → Pipeline (H2.6, 7 gates) → SignerAdapter (M3.1)
-   → Signer RPC (M3.2, processo isolado) → Writer Lease (M4, fencing)
-   → LeasedBroadcaster (M4, pre-broadcast verify) → Broadcaster (M3.3)
-   → RPC Quorum (H1.1) → Blockchain
+## Documentação canônica
 
-Em paralelo: Registry único (M5.5) alimenta /api/runtime/status.
-Canário (M5.3): bucket = keccak256(txHash) % 100; bucket < canaryPct.
-Shadow (M5.2): mesma Pipeline, fork output, compara, incrementa shadowDiffs.
-Long-Duration (M5.6): while(running) { tick(); sleep(); }.
-```
-
----
-
-## Modos de operação
-
-| Modo            | Descrição                                           | Como ativar                          |
-| --------------- | --------------------------------------------------- | ------------------------------------ |
-| Paper (default) | Tx são simuladas; nada vai on-chain.               | Default; `Config.paperMode = true`. |
-| Live canário    | Tx reais, apenas `bucket < canaryPct` da txHash.   | M6 (não iniciado); via `setCanaryPct`. |
-| Kill switch     | Toda atividade de trading para imediatamente.      | `/api/kill-switch` ou botão no dashboard. |
-
----
-
-## Estado do hardening (2026-07-15)
-
-- ✅ H0, H1, H2, H2.6, M3.1, M3.2, M3.3, M4 — todas as fases de
-  hardening concluídas e FROZEN (exceto exceção M5.4 em
-  `broadcaster.ts`).
-- ✅ M5 (Production Validation) — todas as 7 sub-fases validadas, 0
-  regressões H0–M4.
-- ⏳ M6 (Live Trading canaryPct ramp) — proposto, não iniciado.
-
----
-
-## Documentação complementar
-
-- `/home/z/my-project/README.md` — README do projeto (visão geral).
-- `/home/z/my-project/SECURITY.md` — regressões REG-NNN.
-- `/home/z/my-project/HARDENING-ROADMAP.md` — roadmap canônico de
-  hardening (mapeia 30 attack vectors).
-- `/home/z/my-project/docs/signer-isolation-design.md` — design do
-  isolamento do signer.
-- `/home/z/my-project/docs/CRYPTO.md` — documentação crypto.
-
----
-
-## Histórico de versões deste resumo (append-only)
-
-### 2026-07-15 — Versão inicial (Project OS expansion)
-
-- Criado durante a expansão `.ai/` para Project Operating System.
-- Reflete estado pós-M5 (todas as fases de hardening concluídas).
-- Próximo milestone proposto: M6 Live Trading.
-
-### [Versões futuras vêm aqui — nunca sobrescrever acima]
+- **Estado atual:** `.ai/PROJECT_STATE.md`
+- **Regras absolutas:** `.ai/CORE_RULES.md`
+- **Arquitetura detalhada:** `.ai/architecture/`
+- **Contratos:** `.ai/contracts/`
+- **Padrões:** `.ai/standards/`
+- **Decisões:** `.ai/decisions/` (ADRs)
+- **Histórico:** `.ai/memory/implementation-history.md`
+- **Regressões de segurança:** `SECURITY.md` (raiz)
+- **Roadmap canônico:** `HARDENING-ROADMAP.md` (raiz) +
+  `.ai/architecture/roadmap.md`
+- **Log multi-agente:** `worklog.md` (raiz)

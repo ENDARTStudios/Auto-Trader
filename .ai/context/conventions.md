@@ -1,74 +1,9 @@
-# context/conventions.md — Padrões de Código
+# `context/conventions.md` — Convenções do Projeto
 
-> Padrões de organização, nomenclatura e estrutura. Todo código novo
-> deve seguir estas convenções. Em caso de conflito com código
-> existente, o código existente vence (CORE_RULES Regra 5: reutilizar).
-
----
-
-## Organização de diretórios
-
-```
-src/
-├── app/                    # Next.js 16 App Router
-│   ├── api/                # API routes (route.ts por endpoint)
-│   │   ├── runtime/
-│   │   │   └── status/
-│   │   │       └── route.ts
-│   │   ├── engine/
-│   │   │   ├── start/route.ts
-│   │   │   └── stop/route.ts
-│   │   └── ...
-│   ├── layout.tsx
-│   ├── page.tsx
-│   └── globals.css
-├── components/
-│   ├── ui/                 # shadcn/ui (40+ componentes)
-│   └── dashboard/          # componentes específicos do dashboard
-├── hooks/
-│   ├── use-trading-data.ts
-│   ├── use-event-stream.ts
-│   ├── use-mobile.ts
-│   └── use-toast.ts
-├── lib/
-│   ├── audit/              # H0.3 audit hash-chain
-│   ├── chain/              # H1+H2+M3+M4 (hardening chain)
-│   ├── observability/      # M5.5 metrics/registry/snapshot/exporter
-│   ├── runtime/            # M5 sub-módulos (canary/shadow/chaos/long-duration)
-│   ├── trading/            # engine de trading (paper mode default)
-│   ├── signer-protocol.ts  # contrato IPC engine↔signer
-│   ├── db.ts               # Prisma client
-│   ├── crash-logger.ts
-│   ├── csv-export.ts
-│   ├── request-peer-als.ts
-│   ├── request-peer-capture.ts
-│   └── utils.ts
-├── signer/                 # M3.2 processo signer isolado (FROZEN)
-│   ├── main.ts
-│   ├── wallet-methods.ts
-│   ├── sign-methods.ts
-│   └── audit.ts
-└── instrumentation.ts      # Next.js instrumentation hook
-
-prisma/
-├── schema.prisma           # canônico
-└── migrations/             # já aplicadas — não modificar
-
-scripts/
-├── test-h0-*.ts            # testes H0
-├── test-h1-*.ts            # testes H1
-├── test-h2-*.ts            # testes H2
-├── test-m3-*.ts            # testes M3
-├── test-m4-*.ts            # testes M4
-├── test-m5-*.ts            # testes M5
-└── (outros utilitários)
-
-docs/
-├── CRYPTO.md
-└── signer-isolation-design.md
-
-.ai/                       # Project OS (esta pasta)
-```
+> Padrões de nomenclatura, estrutura de pastas, convenções de
+> commits, formato de logs, e outras convenções operacionais.
+> Para estilo de código detalhado, ver `standards/coding-style.md`.
+> Para git workflow, ver `standards/git-workflow.md`.
 
 ---
 
@@ -76,214 +11,253 @@ docs/
 
 ### Arquivos
 
-- **kebab-case** para nomes de arquivo: `writer-lease.ts`,
-  `leased-broadcaster.ts`, `rpc-resilience.ts`.
-- **Sufixo `-panel`** para componentes de tab do dashboard:
-  `market-panel.tsx`, `watchlist-panel.tsx`.
-- **Sufixo `-table`** para tabelas: `positions-table.tsx`,
-  `history-table.tsx`.
-- **Prefixo `test-`** para scripts de teste: `test-m5-chaos.ts`,
-  `test-h2-liquidity-verification.ts`.
-- **Sufixo `Route`** para handlers de API: `runtimeStatusRoute`.
+| Tipo                    | Padrão                          | Exemplo                              |
+| ----------------------- | ------------------------------- | ------------------------------------ |
+| Módulo TS               | kebab-case                      | `writer-lease.ts`                    |
+| Componente React        | PascalCase.tsx                  | `PositionsTable.tsx`                 |
+| Teste de unidade        | `<module>.test.ts`              | `writer-lease.test.ts`               |
+| Teste adversarial       | `test-<fase>-<nome>.ts`         | `test-m4-writer-lease.ts`            |
+| Script utilitário       | kebab-case ou `run-<verb>.ts`   | `run-migrations.ts`                  |
+| Doc Markdown            | kebab-case ou UPPER_SNAKE       | `project-summary.md`, `CORE_RULES.md`|
+| ADR                     | `ADR-NNNN.md` (4 dígitos)       | `ADR-0001.md`                        |
 
-### Tipos / Interfaces / Classes
+### Pastas
 
-- **PascalCase** para tipos, interfaces, classes, enums:
-  `WriterLease`, `LeaseStore`, `PipelineResult`, `FencingToken`.
-- **`I` prefix proibido.** Não usar `IWriterLease` — usar
-  `WriterLease` para interface e `WriterLeaseImpl` se precisar de
-  classe concreta.
-- Sufixo `Result` para tipos de retorno de operações:
-  `PipelineResult`, `BroadcastResult`, `LeaseOpResult`.
-- Sufixo `Error` para tipos de erro: `LeaseError`, `BroadcastError`.
-- Sufixo `Report` para resultados de gates: `ContractReport`,
-  `LiquidityReport`, `AuthorityReport`.
+| Tipo                | Padrão                          | Exemplo                              |
+| ------------------- | ------------------------------- | ------------------------------------ |
+| Pasta de módulo     | kebab-case                      | `src/lib/chain/`                     |
+| Pasta de componente | kebab-case (sub de components/) | `src/components/dashboard/`          |
+| Pasta de API route  | nome da rota                    | `src/app/api/engine/start/`          |
+| Pasta de ADR        | `decisions/`                    | `.ai/decisions/`                     |
 
-### Funções
+### Identificadores em código
 
-- **camelCase** para funções e métodos: `buildRuntime()`,
-  `verifyToken()`, `acquireLease()`.
-- **Prefixo `build`** para factories: `buildRuntime()`,
-  `buildLeaseKey()`.
-- **Prefixo `generate`** para geradores de IDs únicos:
-  `generateOwnerId()`.
-- **Prefixo `inject`** para métodos de test harness que injetam
-  falhas: `injectFailure()` em `InMemoryLeaseStore`.
-- Verbos booleans: `isFrozen`, `hasLease`, `canBroadcast`.
+| Tipo                | Padrão                          | Exemplo                              |
+| ------------------- | ------------------------------- | ------------------------------------ |
+| Variável / função   | camelCase                       | `txHash`, `processTransaction`       |
+| Constante imutável  | SCREAMING_SNAKE_CASE            | `MAX_RETRIES`, `DEFAULT_SLIPPAGE`    |
+| Tipo / Interface    | PascalCase                      | `PipelineInput`, `LeaseToken`        |
+| Enum                | PascalCase + members PascalCase | `enum Status { Open, Closed }`       |
+| Classe              | PascalCase                      | `class SignerAdapter`                |
+| Private (convention)| `_` prefix ou `#` (true private)| `_internalState`, `#secretKey`       |
 
-### Constantes
+### Erros e códigos
 
-- **UPPER_SNAKE_CASE** para constantes de módulo:
-  `DEFAULT_CANARY_PCT = 5`, `MAX_LEASE_DURATION_MS = 30000`.
-- **PascalCase** para enums: `LeaseOpResult.ACQUIRE_OK`,
-  `BroadcastError.BROADCAST_SIGNER_TIMEOUT`.
+| Tipo                | Padrão                          | Exemplo                              |
+| ------------------- | ------------------------------- | ------------------------------------ |
+| Error class         | PascalCase + `Error` suffix     | `PipelineError`, `LeaseBusyError`    |
+| Error code          | `<MODULE>_<REASON>` UPPER       | `SIM_REJECT`, `LEASE_BUSY`           |
+| Audit event type    | `MODULE_EVENT` UPPER            | `PIPELINE_START`, `BROADCAST_RESULT` |
+| Log level           | lowercase                       | `info`, `warn`, `error`              |
+| Metric name         | `module_action_unit` snake      | `broadcast_latency_ms`, `tx_total`   |
+| Label name          | lowercase, no underscore        | `routed`, `endpoint`, `bucket`       |
 
-### Variáveis
+### Conventional Commits (resumo)
 
-- **camelCase** para variáveis locais e parâmetros.
-- **Prefixo `_`** para parâmetros não usados: `(_req, res) => ...`.
+Ver `standards/git-workflow.md` para detalhes completos.
 
----
+```
+<type>(<scope>): <description>
 
-## Estrutura de código
-
-### Imports
-
-Ordem obrigatória:
-
-1. Imports de pacotes externos (`next`, `react`, `ethers`, `@prisma/client`).
-2. Imports internos absolutos (`@/lib/...`, `@/components/...`).
-3. Imports relativos (`./foo`, `../bar`).
-4. Type-only imports no final (`import type { ... }`).
-
-Entre grupos, linha em branco. Dentro de grupo, ordem alfabética.
-
-### Exportações
-
-- **Named exports preferidos.** Evitar `export default` (dificulta
-  refactor e IDE navigation).
-- **Barrel files proibidos** salvo necessidade: cada arquivo
-  importa diretamente do arquivo fonte.
-- **Re-export proibido** em código de produção (permitido em
-  scripts de teste para reduzir boilerplate).
-
-### Error handling
-
-- **Erros são strings prefixadas**, não subclasses de `Error`, para
-  facilitar serialização em IPC e classificação por prefixo:
-  `"BROADCAST_SIGNER_TIMEOUT"`, `"LEASE_BUSY"`,
-  `"FENCING_TOKEN_STALE"`.
-- **`try/catch`** sempre que há I/O (RPC, IPC, disk). Nunca deixar
-  erro escapar silenciosamente para o caller sem classificação.
-- **`throw new Error(string)`** apenas em código de inicialização
-  (load de config, init de signer). No hot path, retornar
-  `Result`-like com error field.
-
-### Async/await
-
-- **`async/await`** sempre que possível. Evitar `.then()/.catch()`
-  chains.
-- **`Promise.all`** para paralelismo independente. Evitar
-  `Promise.race` salvo em timeout patterns.
-- **`AbortController`** para cancelamento. Não usar `setTimeout` +
-  `clearTimeout` para cancelar fetch.
-
-### Tipagem
-
-- **`strict: true`** em `tsconfig.json`. Sem `any` em código de
-  produção (uso permitido em scripts de teste).
-- **`unknown`** preferido a `any` quando o tipo é desconhecido em
-  runtime; narrow com type guard.
-- **`satisfies`** para validar shape sem widening:
-  `const config = { ... } satisfies RuntimeConfig`.
-- **`as`** apenas em testes ou pontes de IPC; nunca para "silenciar"
-  erro de tipo.
+types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+scopes: audit, chain, signer, runtime, observability, trading, api, ui, docs, prisma, deps, ci
+```
 
 ---
 
-## Convenções específicas
+## Estrutura de pastas (resumo)
 
-### API routes (Next.js 16 App Router)
+```
+/home/z/my-project/
+│
+├── .ai/                          # Governance layer (este diretório)
+│   ├── INDEX.md
+│   ├── README.md
+│   ├── CORE_RULES.md
+│   ├── ENGINEERING_RULES.md
+│   ├── PROMPTING_RULES.md
+│   ├── OUTPUT_RULES.md
+│   ├── PROJECT_STATE.md
+│   ├── DECISION_LOG.md
+│   ├── TASK_TEMPLATE.md
+│   ├── architecture/             # 7 arquivos
+│   ├── contracts/                # 4 arquivos
+│   ├── standards/                # 5 arquivos
+│   ├── context/                  # 4 arquivos
+│   ├── memory/                   # 4 arquivos
+│   └── decisions/                # ADRs
+│
+├── src/
+│   ├── app/                      # Next.js App Router
+│   │   ├── api/                  # Route handlers
+│   │   ├── dashboard/            # Páginas
+│   │   └── layout.tsx
+│   ├── components/
+│   │   ├── dashboard/
+│   │   └── ui/                   # shadcn/ui
+│   ├── lib/
+│   │   ├── audit/                # H0
+│   │   ├── chain/                # H1, H2, M3, M4 (FROZEN)
+│   │   ├── observability/        # M5.5
+│   │   ├── runtime/              # M5.0-M5.6
+│   │   ├── trading/              # Camada de trading
+│   │   ├── db.ts                 # Prisma client singleton
+│   │   └── signer-protocol.ts    # M3.2 IPC (FROZEN)
+│   ├── signer/                   # M3.2 processo isolado
+│   └── types/                    # Tipos globais
+│
+├── prisma/
+│   ├── schema.prisma             # Schema canônico
+│   ├── migrations/               # Prisma migrations
+│   └── dev.db                    # SQLite (dev only)
+│
+├── scripts/                      # Scripts de teste e utilitários
+│   ├── test-h0-*.ts
+│   ├── test-h1-*.ts
+│   ├── ...
+│   ├── test-m5-*.ts
+│   └── run-*.ts                  # Scripts não-teste
+│
+├── docs/                         # Design docs
+│   ├── signer-isolation-design.md
+│   └── CRYPTO.md
+│
+├── README.md                     # Visão geral do projeto
+├── SECURITY.md                   # Regressões REG-NNN
+├── HARDENING-ROADMAP.md          # Roadmap canônico
+├── worklog.md                    # Log multi-agente
+├── package.json
+├── tsconfig.json
+├── next.config.js
+├── tailwind.config.ts
+└── .env.local                    # Segredos (gitignored)
+```
 
-```typescript
-// src/app/api/<resource>/route.ts
-import { NextRequest, NextResponse } from "next/server";
+---
 
-export async function GET(req: NextRequest) {
-  // ...
-  return NextResponse.json({ ... });
-}
+## Logs
 
-export async function POST(req: NextRequest) {
-  // ...
-  return NextResponse.json({ ... }, { status: 201 });
+### Níveis
+
+| Nível   | Uso                                                      |
+| ------- | -------------------------------------------------------- |
+| `debug` | Detalhe interno para troubleshooting. Off em produção.  |
+| `info`  | Eventos normais (tx confirmed, lease acquired).         |
+| `warn`  | Anomalias recuperáveis (RPC fallback, lease stolen).    |
+| `error` | Falhas que requerem intervenção (signer crash, DB error).|
+
+### Formato
+
+Estruturado (JSON), via `Logger` em `src/lib/trading/logger.ts`:
+
+```json
+{
+  "level": "info",
+  "message": "tx confirmed",
+  "timestamp": "2026-07-15T15:30:00.000Z",
+  "metadata": {
+    "txHash": "0x...",
+    "auditId": "audit_xyz",
+    "latencyMs": 1234
+  }
 }
 ```
 
-- **Read-only endpoints** (`/api/runtime/status`, `/api/positions`,
-  etc.) só implementam `GET`.
-- **Action endpoints** (`/api/engine/start`, `/api/kill-switch`)
-  só implementam `POST` (não `PUT`/`PATCH` — actions não são
-  idempotentes no sentido REST).
-- **Sem `DELETE`** para soft-delete; usar POST com flag.
+### Regras
 
-### Prisma
-
-- **Schema primeiro.** Toda mudança no banco começa em
-  `prisma/schema.prisma` seguido de `npx prisma migrate dev --name
-  <description>`.
-- **Migrations já aplicadas não são modificadas.** Nova migration
-  para corrigir.
-- **`@map`** para snake_case em colunas (preserva compatibilidade
-  com SQL existente).
-
-### Testes
-
-- **Scripts em `scripts/test-*.ts`**, executados via
-  `npx tsx scripts/test-<name>.ts`.
-- **Cada teste é uma função `async function testX(): Promise<void>`**
-  que lança em caso de falha.
-- **Main runner** no final do arquivo:
-  ```typescript
-  async function main() {
-    await testA();
-    await testB();
-    // ...
-    console.log("ALL PASS");
-  }
-  main().catch((e) => { console.error(e); process.exit(1); });
-  ```
-- **Sem framework de teste** (jest/vitest) — pattern simples com
-  try/catch e contador.
-- **Testes adversariais** obrigatórios para primitivos de
-  segurança (ver `ENGINEERING_RULES.md`).
-
-### UI Components
-
-- **shadcn/ui** para componentes base (`Button`, `Card`, `Dialog`,
-  `Table`, etc.).
-- **Custom components em `src/components/dashboard/`** com sufixo
-  apropriado (`-panel`, `-table`, `-card`).
-- **Props tipadas** com interface exportada.
-- **Sem CSS inline** — usar Tailwind classes.
+- **Nunca** `console.log` em produção (use `Logger`).
+- **Nunca** logar segredos (mnemonic, API key, private key).
+- **Sempre** incluir `auditId` quando aplicável (correlação com
+  audit log H0).
+- **Sempre** logar em UTC (ISO 8601).
 
 ---
 
-## Comentários
+## Métricas
 
-- **Comentários explicam o PORQUÊ, não o O QUÊ.** O código diz o
-  que; o comentário diz por que.
-- **`// TODO:`** proibido em produção. Criar entrada em
-  `memory/technical-debt.md` ou `memory/future-ideas.md` e
-  referenciar o ID.
-- **JSDoc** para APIs públicas de módulos exportados.
-- **`// REG-NNN:`** para marcar invariantes de segurança
-  referenciados em `SECURITY.md`.
+### Naming
 
----
+| Tipo       | Padrão                          | Exemplo                              |
+| ---------- | ------------------------------- | ------------------------------------ |
+| Counter    | `<module>_<noun>_total`         | `tx_total`, `broadcast_attempt_total`|
+| Gauge      | `<module>_<noun>` (sem `_total`)| `active_leases`, `heap_used_mb`      |
+| Histogram  | `<module>_<noun>_<unit>`        | `broadcast_latency_ms`, `tick_duration_ms` |
 
-## Commits (quando git for usado)
+### Labels
 
-- **Conventional Commits:** `feat:`, `fix:`, `refactor:`, `test:`,
-  `docs:`, `chore:`, `harden:` (custom para hardening roadmap).
-- **Scope opcional:** `feat(trading):`, `fix(chain):`,
-  `harden(m4):`.
-- **Mensagem descritiva** no corpo do commit, não só no título.
-- **Referenciar REG-NNN ou DEC-NNN** quando aplicável.
+- **Lowercase** sem underscore (ex.: `routed`, não `routed_type`).
+- **Cardinality baixa** (máx ~10 valores distintos por label).
+  Evitar label `txHash` (high cardinality explode o Registry).
+- **Boolean como label** com valor `"true"`/`"false"`.
 
 ---
 
-## LGTM checklist (antes de marcar tarefa completa)
+## Horários e timestamps
 
-- [ ] `tsc --noEmit` passa sem erros.
-- [ ] `eslint` passa sem novos warnings.
-- [ ] Testes do módulo afetado passam.
-- [ ] Nenhum teste de regressão (REG-NNN) quebrou.
-- [ ] `worklog.md` atualizado.
-- [ ] Se tocado arquivo FROZEN: entrada em `DECISION_LOG.md` +
-  autorização explícita do operador.
-- [ ] Se introduziu primitivo de segurança: teste adversarial
-  REG-NNN em `SECURITY.md`.
-- [ ] Se mudou estado do projeto: `PROJECT_STATE.md` atualizado.
-- [ ] Se decisão arquitetural: `DECISION_LOG.md` (e/ou ADR) criado.
-- [ ] Sem `TODO`, `FIXME`, ou `console.log` em produção.
+- **Storage:** unix milliseconds (number) em DB e audit log.
+- **Display:** ISO 8601 UTC (`2026-07-15T15:30:00.000Z`).
+- **Logs:** ISO 8601 UTC.
+- **Dashboard:** converter para timezone do operador (America/Sao_Paulo).
+
+---
+
+## Encoding e unidades
+
+| Tipo            | Convenção                                                |
+| --------------- | -------------------------------------------------------- |
+| Endereço ETH    | lowercase hex com `0x` prefix (checksum em UI apenas)    |
+| Hash ETH        | lowercase hex com `0x` prefix, 64 chars                  |
+| Amount (wei)    | string de decimal sem sinal (Prisma não suporta bigint)  |
+| Amount (USDC)   | string de decimal com 6 casas (1 USDC = "1000000")       |
+| Gas price       | string de decimal em wei (ex.: "20000000000" = 20 gwei)  |
+| Percentage      | float 0-1 (não 0-100); ex.: 0.05 = 5%                    |
+| Bps (basis pts) | int 0-10000; ex.: 30 = 0.3%                              |
+| Latência        | int em milliseconds                                      |
+
+---
+
+## Internacionalização
+
+- **Documentação `.ai/`:** Português (PT-BR).
+- **Code comments / JSDoc:** Inglês.
+- **Mensagens de commit:** Inglês (Conventional Commits).
+- **Mensagens de erro:** Inglês (stack traces consistentes).
+- **Logs:** Inglês (compatibilidade com tooling externo).
+- **Dashboard:** Inglês (labels e botões) por enquanto; i18n é
+  M11+ hipotético.
+
+Ver `standards/documentation.md` > Idioma para detalhes.
+
+---
+
+## Convenções operacionais
+
+### Variáveis de ambiente
+
+| Var                  | Uso                                              | Default                |
+| -------------------- | ------------------------------------------------ | ---------------------- |
+| `DATABASE_URL`       | Prisma connection string                         | `file:./prisma/dev.db` |
+| `SIGNER_MNEMONIC`    | Mnemonic do signer (dev only; M6+ usa Vault)     | (none)                 |
+| `BSC_RPC_URL`        | RPC endpoint BSC mainnet primário                | (required)             |
+| `BSC_RPC_URL_BACKUP` | RPC endpoint BSC fallback                        | (none)                 |
+| `BINANCE_API_KEY`    | Binance REST API key (para CEX price feed)       | (none)                 |
+| `BINANCE_API_SECRET` | Binance REST API secret                          | (none)                 |
+| `NODE_ENV`           | `development` ou `production`                    | `development`          |
+| `PORT`               | Porta do Next.js server                          | `3000`                 |
+
+### Portas
+
+| Porta | Uso                                              |
+| ----- | ------------------------------------------------ |
+| 3000  | Next.js dev server                               |
+| 8545  | Anvil (fork BSC, em testes de integração)        |
+| 5432  | Postgres (M6+ quando migrar de SQLite)           |
+| 8200  | Vault dev server (M6+)                           |
+
+### File paths
+
+- **Scripts persistentes:** sempre em `/home/z/my-project/scripts/`.
+- **Downloads/entregas:** sempre em `/home/z/my-project/download/`.
+- **Logs runtime:** via Prisma `AppLog` table, não filesystem.
+- **Audit log:** via Prisma `AuditLog` table (a criar; atualmente
+  in-memory + JSON file).

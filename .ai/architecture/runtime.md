@@ -1,286 +1,251 @@
-# architecture/runtime.md — Fluxo Completo do Sistema
+# `architecture/runtime.md` — Fluxo, Eventos, Lifecycle
 
-> Diagramas, pipeline, entradas, saídas, eventos.
-> Para mapa de módulos ver `modules.md`; para dependências ver
-> `dependencies.md`; para histórico de evolução ver
-> `memory/implementation-history.md`.
-
----
-
-## Visão geral
-
-O sistema é um **trading engine autônomo de criptomoedas em paper mode
-default**, com camada de hardening defense-in-depth (H0 → M5) que o
-prepara para eventual live trading. O runtime principal é composto
-pela factory `buildRuntime()` que instancia a stack completa descrita
-abaixo.
-
-```
-┌────────────────────────────────────────────────────────────────────┐
-│                      NEXT.JS 16 APP (porta 3000)                   │
-│                                                                    │
-│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────┐ │
-│  │ Dashboard UI     │◄──►│ API Routes       │◄──►│ Engine de    │ │
-│  │ (shadcn/ui)      │    │ /api/*           │    │ Trading      │ │
-│  └──────────────────┘    └──────────────────┘    └──────┬───────┘ │
-│                                                          │         │
-│  /api/runtime/status ◄── observability/snapshot.ts ◄─────┤         │
-│                                                          │         │
-└──────────────────────────────────────────────────────────┼─────────┘
-                                                            │
-                                                            ▼
-┌────────────────────────────────────────────────────────────────────┐
-│                     RUNTIME (buildRuntime)                         │
-│                                                                    │
-│  ┌─────────┐  ┌──────────┐  ┌────────────┐  ┌──────────────────┐  │
-│  │ Market  │→ │ Pipeline │→ │  Signer    │→ │ Writer Lease     │  │
-│  │ Data    │  │ (H2.6)   │  │ Adapter    │  │ (M4 fencing)     │  │
-│  └─────────┘  └──────────┘  │ (M3.1)     │  └────────┬─────────┘  │
-│                              └─────┬──────┘            │            │
-│                                    │ IPC               │ verify    │
-│                                    ▼                   │ token     │
-│                              ┌──────────┐              │            │
-│                              │ Signer   │              ▼            │
-│                              │ Process  │      ┌──────────────────┐│
-│                              │ (M3.2)   │      │ LeasedBroadcaster││
-│                              │ FROZEN   │      │ (M4)             ││
-│                              └──────────┘      └────────┬─────────┘│
-│                                                         │           │
-│                                                         ▼           │
-│                                                ┌────────────────┐  │
-│                                                │ Broadcaster    │  │
-│                                                │ (M3.3)         │  │
-│                                                └────────┬───────┘  │
-│                                                         │           │
-│                                                         ▼           │
-│                                                ┌────────────────┐  │
-│                                                │ RPC Quorum     │  │
-│                                                │ (H1.1)         │  │
-│                                                └────────┬───────┘  │
-│                                                         │           │
-└─────────────────────────────────────────────────────────┼───────────┘
-                                                          ▼
-                                                   ┌─────────────┐
-                                                   │ Blockchain  │
-                                                   │ (EVM L2)    │
-                                                   └─────────────┘
-```
+> Documenta o fluxo canônico em runtime, o lifecycle do processo
+> signer isolado, o loop principal de trading e os eventos de audit
+> emitidos. Para módulos individuais, veja `modules.md`. Para
+> assinaturas, veja `interfaces.md`.
 
 ---
 
-## Pipeline (H2.6) — sequência de gates
-
-Entrada: market data (token address, pool address, preço, volume).
-Saída: `PipelineResult` com `approved: boolean` e `reason: GateName | null`.
+## Fluxo canônico de transação (H0 → M5)
 
 ```
-Input (token, pool)
-    │
-    ▼
-1. liquidity-verification.ts  [H2.2]
-    REJECT se: LP lock expirado / concentração LP em poucos holders / liquidez < minLiquidity
-    │
-    ▼
-2. token-authority.ts  [H2.3]
-    REJECT se: mint authority não renunciada / freeze authority ativa / upgradeability não justificada
-    │
-    ▼
-3. contract-verification.ts  [H2.1]
-    REJECT se: source code não-verificado / proxy oculto / selfdestruct / delegatecall
-    │
-    ▼
-4. simulation-gate.ts  [H1.2]
-    REJECT se: simulação de buy reverte / state-diff divergente do esperado
-    │
-    ▼
-5. mev-baseline.ts  [H1.4]
-    REJECT se: sandwich opportunity detectada / slippage alto + liquidez baixa
-    │
-    ▼
-6. approval-hardening.ts  [H1.3]
-    REJECT se: approval type(uint256).max / approval > cap / approval > saldo on-chain
-    │
-    ▼
-7. sell-simulation.ts  [H2.4]
-    REJECT se: simulação de sell reverte / slippage de sell acima do limiar (honeypot)
-    │
-    ▼
-PipelineResult { approved: true, reason: null }
+                  Market Data
+                       │
+                       ▼
+                ┌──────────────┐
+                │   Pipeline   │ (H2.6 — src/lib/chain/pipeline.ts)
+                │   .process() │
+                └──────┬───────┘
+                       │
+       ┌───────────────┼────────────────┐
+       ▼               ▼                ▼
+  ┌─────────┐    ┌──────────┐    ┌──────────────┐
+  │ Sim Gate│    │Contract  │    │ Liquidity    │
+  │  (H1.2) │    │Verify    │    │ Verify       │
+  │         │    │ (H2.1)   │    │ (H2.2)       │
+  └────┬────┘    └────┬─────┘    └──────┬───────┘
+       │              │                 │
+       └──────────────┼─────────────────┘
+                      │
+                      ▼
+              ┌────────────────┐
+              │Approval Hard.  │ (H1.3)
+              │+ Token Authority│ (H2.3)
+              │+ Sell Sim      │ (H2.4)
+              │+ MEV Baseline  │ (H1.4)
+              └────────┬───────┘
+                       │
+                       ▼
+              ┌────────────────┐
+              │ SignerAdapter  │ (M3.1 — src/lib/chain/signer-adapter.ts)
+              │  .submit()     │
+              └────────┬───────┘
+                       │ IPC binário
+                       ▼
+              ┌────────────────┐
+              │  Signer RPC    │ (M3.2 — processo isolado)
+              │  (src/signer/) │ segura chave privada
+              └────────┬───────┘
+                       │ signedTx (string)
+                       ▼
+              ┌────────────────┐
+              │ WriterLease    │ (M4 — src/lib/chain/writer-lease.ts)
+              │  .acquire()    │ fencing token monotônico
+              └────────┬───────┘
+                       │ LeaseToken
+                       ▼
+              ┌────────────────────────┐
+              │ LeasedBroadcaster      │ (M4 — leased-broadcaster.ts)
+              │ verifyToken() THEN     │
+              │ delegate to Broadcaster│
+              └────────┬───────────────┘
+                       │
+                       ▼
+              ┌────────────────┐
+              │  Broadcaster   │ (M3.3 — broadcaster.ts)
+              │  .broadcast()  │ prefixa erros BROADCAST_*
+              └────────┬───────┘
+                       │
+                       ▼
+              ┌────────────────┐
+              │ RPC Quorum     │ (H1.1 — rpc-resilience.ts)
+              │ retry + fallback│
+              └────────┬───────┘
+                       │
+                       ▼
+                  Blockchain
+                       │
+                       ▼
+              ┌────────────────┐
+              │  Audit Log     │ (H0 — audit-log.ts)
+              │  hash-chain    │ entrada append-only
+              └────────────────┘
 ```
 
-Cada gate REJECT produz `PipelineResult { approved: false, reason:
-<GateName> }` e o contador `gateRejects.<gate>` é incrementado no
-Registry (M5.5).
+**Invariante:** Pipeline NUNCA pula etapas. Qualquer falha em qualquer
+etapa lança `PipelineError` com código prefixado
+(`SIM_*`, `VERIFY_*`, `APPROVAL_*`, `MEV_*`, `SIGNER_*`, `LEASE_*`,
+`BROADCAST_*`, `RPC_*`). A classificação de erro é parte do contrato
+público (DEC-005).
 
 ---
 
-## Signer IPC (M3.2) — protocolo de comunicação
-
-O signer é um **processo separado** (não uma função importada). Toda
-comunicação é via mensagens serializadas definidas em
-`src/lib/signer-protocol.ts`.
+## Lifecycle do processo signer (M3.2)
 
 ```
-Engine (processo principal)              Signer (processo isolado)
-        │                                         │
-        │  SignRequest { method, params, reqId }  │
-        │ ──────────────────────────────────────► │
-        │                                         │ verify domain
-        │                                         │ load key (Vault/KMS)
-        │                                         │ sign
-        │                                         │ append audit
-        │                                         │
-        │  SignResponse { reqId, result, error }  │
-        │ ◄────────────────────────────────────── │
-        │                                         │
+┌─────────────────────────────────────────────────────┐
+│  Engine principal (Next.js, processo Node)          │
+│                                                     │
+│  ┌─────────────────────┐                            │
+│  │ SignerAdapter       │ ← cliente IPC              │
+│  │  .submit(req)       │                            │
+│  └──────────┬──────────┘                            │
+└─────────────┼───────────────────────────────────────┘
+              │ stdin/stdout (protocolo binário)
+              │ magic + length + type + payload
+              ▼
+┌─────────────────────────────────────────────────────┐
+│  Processo signer isolado (src/signer/main.ts)       │
+│                                                     │
+│  ┌─────────────────────┐  ┌─────────────────────┐  │
+│  │ wallet-methods.ts   │  │ sign-methods.ts     │  │
+│  │ list/add/remove     │  │ personal_sign       │  │
+│  │                     │  │ eth_signTypedData_v4│  │
+│  └─────────────────────┘  └─────────────────────┘  │
+│                                                     │
+│  ┌─────────────────────┐                            │
+│  │ audit.ts            │ hash-chain independente   │
+│  │ (audit log interno) │ (entradas próprias)       │
+│  └─────────────────────┘                            │
+│                                                     │
+│  Chave privada: NUNCA sai deste processo.           │
+│  Mensagens assinadas saem via stdout.               │
+└─────────────────────────────────────────────────────┘
 ```
 
-**Invariantes:**
-- Chave privada **nunca** sai do processo signer.
-- Engine nunca carrega a chave privada.
-- Toda operação de sign é registrada no audit log interno do signer
-  (`src/signer/audit.ts`, hash-chain H0.3 separada da audit-chain do
-  engine principal).
-- Domain separator aplicado em `sign-methods.ts` para evitar
-  cross-protocol signature reuse.
+**Lifecycle:**
+
+1. Engine principal faz `spawn('tsx', ['src/signer/main.ts'])` na inicialização.
+2. Signer lê mnemonic de variável de ambiente `SIGNER_MNEMONIC` (ou
+   arquivo protegido via Vault/KMS em produção).
+3. Signer emite `ready` frame; engine passa a aceitar `submit()`.
+4. Cada `submit()` gera:
+   - Entrada de audit no signer (`audit.ts` — hash-chain interna).
+   - Resposta com `signature` + `auditHash` (para correlação).
+5. Em crash do signer: engine detecta EOF no stdout, marca signer
+   como indisponível, rejeita novos `submit()` com `SIGNER_UNAVAILABLE`.
+   Restart automático é responsabilidade do operador (não do engine).
+
+**REG-NNN associados:** ver `SECURITY.md` (signer isolation tests).
 
 ---
 
-## Writer Lease (M4) — fencing tokens Kleppmann
+## Loop principal de trading (M5.6 — Long-Duration)
 
+```typescript
+// Padrão OBRIGATÓRIO em src/lib/runtime/long-duration.ts
+// e em qualquer novo harness de duração.
+
+async function runLongDuration(durationMs: number, periodMs: number) {
+  const runtime = buildRuntime({ /* opts */ });
+  const deadline = Date.now() + durationMs;
+  let running = true;
+
+  // Signal handler — sinaliza stop gracioso
+  const onSignal = () => { running = false; };
+  process.on('SIGINT', onSignal);
+  process.on('SIGTERM', onSignal);
+
+  try {
+    while (running && Date.now() < deadline) {
+      await runtime.tick();         // 1 tick
+      await sleep(periodMs);        // espera controlada (NÃO setInterval)
+    }
+  } finally {
+    process.off('SIGINT', onSignal);
+    process.off('SIGTERM', onSignal);
+    await runtime.stop();
+  }
+}
 ```
-Writer A                                  Writer B (após failover)
-   │                                              │
-   │  acquire() ────────────►  LeaseStore         │
-   │  ◄──── token=42 ──────   (owner=A)           │
-   │                                              │
-   │  (network partition; A acha que tem lease)   │
-   │                                              │  acquire() ────────────►
-   │                                              │  ◄──── token=43 ──────
-   │                                              │   (owner=B, A expirou)
-   │                                              │
-   │  broadcast(tx)                               │  broadcast(tx)
-   │  ─► LeasedBroadcaster                        │  ─► LeasedBroadcaster
-   │      verifyToken(42)                         │      verifyToken(43)
-   │      ─► FENCING_TOKEN_STALE ✗                │      ─► ok ✓
-   │          (token atual=43, recebido=42)       │          (token atual=43)
-   │          REJECT                              │          BROADCAST ✓
-   │                                              │
-```
 
-Padrão Kleppmann ("How to do distributed locking"): cada acquire
-recebe um token **estritamente maior** que o anterior. O
-`LeasedBroadcaster` verifica o token ANTES de broadcastar. Um writer
-stale (que ainda acredita ter a lease) é rejeitado pelo broadcaster,
-mesmo que o LeaseStore já tenha eleito outro writer.
+**Por que `while(running)` e não `setInterval`:**
 
-**REG-NNN:**
-- REG-015: fencing token é monotônico estrito.
-- REG-016: acquire é exclusivo (apenas 1 owner por vez).
-- REG-017: renew após timeout exige re-acquire (não extende stale lease).
-- REG-018: reconnect não reanima lease stale (writer deve re-adquirir).
+- `setInterval` não respeita await — pode acumular ticks se um tick
+  demorar mais que o intervalo.
+- `setInterval` é difícil de parar gracioso em testes (precisa de
+  `clearInterval` explícito + await pending).
+- `while(running) { await tick(); await sleep(); }` garante que o
+  próximo tick só começa após o anterior terminar + sleep.
 
 ---
 
-## Observability (M5.5) — Registry único
+## Eventos de audit (H0 — hash-chain)
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     observability/registry.ts                   │
-│                          (Registry único)                        │
-└────┬───────┬───────┬───────┬───────┬───────┬───────┬────────────┘
-     │       │       │       │       │       │       │
-     ▼       ▼       ▼       ▼       ▼       ▼       ▼
-   runtime  canary  shadow  chaos  long-dur  API    scripts/
-   tick()   bucket  fork    inject  loop     status  test-m5-*
-                                                     │
-                                                     ▼
-                                            ┌──────────────┐
-                                            │ snapshot.ts  │
-                                            │ (read-only)  │
-                                            └──────┬───────┘
-                                                   │
-                                                   ▼
-                                            ┌──────────────┐
-                                            │ exporter.ts  │
-                                            │ (JSON shape) │
-                                            └──────┬───────┘
-                                                   │
-                                                   ▼
-                                            /api/runtime/status
-                                            (HTTP GET, read-only)
+Toda operação sensível gera uma entrada no audit log (`audit-log.ts`).
+A entrada é append-only, com hash que encadeia à entrada anterior
+(tamper-evident).
+
+### Tipos de evento
+
+| EventType           | Quem emite                | Campos principais                                       |
+| ------------------- | ------------------------- | ------------------------------------------------------- |
+| `PIPELINE_START`    | Pipeline                  | txHash, token, amount, slippage                         |
+| `PIPELINE_RESULT`   | Pipeline                  | txHash, status, receipt, auditId                        |
+| `SIM_REJECT`        | SimulationGate            | txHash, reason, gasEstimate                             |
+| `SIGN_REQUEST`      | SignerAdapter             | requestId, method, auditContext                         |
+| `SIGN_RESPONSE`     | SignerAdapter             | requestId, signature, signerAuditHash, latencyMs        |
+| `LEASE_ACQUIRE`     | WriterLease               | holder, fence, ttlMs, expiresAt                         |
+| `LEASE_RELEASE`     | WriterLease               | holder, fence, reason                                   |
+| `BROADCAST_ATTEMPT` | Broadcaster               | txHash, attempt, gasPrice, nonce                        |
+| `BROADCAST_RESULT`  | Broadcaster               | txHash, confirmed, attempts, latencyMs                  |
+| `RPC_FALLBACK`      | rpc-resilience            | failedEndpoint, fallbackEndpoint, reason                |
+| `CHAOS_INJECT`      | ChaosInjector             | type, target, severity                                  |
+| `SHADOW_DIFF`       | ShadowHarness             | txHash, liveResult, shadowResult, diffType              |
+| `CANARY_BUCKET`     | CanaryBroadcaster         | txHash, bucket, canaryPct, routed                       |
+
+### Estrutura da entrada
+
+```typescript
+interface AuditEntry {
+  seq: number;                  // monotônico crescente
+  timestamp: number;            // unix ms
+  type: EventType;
+  payload: Record<string, unknown>;
+  prevHash: string;             // hash da entrada seq-1 (chain)
+  hash: string;                 // SHA-256(prevHash + canonical(payload))
+  version: 2;                   // versão do schema (após H0.3 fix)
+}
 ```
 
-**Princípio (DEC-004):** todos os harnesses consomem o mesmo Registry.
-Sem Registry, cada harness reinventaria contadores — duplicação e
-divergência. O Registry é a **fonte de verdade** para todas as
-métricas do runtime.
+**Invariante (DEC-001):** o hash é computado com `JSON.stringify(entry,
+sortedReplacerFunction)` — não `sortedKeysArray` (que silenciosamente
+dropava nested keys pré-H0.3).
 
 ---
 
-## Eventos e cronologia de um round de trading
+## Estado do runtime (snapshot M5.5)
 
-```
-T0:   Market data tick chega (Binance WS / DexScreener REST / poll)
-T1:   Engine decide analisar token → chama pipeline.run(token, pool)
-T2:   Pipeline executa gates H2.2 → H2.3 → H2.1 → H1.2 → H1.4 → H1.3 → H2.4
-        métricas: pipelineLatencyMs.observe(T2-T1)
-                  gateRejects.<gate>.inc() se algum gate REJECT
-T3:   Se approved: signerAdapter.sign(tx) → IPC → signer process
-        métricas: signerLatencyMs.observe(T3-T_sign_done)
-T4:   lease.acquire() → token N emitido
-        métricas: leaseAcquireMs.observe(T4-T_acquire_start)
-T5:   leasedBroadcaster.broadcast(signedTx, tokenN)
-        verifyToken(tokenN) ✓
-        broadcaster.submit → RPC quorum
-        métricas: broadcastLatencyMs.observe(T5-T_broadcast_done)
-                  rpcErrors.inc() se quorum falha
-T6:   Receipt on-chain → round closes
-        métricas: roundsSucceeded.inc()
-T7:   (Canário) se keccak256(txHash) % 100 < canaryPct:
-        canaryAccepted.inc()
-        else: canarySkipped.inc()
-T8:   (Shadow) fork do PipelineResult para shadow path; se diverge do live:
-        shadowDiffs.inc()
+O endpoint `/api/runtime/status` retorna um snapshot read-only com:
 
-Falha em qualquer etapa:
-  roundsFailed.inc()
-  <error-type>Errors.inc()
-  audit-log.append({seq, op, error, ...})
+```json
+{
+  "phase": "M5-complete",
+  "uptimeMs": 3600_000,
+  "tickCount": 14400,
+  "lastTickAt": 1737000000000,
+  "activeLease": { "holder": "runtime-main", "fence": 42, "expiresAt": 1737000005000 },
+  "registry": {
+    "counters": { "tx_total": 1500, "tx_confirmed": 1498, "tx_reverted": 2 },
+    "gauges": { "heap_used_mb": 87, "active_leases": 1, "canary_pct": 5 },
+    "histograms": {
+      "broadcast_latency_ms": { "count": 1500, "sum": 125000, "buckets": { /* ... */ } }
+    }
+  },
+  "canary": { "pct": 5, "bucketSeed": "keccak256(txHash) % 100" },
+  "shadow": { "enabled": true, "diffs": 0 }
+}
 ```
 
----
-
-## Entradas
-
-- **Market data:** Binance REST (candles, ticker), DexScreener REST
-  (DEX pools), GoPlus Security API (token security), Etherscan API
-  (contract source), alternative.me (Fear & Greed), CoinGecko (trending).
-- **Config:** `prisma/schema.prisma` model `Config`, editável via
-  `/api/config` e dashboard.
-- **Operator commands:** API routes (`/api/engine/start`, `/stop`,
-  `/api/kill-switch`, `/api/runtime/status`, etc.).
-- **Watchlist:** `prisma` model, editável via `/api/watchlist`.
-
-## Saídas
-
-- **On-chain:** tx broadcastada (em live mode; em paper mode é
-  simulada).
-- **Persistência:** `prisma` models (`Position`, `Round`, `Reserve`,
-  `TradingBalance`, `RiskEvent`, `ScamReport`, `AppLog`,
-  `MarketSnapshot`, `AIInsight`, `SiteAudit`).
-- **Audit:** `audit-log.ts` (append-only, hash-chain).
-- **Logs:** `AppLog` + console + `crash-logger.ts`.
-- **UI:** SSE stream via `/api/stream` para dashboard em tempo real.
-- **Métricas:** `/api/runtime/status` (JSON read-only).
-
-## Eventos
-
-- `round.started`, `round.succeeded`, `round.failed` — Registry.
-- `gate.rejected` com `gateName` — Registry.
-- `lease.acquired`, `lease.renewed`, `lease.lost` — Registry + audit-log.
-- `broadcast.submitted`, `broadcast.confirmed`, `broadcast.failed` —
-  Registry + audit-log.
-- `canary.accepted`, `canary.skipped` — Registry.
-- `shadow.diff` — Registry + audit-log.
-- `kill-switch.activated` — audit-log + notifier.
+Consumidores: dashboard, harnesses M5.4/5.2/5.3/5.6, alerting externo.
