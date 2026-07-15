@@ -216,3 +216,16 @@ HTTP. Ver `api-contracts.md` para detalhes.
    compatibilidade.
 4. **Mudar SignMethod enum:** breaking change — adicionar novo é
    ok; remover existente requer ADR.
+
+---
+
+## Relacionado
+
+- `architecture/interfaces.md` — SignerSink e SignerProtocol.
+- `architecture/invariants.md` INV-006 — signer nunca expõe chave privada.
+- `standards/security.md` STD-204 — signer isolation.
+- `DECISION_LOG.md` DEC-002 — signer isolado em processo próprio.
+- `decisions/ADR-0001.md` — arquitetura que justifica o protocolo IPC.
+- `docs/signer-isolation-design.md` (raiz do projeto) — design detalhado.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

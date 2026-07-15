@@ -263,3 +263,18 @@ Shadow vs. no Long-Duration diretamente.
   justificando a mudança estrutural.
 - Invariantes não são "best practices" — são garantias. Quebrar
   uma é incidente de segurança, não dívida técnica.
+
+---
+
+## Relacionado
+
+- `architecture/interfaces.md` — contratos públicos que implementam os invariantes.
+- `architecture/frozen-files.md` — arquivos cuja alteração exigiria quebrar um invariante.
+- `standards/security.md` STD-203 a STD-205 — implementação técnica dos invariantes.
+- `standards/testing.md` STD-102 — testes adversariais validam cada invariante.
+- `DECISION_LOG.md` DEC-001 a DEC-005 — decisões que estabeleceram invariantes.
+- `decisions/ADR-0001.md` — arquitetura cujos invariantes são garantidos por H0–M5.
+- `SECURITY.md` (raiz do projeto) — REG-NNN adversariais que testam os invariantes.
+- `memory/known-problems.md` KP-001 a KP-011 — bugs que expuseram invariantes.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

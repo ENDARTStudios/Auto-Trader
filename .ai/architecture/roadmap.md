@@ -138,3 +138,17 @@ na BSC mainnet, com ramp gradual de tráfego.
   métricas.
 
 ### [Entradas futuras vêm aqui — append-only]
+
+---
+
+## Relacionado
+
+- `PROJECT_STATE.md` — snapshot do milestone corrente.
+- `memory/implementation-history.md` — linha do tempo de conclusão de fases.
+- `DECISION_LOG.md` DEC-004 — ordem das sub-fases M5.
+- `decisions/ADR-0001.md` — arquitetura que o roadmap valida.
+- `HARDENING-ROADMAP.md` (raiz do projeto) — mapeia 30 attack vectors às fases.
+- `memory/future-ideas.md` FI-NNN — candidatos a futuros milestones.
+- `memory/technical-debt.md` TD-002 — bloqueador do M6 (Vault/KMS).
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

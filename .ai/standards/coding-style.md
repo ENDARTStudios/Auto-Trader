@@ -3,12 +3,15 @@
 > Regras detalhadas de estilo. `ENGINEERING_RULES.md` é o resumo
 > executivo; este arquivo é a referência completa. Aplica-se a
 > TypeScript, React (TSX) e scripts Node.
+>
+> **IDs canônicos:** STD-001 a STD-009 (ver `MANIFEST.md` para a
+> tabela completa de prefixos).
 
 ---
 
 ## TypeScript
 
-### Naming
+### STD-001 — Naming conventions
 
 | Tipo                  | Convenção             | Exemplo                              |
 | --------------------- | --------------------- | ------------------------------------ |
@@ -23,7 +26,7 @@
 | Arquivo (test)        | `<name>.test.ts`      | `audit-log.test.ts`                  |
 | Arquivo (harness)     | `test-<name>.ts`      | `test-m5-chaos.ts`                   |
 
-### Tipos
+### STD-002 — Tipos
 
 - **Sempre tipar** parâmetros de função e retorno. Usar
   `unknown` em vez de `any` quando o tipo é realmente desconhecido.
@@ -34,7 +37,7 @@
 - **`!` non-null assertion** é permitido apenas após `if (x !== null)`
   explícito. Não usar para "eu sei que não é null".
 
-### Imports
+### STD-003 — Imports
 
 ```typescript
 // ✅ Ordem: (1) node builtins, (2) external packages, (3) internal alias, (4) relative
@@ -49,7 +52,7 @@ import { Counter, Gauge } from '@/lib/observability/metrics';
 // ❌ Proibido: import * as Foo (exceto para namespaces explícitos)
 ```
 
-### Async/await
+### STD-004 — Async/await
 
 - **Sempre** preferir `async/await` sobre `.then()`/`.catch()`.
 - **Nunca** async function sem await (ESLint deve warn).
@@ -57,7 +60,7 @@ import { Counter, Gauge } from '@/lib/observability/metrics';
   Erro não tratado em Promise rejeitada = unhandled rejection =
   crash do processo.
 
-### Error handling
+### STD-005 — Error handling (preserva cause — INV-004)
 
 ```typescript
 // ✅ Custom errors com code
@@ -80,7 +83,7 @@ throw new PipelineError('SIM_REJECT', 'simulation reverted', { gasEstimate }, or
 // ❌ Proibido: console.log(error) — usar logger estruturado
 ```
 
-### Format
+### STD-006 — Format
 
 - **Indentação:** 2 espaços (não tabs).
 - **Line length:** 120 chars máximo (ESLint enforce).
@@ -93,7 +96,7 @@ throw new PipelineError('SIM_REJECT', 'simulation reverted', { gasEstimate }, or
 
 ## React / TSX
 
-### Componentes
+### STD-007 — Componentes
 
 ```typescript
 // ✅ Function component com tipo explícito
@@ -110,14 +113,14 @@ interface PositionsTableProps {
 // ❌ Proibido: class components (exceto ErrorBoundary, única exceção)
 ```
 
-### Hooks
+### STD-007.1 — Hooks
 
 - **Naming:** `useXxx` (ex.: `usePositions`, `useEngineStatus`).
 - **Sempre** tipar retorno: `function useXxx(): ReturnType`.
 - **Dep array:** preencher corretamente. Usar `eslint-plugin-react-hooks`
   exhaustive-deps.
 
-### Estado
+### STD-007.2 — Estado
 
 - **Estado local:** `useState`.
 - **Estado compartilhado entre componentes irmãos:** lift up para
@@ -126,7 +129,7 @@ interface PositionsTableProps {
   - Zustand preferido para alta frequência (ex.: logs feed).
   - Context preferido para baixa frequência (ex.: user session).
 
-### Styling
+### STD-007.3 — Styling
 
 - **Tailwind CSS 4** é o padrão. Sem CSS modules, sem styled-components.
 - **shadcn/ui** para componentes base (Button, Dialog, Table, etc.).
@@ -134,7 +137,7 @@ interface PositionsTableProps {
 
 ---
 
-## Estrutura de pastas
+## STD-008 — Estrutura de pastas
 
 ```
 src/
@@ -175,7 +178,7 @@ src/
 
 ## Comentários e JSDoc
 
-### Quando comentar
+### STD-009 — Quando comentar
 
 - **Sempre** que a intenção não for óbvia pelo código.
 - **Sempre** em invariantes críticos (ex.: "INV-007: fence é
@@ -183,7 +186,7 @@ src/
 - **Nunca** para explicar o que o código faz (código limpo já diz).
 - **Nunca** código comentado — deletar. Git mantém histórico.
 
-### JSDoc para API pública
+### STD-009.1 — JSDoc para API pública
 
 ```typescript
 /**
@@ -199,7 +202,7 @@ src/
 async function process(input: PipelineInput): Promise<PipelineResult>;
 ```
 
-### TODO comments
+### STD-009.2 — TODO comments
 
 - **Formato:** `// TODO(<name>): <description> [issue#NNN]`
 - **Sempre** com nome do responsável ou referência a issue.
@@ -207,7 +210,7 @@ async function process(input: PipelineInput): Promise<PipelineResult>;
 
 ---
 
-## ESLint e Prettier
+## STD-009.3 — ESLint e Prettier
 
 - **ESLint config:** `.eslintrc.json` na raiz. Regras do projeto
   são stricter que default do Next.js.
@@ -218,7 +221,7 @@ async function process(input: PipelineInput): Promise<PipelineResult>;
 
 ---
 
-## Scripts de build
+## STD-009.4 — Scripts de build
 
 | Comando                 | O que faz                                         |
 | ----------------------- | ------------------------------------------------- |
@@ -230,3 +233,17 @@ async function process(input: PipelineInput): Promise<PipelineResult>;
 | `npm run test`          | Roda todos os testes.                             |
 | `npx prisma migrate dev`| Aplica migrations em dev.                         |
 | `npx tsx scripts/X.ts`  | Roda script TypeScript isolado (test harnesses).  |
+
+---
+
+## Relacionado
+
+- `ENGINEERING_RULES.md` — resumo executivo do fluxo de engenharia.
+- `standards/testing.md` (STD-101+) — padrões de teste.
+- `standards/security.md` (STD-201+) — padrões de segurança.
+- `standards/documentation.md` (STD-301+) — padrões de documentação.
+- `standards/git-workflow.md` (STD-401+) — padrões de git.
+- `architecture/interfaces.md` — contratos públicos que usam estes padrões.
+- `architecture/invariants.md` INV-004 — preservar cause em erros.
+- `DECISION_LOG.md` DEC-005 — prefixo `BROADCAST_SIGNER_*` em erros do signer.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.

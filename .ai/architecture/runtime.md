@@ -249,3 +249,18 @@ O endpoint `/api/runtime/status` retorna um snapshot read-only com:
 ```
 
 Consumidores: dashboard, harnesses M5.4/5.2/5.3/5.6, alerting externo.
+
+---
+
+## Relacionado
+
+- `architecture/modules.md` — módulos envolvidos no fluxo.
+- `architecture/interfaces.md` — assinaturas de `Pipeline.process()`, `Broadcaster.broadcast()`, etc.
+- `architecture/invariants.md` INV-001 (ordem pipeline), INV-002 (broadcaster imutável), INV-005 (audit exactly-once).
+- `contracts/events.md` — eventos emitidos em cada etapa do runtime.
+- `contracts/rpc.md` — IPC entre engine e signer (M3.2).
+- `DECISION_LOG.md` DEC-004 — ordem canônica de execução M5.
+- `decisions/ADR-0001.md` — arquitetura defense-in-depth com fluxo H0 → M5.
+- `PROJECT_STATE.md` — snapshot do fluxo corrente.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

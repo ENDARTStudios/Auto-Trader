@@ -165,3 +165,15 @@
 ---
 
 ### [Entradas futuras vêm aqui — nunca sobrescrever acima]
+
+---
+
+## Relacionado
+
+- `memory/known-problems.md` KP-NNN — bugs em observação podem virar débito.
+- `architecture/roadmap.md` — fases que podem pagar estes débitos.
+- `DECISION_LOG.md` — decisões deliberadas (TD-011, TD-012) são registradas aqui.
+- `ENGINEERING_RULES.md` > Restrições — diretrizes para avaliar novos débitos.
+- `PROJECT_STATE.md` — snapshot atual dos débitos pendentes.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

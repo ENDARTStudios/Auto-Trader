@@ -3,10 +3,13 @@
 > Regras detalhadas de documentação. `README.md` (raiz do `.ai/`)
 > é o ponto de entrada; este arquivo é a referência para manter
 > todos os documentos sincronizados e consistentes.
+>
+> **IDs canônicos:** STD-301 a STD-308 (ver `MANIFEST.md` para a
+> tabela completa de prefixos).
 
 ---
 
-## Estrutura de documentação
+## STD-301 — Estrutura de documentação
 
 ```
 .ai/                           # Governance layer (este diretório)
@@ -33,7 +36,7 @@ worklog.md                     # Log multi-agente (raiz)
 
 ---
 
-## Padrões por tipo de documento
+## STD-302 — Padrões por tipo de documento
 
 ### `.ai/*.md` (root level)
 
@@ -143,7 +146,7 @@ entradas antigas.
 
 ---
 
-## JSDoc
+## STD-303 — JSDoc
 
 ### Funções públicas
 
@@ -178,7 +181,7 @@ entradas antigas.
 
 ---
 
-## READMEs
+## STD-304 — READMEs
 
 ### README.md raiz do projeto
 
@@ -201,14 +204,14 @@ contrário, omitir.
 
 ---
 
-## Conventional commits
+## STD-305 — Conventional commits
 
 Ver `standards/git-workflow.md` para detalhes. Documentação
 gerada a partir de commits (changelogs) segue o mesmo padrão.
 
 ---
 
-## Manutenção
+## STD-306 — Manutenção
 
 ### Quando atualizar docs
 
@@ -217,9 +220,9 @@ gerada a partir de commits (changelogs) segue o mesmo padrão.
   de exceção).
 - **Toda nova decisão arquitetural:** ADR + entrada em
   `DECISION_LOG.md`.
-- **Toda mudança de API:** atualizar `contracts/api-contracts.md`.
+- **Toda mudança de API:** atualizar `contracts/api.md`.
 - **Toda mudança de schema:** atualizar
-  `contracts/database-contracts.md` + criar Prisma migration.
+  `contracts/database.md` + criar Prisma migration.
 - **Toda conclusão de fase:** atualizar
   `architecture/roadmap.md` + `PROJECT_STATE.md`.
 
@@ -243,7 +246,7 @@ PR sem atualização de docs quando necessária é bloqueada por review.
 
 ---
 
-## Idioma
+## STD-307 — Idioma
 
 - **Documentação `.ai/`:** Português (PT-BR).
 - **Code comments / JSDoc:** Inglês (padrão da indústria, facilita
@@ -255,3 +258,17 @@ PR sem atualização de docs quando necessária é bloqueada por review.
 Exceção: termos técnicos consagrados em inglês ("audit log",
 "fencing token", "lease", "broadcast") permanecem em inglês mesmo
 em docs em português.
+
+---
+
+## Relacionado
+
+- `MANIFEST.md` — manifesto do Project OS com princípios de manutenção.
+- `README.md` — índice mínimo humano.
+- `INDEX.md` — índice completo com IDs e regra de cross-links.
+- `CHECKLIST.md` — checklist que referencia este padrão.
+- `standards/git-workflow.md` (STD-401+) — conventional commits.
+- `standards/coding-style.md` STD-009 — JSDoc inline.
+- `architecture/` e `contracts/` — consumidores destes padrões.
+- `memory/implementation-history.md` — append-only conforme padrão.
+- `decisions/ADR-*.md` — template ADR definido aqui.

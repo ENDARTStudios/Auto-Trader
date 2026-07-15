@@ -156,3 +156,17 @@ modificado livremente:
 3. Adicionar à tabela correspondente acima (audit / H1 / H2 / etc.).
 4. Atualizar `architecture/modules.md` (coluna FROZEN: ❌ → ✅).
 5. Atualizar `PROJECT_STATE.md` se for mudança de estado significativa.
+
+---
+
+## Relacionado
+
+- `architecture/modules.md` — lista de módulos (coluna FROZEN).
+- `architecture/invariants.md` INV-003 — FROZEN não pode mudar sem ADR.
+- `CORE_RULES.md` Regra 8 — lei que define FROZEN.
+- `ENGINEERING_RULES.md` > Restrições — não mover/renomear módulos FROZEN.
+- `DECISION_LOG.md` — toda entrada de congelamento fica registrada aqui.
+- `PROJECT_STATE.md` — snapshot com tabela de módulos FROZEN.
+- `decisions/ADR-0001.md` — justificativa arquitetural do conjunto H0–M5 FROZEN.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

@@ -2478,3 +2478,40 @@ Stage Summary:
 - PROJECT_STATE.md agora segue o princípio "snapshot atual apenas" — reduzido de 231 para 168 linhas, com pointers explícitos para arquivos canônicos de histórico, roadmap e decisões.
 - README.md agora reflete a estrutura real com 6 subpastas + INDEX.md, e documenta explicitamente a divisão de responsabilidade entre arquivos para evitar duplicação futura.
 - worklog.md atualizado seguindo protocolo multi-agente (Task ID, Work Log, Stage Summary).
+
+---
+Task ID: project-os-v2.1
+Agent: main
+Task: Aplicar 7 ajustes estruturais ao Project OS (v2 → v2.1) solicitados pelo operador: (1) PROJECT_STATE.md como snapshot puro, (2) README.md como índice puro, (3) IDs canônicos por categoria, (4) regra de cross-links, (5) MANIFEST.md, (6) versionamento do Project OS, (7) CHECKLIST.md.
+
+Work Log:
+- Lido o estado atual de .ai/ (34 arquivos em v2, criados em 2026-07-15).
+- Lido arquivos-chave para entender conteúdo atual: PROJECT_STATE.md, README.md, INDEX.md, DECISION_LOG.md, CORE_RULES.md, ENGINEERING_RULES.md, TASK_TEMPLATE.md, ADR-0001.md, invariants.md, interfaces.md, technical-debt.md, known-problems.md, e os 5 standards/.
+- Criado .ai/MANIFEST.md (manifesto do Project OS com 7 princípios, tabela de prefixos de ID, divisão de responsabilidade).
+- Criado .ai/CHECKLIST.md (checklist operacional em 7 fases: Leitura → Mapeamento → Planejamento → Implementação → Validação → Documentação → Cross-links).
+- Reescrito .ai/README.md como índice puro (~70 linhas, antes ~190). Apenas aponta onde cada informação fica.
+- Reescrito .ai/PROJECT_STATE.md como snapshot puro. Removidas seções de roadmap, decisões e histórico. Adicionada declaração `Project OS: v2.1`.
+- Atualizado .ai/INDEX.md: adicionada seção MANIFEST & NAVIGATION, regra de IDs canônicos, regra de cross-links, coluna de ID em todas as tabelas.
+- Renomeado contracts/api-contracts.md → contracts/api.md, database-contracts.md → database.md, rpc-contracts.md → rpc.md, event-contracts.md → events.md.
+- Adicionados IDs STD-NNN aos 5 arquivos de standards/: coding-style (STD-001 a STD-009.4), testing (STD-101 a STD-107), security (STD-201 a STD-209), documentation (STD-301 a STD-307), git-workflow (STD-401 a STD-408).
+- Escrito script /home/z/my-project/scripts/append-cross-links.py para adicionar seção `## Relacionado` em batch a 18 arquivos (architecture/*, contracts/*, memory/*, context/terminology, context/conventions, context/glossary).
+- Executado script: 18 arquivos atualizados com cross-links.
+- Adicionada seção `## Relacionado` manualmente a .ai/decisions/ADR-0001.md (já tinha `## Referências`, complementado com cross-links formais).
+- Criado .ai/decisions/ADR-0002.md documentando a transição v2 → v2.1 com contexto, alternativas, decisão, consequências, implementação e rollback.
+- Adicionado DEC-006 ao .ai/DECISION_LOG.md com resumo da mudança v2.1.
+- Adicionada entrada datada (2026-07-16) ao .ai/memory/implementation-history.md descrevendo a transição v2.1.
+- Nenhum arquivo FROZEN do código-fonte foi tocado. Nenhuma dependência adicionada.
+
+Stage Summary:
+- Project OS bumpado: v2 → v2.1.
+- 2 arquivos criados: MANIFEST.md, CHECKLIST.md.
+- 1 ADR criado: ADR-0002.md (documenta a mudança estrutural).
+- 1 decisão registrada: DEC-006 em DECISION_LOG.md.
+- 4 arquivos renomeados em contracts/ (sufixo -contracts removido).
+- 5 arquivos de standards/ ganharam IDs STD-NNN.
+- 24 arquivos ganharam seção `## Relacionado` com cross-links formais.
+- 3 arquivos reescritos: README.md, PROJECT_STATE.md, INDEX.md.
+- 1 script persistido: /home/z/my-project/scripts/append-cross-links.py.
+- Total de arquivos .ai/ após v2.1: 37 (antes 34).
+- Estrutura final: 11 raiz + 7 architecture + 4 contracts + 5 standards + 4 context + 4 memory + 2 decisions.
+- Estado do projeto (código): inalterado. M5 continua concluído. Próximo milestone: M6 (Live Trading com canaryPct ramp).

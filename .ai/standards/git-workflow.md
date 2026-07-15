@@ -2,10 +2,16 @@
 
 > Regras detalhadas de commits, branches, PRs. Aplica-se a todo
 > repositório do projeto.
+>
+> **IDs canônicos:** STD-401 a STD-410 (ver `MANIFEST.md` para a
+> tabela completa de prefixos).
+>
+> **IDs canônicos:** STD-401 a STD-410 (ver `MANIFEST.md` para a
+> tabela completa de prefixos).
 
 ---
 
-## Conventional Commits
+## STD-401 — Conventional Commits
 
 Toda mensagem de commit segue o padrão Conventional Commits 1.0.0:
 
@@ -94,7 +100,7 @@ chore(deps): bump ethers from 6.10.0 to 6.11.0
 
 ---
 
-## Branches
+## STD-402 — Branches
 
 ### Naming
 
@@ -130,7 +136,7 @@ Exemplos:
 
 ---
 
-## Pull Requests
+## STD-403 — Pull Requests
 
 ### Tamanho
 
@@ -196,7 +202,7 @@ PR não pode ser mergeado enquanto qualquer check falhar.
 
 ---
 
-## Tags e releases
+## STD-404 — Tags e releases
 
 ### Versionamento
 
@@ -223,7 +229,7 @@ MAJOR.MINOR.PATCH
 
 ---
 
-## Reverts
+## STD-405 — Reverts
 
 ### Quando reverter
 
@@ -252,7 +258,7 @@ Tracking issue: #NNN
 
 ---
 
-## Hooks
+## STD-406 — Hooks
 
 ### Pre-commit (husky)
 
@@ -269,7 +275,7 @@ Tracking issue: #NNN
 
 ---
 
-## Secrets
+## STD-407 — Secrets
 
 ### Proibições
 
@@ -295,7 +301,7 @@ Tracking issue: #NNN
 
 ---
 
-## Merge strategy
+## STD-408 — Merge strategy
 
 - **Squash and merge:** para features com múltiplos commits de
   WIP — cria history limpa.
@@ -305,3 +311,17 @@ Tracking issue: #NNN
   significativos (preserva contexto de merge).
 
 Default: **squash and merge** para features; **rebase** para fixes.
+
+---
+
+## Relacionado
+
+- `standards/documentation.md` (STD-301+) — formato de ADRs, READMEs, worklog.
+- `standards/security.md` STD-202 e STD-407 — regras de segredos em commits.
+- `CORE_RULES.md` Regra 8 — FROZEN files exigem aprovação explícita em PRs.
+- `ENGINEERING_RULES.md` — fluxo com campo Rollback que vai em PRs.
+- `TASK_TEMPLATE.md` — template de tarefa alinhado com PR template.
+- `DECISION_LOG.md` e `decisions/ADR-*.md` — referenciados em commit footers.
+- `SECURITY.md` (raiz do projeto) — REG-NNN referenciados em commits.
+- `memory/known-problems.md` KP-NNN — registrados após reverts.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.

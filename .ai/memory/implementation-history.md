@@ -239,4 +239,94 @@
 
 ---
 
+## 2026-07-16 — Project OS v2.1: MANIFEST, CHECKLIST, IDs canônicos, snapshot puro
+
+- **Versão do Project OS bumpada:** v2 → v2.1. `PROJECT_STATE.md`
+  agora declara `Project OS: v2.1` explicitamente.
+- **Decisão registrada:** `DEC-006` em `DECISION_LOG.md`.
+  Detalhe completo em `decisions/ADR-0002.md`.
+- **Mudanças estruturais aplicadas:**
+  1. **`MANIFEST.md` criado** na raiz do `.ai/`. Documento central
+     com 7 princípios fundamentais (fonte única de verdade,
+     append-only, cross-links obrigatórios, IDs canônicos,
+     snapshot vs histórico, precedência, versionamento do
+     Project OS), tabela de prefixos de ID e tabela de divisão
+     de responsabilidade.
+  2. **`CHECKLIST.md` criado** na raiz do `.ai/`. Checklist
+     operacional em 7 fases (Leitura → Mapeamento → Planejamento
+     → Implementação → Validação → Documentação → Cross-links).
+  3. **`README.md` reescrito como índice puro** (~70 linhas,
+     antes ~190). Apenas aponta "onde cada informação fica".
+     Regras removidas — ficam nos arquivos referenciados.
+  4. **`PROJECT_STATE.md` reescrito como snapshot puro.**
+     Removidas seções de roadmap, decisões ativas e histórico
+     que duplicavam fontes canônicas. Mantido: versão do
+     Project OS, versão do projeto, branch, milestone, stack,
+     banco, modo, servidor, próximo milestone, data de
+     atualização, módulos FROZEN (referência), módulos em
+     andamento, status M5, fluxo canônico (referência),
+     referências para fontes externas.
+  5. **`INDEX.md` atualizado:** adicionada seção "MANIFEST &
+     NAVIGATION" no topo, "Regra de IDs canônicos" formalizada,
+     "Regra de cross-links" formalizada com exemplo, todos os
+     arquivos agora mostram coluna de ID, atualizadas referências
+     aos novos nomes de `contracts/`.
+  6. **IDs STD-NNN adicionados** aos 5 arquivos de `standards/`:
+     - `coding-style.md` — STD-001 a STD-009.4.
+     - `testing.md` — STD-101 a STD-107.
+     - `security.md` — STD-201 a STD-209.
+     - `documentation.md` — STD-301 a STD-307.
+     - `git-workflow.md` — STD-401 a STD-408.
+     Numerados por bloco (001+, 101+, 201+, 301+, 401+) para
+     evitar colisão entre categorias.
+  7. **Prefixo `FI-NNN` formalizado** para ideias futuras
+     (`memory/future-ideas.md`).
+  8. **Renomeação de contracts/:**
+     - `api-contracts.md` → `api.md`.
+     - `database-contracts.md` → `database.md`.
+     - `rpc-contracts.md` → `rpc.md`.
+     - `event-contracts.md` → `events.md`.
+     Sufixo `-contracts` removido por ser redundante com a pasta.
+  9. **Seção `## Relacionado` adicionada** em todos os arquivos
+     estruturados de `.ai/` (exceto índices e manifesto):
+     - 7 arquivos em `architecture/`.
+     - 4 arquivos em `contracts/`.
+     - 5 arquivos em `standards/`.
+     - 4 arquivos em `memory/`.
+     - 3 arquivos em `context/` (terminology, conventions,
+       glossary).
+     - `decisions/ADR-0001.md`.
+     Total: 24 arquivos com cross-link section adicionada.
+- **Total de arquivos `.ai/` após v2.1:** 11 raiz (MANIFEST e
+  CHECKLIST novos) + 7 architecture + 4 contracts + 5 standards
+  + 4 context + 4 memory + 2 decisions (ADR-0002 novo) =
+  37 arquivos de governança.
+- **Validação pós-implementação:** nenhum arquivo FROZEN do
+  código-fonte foi tocado. Nenhuma dependência adicionada.
+  Escopo mínimo respeitado (mudança de governança, não de
+  código). Renomeação de contracts/ quebrou referências internas
+  em `INDEX.md` e `README.md` — ambas atualizadas na mesma
+  operação.
+- **Lição permanente registrada:** toda camada de governança
+  precisa de (a) manifesto, (b) checklist operacional, (c) IDs
+  canônicos por categoria, (d) cross-links obrigatórios, (e)
+  versionamento explícito da própria governança. Formalizado
+  em `MANIFEST.md`.
+
+---
+
 ### [Entradas futuras vêm aqui — nunca sobrescrever acima]
+
+---
+
+## Relacionado
+
+- `PROJECT_STATE.md` — snapshot atual (referência cruzada com esta linha do tempo).
+- `DECISION_LOG.md` DEC-NNN — decisões citadas nas entradas.
+- `decisions/ADR-*.md` — ADRs citados nas entradas.
+- `memory/known-problems.md` KP-NNN — bugs registrados após cada fase.
+- `memory/technical-debt.md` TD-NNN — débitos identificados em cada fase.
+- `architecture/roadmap.md` — fases canônicas referenciadas.
+- `worklog.md` (raiz do projeto) — log operacional contínuo.
+- `MANIFEST.md` — princípios do Project OS (append-only, fonte única).
+

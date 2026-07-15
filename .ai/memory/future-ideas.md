@@ -202,3 +202,13 @@ de terceiros)
 **Nota:** Quando uma ideia for promovida a milestone, **não
 removê-la daqui**. Adicionar nota "(Promovida a M-X em YYYY-MM-DD,
 ver `architecture/roadmap.md`)" e manter o registro histórico.
+
+---
+
+## Relacionado
+
+- `architecture/roadmap.md` — ideias promovidas a milestone.
+- `DECISION_LOG.md` — toda promoção de FI-NNN a milestone produz entrada aqui.
+- `memory/implementation-history.md` — registro de quando cada ideia foi promovida.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

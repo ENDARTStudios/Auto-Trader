@@ -275,3 +275,17 @@ próximo tick).
 4. **Mudança de path:** breaking change — criar `/api/v2/...` e
    manter v1 por período de depreciação.
 5. **Toda mudança DEVE atualizar este arquivo** antes do merge.
+
+---
+
+## Relacionado
+
+- `architecture/interfaces.md` — assinaturas TypeScript canônicas.
+- `contracts/events.md` — eventos emitidos por estes endpoints.
+- `standards/security.md` STD-201.2 — least privilege em API.
+- `standards/documentation.md` STD-302 — padrão de documentação de API.
+- `CORE_RULES.md` Regra 9 — breaking changes exigem DEC-NNN.
+- `DECISION_LOG.md` — registrar breaking changes de API.
+- `memory/technical-debt.md` TD-007 — documentação OpenAPI pendente.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

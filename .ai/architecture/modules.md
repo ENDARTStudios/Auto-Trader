@@ -100,3 +100,17 @@
   congelamento.
 - Toda transição de `✅` para `❌` (descongelamento) DEVE ter entrada
   em `DECISION_LOG.md` + aprovação explícita do operador.
+
+---
+
+## Relacionado
+
+- `architecture/frozen-files.md` — lista canônica de FROZEN (subset desta lista).
+- `architecture/dependencies.md` — blast radius por módulo.
+- `architecture/interfaces.md` — contratos públicos por módulo.
+- `architecture/runtime.md` — fluxo canônico que conecta os módulos.
+- `PROJECT_STATE.md` — snapshot de quais módulos estão concluídos.
+- `DECISION_LOG.md` DEC-001 a DEC-005 — decisões que congelaram módulos.
+- `decisions/ADR-0001.md` — arquitetura defense-in-depth (H0 → M5).
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

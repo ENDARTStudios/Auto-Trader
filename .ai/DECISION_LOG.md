@@ -175,4 +175,80 @@
 
 ---
 
+## DEC-006 — Project OS v2.1: MANIFEST, CHECKLIST, IDs canônicos, snapshot puro (2026-07-16)
+
+- **Data:** 2026-07-16.
+- **Motivo:** v2 do Project OS tinha três problemas estruturais:
+  (1) `PROJECT_STATE.md` misturava snapshot com roadmap/decisões/
+  histórico apesar de declarar "snapshot puro"; (2) `README.md`
+  explicava regras em vez de apenas apontar onde cada informação
+  fica, duplicando `CORE_RULES.md` e `INDEX.md`; (3) sem IDs
+  canônicos por categoria, cross-links eram frágeis (baseados em
+  nome de arquivo). Sem manifesto ou checklist operacional, o
+  diretório corria risco de crescimento desordenado.
+- **Arquivos envolvidos:**
+  - **Criados:** `.ai/MANIFEST.md`, `.ai/CHECKLIST.md`,
+    `.ai/decisions/ADR-0002.md`.
+  - **Reescritos:** `.ai/README.md` (índice puro, ~70 linhas),
+    `.ai/PROJECT_STATE.md` (snapshot puro sem roadmap/decisões/
+    histórico), `.ai/INDEX.md` (adicionada seção MANIFEST &
+    NAVIGATION, regra de IDs canônicos, regra de cross-links).
+  - **Renomeados:** `contracts/api-contracts.md` → `contracts/api.md`,
+    `contracts/database-contracts.md` → `contracts/database.md`,
+    `contracts/rpc-contracts.md` → `contracts/rpc.md`,
+    `contracts/event-contracts.md` → `contracts/events.md`.
+  - **IDs STD-NNN adicionados:** `standards/coding-style.md`
+    (STD-001 a STD-009.4), `standards/testing.md` (STD-101 a
+    STD-107), `standards/security.md` (STD-201 a STD-209),
+    `standards/documentation.md` (STD-301 a STD-307),
+    `standards/git-workflow.md` (STD-401 a STD-408).
+  - **Seção `## Relacionado` adicionada:** todos os arquivos em
+    `architecture/`, `contracts/`, `standards/`, `memory/`,
+    3 arquivos em `context/` (terminology, conventions, glossary),
+    e `decisions/ADR-0001.md`.
+- **Alternativas descartadas:**
+  - Manter v2 sem mudanças — descartado: problemas estruturais
+    não se resolvem sozinhos.
+  - Apenas IDs e cross-links, sem MANIFEST/CHECKLIST — descartado:
+    resolve consistência mas não resolve crescimento desordenado.
+  - Consolidar README + INDEX em um arquivo — descartado:
+    audiências diferentes (humano casual vs humano profundo +
+    máquina).
+  - SemVer (v2.1.0) em vez de v2.1 — descartado: SemVer é para
+    código com breaking/feature/fix bem definidos; Project OS é
+    governança qualitativa.
+- **Justificativa:** v2.1 fecha as lacunas estruturais de v2 com
+  mudanças incrementais e backwards-compatible. Não altera a
+  arquitetura do projeto (H0–M5), apenas a governança do `.ai/`.
+  IDs canônicos por categoria permitem cross-links sem
+  ambiguidade. MANIFEST declara princípios; CHECKLIST operacionaliza
+  o fluxo; README puro e PROJECT_STATE puro reduzem duplicação.
+  Versionamento do Project OS permite que agentes detectem versão
+  obsoleta da governança.
+- **Impacto:**
+  - `PROJECT_STATE.md` agora declara `Project OS: v2.1`.
+  - Toda mudança estrutural futura em `.ai/` bumpa a versão e
+    produz ADR + entrada em `DECISION_LOG.md` + entrada em
+    `implementation-history.md`.
+  - IDs STD-NNN numerados por bloco (coding=001+, testing=101+,
+    security=201+, docs=301+, git=401+) para evitar colisão entre
+    categorias.
+  - Prefixo `FI-NNN` formalizado para ideias futuras
+    (em `memory/future-ideas.md`).
+  - Renomeação de `contracts/*-contracts.md` para `contracts/*.md`
+    quebra eventuais links externos (mas v2 foi criado em
+    2026-07-15, 1 dia antes — nenhuma referência externa
+    consolidada ainda existe).
+- **REG-NNN associados:** (não aplicável — mudança de governança,
+  não de segurança).
+- **Status:** Ativa.
+- **Lição permanente:** Toda camada de governança precisa de
+  (a) manifesto declarando princípios, (b) checklist operacional,
+  (c) IDs canônicos por categoria, (d) cross-links obrigatórios,
+  (e) versionamento explícito da própria governança. Sem estes
+  5 elementos, governança tende a crescer desordenada e gerar
+  duplicação. Formalizado em `MANIFEST.md`.
+
+---
+
 ### [Entradas futuras vêm aqui — nunca sobrescrever acima]

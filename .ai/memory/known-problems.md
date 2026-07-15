@@ -138,3 +138,16 @@
 ---
 
 ### [Entradas futuras vêm aqui — nunca sobrescrever acima]
+
+---
+
+## Relacionado
+
+- `memory/technical-debt.md` TD-NNN — bugs em aberto viram débito.
+- `DECISION_LOG.md` DEC-001 (KP-001), DEC-005 (KP-002) — decisões originadas destes bugs.
+- `standards/security.md` STD-203, STD-205 — padrões derivados destes incidentes.
+- `SECURITY.md` (raiz do projeto) REG-NNN — testes adversariais que pinnam as correções.
+- `memory/implementation-history.md` — quando cada KP foi registrado.
+- `CORE_RULES.md` Regra 11 — todo bug deve produzir aprendizado.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

@@ -181,3 +181,17 @@ extremamente arriscado. Sempre que possível:
 2. Adicionar通路 paralelo (novo módulo) em vez de tocar o FROZEN.
 3. Se realmente precisa modificar, abrir ADR antes e validar com
    o operador.
+
+---
+
+## Relacionado
+
+- `architecture/modules.md` — lista completa de módulos.
+- `architecture/frozen-files.md` — módulos FROZEN têm dependências travadas.
+- `architecture/interfaces.md` — contratos que definem as dependências.
+- `CORE_RULES.md` Regra 6 — identificar dependentes antes de alterar.
+- `ENGINEERING_RULES.md` — mapear dependências é etapa obrigatória do fluxo.
+- `DECISION_LOG.md` DEC-005 — exemplo de mudança que tocou dependência (Broadcaster → LeasedBroadcaster).
+- `memory/technical-debt.md` TD-001 — duplicação chain/runtime.ts vs runtime/runtime.ts.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

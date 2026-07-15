@@ -207,3 +207,15 @@ direta de método:
 
 Events são para **notificação** (1 emitter, N consumers). Chamada
 direta é para **comando** (1 caller, 1 callee com retorno).
+
+---
+
+## Relacionado
+
+- `contracts/api.md` — endpoints que emitem estes eventos.
+- `contracts/database.md` — tabelas que persistem estes eventos.
+- `architecture/runtime.md` — lifecycle dos eventos.
+- `architecture/invariants.md` INV-005 — audit exactly-once.
+- `DECISION_LOG.md` DEC-001 — hash-chain do audit log.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

@@ -214,3 +214,16 @@ model AppLog {
 - `VaultConfig` — configuração do Vault/KMS (M6 live trading).
 - `CanaryEvent` — eventos de ramp/rollback do canary (M6).
 - `Alert` — alertas disparados por thresholds (M6 monitoring).
+
+---
+
+## Relacionado
+
+- `contracts/events.md` — eventos que tocam estas tabelas.
+- `architecture/invariants.md` INV-005 — audit exactly-once (AuditLog table).
+- `standards/security.md` STD-202 — segredos não são armazenados em banco.
+- `CORE_RULES.md` Regra 9 — schema changes são breaking changes.
+- `memory/technical-debt.md` TD-003 — possível migração SQLite → Postgres.
+- `prisma/schema.prisma` (raiz do projeto) — fonte canônica do schema.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

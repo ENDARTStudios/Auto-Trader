@@ -221,3 +221,14 @@ Para detalhes completos, ver `standards/coding-style.md` e
 - **Em ADRs/DECISION_LOG:** preferir nome PascalCase da classe
   (mais legível).
 - **Em discussão oral:** qualquer um é aceito.
+
+---
+
+## Relacionado
+
+- `context/glossary.md` — referência externa (blockchain, trading, etc.).
+- `context/conventions.md` — convenções de nomenclatura derivadas destes termos.
+- `architecture/modules.md` — nomes oficiais dos módulos.
+- `architecture/interfaces.md` — tipos que usam estes nomes.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

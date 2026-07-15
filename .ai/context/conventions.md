@@ -261,3 +261,14 @@ Ver `standards/documentation.md` > Idioma para detalhes.
 - **Logs runtime:** via Prisma `AppLog` table, não filesystem.
 - **Audit log:** via Prisma `AuditLog` table (a criar; atualmente
   in-memory + JSON file).
+
+---
+
+## Relacionado
+
+- `context/terminology.md` — nomes oficiais usados nas convenções.
+- `standards/coding-style.md` STD-001, STD-008 — convenções de código.
+- `standards/git-workflow.md` STD-402 — convenções de branch.
+- `architecture/modules.md` — aplicação das convenções aos módulos.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

@@ -498,3 +498,14 @@ fields de transações para precisão.
 Lista de endereços/tokens autorizados. Apenas itens na lista
 são aceitos. No projeto, `TokenAuthority` (H2.3) mantém
 whitelist de tokens.
+
+---
+
+## Relacionado
+
+- `context/terminology.md` — termos internos do projeto (não duplicar aqui).
+- `context/project-summary.md` — visão geral usando estes termos.
+- `contracts/rpc.md` — termos de RPC/blockchain.
+- `standards/security.md` — termos de segurança.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

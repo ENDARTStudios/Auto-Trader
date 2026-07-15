@@ -255,3 +255,16 @@ type SignerResponse =
   real antes do merge (Regra 3 CORE_RULES.md — não inventar APIs).
 - Toda remoção/renomeação de método público é breaking change
   (Regra 9 CORE_RULES.md) — requer entrada em `DECISION_LOG.md`.
+
+---
+
+## Relacionado
+
+- `architecture/modules.md` — donos de cada contrato.
+- `architecture/invariants.md` INV-001 a INV-010 — garantias que estes contratos devem preservar.
+- `architecture/frozen-files.md` — contratos FROZEN não podem mudar (Regra 9 CORE_RULES).
+- `contracts/api.md`, `contracts/database.md`, `contracts/rpc.md`, `contracts/events.md` — contratos de integração detalhados.
+- `DECISION_LOG.md` DEC-001 (audit), DEC-002 (signer), DEC-003 (lease), DEC-004 (observability), DEC-005 (prefixos) — decisões que fixaram estes contratos.
+- `standards/coding-style.md` STD-005 (errors), STD-009 (JSDoc) — estilo aplicado a estas interfaces.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
+

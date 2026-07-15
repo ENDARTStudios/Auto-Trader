@@ -3,10 +3,13 @@
 > Regras detalhadas de teste. `ENGINEERING_RULES.md` >
 > "Princípio de teste adversarial" é o resumo executivo; este
 > arquivo é a referência completa.
+>
+> **IDs canônicos:** STD-101 a STD-108 (ver `MANIFEST.md` para a
+> tabela completa de prefixos).
 
 ---
 
-## Estrutura de testes
+## STD-101 — Estrutura de testes
 
 ```
 src/
@@ -52,7 +55,7 @@ scripts/
 
 ---
 
-## Princípio de teste adversarial (REPETINDO por criticalidade)
+## STD-102 — Princípio de teste adversarial (REPETINDO por criticalidade)
 
 > Toda nova implementação criptográfica ou de segurança deve vir
 > acompanhada de pelo menos um teste que **tenta explicitamente
@@ -123,7 +126,7 @@ describe('REG-016: lease acquire exclusivo', () => {
 
 ---
 
-## Testes de unidade
+## STD-103 — Testes de unidade
 
 ### Padrões
 
@@ -154,7 +157,7 @@ describe('REG-016: lease acquire exclusivo', () => {
 
 ---
 
-## Testes de integração
+## STD-104 — Testes de integração
 
 ### Padrões
 
@@ -196,7 +199,7 @@ describe('Pipeline integration com anvil (fork BSC)', () => {
 
 ---
 
-## Testes de harness M5
+## STD-105 — Testes de harness M5
 
 ### Dry Run (M5.1)
 
@@ -232,7 +235,7 @@ describe('Pipeline integration com anvil (fork BSC)', () => {
 
 ---
 
-## CI/CD
+## STD-106 — CI/CD
 
 - **PR trigger:** roda `typecheck`, `lint`, `test` (unidade), `test:integration`.
 - **Merge to main:** roda todos os testes adversariais (`scripts/test-*.ts`).
@@ -241,7 +244,7 @@ describe('Pipeline integration com anvil (fork BSC)', () => {
 
 ---
 
-## Anti-patterns
+## STD-107 — Anti-patterns
 
 - ❌ **Teste que só testa o mock:** se o teste só valida que o mock
   foi chamado, ele não testa comportamento real.
@@ -254,3 +257,17 @@ describe('Pipeline integration com anvil (fork BSC)', () => {
   assertions.
 - ❌ **Teste que depende de ordem de execução:** cada teste deve
   ser isolado. Estado compartilhado via `beforeEach` setup.
+
+---
+
+## Relacionado
+
+- `ENGINEERING_RULES.md` > Princípio de teste adversarial — resumo executivo.
+- `standards/security.md` (STD-201+) — padrões de segurança associados.
+- `standards/coding-style.md` (STD-001+) — estilo aplicado a testes.
+- `architecture/invariants.md` INV-001 a INV-010 — invariantes que devem ser testados adversarialmente.
+- `architecture/interfaces.md` — contratos públicos testados.
+- `DECISION_LOG.md` DEC-001 (hash-chain), DEC-005 (prefixos de erro) — decisões com testes adversariais.
+- `SECURITY.md` (raiz do projeto) — REG-NNN adversariais canônicos.
+- `memory/known-problems.md` KP-001 a KP-006 — bugs passados que geraram testes adversariais.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.

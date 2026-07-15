@@ -3,12 +3,15 @@
 > Regras detalhadas de segurança. `CORE_RULES.md` Regra 8
 > (arquivos FROZEN) e Regra 9 (compatibilidade) são as leis;
 > este arquivo é a referência técnica para implementação.
+>
+> **IDs canônicos:** STD-201 a STD-209 (ver `MANIFEST.md` para a
+> tabela completa de prefixos).
 
 ---
 
-## Princípios fundamentais
+## STD-201 — Princípios fundamentais
 
-### Defense in depth
+### STD-201.1 — Defense in depth
 
 Múltiplas camadas de defesa, cada uma assumindo que a anterior
 falhou. Padrão adotado em ADR-0001 (ver `decisions/ADR-0001.md`):
@@ -36,7 +39,7 @@ Camada 9: Audit hash-chain (forensics — append-only)
 Cada falha em uma camada é logada, auditada, e NÃO derruba o sistema
 (exceto kill-switch explícito).
 
-### Least privilege
+### STD-201.2 — Least privilege
 
 - Signer: única camada com acesso à chave privada.
 - Engine: nunca carrega chave; pede assinatura via IPC.
@@ -45,7 +48,7 @@ Cada falha em uma camada é logada, auditada, e NÃO derruba o sistema
 - DB: Prisma client com permissões mínimas (sem DROP TABLE em
   produção).
 
-### Fail safe
+### STD-201.3 — Fail safe
 
 - Em erro desconhecido, falhar para o estado mais conservador.
   Ex.: se SignerAdapter não responde, rejeitar nova tx (não
@@ -55,7 +58,7 @@ Cada falha em uma camada é logada, auditada, e NÃO derruba o sistema
 
 ---
 
-## Chaves e segredos
+## STD-202 — Chaves e segredos
 
 ### Hierarquia
 
@@ -66,7 +69,7 @@ Cada falha em uma camada é logada, auditada, e NÃO derruba o sistema
 | RPC URLs         | `.env.local` / config DB              | rpc-resilience         |
 | DB password      | `.env.local` / Vault                  | Prisma client          |
 
-### Regras
+### STD-202.1 — Regras
 
 - **Nunca** commitar `.env.local` (`.gitignore` inclui).
 - **Nunca** logar mnemonic, private key, API key, DB password.
@@ -76,7 +79,7 @@ Cada falha em uma camada é logada, auditada, e NÃO derruba o sistema
 - **Em produção (M6+):** mnemonic via Vault/KMS, lido pelo signer
   no startup; `process.env.SIGNER_MNEMONIC` é proibido em produção.
 
-### Rotação
+### STD-202.2 — Rotação
 
 - **Mnemonic:** rotação anual ou após incidente. Procedimento em
   `docs/key-rotation.md` (a criar em M6).
@@ -85,7 +88,7 @@ Cada falha em uma camada é logada, auditada, e NÃO derruba o sistema
 
 ---
 
-## Audit log (H0 — INV-005)
+## STD-203 — Audit log (H0 — INV-005)
 
 ### Propriedades
 
@@ -115,7 +118,7 @@ Cada falha em uma camada é logada, auditada, e NÃO derruba o sistema
 
 ---
 
-## Signer isolation (M3.2 — INV-006)
+## STD-204 — Signer isolation (M3.2 — INV-006)
 
 ### Propriedades
 
@@ -147,7 +150,7 @@ Cada falha em uma camada é logada, auditada, e NÃO derruba o sistema
 
 ---
 
-## Writer Lease (M4 — INV-007)
+## STD-205 — Writer Lease (M4 — INV-007)
 
 ### Propriedades
 
@@ -178,7 +181,7 @@ Cada falha em uma camada é logada, auditada, e NÃO derruba o sistema
 
 ---
 
-## RPC quorum (H1.1)
+## STD-206 — RPC quorum (H1.1)
 
 ### Propriedades
 
@@ -197,7 +200,7 @@ Cada falha em uma camada é logada, auditada, e NÃO derruba o sistema
 
 ---
 
-## Pipeline gates (H1.2, H1.3, H1.4, H2.1-H2.4)
+## STD-207 — Pipeline gates (H1.2, H1.3, H1.4, H2.1-H2.4)
 
 Cada gate é uma camada de defesa independente. Falhar em qualquer
 gate aborta a tx com erro classificado.
@@ -214,7 +217,7 @@ gate aborta a tx com erro classificado.
 
 ---
 
-## ScamDetector (camada de trading)
+## STD-208 — ScamDetector (camada de trading)
 
 ### Sub-scorers
 
@@ -242,7 +245,7 @@ gate aborta a tx com erro classificado.
 
 ---
 
-## Incident response
+## STD-209 — Incident response
 
 ### Severity levels
 
@@ -271,3 +274,21 @@ gate aborta a tx com erro classificado.
 - Teste adversarial REG-NNN em `SECURITY.md` (raiz do projeto).
 - Postmortem em `memory/implementation-history.md` (entrada datada).
 - Se revelar falha de arquitetura: ADR em `decisions/`.
+
+---
+
+## Relacionado
+
+- `CORE_RULES.md` Regra 8 (FROZEN) e Regra 9 (compatibilidade) — leis de segurança.
+- `ENGINEERING_RULES.md` > Princípio de teste adversarial — base para REG-NNN.
+- `standards/testing.md` (STD-101+) — padrões para os testes adversariais.
+- `architecture/invariants.md` INV-001 a INV-010 — invariantes de segurança.
+- `architecture/frozen-files.md` — lista de arquivos cuja alteração exige ADR.
+- `architecture/interfaces.md` — contratos cripto/segurança (SignerSink, WriterLease, etc.).
+- `contracts/rpc.md` — protocolo IPC do signer (FROZEN).
+- `DECISION_LOG.md` DEC-001 (audit), DEC-002 (signer isolation), DEC-003 (writer lease) — decisões de segurança.
+- `decisions/ADR-0001.md` — arquitetura defense-in-depth canônica.
+- `SECURITY.md` (raiz do projeto) — REG-NNN adversariais canônicos.
+- `HARDENING-ROADMAP.md` (raiz do projeto) — mapeamento de 30 attack vectors.
+- `memory/known-problems.md` KP-001 a KP-011 — incidentes passados.
+- `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
