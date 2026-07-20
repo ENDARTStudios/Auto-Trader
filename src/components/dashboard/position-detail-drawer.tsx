@@ -34,7 +34,7 @@ import { useQueryClient, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   usePositionDetail,
-  type PositionDetail as PositionDetailData,
+  type PositionDetailData,
 } from "@/hooks/use-trading-data";
 
 function fmtUsd(n: number, decimals = 4): string {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -131,7 +131,7 @@ function SchedulePanel() {
   const [form, setForm] = useState<Partial<TradingScheduleData>>({});
 
   // Sync form when data loads
-  useMemo(() => {
+  useEffect(() => {
     if (data) setForm(data.schedule);
   }, [data]);
 

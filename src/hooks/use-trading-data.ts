@@ -846,3 +846,93 @@ export function useSourceHealth() {
     refetchInterval: 10000,
   });
 }
+
+// ---------------------------------------------------------------------------
+// Position detail (for drawer)
+// ---------------------------------------------------------------------------
+export interface PositionDetailData {
+  position: {
+    id: string;
+    symbol: string;
+    source: "cex" | "dex";
+    chain?: string | null;
+    tokenId?: string | null;
+    status: string;
+    entryPriceUsd: number;
+    entryAmountUsd: number;
+    entryQty: number;
+    entryAt: string;
+    exitPriceUsd?: number | null;
+    exitAmountUsd?: number | null;
+    exitAt?: string | null;
+    exitReason?: string | null;
+    pnlUsd?: number | null;
+    pnlPct?: number | null;
+    takeProfitPrice: number;
+    stopLossPrice: number;
+    maxExitAt: string;
+    scamScore: number;
+    scamBreakdown?: Record<string, unknown> | null;
+    roundId: number;
+    currentPriceUsd?: number;
+    unrealizedPnlUsd?: number;
+    unrealizedPnlPct?: number;
+  };
+  scamReport?: {
+    honeypotScore: number;
+    liquidityScore: number;
+    contractScore: number;
+    taxScore: number;
+    holderScore: number;
+    ageScore: number;
+    analyzedAt: string;
+  } | null;
+  surveillanceAlerts: Array<{
+    id: number;
+    severity: string;
+    type: string;
+    message: string;
+    detectedAt: string;
+    resolvedAt: string | null;
+    resolution: string | null;
+  }>;
+  aiInsights: Array<{
+    id: number;
+    agentRole: string;
+    recommendation: string;
+    confidence: number;
+    promptSummary: string;
+    error: string | null;
+    createdAt: string;
+  }>;
+  marketChart: Array<{
+    t: string;
+    p: number;
+    rsi: number | null;
+    signal: string;
+  }>;
+  round?: {
+    id: number;
+    startedAt: string;
+    endedAt?: string | null;
+    tokensScanned: number;
+    tokensPassedFilter: number;
+    positionsOpened: number;
+    positionsClosed: number;
+    roundPnlUsd?: number | null;
+  } | null;
+}
+
+export function usePositionDetail(id: string | null) {
+  return useQuery<PositionDetailData>({
+    queryKey: ["position-detail", id],
+    queryFn: async () => {
+      if (id === null) throw new Error("no id");
+      const r = await fetch(`/api/positions/${id}`);
+      if (!r.ok) throw new Error("position detail failed");
+      return r.json();
+    },
+    enabled: id !== null,
+    refetchInterval: 5000,
+  });
+}
