@@ -2480,6 +2480,23 @@ Stage Summary:
 - worklog.md atualizado seguindo protocolo multi-agente (Task ID, Work Log, Stage Summary).
 
 ---
+
+Task ID: F9-02-PUSH
+Agent: main
+Task: Autorizar o push com flag de escape documentada para limitação de ambiente Windows + registrar Decisão #21.
+
+Work Log:
+- Verificada a situação: ambiente Windows sem suporte a Unix sockets, impossibilitando execução dos testes `test:ci` localmente.
+- Confirmado que DECISÕES.md já contém a Decisão #21 documentando a dependência de ambiente Linux e a flag SIGNER_SKIP_PRE_PUSH_HOOK como escape exclusivo.
+- Atualizado MANUAL_DO_OPERADOR.md com seção "Ambiente de Desenvolvimento" documentando as opções (WSL2+Docker, Docker nativo, VM Linux) e os testes compatíveis com Windows.
+- Flag de escape autorizada: SIGNER_SKIP_PRE_PUSH_HOOK=1 válida APENAS para este push em ambiente Windows. Não é precedente para pushes futuros.
+
+Stage Summary:
+- Decisão #21 já documentada em DECISÕES.md (2025-01-20).
+- MANUAL_DO_OPERADOR.md atualizado com instruções claras de ambiente Linux.
+- Push autorizado via SIGNER_SKIP_PRE_PUSH_HOOK=1 exclusivamente para este cenário de limitação Windows.
+
+---
 Task ID: project-os-v2.1
 Agent: main
 Task: Aplicar 7 ajustes estruturais ao Project OS (v2 → v2.1) solicitados pelo operador: (1) PROJECT_STATE.md como snapshot puro, (2) README.md como índice puro, (3) IDs canônicos por categoria, (4) regra de cross-links, (5) MANIFEST.md, (6) versionamento do Project OS, (7) CHECKLIST.md.
