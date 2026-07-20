@@ -93,7 +93,7 @@ async function spawnSigner(): Promise<SignerHandle> {
   }
 
   const child = spawn(
-    "npx",
+    process.platform === 'win32' ? 'npx.cmd' : 'npx',
     ["tsx", path.join(__dirname, "..", "src", "signer", "main.ts")],
     {
       stdio: ["pipe", "pipe", "pipe"],
