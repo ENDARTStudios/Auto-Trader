@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { handleApiError } from '@/lib/api/error-handler';
+import { requireSession } from '@/lib/auth/session';
+import { hasPermission } from '@/lib/auth/rbac';
+import { ForbiddenError } from '@/lib/auth/errors';
 
 function getClientIp(req: Request): string {
   const xff = (req.headers as unknown as Headers).get?.('x-forwarded-for');
@@ -23,6 +26,8 @@ export async function GET(req: Request) {
         { status: 429, headers: { 'Retry-After': String(rl.retryAfter ?? 60) } },
       );
     }
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, 'dashboard:read')) throw new ForbiddenError('dashboard:read');
     const flags = await db.featureFlag.findMany({ orderBy: { key: 'asc' } });
     return NextResponse.json({ flags });
   } catch (err) {
@@ -40,6 +45,8 @@ export async function POST(req: Request) {
         { status: 429, headers: { 'Retry-After': String(rl.retryAfter ?? 60) } },
       );
     }
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, 'flags:manage')) throw new ForbiddenError('flags:manage');
     const body = (await req.json()) as { key?: string; enabled?: boolean; rolloutPct?: number };
     if (!body.key || typeof body.enabled !== 'boolean') {
       return NextResponse.json({ error: 'key and enabled (boolean) required' }, { status: 400 });

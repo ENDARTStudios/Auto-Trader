@@ -7,6 +7,7 @@ const db = new PrismaClient();
 async function main() {
   const adminHash = hashPasswordSync('Admin123!');
   const viewerHash = hashPasswordSync('Viewer123!');
+  const traderHash = hashPasswordSync('Trader123!');
 
   const admin = await db.user.upsert({
     where: { email: 'admin@local' },
@@ -21,6 +22,13 @@ async function main() {
     update: { passwordHash: viewerHash, role: 'viewer', isActive: true },
   });
   console.log(`viewer: ${viewer.email} (${viewer.role}) id=${viewer.id}`);
+
+  const trader = await db.user.upsert({
+    where: { email: 'trader@local' },
+    create: { email: 'trader@local', passwordHash: traderHash, role: 'trader', isActive: true },
+    update: { passwordHash: traderHash, role: 'trader', isActive: true },
+  });
+  console.log(`trader: ${trader.email} (${trader.role}) id=${trader.id}`);
 
   // Backfill ownerId for existing RLS rows where null -> assign to admin
   const wc = await db.walletConnection.updateMany({ where: { ownerId: null }, data: { ownerId: admin.id } });

@@ -25,7 +25,16 @@
 **Arquivos afetados:** `prisma/schema.prisma:467`, `src/lib/auth/*` (5 novos), `src/app/api/auth/*` (3 novos), `scripts/seed-auth.ts`, `scripts/test-auth-rbac.ts`, `tests/auth.test.ts`, `src/app/api/status|positions|config|kill-switch|reserve|wallets`, `src/lib/trading/wallet-manager.ts:96`, `SECURITY.md:1585` (REG-009), `package.json` (+bcryptjs)
 **Validação:** `npx prisma validate` ✅, `db push` ✅, `generate` ✅, `npx tsx scripts/seed-auth.ts` → admin/viewer, `npx tsx scripts/test-auth-rbac.ts` 11/11, `npx vitest run tests/auth.test.ts` 8/8, `npx next build` ✅, `curl /api/health` 200 sem cookie, `curl /api/positions` 401 sem cookie, `viewer POST /kill-switch` 403.
 **Risco:** médio — toca auth, mas puro (bcrypt) + guards em handlers (não middleware Prisma), frozen `chain`/`signer`/`audit` intacto (`git diff --name-only | grep -E 'chain|signer|audit'` → vazio).
-**Próximo:** S03 — TOTP/MFA + `Position.ownerId` RLS + OAuth + admin UI + e2e `auth.spec.ts` (S02 deixa posição single-operator, TOTP fica para S03).
+**Próximo:** S03 — Frontend Auth + Complete Route Protection (login UI + todas rotas com requireSession).
+
+### Decisão #24: S03 Frontend Auth — Login UI + Complete Route Protection concluído
+**Data:** 2026-08-27
+**Problema:** Pós S02, auth backend existia (`/api/auth/login` via curl) mas sem UI — operador não conseguia logar via browser; 30 rotas (`/api/analytics`, `/api/logs`, `/api/history`, `/api/feature-flags` etc) ainda sem `requireSession` (qualquer IP lia logs/P&L sem cookie); `wallets` tinha RLS mas `exchanges` não; sem `trader` para matriz 3 papéis; sem `e2e/auth.spec.ts`.
+**Solução:** Sprint S03 (6 tarefas, ~150min) — T001 `src/hooks/use-auth.ts` (`useAuth`/`useLogin`/`useLogout`) + `src/app/login/page.tsx` (form Zod + skeleton + motion `fadeInUp` + credenciais), T002 `middleware.ts` page guard (`/` → `/login` se sem cookie, `/login` → `/` se com cookie) + `feature-flags` GET `dashboard:read` / POST `flags:manage`, T003 `scripts/seed-auth.ts` + `trader@local/Trader123!` + `wallet-manager` RLS já, T004 `src/app/page.tsx` guard (`useAuth` redirect + `authLoading` skeleton + user badge `email (role)` + Logout), T005 `src/app/api/users/route.ts` (super_admin only `GET`/`POST`), T006 `e2e/auth.spec.ts` (redirect 401→login, viewer 403 kill-switch, login→dashboard role).
+**Arquivos afetados:** `src/hooks/use-auth.ts:1`, `src/app/login/page.tsx:1`, `src/app/page.tsx:3` (guard+logout), `middleware.ts:8` (page guard), `src/app/api/feature-flags/route.ts:14` (RBAC), `src/app/api/users/route.ts:1`, `scripts/seed-auth.ts:7` (+trader), `e2e/auth.spec.ts:1`, `prisma/schema.prisma` (user already S02)
+**Validação:** `npx next build` ✅ → `○ /login` static, `npx tsx scripts/seed-auth.ts` → 3 users, `npx vitest run tests/auth.test.ts` 8/8, `npx tsx scripts/test-auth-rbac.ts` 11/11, `GET /` sem cookie → `/login` (middleware), `GET /api/analytics` sem cookie → `401` (middleware 401), `viewer POST /kill-switch` → `403`.
+**Risco:** médio — toca `page.tsx` (877 linhas) mas só guard no topo + badge, frozen intacto.
+**Próximo:** S04 — TOTP/MFA + `Position.ownerId` filter + password reset + admin UI completo + `e2e` full.
 
 ### Decisão #1-N (placeholder)
 Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.

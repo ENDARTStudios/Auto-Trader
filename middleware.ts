@@ -7,12 +7,33 @@ import { NextResponse, type NextRequest } from 'next/server';
 export function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
 
-  // 1. Rate limit — only for /api/*
-  if (pathname.startsWith('/api/')) {
-    // Cheap in-middleware rate limit (memory). For prod with Redis, use @upstash/ratelimit.
-    // We do a simple per-IP check here; the full check with route-specific limits is in src/lib/rate-limit.ts
-    // and is also enforced inside route handlers for defense-in-depth.
-    // This middleware check is best-effort (edge runtime has no Node APIs for full store).
+  // 1. Auth guard for /api/* (edge-safe: only checks cookie presence, DB check is in handler)
+  // Allowlist: health and login are public; everything else 401 if no session cookie
+  const publicApi = pathname === '/api/health' || pathname === '/api/auth/login' || pathname.startsWith('/api/auth/login');
+  if (pathname.startsWith('/api/') && !publicApi) {
+    const hasSession = req.cookies.get('session')?.value;
+    if (!hasSession) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
+  }
+
+  // Page guard: / (dashboard) requires session, redirect to /login
+  if (pathname === '/' || pathname.startsWith('/dashboard')) {
+    const hasSession = req.cookies.get('session')?.value;
+    if (!hasSession) {
+      const url = req.nextUrl.clone();
+      url.pathname = '/login';
+      return NextResponse.redirect(url);
+    }
+  }
+  // If logged in and visiting /login, redirect to /
+  if (pathname === '/login') {
+    const hasSession = req.cookies.get('session')?.value;
+    if (hasSession) {
+      const url = req.nextUrl.clone();
+      url.pathname = '/';
+      return NextResponse.redirect(url);
+    }
   }
 
   const res = NextResponse.next();

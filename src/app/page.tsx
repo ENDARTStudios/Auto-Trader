@@ -73,6 +73,8 @@ import { PortfolioPanel } from "@/components/dashboard/portfolio-panel";
 import type { EquityPoint } from "@/components/dashboard/equity-curve-chart";
 import { cn } from "@/lib/utils";
 import { ErrorBoundary } from "@/components/error-boundary";
+import { useAuth, useLogout } from "@/hooks/use-auth";
+import { useRouter } from "next/navigation";
 
 /* --------------------------------------------------------------- helpers */
 function fmtUsd(n: number, decimals = 2): string {
@@ -111,6 +113,21 @@ const SOFTWARE_VERSION = "v0.3.1";
 /* ============================================================== HOME */
 export default function Home() {
   const qc = useQueryClient();
+  const router = useRouter();
+  const { user: authUser, isLoading: authLoading } = useAuth();
+  const logout = useLogout();
+  // Auth guard — redirect to /login if not authenticated
+  if (!authLoading && !authUser) {
+    if (typeof window !== "undefined") router.push("/login");
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-2">
+          <div className="size-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Redirecionando para login…</p>
+        </div>
+      </div>
+    );
+  }
   const status = useEngineStatus();
   const positions = useOpenPositions();
   const history = useHistory(50);
@@ -545,8 +562,8 @@ export default function Home() {
     };
   }, [surveillance.data, isRunning]);
 
-  /* ----- loading state ----- */
-  if (status.isLoading || !s) {
+  /* ----- loading state (auth + engine) ----- */
+  if (authLoading || status.isLoading || !s) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background relative z-10">
         <div className="text-center space-y-4">
@@ -566,6 +583,25 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground relative z-10">
       <AlertsToast />
+      {authUser && (
+        <div className="container mx-auto px-4 lg:px-6 pt-2 flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            {authUser.email}{" "}
+            <span className="ml-2 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-[10px] font-medium">
+              {authUser.role}
+            </span>
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => logout.mutate()}
+            disabled={logout.isPending}
+          >
+            Logout
+          </Button>
+        </div>
+      )}
 
       {/* =================================================== WORKSPACE HEADER */}
       <WorkspaceHeader
