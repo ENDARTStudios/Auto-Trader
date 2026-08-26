@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "📖 Guia do Agente (AGENT_GUIDE.md)"
+    url: https://github.com/USER/REPO/blob/main/AGENT_GUIDE.md
+    about: "Padrão obrigatório para Issues e PRs — leia antes de abrir"
+  - name: "🔒 Reportar vulnerabilidade privada"
+    url: https://github.com/USER/REPO/security/advisories/new
+    about: "Para achados críticos que não devem ser públicos"

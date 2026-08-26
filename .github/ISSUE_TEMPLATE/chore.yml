@@ -1,0 +1,45 @@
+name: "🧹 Chore / Melhoria"
+description: Tarefa de manutenção, refatoração, docs, dependências ou limpeza
+title: "[CHORE] "
+labels: ["chore", "triage"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: "O que fazer e por quê"
+      placeholder: "Ex: remover código morto em src/lib/trading/old-scanner.ts — não usado desde H2, 320 linhas, sem teste"
+    validations:
+      required: true
+
+  - type: input
+    id: files
+    attributes:
+      label: "Arquivos afetados"
+      placeholder: "ex: src/lib/trading/old-scanner.ts, package.json (remover dep xyz)"
+
+  - type: dropdown
+    id: risk
+    attributes:
+      label: "Risco"
+      options: ["baixo", "medio", "alto"]
+      default: 0
+    validations:
+      required: true
+
+  - type: textarea
+    id: verification
+    attributes:
+      label: "Como verificar que deu certo"
+      placeholder: "ex: npm run test:ci verde + knip --no-exit-code mostra 0 unused files + bundle size não aumenta"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Checklist"
+      options:
+        - label: "Verifiquei que não há issue duplicada"
+          required: true
+        - label: "Esta chore não mistura feature + refator (um PR por concern)"
+          required: true

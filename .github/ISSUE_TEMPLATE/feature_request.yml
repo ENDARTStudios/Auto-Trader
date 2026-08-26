@@ -1,0 +1,74 @@
+name: "✨ Feature Request"
+description: Proponha nova funcionalidade — será avaliada por impacto × complexidade e entrará no SPRINT.md
+title: "[FEAT] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Fluxo:** Issue → triagem (impacto/complexidade) → SPRINT.md → PR com `Closes #<id>` → CI verde → merge.
+        Uma feature = uma issue = um PR. Não combine features independentes.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problema / Oportunidade"
+      description: "Qual dor ou oportunidade esta feature resolve? Quem é a persona?"
+      placeholder: "Como [operador], quero [fazer X] para que [benefício Y]. Hoje preciso fazer manualmente..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: "Proposta (solução)"
+      description: "Descreva a solução em alto nível. Inclua: rota, modelo Prisma, componente UI se houver."
+      placeholder: "Nova rota POST /api/watchlist com modelo Watchlist + panel WatchlistScreener..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: "Critérios de aceite (binários, verificáveis)"
+      description: "Cada critério deve ser PASS/FAIL sem ambiguidade."
+      placeholder: |
+        - [ ] POST /api/watchlist cria linha e retorna 201
+        - [ ] GET /api/watchlist lista só do owner (RLS)
+        - [ ] Panel exibe skeleton enquanto carrega
+        - [ ] Teste E2E `e2e/watchlist.spec.ts` passa
+    validations:
+      required: true
+
+  - type: input
+    id: files
+    attributes:
+      label: "Arquivos afetados (previstos)"
+      placeholder: "ex: src/lib/trading/watchlist.ts, src/app/api/watchlist/route.ts, prisma/schema.prisma"
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: "Prioridade sugerida"
+      options: ["P0 — bloqueia release", "P1 — próxima sprint", "P2 — backlog", "P3 — ideia futura"]
+      default: 1
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternativas consideradas"
+      placeholder: "Ex: usar Redis vs in-memory para cache — escolhi in-memory por simplicidade (ver DECISOES.md)"
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Checklist"
+      options:
+        - label: "Verifiquei que não há issue/PR duplicado"
+          required: true
+        - label: "Defini critérios de aceite verificáveis (não 'funciona corretamente')"
+          required: true
+        - label: "Considerei impacto em RBAC/RLS/secrets se aplicável"
+          required: false

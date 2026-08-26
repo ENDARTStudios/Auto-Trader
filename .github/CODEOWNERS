@@ -1,0 +1,35 @@
+# CODEOWNERS — reviews obrigatórios por área
+# Sintaxe: <path> <owners>
+# Owners devem ser @user ou @org/team — ajuste USER/ORG após criar repo no GitHub
+
+# Fallback — tudo exige operador
+* @edina
+
+# Hardening / chain / signer — sensível, exige review de segurança
+/src/lib/chain/ @edina
+/src/signer/ @edina
+/src/lib/trading/wallet-crypto.ts @edina
+/src/lib/trading/kdf.ts @edina
+/src/lib/trading/key-rotation.ts @edina
+/src/lib/audit/ @edina
+
+# Auth / RBAC / RLS
+/src/lib/auth/ @edina
+/src/lib/env.ts @edina
+/src/middleware.ts @edina
+
+# DB / migrations
+/prisma/ @edina
+
+# Infra / CI
+/.github/workflows/ @edina
+/Caddyfile @edina
+/Dockerfile @edina
+/docker-compose.yml @edina
+
+# Docs de segurança — qualquer mudança precisa operador
+/docs/SECURITY* @edina
+/docs/CRYPTO.md @edina
+/docs/RBAC.md @edina
+/docs/RLS.md @edina
+/SECURITY.md @edina

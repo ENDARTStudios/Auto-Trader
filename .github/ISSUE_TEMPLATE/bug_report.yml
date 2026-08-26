@@ -1,0 +1,82 @@
+name: "🐛 Bug Report"
+description: Reporte um bug — será triado e virará PR com teste reproduzindo o problema
+title: "[BUG] "
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Antes de abrir:** verifique se já não existe issue similar. Inclua passos para reproduzir — sem isso a issue será marcada `needs-repro`.
+
+  - type: input
+    id: symptom
+    attributes:
+      label: "Sintoma (o que aconteceu?)"
+      description: "Ex: Engine não abre posição mesmo com score 95"
+      placeholder: "Descreva o comportamento observado"
+    validations:
+      required: true
+
+  - type: input
+    id: expected
+    attributes:
+      label: "Resultado esperado"
+      description: "O que deveria ter acontecido?"
+      placeholder: "Ex: Posição deveria abrir com TP 15% e SL 8%"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: "Passos para reproduzir"
+      description: "Inclua: rota, payload, config, logs. Ideal: teste que falha."
+      placeholder: |
+        1. curl -X POST http://localhost:3000/api/...
+        2. Ver logs em /api/logs?level=error
+        3. Teste: npx tsx scripts/test-xxx.ts → falha em assertion Y
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: "Evidências (logs, screenshots, AppLog, crash-*.log)"
+      render: shell
+      placeholder: "Cole logs relevantes. Redact secrets."
+
+  - type: input
+    id: severity
+    attributes:
+      label: "Severidade"
+      description: "Use a mesma escala de SECURITY.md"
+    validations:
+      required: true
+    # GitHub Forms doesn't support native select with custom validation well; use dropdown
+  - type: dropdown
+    id: severity_level
+    attributes:
+      label: "Nível"
+      options: ["critico", "alto", "medio", "baixo"]
+      default: 2
+    validations:
+      required: true
+
+  - type: input
+    id: files
+    attributes:
+      label: "Arquivos afetados (suspeitos)"
+      placeholder: "ex: src/lib/trading/portfolio.ts:42, src/app/api/positions/route.ts"
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: "Checklist do reporter"
+      options:
+        - label: "Verifiquei que não há issue duplicada"
+          required: true
+        - label: "Incluí passos reproduzíveis (ou teste que falha)"
+          required: false
+        - label: "Não incluí segredos / .env / chaves no relato"
+          required: true

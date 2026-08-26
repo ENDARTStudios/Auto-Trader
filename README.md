@@ -1,5 +1,7 @@
 # Auto Trader — Autonomous Crypto Paper Trading
 
+> **Dev Skill ativo** — ver `AGENT_GUIDE.md` (padrão Issues→PRs→CI) e `SPRINT.md` (próxima sprint). Novos agentes devem ler `AGENT_GUIDE.md` antes de abrir qualquer Issue/PR.
+
 Sistema autônomo de trade de criptomoedas com **scam detection multicamada**, **circuit breakers**, e **split 50/50 de lucro** (50% para reserva cold em USDC, 50% reinvestido). Modo **paper trading** como default — live mode só libera após N ciclos paper lucrativos (graduação).
 
 ## ⚠️ Aviso de risco — leia antes de qualquer coisa
@@ -323,6 +325,33 @@ scripts/
 - [x] ~~Backtesting UI com dados históricos~~ → feito (Binance klines + RSI strategy)
 - [ ] NextAuth + role-based access control
 - [ ] Alertas Telegram/Discord para eventos críticos (consumir do event-bus)
+
+## Dev Skill — Documentação
+
+| Doc | Descrição |
+|---|---|
+| `AGENT_GUIDE.md` | **Padrão obrigatório para qualquer agente** — Issues, PRs, Deploys, anti-padrões |
+| `SPRINT.md` | Próxima sprint (T001–T008) — maior impacto/menor complexidade, com tarefas/critérios/testes |
+| `docs/PRD.md` | Product Requirements Document |
+| `docs/UML.md` | Diagramas de classes e sequência (Mermaid) |
+| `docs/RBAC.md` | Matriz de níveis de acesso (4 papéis × 24 permissões) |
+| `docs/RLS.md` | Row Level Security (app-layer + Postgres policies) + backup |
+| `docs/SECRETS.md` | Gestão de segredos (.env + Zod + rotação) |
+| `docs/ARCHITECTURE.md` | Catálogo modular + feature flags |
+| `docs/ERROR_REPORTING.md` | Error boundary + Sentry + OTEL + crash-logger |
+| `docs/OBSERVABILITY.md` | Sentry/Datadog/NewRelic/OTEL + Prometheus |
+| `docs/TESTING.md` | Vitest + Playwright + Codecov (pirâmide) |
+| `docs/SECURITY_AUDIT.md` | Gate de deploy (20 dimensões) + CODEOWNERS |
+| `docs/WAF_RATE_LIMIT.md` | WAF + Bot Fight Mode + rate limiting (edge + app) |
+| `docs/TLS_HSTS.md` | TLS Full (Strict) + HSTS preload |
+| `docs/MOTION.md` | Motion Principles — skeleton, lazy, smooth animations |
+| `docs/LINT.md` | Biome/ESLint/Commitlint/Knip/Stryker/Arch |
+| `docs/SEO.md` | SEO/AEO/AIO/GEO — objetivos, táticas, métricas |
+| `docs/CRYPTO.md` | Garantias criptográficas (H0) |
+| `HARDENING-ROADMAP.md` | 30 vetores de ataque + roadmap H0–H8 |
+| `SECURITY.md` | REG-001..008 regression inventory |
+
+Issues: `.github/ISSUE_TEMPLATE/*` (bug/feature/security/chore) + `.github/ISSUES_BACKLOG.md` + `scripts/create-github-issues.sh` (`gh` CLI).
 
 ## Licença
 

@@ -1,0 +1,109 @@
+name: CI — lint + typecheck + tests + SAST + audit + build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Bun (for scripts that use bun)
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install deps (frozen)
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Gitleaks — secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dependency audit (high+)
+        run: npm audit --audit-level=high
+
+      - name: Tests — test:ci gate (637 checks)
+        run: npm run test:ci
+        env:
+          DATABASE_URL: file:./prisma/test.db
+          SIGNER_TEST_HOOKS: "1"
+
+      - name: Tests — coverage (Vitest, 80% threshold)
+        run: npx vitest run --coverage --run
+        env:
+          DATABASE_URL: file:./prisma/test.db
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage/lcov.info
+          flags: unittests
+          fail_ci_if_error: false
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Build
+        run: npm run build
+
+      - name: Trivy — image scan (if Dockerfile exists)
+        if: hashFiles('Dockerfile') != ''
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: autotrader:ci
+          format: table
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+        continue-on-error: true
+
+  codeql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+      - uses: github/codeql-action/autobuild@v3
+      - uses: github/codeql-action/analyze@v3
+
+  # E2E — só em PRs com label `e2e` ou push em main (evita custo em todo PR)
+  e2e:
+    if: contains(github.event.pull_request.labels.*.name, 'e2e') || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps
+      - run: npx playwright test
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3000
+          DATABASE_URL: file:./prisma/test.db

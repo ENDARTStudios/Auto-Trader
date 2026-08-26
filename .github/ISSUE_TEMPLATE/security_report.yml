@@ -1,0 +1,80 @@
+name: "🔒 Security Report"
+description: Reporte vulnerabilidade de forma responsável — será tratado como incidente (ver SECURITY.md)
+title: "[SECURITY] "
+labels: ["security", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        > ⚠️ **Não exponha detalhes exploráveis em issue pública.**
+        > Se a falha for crítica (RCE, vazamento de chave, bypass de auth), prefira abrir issue privada ou contatar o operador diretamente.
+        > Todo achado vem com correção proposta — nunca payload isolado (ver SKILL.md `/redteam`).
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: "Severidade"
+      options: ["critico", "alto", "medio", "baixo"]
+      default: 1
+    validations:
+      required: true
+
+  - type: input
+    id: where
+    attributes:
+      label: "Onde (arquivo/rota/componente)"
+      placeholder: "ex: src/app/api/wallets/route.ts:42, POST /api/vault"
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: "Como reproduzir (passos objetivos, sem payload pronto para uso fora de contexto)"
+      placeholder: |
+        1. Como trader, chame GET /api/wallets com ...
+        2. Observe que retorna wallet de outro user
+        3. Evidência: teste tests/rls.test.ts assertion X falha
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: "Impacto (o que se ganha explorando?)"
+      placeholder: "Ex: acesso a privateKeyEncrypted de outro usuário → perda de fundos"
+    validations:
+      required: true
+
+  - type: textarea
+    id: fix
+    attributes:
+      label: "Correção proposta (mudança concreta)"
+      placeholder: "Ex: envolver query com withRLS(session, 'walletConnection', ...) + adicionar REG-00X em SECURITY.md"
+    validations:
+      required: true
+
+  - type: textarea
+    id: checklist_owasp
+    attributes:
+      label: "Checklist OWASP (marque o que foi verificado)"
+      render: markdown
+      value: |
+        - [ ] Injeção (SQL/NoSQL/comando)
+        - [ ] XSS (saída escapada)
+        - [ ] CSRF (SameSite + token)
+        - [ ] SSRF (allowlist de destino)
+        - [ ] IDOR (teste com ID de outro usuário)
+        - [ ] Secret em log/resposta
+        - [ ] Rate limit bypass
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: "Confirmação"
+      options:
+        - label: "Não incluí segredo real, chave privada, token ou payload explorável completo"
+          required: true
+        - label: "Entendo que achado crítico/alto bloqueia deploy até correção (SECURITY.md)"
+          required: true
