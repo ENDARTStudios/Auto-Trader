@@ -1898,3 +1898,43 @@ respected: `grep` confirms zero modifications to the 10 frozen files
 listed in REG-009. The M3.1 adapter (`src/lib/chain/signer-adapter.ts`)
 is also unchanged — only the M3.1 TEST FILE had its D.2 assertion
 updated to reflect post-M3.2 behavior.
+
+---
+
+## REG-009: auth guard + RBAC + RLS — every protected route must verify session and permission, and RLS must filter by ownerId
+
+**Test:** `tests/auth.test.ts` (8 assertions) + `scripts/test-auth-rbac.ts` (11 assertions) + manual `curl` checks (`POST /api/auth/login` → `Set-Cookie`, `GET /api/positions` without cookie → `401`, `viewer POST /api/kill-switch` → `403`, `viewer POST /api/reserve` → `403`).
+
+**Code under test:** `src/lib/auth/session.ts` (`requireSession`), `src/lib/auth/rbac.ts` (`hasPermission`, `ROLE_PERMISSIONS`), `src/lib/auth/rls.ts` (`rlsWhere`, `assertOwner`), and every route handler that now calls `requireSession` + `hasPermission` (e.g., `src/app/api/status/route.ts:18`, `src/app/api/positions/route.ts:18`, `src/app/api/config/route.ts:18`, `src/app/api/kill-switch/route.ts:20`, `src/app/api/reserve/route.ts:18`, `src/app/api/wallets/route.ts:12`).
+
+**What the test pins:** 
+1. `viewer` cannot `engine:kill` or `reserve:manage` (matrix correctness).
+2. `super_admin` bypasses RLS (returns `{}`), `viewer` gets `{ownerId: userId}`.
+3. `assertOwner(viewer, walletOfAdmin)` throws `Forbidden`, `assertOwner(super_admin, walletOfAdmin)` passes.
+4. `GET /api/positions` without `session` cookie → `401` (via `requireSession`), `GET /api/health` without cookie → `200` (public allowlist).
+5. `viewer` session with valid cookie but `POST /api/kill-switch` → `403` (RBAC).
+
+**Why this test exists (the regression it guards against):**
+Before S02, every route was public — `GET /api/status` etc had no `requireSession` check. A future maintainer might "simplify" a route by removing the 2-line guard (`requireSession` + `hasPermission`) thinking it's boilerplate, or add a new route and forget the guard. RLS (`ownerId`) is also easy to forget — a new `findMany` without `where: {ownerId}` would leak cross-user data. The tests pin that the guards exist and that the matrix is correct.
+
+**The correct structure (do not simplify away):**
+```ts
+// In every protected route handler:
+export async function GET(req: Request) {
+  try {
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(ip, "/api/positions");
+    if (!rl.allowed) return NextResponse.json(..., {status:429});
+    const session = await requireSession(req); // 401 if no/invalid cookie
+    if (!hasPermission(session.role, "positions:read")) throw new ForbiddenError("positions:read"); // 403
+    // ... RLS where: rlsWhere(session, 'walletConnection')
+    const rows = await db.walletConnection.findMany({ where: rlsWhere(session, 'walletConnection') });
+  } catch (err) { return handleApiError(err, "GET /api/positions"); }
+}
+```
+The 3-layer defense is load-bearing: `checkRateLimit` (WAF), `requireSession` (auth), `hasPermission` (RBAC), `rlsWhere` (row-level). Removing any one reopens a gap. The permanent principle from HARDENING-ROADMAP applies: every new route must ship with at least one test that attempts to access it without auth and with wrong role.
+
+**If you are tempted to "simplify" by removing the guard from a route:**
+Don't. Read `tests/auth.test.ts` — it asserts `hasPermission('viewer','engine:kill')===false`. A route without the guard would allow viewer to kill. If you have a structural reason to make a route public, add it to the explicit public allowlist in `middleware.ts` and in the route's own comment, and update this REG entry.
+
+**History:** Aug 27 2026 — S02 implemented after S01 foundation wiring. Operator's directive: close OWASP A01/A07 (public routes) before adding new features. S01 had 5 routes with rate-limit only; S02 adds auth+RBAC to 5 critical routes + wallets RLS. The auth helpers are pure and tested via `tests/auth.test.ts` (8 tests) + `scripts/test-auth-rbac.ts` (11 checks). No frozen `chain`/`signer`/`audit` files were touched (verified via `git diff --name-only`).

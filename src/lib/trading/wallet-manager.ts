@@ -93,8 +93,10 @@ function toExchangeRow(r: Awaited<ReturnType<typeof db.exchangeConnection.findUn
 // Wallet CRUD
 // ---------------------------------------------------------------------------
 
-export async function listWallets(): Promise<WalletConnectionRow[]> {
+export async function listWallets(ownerId?: string | null, isSuperAdmin = false): Promise<WalletConnectionRow[]> {
+  const where = !isSuperAdmin && ownerId ? { ownerId } : isSuperAdmin ? {} : { ownerId: ownerId ?? undefined };
   const rows = await db.walletConnection.findMany({
+    where: Object.keys(where).length ? where : undefined,
     orderBy: { createdAt: "desc" },
   });
   return rows.map((r) => toWalletRow(r)!).filter(Boolean);
@@ -109,6 +111,7 @@ export async function createWallet(input: {
   publicKey?: string;
   privateKey?: string;
   passphrase?: string;
+  ownerId?: string | null;
 }): Promise<WalletConnectionRow> {
   let privateKeyEncrypted: string | null = null;
   if (input.privateKey && input.passphrase) {
@@ -124,6 +127,7 @@ export async function createWallet(input: {
 
   const row = await db.walletConnection.create({
     data: {
+      ownerId: input.ownerId ?? null,
       label: input.label,
       type: input.type,
       address: input.address,

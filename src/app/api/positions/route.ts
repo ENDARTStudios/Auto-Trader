@@ -4,6 +4,9 @@ import { fetchPricesBatch } from "@/lib/trading/price-feed";
 import type { PositionRow } from "@/lib/trading/types";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { handleApiError } from "@/lib/api/error-handler";
+import { requireSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/rbac";
+import { ForbiddenError } from "@/lib/auth/errors";
 
 function getClientIp(req: Request): string {
   const xff = (req.headers as unknown as Headers).get?.("x-forwarded-for");
@@ -23,7 +26,9 @@ export async function GET(req: Request) {
         { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } },
       );
     }
-  const openPositions = await db.position.findMany({
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "positions:read")) throw new ForbiddenError("positions:read");
+    const openPositions = await db.position.findMany({
     where: { status: "open" },
     orderBy: { entryAt: "desc" },
     take: 50,

@@ -4,6 +4,9 @@ import { logger } from "@/lib/trading/logger";
 import { eventBus } from "@/lib/trading/event-bus";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { handleApiError } from "@/lib/api/error-handler";
+import { requireSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/rbac";
+import { ForbiddenError } from "@/lib/auth/errors";
 
 function getClientIp(req: Request): string {
   const xff = (req.headers as unknown as Headers).get?.("x-forwarded-for");
@@ -25,6 +28,8 @@ export async function POST(req: Request) {
         { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } },
       );
     }
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "engine:kill")) throw new ForbiddenError("engine:kill");
     const body = (await req.json()) as { active?: boolean; reason?: string };
   if (body.active) {
     const reason = body.reason || "Manual kill via dashboard";

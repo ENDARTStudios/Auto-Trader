@@ -3,6 +3,9 @@ import { getConfig, updateConfig, EngineConfig } from "@/lib/trading/config";
 import { logger } from "@/lib/trading/logger";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { handleApiError } from "@/lib/api/error-handler";
+import { requireSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/rbac";
+import { ForbiddenError } from "@/lib/auth/errors";
 
 function getClientIp(req: Request): string {
   const xff = (req.headers as unknown as Headers).get?.("x-forwarded-for");
@@ -22,6 +25,8 @@ export async function GET(req: Request) {
         { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } },
       );
     }
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "config:read")) throw new ForbiddenError("config:read");
     const cfg = await getConfig();
     return NextResponse.json(cfg);
   } catch (err) {
@@ -39,7 +44,9 @@ export async function POST(req: Request) {
         { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } },
       );
     }
-  const body = (await req.json()) as Partial<EngineConfig>;
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "config:write")) throw new ForbiddenError("config:write");
+    const body = (await req.json()) as Partial<EngineConfig>;
   // Sanitize: never allow setting killSwitchActive, engineRunning, paperCyclesPassed,
   // graduatedToLive via this endpoint — those have dedicated endpoints.
   const forbidden: (keyof EngineConfig)[] = [

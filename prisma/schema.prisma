@@ -406,6 +406,7 @@ model PerformanceSnapshot {
 // ---------------------------------------------------------------------------
 model NotificationChannel {
   id                  String   @id @default(cuid())
+  ownerId             String?  // RLS — nullable for backfill
   name                String   // human label, e.g. "Meu Telegram"
   type                String   // "telegram" | "discord" | "webhook"
   // JSON-encoded config — shape depends on `type`:
@@ -423,6 +424,9 @@ model NotificationChannel {
   throttleSec         Int      @default(0)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  owner               User?    @relation(fields: [ownerId], references: [id])
+
+  @@index([ownerId])
 }
 
 // One row per dispatch attempt. Keeps last ~5,000 rows (auto-trimmed).
@@ -465,6 +469,65 @@ model TradingSchedule {
 }
 
 // ---------------------------------------------------------------------------
+// Auth — User, Session, AuditLog (S02 — RBAC + RLS)
+// ---------------------------------------------------------------------------
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  role         String    @default("viewer") // super_admin | trader | viewer | service
+  isActive     Boolean   @default(true)
+  mfaEnabled   Boolean   @default(false)
+  mfaSecret    String?
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions        Session[]
+  auditLogs       AuditLog[]
+  walletConnections WalletConnection[]
+  exchangeConnections ExchangeConnection[]
+  notificationChannels NotificationChannel[]
+
+  @@index([email])
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique // SHA-256 of opaque token
+  expiresAt DateTime
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actorRole String
+  action    String   // e.g. "auth:login", "engine:kill", "wallets:write"
+  target    String?
+  ip        String?
+  prevHash  String?
+  hash      String   // SHA-256(canonical JSON)
+  seq       Int      @unique // monotonic
+  createdAt DateTime @default(now())
+
+  actor User @relation(fields: [actorId], references: [id])
+
+  @@index([actorId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// ---------------------------------------------------------------------------
 // Wallet connections — encrypted private keys for EVM chains.
 // Stored as AES-256-GCM ciphertext (privateKeyEncrypted) with per-row
 // passphrase. The signer process loads these at unlock time; the Next.js
@@ -475,6 +538,7 @@ model TradingSchedule {
 // ---------------------------------------------------------------------------
 model WalletConnection {
   id                  String   @id @default(cuid())
+  ownerId             String?  // RLS — nullable for backfill (S02), NOT NULL in S03
   label               String
   type                String   @default("evm") // "evm" | "solana" | "hardware" | "multisig"
   address             String
@@ -486,7 +550,9 @@ model WalletConnection {
   lastUsedAt          DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  owner               User?    @relation(fields: [ownerId], references: [id])
 
+  @@index([ownerId])
   @@index([address])
   @@index([isActive])
 }
@@ -513,6 +579,7 @@ model FeatureFlag {
 // ---------------------------------------------------------------------------
 model ExchangeConnection {
   id                    String   @id @default(cuid())
+  ownerId               String?  // RLS — nullable for backfill
   label                 String
   exchange              String   // "binance" | "kraken" | "okx" | etc.
   apiKeyEncrypted       String?  // AES-256-GCM ciphertext
@@ -526,7 +593,9 @@ model ExchangeConnection {
   lastUsedAt            DateTime?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
+  owner                 User?    @relation(fields: [ownerId], references: [id])
 
+  @@index([ownerId])
   @@index([exchange])
   @@index([isActive])
 }

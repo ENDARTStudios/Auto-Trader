@@ -18,5 +18,14 @@
 **Risco:** baixo — nenhum arquivo frozen tocado (H0/H1/H2/M3/M4 FROZEN), apenas wiring.
 **Próximo:** S02 Auth + RBAC + RLS (depende de S01 rate-limit/feature-flags já wired).
 
+### Decisão #23: S02 Auth Foundation — RBAC + RLS wiring concluído
+**Data:** 2026-08-27
+**Problema:** Pós S01, todas as rotas críticas (`/api/status`, `/api/positions`, `/api/config`, `/api/kill-switch`, `/api/reserve`, `/api/wallets`) eram públicas — qualquer IP podia `POST /kill-switch` ou `POST /reserve/withdraw` sem autenticação (OWASP A01/A07 crítico). `docs/RBAC.md` e `docs/RLS.md` estavam scaffoldados mas sem código.
+**Solução:** Sprint S02 (8 tarefas, ~180min) — T001 `User`/`Session`/`AuditLog` + `ownerId` nullable em `WalletConnection`/`ExchangeConnection`/`NotificationChannel` + `prisma db push`/`generate`, T002 `password.ts` (bcryptjs cost 12) + `session.ts` (opaque token SHA-256 + HttpOnly) + `rbac.ts` (4×24 matriz) + `errors.ts`, T003 `rls.ts` (`rlsWhere`/`assertOwner`), T004 `env.ts` endurecer, T005 `/api/auth/login|logout|me` com Zod + rate-limit 5/60s + `appendAuditLog` hash-chain, T006 `scripts/seed-auth.ts` (admin@local/viewer@local + backfill) + proteger 5 rotas críticas com `requireSession`+`hasPermission`, T007 `wallet-manager.ts` RLS (`listWallets(ownerId, isSuper)`) + `/api/wallets` RLS, T008 `tests/auth.test.ts` 8/8 + `scripts/test-auth-rbac.ts` 11/11 + `SECURITY.md` REG-009.
+**Arquivos afetados:** `prisma/schema.prisma:467`, `src/lib/auth/*` (5 novos), `src/app/api/auth/*` (3 novos), `scripts/seed-auth.ts`, `scripts/test-auth-rbac.ts`, `tests/auth.test.ts`, `src/app/api/status|positions|config|kill-switch|reserve|wallets`, `src/lib/trading/wallet-manager.ts:96`, `SECURITY.md:1585` (REG-009), `package.json` (+bcryptjs)
+**Validação:** `npx prisma validate` ✅, `db push` ✅, `generate` ✅, `npx tsx scripts/seed-auth.ts` → admin/viewer, `npx tsx scripts/test-auth-rbac.ts` 11/11, `npx vitest run tests/auth.test.ts` 8/8, `npx next build` ✅, `curl /api/health` 200 sem cookie, `curl /api/positions` 401 sem cookie, `viewer POST /kill-switch` 403.
+**Risco:** médio — toca auth, mas puro (bcrypt) + guards em handlers (não middleware Prisma), frozen `chain`/`signer`/`audit` intacto (`git diff --name-only | grep -E 'chain|signer|audit'` → vazio).
+**Próximo:** S03 — TOTP/MFA + `Position.ownerId` RLS + OAuth + admin UI + e2e `auth.spec.ts` (S02 deixa posição single-operator, TOTP fica para S03).
+
 ### Decisão #1-N (placeholder)
 Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.
