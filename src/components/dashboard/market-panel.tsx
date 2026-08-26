@@ -4,7 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Activity, Brain, Flame, TrendingUp } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { fadeInUp, staggerContainer, staggerItem } from "@/lib/ui/motion";
 import type { MarketData, MarketSnapshotRow } from "@/hooks/use-trading-data";
 
 function fmtPrice(n: number): string {
@@ -47,15 +50,50 @@ interface Props {
   isLoading: boolean;
 }
 
-export function MarketPanel({ data, isLoading }: Props) {
-  if (isLoading && !data) {
-    return (
+function MarketSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <Skeleton className="h-4 w-32" />
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Skeleton className="h-8 w-20" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-2 w-full" />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <Skeleton className="h-4 w-32" />
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              <Skeleton className="h-6 w-16" />
+              <Skeleton className="h-6 w-20" />
+              <Skeleton className="h-6 w-14" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
       <Card>
-        <CardContent className="py-8 text-center text-muted-foreground">
-          Carregando análise de mercado...
+        <CardHeader>
+          <Skeleton className="h-5 w-48" />
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
         </CardContent>
       </Card>
-    );
+    </div>
+  );
+}
+
+export function MarketPanel({ data, isLoading }: Props) {
+  if (isLoading && !data) {
+    return <MarketSkeleton />;
   }
 
   const fg = data?.fearGreed;
@@ -63,9 +101,20 @@ export function MarketPanel({ data, isLoading }: Props) {
   const snapshots = data?.snapshots ?? [];
 
   return (
-    <div className="space-y-4">
+    <motion.div
+      className="space-y-4"
+      variants={fadeInUp}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+    >
       {/* Macro sentiment row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <motion.div
+        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+        variants={staggerContainer}
+        initial="hidden"
+        animate="visible"
+      >
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
@@ -118,7 +167,7 @@ export function MarketPanel({ data, isLoading }: Props) {
             </p>
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
       {/* Snapshots table */}
       <Card>
@@ -154,9 +203,15 @@ export function MarketPanel({ data, isLoading }: Props) {
                     <th className="px-2">When</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {snapshots.map((s: MarketSnapshotRow) => (
-                    <tr key={s.id} className="border-b hover:bg-muted/30">
+                <motion.tbody variants={staggerContainer} initial="hidden" animate="visible">
+                  <AnimatePresence mode="popLayout">
+                    {snapshots.map((s: MarketSnapshotRow) => (
+                      <motion.tr
+                        key={s.id}
+                        variants={staggerItem}
+                        layout
+                        className="border-b hover:bg-muted/30"
+                      >
                       <td className="py-2 px-2 font-medium">
                         {s.symbol}
                         {s.chain && (
@@ -206,9 +261,10 @@ export function MarketPanel({ data, isLoading }: Props) {
                       <td className="px-2 text-muted-foreground text-[10px]">
                         {new Date(s.analyzedAt).toLocaleTimeString("pt-BR")}
                       </td>
-                    </tr>
-                  ))}
-                </tbody>
+                    </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </motion.tbody>
               </table>
             </div>
           )}
@@ -223,6 +279,6 @@ export function MarketPanel({ data, isLoading }: Props) {
           Engine bloqueia entry quando signalLabel = "strong_sell".
         </AlertDescription>
       </Alert>
-    </div>
+    </motion.div>
   );
 }

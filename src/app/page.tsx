@@ -72,6 +72,7 @@ import { OrderFlowPanel } from "@/components/dashboard/order-flow-panel";
 import { PortfolioPanel } from "@/components/dashboard/portfolio-panel";
 import type { EquityPoint } from "@/components/dashboard/equity-curve-chart";
 import { cn } from "@/lib/utils";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 /* --------------------------------------------------------------- helpers */
 function fmtUsd(n: number, decimals = 2): string {
@@ -642,64 +643,86 @@ export default function Home() {
       {/* =================================================== WORKSPACE MAIN */}
       <main className="container mx-auto px-4 lg:px-6 py-4 space-y-3 relative z-10">
         {/* ---------- ROW 1: EQUITY CURVE — full width, dominant ---------- */}
-        <EquityCurvePanel
-          data={equityData}
-          currentEquity={currentEquity}
-          peakEquity={peakEquity}
-          realizedPnl={s.realizedPnlUsd}
-          initialCapital={initialCapital}
-          unrealizedPnl={unrealizedPnl}
-          isLive={isLive}
-          isRunning={isRunning}
-          lastLoopAt={s.lastLoopAt}
-          metrics={perfMetrics}
-        />
+        <ErrorBoundary label="EquityCurvePanel">
+          <EquityCurvePanel
+            data={equityData}
+            currentEquity={currentEquity}
+            peakEquity={peakEquity}
+            realizedPnl={s.realizedPnlUsd}
+            initialCapital={initialCapital}
+            unrealizedPnl={unrealizedPnl}
+            isLive={isLive}
+            isRunning={isRunning}
+            lastLoopAt={s.lastLoopAt}
+            metrics={perfMetrics}
+          />
+        </ErrorBoundary>
 
         {/* ---------- ROW 2: 3-col grid — Watchlist | Portfolio | AI Decision ---------- */}
         <section className="grid grid-cols-1 xl:grid-cols-3 gap-3">
-          <WatchlistScreener
-            rows={screenerRows}
-            isLoading={market.isLoading || positions.isLoading}
-          />
-          <PortfolioPanel
-            positions={positions.data ?? []}
-            isLoading={positions.isLoading}
-          />
-          <AIDecisionPanel
-            insights={aiInsights.data ?? []}
-            gates={aiGates}
-            isLoading={aiInsights.isLoading}
-          />
+          <ErrorBoundary label="WatchlistScreener">
+            <WatchlistScreener
+              rows={screenerRows}
+              isLoading={market.isLoading || positions.isLoading}
+            />
+          </ErrorBoundary>
+          <ErrorBoundary label="PortfolioPanel">
+            <PortfolioPanel
+              positions={positions.data ?? []}
+              isLoading={positions.isLoading}
+            />
+          </ErrorBoundary>
+          <ErrorBoundary label="AIDecisionPanel">
+            <AIDecisionPanel
+              insights={aiInsights.data ?? []}
+              gates={aiGates}
+              isLoading={aiInsights.isLoading}
+            />
+          </ErrorBoundary>
         </section>
 
         {/* ---------- ROW 3: 3-col grid — Order Flow | Logs | System Health ---------- */}
         <section className="grid grid-cols-1 xl:grid-cols-3 gap-3">
-          <OrderFlowPanel
-            positions={positions.data ?? []}
-            logs={logs.data ?? []}
-            isLoading={positions.isLoading || logs.isLoading}
-          />
-          <LogsConsole
-            logs={logs.data ?? []}
-            isLoading={logs.isLoading}
-          />
-          <SystemHealthPanel layers={hardeningLayers} />
+          <ErrorBoundary label="OrderFlowPanel">
+            <OrderFlowPanel
+              positions={positions.data ?? []}
+              logs={logs.data ?? []}
+              isLoading={positions.isLoading || logs.isLoading}
+            />
+          </ErrorBoundary>
+          <ErrorBoundary label="LogsConsole">
+            <LogsConsole
+              logs={logs.data ?? []}
+              isLoading={logs.isLoading}
+            />
+          </ErrorBoundary>
+          <ErrorBoundary label="SystemHealthPanel">
+            <SystemHealthPanel layers={hardeningLayers} />
+          </ErrorBoundary>
         </section>
 
         {/* ---------- ROW 4: 2-col — Surveillance + Scam Reports (compact) ---------- */}
         <section className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-          <SurveillancePanel
-            alerts={surveillance.data?.alerts ?? []}
-            counts={surveillance.data?.counts ?? { critical: 0, warning: 0, info: 0, total: 0 }}
-            isLoading={surveillance.isLoading}
-          />
-          <ScamReportsList reports={scamReports.data ?? []} isLoading={scamReports.isLoading} />
+          <ErrorBoundary label="SurveillancePanel">
+            <SurveillancePanel
+              alerts={surveillance.data?.alerts ?? []}
+              counts={surveillance.data?.counts ?? { critical: 0, warning: 0, info: 0, total: 0 }}
+              isLoading={surveillance.isLoading}
+            />
+          </ErrorBoundary>
+          <ErrorBoundary label="ScamReportsList">
+            <ScamReportsList reports={scamReports.data ?? []} isLoading={scamReports.isLoading} />
+          </ErrorBoundary>
         </section>
 
         {/* ---------- ROW 5: 2-col — Market + AI Insights (full panels) ---------- */}
         <section className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-          <MarketPanel data={market.data} isLoading={market.isLoading} />
-          <AIInsightsPanel insights={aiInsights.data ?? []} isLoading={aiInsights.isLoading} />
+          <ErrorBoundary label="MarketPanel">
+            <MarketPanel data={market.data} isLoading={market.isLoading} />
+          </ErrorBoundary>
+          <ErrorBoundary label="AIInsightsPanel">
+            <AIInsightsPanel insights={aiInsights.data ?? []} isLoading={aiInsights.isLoading} />
+          </ErrorBoundary>
         </section>
 
         {/* =================================================== EXPLORER (secondary) */}

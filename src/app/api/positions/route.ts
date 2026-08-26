@@ -2,8 +2,27 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { fetchPricesBatch } from "@/lib/trading/price-feed";
 import type { PositionRow } from "@/lib/trading/types";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { handleApiError } from "@/lib/api/error-handler";
 
-export async function GET() {
+function getClientIp(req: Request): string {
+  const xff = (req.headers as unknown as Headers).get?.("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim();
+  const xri = (req.headers as unknown as Headers).get?.("x-real-ip");
+  if (xri) return xri.trim();
+  return "unknown";
+}
+
+export async function GET(req: Request) {
+  try {
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(ip, "/api/positions");
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "rate_limited", retryAfter: rl.retryAfter },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } },
+      );
+    }
   const openPositions = await db.position.findMany({
     where: { status: "open" },
     orderBy: { entryAt: "desc" },
@@ -57,5 +76,8 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json(rows);
+    return NextResponse.json(rows);
+  } catch (err) {
+    return handleApiError(err, "GET /api/positions");
+  }
 }

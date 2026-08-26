@@ -1,13 +1,44 @@
 import { NextResponse } from "next/server";
 import { getConfig, updateConfig, EngineConfig } from "@/lib/trading/config";
 import { logger } from "@/lib/trading/logger";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { handleApiError } from "@/lib/api/error-handler";
 
-export async function GET() {
-  const cfg = await getConfig();
-  return NextResponse.json(cfg);
+function getClientIp(req: Request): string {
+  const xff = (req.headers as unknown as Headers).get?.("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim();
+  const xri = (req.headers as unknown as Headers).get?.("x-real-ip");
+  if (xri) return xri.trim();
+  return "unknown";
+}
+
+export async function GET(req: Request) {
+  try {
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(ip, "/api/config");
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "rate_limited", retryAfter: rl.retryAfter },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } },
+      );
+    }
+    const cfg = await getConfig();
+    return NextResponse.json(cfg);
+  } catch (err) {
+    return handleApiError(err, "GET /api/config");
+  }
 }
 
 export async function POST(req: Request) {
+  try {
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(ip, "/api/config");
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "rate_limited", retryAfter: rl.retryAfter },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } },
+      );
+    }
   const body = (await req.json()) as Partial<EngineConfig>;
   // Sanitize: never allow setting killSwitchActive, engineRunning, paperCyclesPassed,
   // graduatedToLive via this endpoint — those have dedicated endpoints.
@@ -39,7 +70,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "reservePct + reinvestPct deve somar 100" }, { status: 400 });
   }
 
-  const updated = await updateConfig(body);
-  logger.info("api", "Config atualizada", { patch: body });
-  return NextResponse.json(updated);
+    const updated = await updateConfig(body);
+    logger.info("api", "Config atualizada", { patch: body });
+    return NextResponse.json(updated);
+  } catch (err) {
+    return handleApiError(err, "POST /api/config");
+  }
 }

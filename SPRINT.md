@@ -2,8 +2,9 @@
 
 > **Gerado:** 2026-08-26 — análise do estado atual do projeto
 > **Método:** impacto × complexidade (maior impacto, menor complexidade primeiro)
-> **Status:** Planejado — NÃO implementado (aguardando aprovação do Operador)
-> **Branch sugerida:** `feat/S01-foundation-wiring`
+> **Status:** ✅ CONCLUÍDO — 2026-08-26 (8/8 tarefas, wiring validado, commit S01)
+> **Branch:** `main` (S01 foi direto em main — 8 tarefas wiring, sem frozen)
+> **Commit:** `feat: S01 foundation wiring — see DECISOES #22`
 
 ---
 

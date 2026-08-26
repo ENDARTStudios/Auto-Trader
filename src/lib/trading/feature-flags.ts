@@ -18,10 +18,10 @@ export async function isEnabled(key: string, userId?: string): Promise<boolean> 
   }
 
   try {
-    const flags = await (db as any).featureFlag?.findMany?.() ?? [];
-    cache = new Map(flags.map((f: any) => [f.key, f.enabled]));
+    const flags = await db.featureFlag.findMany();
+    cache = new Map(flags.map((f) => [f.key, f.enabled]));
     cacheAt = Date.now();
-    const flag = flags.find((f: any) => f.key === key);
+    const flag = flags.find((f) => f.key === key);
     if (!flag) return false;
     if (flag.rolloutPct < 100 && userId) {
       const hash = simpleHash(userId + key) % 100;
@@ -35,7 +35,7 @@ export async function isEnabled(key: string, userId?: string): Promise<boolean> 
 }
 
 export async function setFlag(key: string, enabled: boolean, rolloutPct = 100): Promise<void> {
-  await (db as any).featureFlag.upsert({
+  await db.featureFlag.upsert({
     where: { key },
     create: { key, enabled, rolloutPct },
     update: { enabled, rolloutPct },
