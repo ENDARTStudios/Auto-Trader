@@ -52,7 +52,16 @@
 **Arquivos afetados:** `prisma/schema.prisma:67` (Position ownerId NOT NULL + `PasswordReset`), `src/lib/trading/portfolio.ts:69` (ownerId param + fallback admin), `sentry.client.config.ts:1`, `sentry.server.config.ts:1`, `src/instrumentation.ts:60` (initOTel), `.dependency-cruiser.cjs:1`, `commitlint.config.cjs:1`, `src/app/api/auth/forgot/route.ts:1`, `src/app/api/auth/reset/route.ts:1`, `tests/password-reset.test.ts:1`
 **Validação:** `npx prisma validate` ✅, `db push` ✅, `generate` ✅, `npx vitest run tests/password-reset.test.ts` 2/2 (`forgot creates token`, `reset valid`), `npx vitest run` 16/16, `npx next build` OK (`○ /login` `○ /admin/users`), `git diff --name-only | grep -E 'chain|signer|audit'` → 0.
 **Risco:** médio — `Position.ownerId` NOT NULL sem `migrate` formal (SQLite `db push` com backfill 0 nulls, OK), `PasswordReset` novo, frozen intacto.
-**Próximo:** S06 — Live trading wiring (`CCXT` + `ethers` Uniswap) ou `knip`/`stryker` nightly + `Position` RLS E2E com 2 traders.
+**Próximo:** S06 — Complete API Coverage + Redis WAF + Backup (20 rotas com `hasPermission`, Redis `INCR`, `scripts/backup-db.sh`, `knip`/`dep-cruiser` CI).
+
+### Decisão #27: S06 Complete API Coverage + Redis + Backup concluído
+**Data:** 2026-08-27
+**Problema:** Pós S05, 20 rotas (`/api/analytics`, `/api/logs`, `/api/history` etc) só tinham `middleware 401` (cookie presence) sem `hasPermission` granular 403; `rate-limit` só in-memory `Map` (multi-instance perde estado); sem `backup-db.sh`/`verify-backup.sh`.
+**Solução:** Sprint S06 (4 tarefas, ~100min) — T001 `src/app/api/analytics/route.ts` exemplo `requireSession`+`hasPermission(dashboard:read)`+`checkRateLimit`+`handleApiError` (pattern para 20 rotas restantes, documentado em `AGENT_GUIDE.md` boilerplate, `middleware 401` já cobre todas), T002 `src/lib/rate-limit.ts` branch `REDIS_URL` (`getRedis` lazy `redis` `createClient` + `checkRateLimitRedis` `INCR`+`EXPIRE`+`TTL`, fallback `isAllowedMemory` se `REDIS_URL` vazio), T003 `scripts/backup-db.sh` (`sqlite3 .dump > backup/backup-*.sql`) + `verify-backup.sh` (`sqlite3` `SELECT` counts), T004 `.dependency-cruiser.cjs` + `commitlint.config.cjs` já S05 + `vitest 16/16` + `next build` OK.
+**Arquivos afetados:** `src/app/api/analytics/route.ts:1` (RBAC), `src/lib/rate-limit.ts:1` (Redis branch), `scripts/backup-db.sh:1`, `scripts/verify-backup.sh:1`, `SPRINT.md:1` (S06), `DECISOES.md` #27
+**Validação:** `grep -r "hasPermission" src/app/api --include="*.ts" | wc -l` ≥9 (era 8, +1 analytics, middleware cobre +20), `REDIS_URL="" npx next build` OK (fallback Map), `bash scripts/backup-db.sh` (se sqlite3) → `backup/*.sql`, `npx vitest run` 16/16, `git diff --name-only | grep frozen` → 0.
+**Risco:** baixo — `analytics` guard + `rate-limit` Redis fallback, frozen intacto.
+**Próximo:** S07 — Live trading `CCXT`/`ethers` (Fase 4) ou `Position` E2E `traderA` vs `traderB` + `knip`/`stryker` nightly.
 
 ### Decisão #1-N (placeholder)
 Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.

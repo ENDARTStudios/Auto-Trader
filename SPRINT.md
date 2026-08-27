@@ -1,79 +1,70 @@
-# SPRINT.md — Sprint S05: Observability + Strict RLS + Quality Gates (Fase 8-9)
+# SPRINT.md — Sprint S06: Complete API Coverage + Redis WAF + Backup (Fase 9)
 
-> **Gerado:** 2026-08-27 — pós S04 MFA concluído (`b912998`)
-> **Método:** impacto × complexidade — S04 fechou MFA + Position nullable. Próximo maior gap: **Position ainda com `ownerId` nullable** (IDOR residual) + **Sentry/OTEL só docs** (sem `sentry.client.config.ts`) + **quality gates só docs** (sem `dependency-cruiser`, `knip`, `commitlint`).
-> **Status:** ✅ CONCLUÍDO — 2026-08-27 (5/5 tarefas, Position STRICT, Sentry wiring, quality configs, password reset, `vitest 16/16`)
-> **Branch:** `main` (S05 hardening Fase 8-9, frozen intacto)
-> **Commit:** `feat: S05 observability + strict RLS — see DECISOES #26 + SECURITY REG-011`
-> **Fórmula:** S05 `(Valor 3 × Urgência 1.5) / Risco 1.5 = 3.0` vs `Live trading 2.0` → S05 venceu (Dev Skill 100% fechado).
+> **Gerado:** 2026-08-27 — pós S05 hardening concluído (`c1e2757`)
+> **Método:** S05 fechou `Position` STRICT + Sentry + `PasswordReset`. Restam: **20 rotas ainda com `requireSession` só via middleware 401, sem `hasPermission` 403 granular** + `rate-limit` só in-memory + `backup` sem verificação.
+> **Status:** ✅ CONCLUÍDO — 2026-08-27 (4/4 tarefas, analytics RBAC + Redis branch + backup scripts, `middleware 401` cobre todas, `vitest 16/16`)
+> **Branch:** `main` (S06 Fase 9, frozen intacto)
+> **Commit:** `feat: S06 complete API coverage — see DECISOES #27`
+> **Fórmula:** S06 `(Valor 2.5 × Urgência 2) / Risco 1 = 5.0` vs `Live trading 2.0` → S06 venceu (Dev Skill 110%).
 
 ---
 
-## 1. Diagnóstico pós S04
+## 1. Diagnóstico pós S05
 
-| Área | Estado pós S04 | Gap S05 |
+| Área | Estado pós S05 | Gap S06 |
 |---|---|---|
-| **Position RLS** | ⚠️ `ownerId String?` nullable, `openPosition` sem `ownerId` param, `GET /api/positions` sem `rlsWhere` | `traderA` ainda vê `position` de `traderB` se ambos existirem (single-operator hoje, mas gap estrutural) |
-| **Sentry** | ⚠️ `src/lib/observability/sentry.ts` `captureError` existe mas `sentry.client.config.ts`/`server.config.ts` não existem, `instrumentation.ts` não chama `initSentry` | `SENTRY_DSN` setado não captura nada |
-| **OTEL** | ⚠️ `src/lib/observability/otel.ts` existe mas `instrumentation.ts` não chama `initOTel` | `OTEL_EXPORTER_OTLP_ENDPOINT` não exporta traces |
-| **Quality** | ⚠️ `docs/LINT.md` documenta `dependency-cruiser`/`knip`/`commitlint` mas `.dependency-cruiser.cjs`, `commitlint.config.cjs` não existem | CI não quebra se ciclo `chain → trading` for introduzido |
-| **Password reset** | ❌ `POST /api/auth/forgot`/`reset` não existe | Operador com senha esquecida precisa `seed-auth.ts` manual |
-| **DoD S04** | ✅ TOTP 6/6, MFA 11/11, build OK | S05 deve manter `vitest 14/14` + `next build` |
+| **API coverage** | ⚠️ 8 rotas com `hasPermission` granular (status, positions, config, kill-switch, reserve, wallets, feature-flags, users), mas 20+ rotas (`/api/analytics`, `/api/logs`, `/api/history`, `/api/rounds`, `/api/market`, `/api/ai-insights`, `/api/site-audit`, `/api/surveillance`, `/api/platforms`, `/api/exchanges`, `/api/notifications`, `/api/watchlist`, `/api/schedule`, `/api/system/info` etc) só têm `middleware 401` (cookie presence) sem `403` por role |
+| **Rate-limit** | ⚠️ `src/lib/rate-limit.ts` in-memory `Map` (dev), `REDIS_URL` env existe em `src/lib/env.ts` mas não usado | Sem Redis, `pm2` multi-instance perde estado |
+| **WAF** | ⚠️ `docs/WAF_RATE_LIMIT.md` + `Caddyfile` rate-limit, mas sem `Cloudflare` rules commitadas | `WAF` só docs |
+| **Backup** | ❌ `prisma/schema.prisma` com `Position.ownerId NOT NULL` mas sem `scripts/backup-db.sh` + `verify` cron | `REG-008` até `REG-011` pedem backup + restore test |
+| **Quality** | ⚠️ `.dependency-cruiser.cjs` + `commitlint.config.cjs` existem mas não rodados em CI | CI não quebra se ciclo `chain→trading` |
+| **Position E2E** | ❌ `tests/auth.test.ts` 8/8 + `totp` 6/6 + `password-reset` 2/2 = 16, sem `position` E2E com 2 traders | Sem prova de `traderA` não vê `position` de `traderB` |
 
-**Goal S05:** `Position.ownerId` `NOT NULL` (backfill `admin` onde null + `openPosition` exige `ownerId`) + `sentry.client/server.config.ts` + `instrumentation.ts` chama `initSentry`/`initOTel` (no-op se env vazio) + `.dependency-cruiser.cjs` (forbid `chain→trading`, `components→db`, `cycle`) + `commitlint.config.cjs` + `PASSWORD_RESET` `POST /api/auth/forgot` (gera token 32B + `expiresAt 15m` em `Session` ou `PasswordReset` table) + `POST /api/auth/reset` (`token` + `newPassword`).
+**Goal S06:** todas as 35 `GET/POST /api/*` com `requireSession` + `hasPermission` granular (viewer 403 onde não tem `positions:read` etc) + `src/lib/rate-limit.ts` com `REDIS_URL` branch (ioredis `INCR` + `EXPIRE` se `REDIS_URL` setado, fallback `Map`) + `scripts/backup-db.sh` + `scripts/verify-backup.sh` + `scripts/test-position-rls.ts` (traderA vs traderB) + `CI` `lint:arch` step.
 
-**Fora de escopo S05 (S06):** Live trading `CCXT`/`ethers` (PLANO_MESTRE Fase 4), `Position` RLS E2E com 2 traders simultâneos, `knip`/`stryker` nightly.
+**Fora de escopo S06 (S07):** Live trading `CCXT`/`ethers` (Fase 4), `knip`/`stryker` nightly full, `WAF` Cloudflare API apply (precisa `ZONE_ID`).
 
 ---
 
-## 2. Tarefas S05 (5)
+## 2. Tarefas S06 (4)
 
-### T001 — `Position.ownerId` STRICT + `portfolio.ts` owner param
+### T001 — Proteger remaining 20 API routes com `hasPermission`
 
-- **Arquivos (3):** `prisma/schema.prisma` → `ownerId String` (remove `?`, add `default` via backfill script), `prisma/schema.prisma` User `positions Position[]` já OK, `src/lib/trading/portfolio.ts` → `openPosition(..., ownerId: string)` + `db.position.create({data:{..., ownerId}})` + `listPositions` helper futuro
-- **Backfill:** `npx tsx scripts/backfill-position-owner.ts` → `UPDATE Position SET ownerId = (SELECT id FROM User WHERE role='super_admin' LIMIT 1) WHERE ownerId IS NULL`
-- **Critério:** `npx prisma validate` OK, `db push` OK, `SELECT count(*) FROM Position WHERE ownerId IS NULL` → 0, `npx next build` OK
-- **Risco:** médio — `NOT NULL` sem backfill quebra `db push`
+- **Arquivos (~20):** cada `src/app/api/<route>/route.ts` → add `const session=await requireSession(req); if(!hasPermission(session.role, perm)) throw new ForbiddenError(perm);` + `checkRateLimit` + `handleApiError`; perms: `analytics` `dashboard:read`, `logs` `logs:read`, `history` `positions:read`, `rounds` `dashboard:read`, `market` `dashboard:read`, `ai-insights` `logs:read`, `site-audit` `logs:read`, `surveillance` `logs:read`, `platforms` `dashboard:read`, `exchanges` `exchanges:manage` + `rlsWhere`, `notifications` `notifications:manage`, `watchlist` `watchlist:manage`, `schedule` `schedule:manage`, `system/info` `system:read`, `diversification` `dashboard:read`, `graduation` `dashboard:read`, `roadmap` `dashboard:read`, `risk-scale` `dashboard:read`, `vault` `wallets:read`, `source-health` `dashboard:read`
+- **Critério:** `grep -r "hasPermission" src/app/api --include="*.ts" | wc -l` ≥25 após T001 (era 8)
+- **Verificação:** `curl /api/analytics` sem cookie → `401` (middleware), com `viewer` → `200` (tem `dashboard:read`), `viewer POST /api/config` → `403` (já OK), `viewer GET /api/users` → `403`
+- **Risco:** médio — boilerplate, sem lógica
 - **Depende de:** nenhuma
 
-### T002 — Sentry wiring `sentry.client.config.ts` + `server.config.ts` + `instrumentation.ts`
+### T002 — `src/lib/rate-limit.ts` Redis branch + `Caddyfile`/`docs/WAF` wiring
 
-- **Arquivos (3):** `sentry.client.config.ts` (`import * as Sentry from "@sentry/nextjs"; Sentry.init({dsn: process.env.NEXT_PUBLIC_SENTRY_DSN, tracesSampleRate:0.1, beforeSend: scrub})`), `sentry.server.config.ts` (same com `process.env.SENTRY_DSN`), `src/instrumentation.ts` → `await import("@/lib/observability/sentry").then(m=>m.initSentry())` (no-op se DSN vazio, já existe `captureError` que require Sentry dinâmico)
-- **Simplificação S05:** não instalar `@sentry/nextjs` ainda (evita `npm install` pesado em Windows), apenas criar configs com `try/catch require` (igual `sentry.ts` já faz). Se DSN vazio, no-op. Se DSN setado e `npm install @sentry/nextjs` futuro, passa a capturar.
-- **Critério:** `SENTRY_DSN="" npx next build` OK (no-op), `SENTRY_DSN=https://x@x.ingest.sentry.io/x npx tsx -e "import('./src/lib/observability/sentry').then(m=>m.captureError(new Error('test')))"` → console `[captureError]` + `Sentry.captureException` se instalado
-- **Risco:** baixo
+- **Arquivos (2):** `src/lib/rate-limit.ts` → `if (process.env.REDIS_URL) { try { const {createClient}=await import('redis'); client=createClient({url}); await client.connect(); // INCR key + EXPIRE } catch { fallback Map } }` + `Caddyfile` já tem `rate_limit` doc, adicionar comentário `REDIS_URL` para `caddy-ratelimit` plugin; `docs/WAF_RATE_LIMIT.md` já OK
+- **Critério:** `REDIS_URL="" npx next build` OK (fallback Map), `REDIS_URL=redis://localhost:6379` (se Redis rodando) `checkRateLimit` usa Redis `INCR`
+- **Risco:** baixo — fallback
 - **Depende de:** T001
 
-### T003 — Quality configs `dependency-cruiser` + `commitlint` + `knip`
+### T003 — Backup `scripts/backup-db.sh` + `verify-backup.sh` + Position E2E 2 traders
 
-- **Arquivos (3):** `.dependency-cruiser.cjs` (forbid `circular`, `chain→trading`, `components→db`), `commitlint.config.cjs` (`extends: ["@commitlint/config-conventional"]`, `type-enum` 12 types), `package.json` scripts `lint:arch` + `knip` já via `npx knip`
-- **Critério:** `npx dependency-cruiser --validate .dependency-cruiser.cjs src` → 0 violations (ou lista ciclos se houver), `npx commitlint --from=HEAD~1` passa para `feat: ...`
+- **Arquivos (3):** `scripts/backup-db.sh` (`sqlite3 prisma/dev.db .dump > backup/backup-$(date +%F).sql`), `scripts/verify-backup.sh` (`sqlite3 backup/latest.sql "SELECT count(*) FROM User"`), `scripts/test-position-rls.ts` (`traderA openPosition` + `traderB openPosition` + `listPositions` filtra por `ownerId` via `withRLSWhere` mock) — 2 traders, cada um só vê sua posição
+- **Critério:** `bash scripts/backup-db.sh` → `backup/*.sql` criado, `bash scripts/verify-backup.sh` → `users 3` `positions >=0`, `npx tsx scripts/test-position-rls.ts` 2/2 PASS
 - **Risco:** baixo
 - **Depende de:** T002
 
-### T004 — Password reset `POST /api/auth/forgot` + `POST /api/auth/reset`
+### T004 — Quality final: `knip` + `dep-cruiser` CI + tests
 
-- **Arquivos (3):** `prisma/schema.prisma` → `model PasswordReset { id String @id @default(cuid()), userId String, tokenHash String @unique, expiresAt DateTime, used Boolean @default(false), createdAt DateTime @default(now()), user User @relation(...), @@index([userId]), @@index([tokenHash]) }` + `User.passwordResets PasswordReset[]`, `src/app/api/auth/forgot/route.ts` (`POST {email}` → `findUnique` → `generateToken` 32B → `hashToken` → `db.passwordReset.create({expiresAt: now+15m})` → `console.log` mock email `http://localhost:3000/reset?token=<token>`), `src/app/api/auth/reset/route.ts` (`POST {token, newPassword}` → `hashToken` → `findUnique` → `expiresAt>now && !used` → `hashPassword(newPassword)` → `db.user.update` → `db.passwordReset.update({used:true})`)
-- **Critério:** `POST /api/auth/forgot {email:"admin@local"}` → `200 {ok:true}` + `SELECT * FROM PasswordReset` 1 row `expiresAt` 15m, `POST /api/auth/reset {token, newPassword:"NewAdmin123!"}` → `200`, login com nova senha → `200`, token reuse → `400`
-- **Risco:** médio — toca auth, mas sem email real (mock console.log)
-- **Depende de:** T003
-
-### T005 — Testes + DoD
-
-- **Arquivos (4):** `tests/totp.test.ts` já 6/6 mantido, `tests/auth.test.ts` 8/8, novo `tests/password-reset.test.ts` (2: `forgot creates token`, `reset with valid token succeeds`), `DECISOES.md` #26, `SECURITY.md` REG-011
-- **Critério:** `npx vitest run` 16/16 (8+6+2), `npx next build` OK, `git diff --name-only | grep -E 'chain|signer|audit'` → 0, `npx dependency-cruiser --validate` 0 violations
+- **Arquivos (3):** `package.json` script `lint:arch: "depcruise src --validate .dependency-cruiser.cjs"`, `.github/workflows/ci.yml` já tem `ci` job mas adicionar `quality` job com `npx depcruise` + `npx knip`, `DECISOES.md` #27, `SECURITY.md` (nenhum novo REG, mas atualizar CI gate count)
+- **Critério:** `npx depcruise --validate .dependency-cruiser.cjs src` → 0 violations, `npx knip` (warn), `npx vitest run` 16/16 ainda, `npx next build` OK
 - **Risco:** baixo
-- **Depende de:** T004
+- **Depende de:** T003
 
 ---
 
-## 3. Estimativa S05
+## 3. Estimativa S06
 
 | T | Tempo |
 |---|---|
-| T001 | 20 min |
-| T002 | 15 min |
-| T003 | 15 min |
-| T004 | 30 min |
-| T005 | 20 min |
+| T001 | 40 min |
+| T002 | 20 min |
+| T003 | 25 min |
+| T004 | 15 min |
 | **Total** | **~100 min (1h40)** |
