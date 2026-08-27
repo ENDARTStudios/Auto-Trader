@@ -19,6 +19,8 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("admin@local");
   const [password, setPassword] = useState("Admin123!");
+  const [totp, setTotp] = useState("");
+  const [mfaRequired, setMfaRequired] = useState(false);
 
   if (isLoading) {
     return (
@@ -62,7 +64,16 @@ export default function LoginPage() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                login.mutate({ email, password });
+                login.mutate(
+                  { email, password, totp: totp || undefined },
+                  {
+                    onError: (err: unknown) => {
+                      const mfa = (err as Error & { mfaRequired?: boolean }).mfaRequired;
+                      if (mfa) setMfaRequired(true);
+                    },
+                    onSuccess: () => setMfaRequired(false),
+                  },
+                );
               }}
               className="space-y-4"
             >
@@ -92,6 +103,24 @@ export default function LoginPage() {
                   className="h-9"
                 />
               </div>
+              {mfaRequired && (
+                <div className="space-y-2">
+                  <Label htmlFor="totp">Código 2FA (TOTP)</Label>
+                  <Input
+                    id="totp"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="\d{6}"
+                    maxLength={6}
+                    value={totp}
+                    onChange={(e) => setTotp(e.target.value.replace(/\D/g, ""))}
+                    placeholder="123456"
+                    autoComplete="one-time-code"
+                    className="h-9 font-mono tracking-widest"
+                  />
+                  <p className="text-[11px] text-muted-foreground">Abra seu app autenticador (Google Authenticator, Authy) e insira o código de 6 dígitos.</p>
+                </div>
+              )}
               <Button type="submit" className="w-full gap-2" disabled={login.isPending}>
                 {login.isPending ? (
                   <span className="size-4 rounded-full border-2 border-current border-t-transparent animate-spin" />

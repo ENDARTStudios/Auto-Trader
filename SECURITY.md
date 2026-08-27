@@ -1938,3 +1938,36 @@ The 3-layer defense is load-bearing: `checkRateLimit` (WAF), `requireSession` (a
 Don't. Read `tests/auth.test.ts` — it asserts `hasPermission('viewer','engine:kill')===false`. A route without the guard would allow viewer to kill. If you have a structural reason to make a route public, add it to the explicit public allowlist in `middleware.ts` and in the route's own comment, and update this REG entry.
 
 **History:** Aug 27 2026 — S02 implemented after S01 foundation wiring. Operator's directive: close OWASP A01/A07 (public routes) before adding new features. S01 had 5 routes with rate-limit only; S02 adds auth+RBAC to 5 critical routes + wallets RLS. The auth helpers are pure and tested via `tests/auth.test.ts` (8 tests) + `scripts/test-auth-rbac.ts` (11 checks). No frozen `chain`/`signer`/`audit` files were touched (verified via `git diff --name-only`).
+
+---
+
+## REG-010: MFA TOTP — 2FA must be verified on login if enabled, and setup/verify must be guarded
+
+**Test:** `tests/totp.test.ts` (6 assertions) + `scripts/test-mfa.ts` (11 assertions) + `e2e/mfa.spec.ts` (3 assertions) + manual `curl` checks (`POST /api/auth/mfa/setup` without cookie → `401`, `POST /api/auth/login` with `mfaEnabled` without totp → `401 {mfaRequired:true}`, with totp → `200`).
+
+**Code under test:** `src/lib/auth/totp.ts` (`generateSecret`, `totp`, `verify`, `otpauthUrl`), `src/app/api/auth/mfa/setup/route.ts`, `src/app/api/auth/mfa/verify/route.ts`, `src/app/api/auth/login/route.ts:14` (MFA branch), `src/hooks/use-auth.ts:34` (totp param), `src/app/login/page.tsx:22` (TOTP field conditional on `mfaRequired`).
+
+**What the test pins:**
+1. `generateSecret` 32 chars base32, `totp` 6 digits, `verify(totp(secret), secret)===true`, `verify("000000", secret)===false`, `otpauthUrl` contains `otpauth://totp/`.
+2. `POST /api/auth/mfa/setup` without cookie → `401` (via `requireSession`), with admin cookie → `200 {secret, otpauthUrl}` and `mfaSecret` saved but `mfaEnabled=false`.
+3. `POST /api/auth/mfa/verify` with correct totp → `200 {enabled:true}` and `mfaEnabled=true`, with wrong totp → `401`.
+4. `POST /api/auth/login` with `mfaEnabled=true` and no totp → `401 {mfaRequired:true}`, with correct totp → `200 + Set-Cookie`, with wrong totp → `401`.
+
+**Why this test exists:** Before S04, `mfaEnabled` was a stub column never set. A future maintainer might "simplify" login by removing the 5-line MFA branch (`if (user.mfaEnabled) ...`) thinking it's dead code (since no UI sets it), or add a new login path that bypasses `verify`. The tests pin that the branch exists and that the window-1 verification is correct (RFC 6238, ±30s). Without window, a token generated at 29.9s would fail at 30.1s, causing flaky login in the last second of the step.
+
+**The correct structure (do not simplify away):**
+```ts
+// In login handler:
+if (user.mfaEnabled) {
+  if (!totp) return NextResponse.json({error:'mfa_required',mfaRequired:true},{status:401});
+  if (!user.mfaSecret) return NextResponse.json({error:'mfa not setup'},{status:400});
+  const {verify}=await import('@/lib/auth/totp');
+  if (!verify(totp, user.mfaSecret)) return NextResponse.json({error:'invalid totp'},{status:401});
+}
+```
+The 1-step flow (email+password+totp in same POST) is load-bearing S04 decision (no tempToken Map) — it avoids stateful temp tokens that would need expiry/GC. The `mfaRequired` flag in the 401 response is what drives the UI to show the TOTP field. Removing it would leave the UI with no signal to show the field.
+
+**If you are tempted to "simplify" by removing MFA check from login:**
+Don't. Read `tests/totp.test.ts` — it asserts `verify(totp(secret),secret)===true` with window 1. Login without the check would allow `admin` with MFA enabled to be logged in with only password, defeating 2FA. If you have a structural reason to change the flow (e.g., tempToken 2-step), update this REG entry and the tests.
+
+**History:** Aug 27 2026 — S04 implemented after S03 frontend auth. S03 had `mfaSecret`/`mfaEnabled` columns but no logic; S04 wires TOTP end-to-end with pure `crypto` (no external deps), 1-step login, and `src/app/login/page.tsx` conditional TOTP field. Verified via `tests/totp.test.ts` 6/6, `scripts/test-mfa.ts` 11/11, `npx next build` OK, frozen intact.

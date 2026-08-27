@@ -10,6 +10,7 @@ import { appendAuditLog } from '@/lib/auth/audit';
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+  totp: z.string().regex(/^\d{6}$/).optional(),
 });
 
 function getClientIp(req: Request): string {
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
     if (!parsed.success) {
       return NextResponse.json({ error: 'validation_error', details: parsed.error.flatten() }, { status: 400 });
     }
-    const { email, password } = parsed.data;
+    const { email, password, totp } = parsed.data;
 
     const user = await db.user.findUnique({ where: { email } });
     if (!user || !user.isActive) {
@@ -48,6 +49,20 @@ export async function POST(req: Request) {
     const ok = await verifyPassword(user.passwordHash, password);
     if (!ok) {
       return NextResponse.json({ error: 'invalid_credentials' }, { status: 401 });
+    }
+
+    // MFA check — if enabled, require valid TOTP
+    if (user.mfaEnabled) {
+      if (!totp) {
+        return NextResponse.json({ error: 'mfa_required', mfaRequired: true }, { status: 401 });
+      }
+      if (!user.mfaSecret) {
+        return NextResponse.json({ error: 'mfa not setup' }, { status: 400 });
+      }
+      const { verify } = await import('@/lib/auth/totp');
+      if (!verify(totp, user.mfaSecret)) {
+        return NextResponse.json({ error: 'invalid totp' }, { status: 401 });
+      }
     }
 
     const token = generateToken();

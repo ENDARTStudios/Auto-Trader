@@ -93,11 +93,15 @@ model Position {
   // Scam score at time of entry (for audit trail)
   scamScore           Int      @default(0)
   scamBreakdown       String?  // JSON of sub-scores
+  // Ownership — RLS (nullable for backfill, S04)
+  ownerId             String?
+  owner               User?    @relation(fields: [ownerId], references: [id])
   // Metadata
   roundId             Int
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
+  @@index([ownerId])
   @@index([status])
   @@index([roundId])
   @@index([symbol])
@@ -488,6 +492,7 @@ model User {
   walletConnections WalletConnection[]
   exchangeConnections ExchangeConnection[]
   notificationChannels NotificationChannel[]
+  positions       Position[]
 
   @@index([email])
   @@index([role])

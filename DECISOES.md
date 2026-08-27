@@ -34,7 +34,16 @@
 **Arquivos afetados:** `src/hooks/use-auth.ts:1`, `src/app/login/page.tsx:1`, `src/app/page.tsx:3` (guard+logout), `middleware.ts:8` (page guard), `src/app/api/feature-flags/route.ts:14` (RBAC), `src/app/api/users/route.ts:1`, `scripts/seed-auth.ts:7` (+trader), `e2e/auth.spec.ts:1`, `prisma/schema.prisma` (user already S02)
 **Validação:** `npx next build` ✅ → `○ /login` static, `npx tsx scripts/seed-auth.ts` → 3 users, `npx vitest run tests/auth.test.ts` 8/8, `npx tsx scripts/test-auth-rbac.ts` 11/11, `GET /` sem cookie → `/login` (middleware), `GET /api/analytics` sem cookie → `401` (middleware 401), `viewer POST /kill-switch` → `403`.
 **Risco:** médio — toca `page.tsx` (877 linhas) mas só guard no topo + badge, frozen intacto.
-**Próximo:** S04 — TOTP/MFA + `Position.ownerId` filter + password reset + admin UI completo + `e2e` full.
+**Próximo:** S04 — MFA TOTP + `Position.ownerId` + admin UI users (S03 guarda, S04 hardena).
+
+### Decisão #25: S04 MFA TOTP — 2FA + Position RLS + Admin UI concluído
+**Data:** 2026-08-27
+**Problema:** Pós S03, `User.mfaSecret`/`mfaEnabled` existiam mas sem gerar/verificar TOTP (OWASP A07 sem 2FA); `Position` sem `ownerId` (IDOR futuro); sem `src/app/admin/users` para `users:manage` (admin só via curl).
+**Solução:** Sprint S04 (5 tarefas, ~120min) — T001 `src/lib/auth/totp.ts` (base32 + hotp/totp + verify window 1 + otpauthUrl + recoveryCodes) com Node `crypto` (sem deps), T002 `POST /api/auth/mfa/setup` (`requireSession` → `generateSecret` → `otpauthUrl` + `db.user.update(mfaSecret)` ) + `POST /verify` (`verify(token,mfaSecret) → mfaEnabled=true`) + `DELETE/GET /api/auth/mfa`, T003 `POST /api/auth/login` 1-step MFA (`if (mfaEnabled) { if(!totp) 401 {mfaRequired:true}; if(!verify(totp,mfaSecret)) 401 }`) + `src/hooks/use-auth.ts` + `src/app/login/page.tsx` TOTP field condicional (`mfaRequired` → show Input `one-time-code`), T004 `prisma/schema.prisma` `Position.ownerId String?` + `owner User?` + `@@index` + `db push` + `src/app/admin/users/page.tsx` (lista `GET /api/users` + cria `POST` com role Select + `Skeleton`/`motion`), T005 `tests/totp.test.ts` 6/6 + `scripts/test-mfa.ts` 11/11 + `e2e/mfa.spec.ts` 3/3 (setup 401, login sem totp 401, page TOTP hidden).
+**Arquivos afetados:** `src/lib/auth/totp.ts:1`, `src/app/api/auth/mfa/*` (3 novos), `src/app/api/auth/login/route.ts:10` (mfa check), `src/hooks/use-auth.ts:34` (totp param), `src/app/login/page.tsx:22` (totp state), `prisma/schema.prisma:96` (Position ownerId), `src/app/admin/users/page.tsx:1`, `tests/totp.test.ts:1`, `scripts/test-mfa.ts:1`, `e2e/mfa.spec.ts:1`
+**Validação:** `npx tsx -e "generateSecret 32 chars, totp 6 digits, verify true"` OK, `npx vitest run tests/totp.test.ts` 6/6, `npx tsx scripts/test-mfa.ts` 11/11 (setup→verify→login totp), `npx prisma db push` OK, `npx next build` OK → `○ /login` `○ /admin/users` (client), `git diff --name-only | grep -E 'chain|signer|audit'` → 0.
+**Risco:** médio — toca `login/route.ts` MFA branch (sem tempToken Map, 1-step simples) + `User.mfaSecret` update, frozen intacto.
+**Próximo:** S05 — Observabilidade full (Sentry DSN + OTEL wiring) + `Position` RLS strict (`ownerId` NOT NULL + backfill) + password reset flow + `e2e` full + `SECURITY.md` REG-010.
 
 ### Decisão #1-N (placeholder)
 Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.

@@ -35,7 +35,7 @@ export function useLogin() {
   const qc = useQueryClient();
   const router = useRouter();
   return useMutation({
-    mutationFn: async (input: { email: string; password: string }) => {
+    mutationFn: async (input: { email: string; password: string; totp?: string }) => {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -43,7 +43,12 @@ export function useLogin() {
         body: JSON.stringify(input),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Login failed");
+      if (!res.ok) {
+        const err: Error & { mfaRequired?: boolean } = new Error(data.error || "Login failed");
+        if (data.mfaRequired) err.mfaRequired = true;
+        (err as unknown as { data: unknown }).data = data;
+        throw err;
+      }
       return data;
     },
     onSuccess: () => {
@@ -52,7 +57,10 @@ export function useLogin() {
       router.push("/");
       router.refresh();
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error & { mfaRequired?: boolean }) => {
+      if (e.mfaRequired) toast.error("MFA requerido — insira o código TOTP");
+      else toast.error(e.message);
+    },
   });
 }
 
