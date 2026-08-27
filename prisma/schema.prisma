@@ -93,9 +93,9 @@ model Position {
   // Scam score at time of entry (for audit trail)
   scamScore           Int      @default(0)
   scamBreakdown       String?  // JSON of sub-scores
-  // Ownership — RLS (nullable for backfill, S04)
-  ownerId             String?
-  owner               User?    @relation(fields: [ownerId], references: [id])
+  // Ownership — RLS strict (S05, backfilled S04)
+  ownerId             String
+  owner               User     @relation(fields: [ownerId], references: [id])
   // Metadata
   roundId             Int
   createdAt           DateTime @default(now())
@@ -493,6 +493,7 @@ model User {
   exchangeConnections ExchangeConnection[]
   notificationChannels NotificationChannel[]
   positions       Position[]
+  passwordResets  PasswordReset[]
 
   @@index([email])
   @@index([role])
@@ -511,6 +512,20 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique // SHA-256 of opaque token
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
 }
 
 model AuditLog {

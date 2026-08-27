@@ -71,7 +71,8 @@ export async function openPosition(
   candidate: TokenCandidate,
   amountUsd: number,
   scamReport: ScamReportData,
-  roundId: number
+  roundId: number,
+  ownerId?: string | null,
 ): Promise<PositionRow | null> {
   // Execute buy
   const isLive = cfg.mode === "live" && cfg.graduatedToLive;
@@ -92,8 +93,20 @@ export async function openPosition(
   const sl = entry * (1 - cfg.stopLossPct / 100);
   const maxExitAt = new Date(Date.now() + cfg.maxHoldMinutes * 60_000);
 
+  // Resolve ownerId — for S05 strict RLS, Position.ownerId is NOT NULL
+  let resolvedOwnerId = ownerId;
+  if (!resolvedOwnerId) {
+    const admin = await db.user.findFirst({ where: { role: 'super_admin' }, select: { id: true } });
+    resolvedOwnerId = admin?.id ?? null;
+  }
+  if (!resolvedOwnerId) {
+    logger.error("portfolio", "openPosition without ownerId and no super_admin found — abort");
+    return null;
+  }
+
   const position = await db.position.create({
     data: {
+      ownerId: resolvedOwnerId,
       symbol: candidate.symbol,
       tokenId: candidate.tokenId ?? null,
       chain: candidate.chain ?? null,

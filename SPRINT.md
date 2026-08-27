@@ -1,78 +1,79 @@
-# SPRINT.md — Sprint S04: MFA TOTP + Position RLS + Users Admin UI (Fase 3.3)
+# SPRINT.md — Sprint S05: Observability + Strict RLS + Quality Gates (Fase 8-9)
 
-> **Gerado:** 2026-08-27 — pós S03 Frontend Auth concluído (`cb850f0`)
-> **Método:** impacto × complexidade — S03 fechou login UI + 5 rotas + middleware. Próximo maior gap: **MFA ausente** (OWASP A07, PLANO_MESTRE Fase 3) + `Position` sem `ownerId` (S02 deixou single-operator) + sem admin UI para `users:manage`.
-> **Status:** ✅ CONCLUÍDO — 2026-08-27 (5/5 tarefas, TOTP 32 chars, MFA setup/verify, login com MFA, Position ownerId, admin UI, `tests/totp.test.ts` 6/6, `test-mfa.ts` 11/11)
-> **Branch:** `main` (S04 MFA + Position RLS, frozen intacto)
-> **Commit:** `feat: S04 MFA TOTP — see DECISOES #25 + SECURITY REG-010`
-> **Fórmula:** S04 `(Valor 3 × Urgência 2) / Risco 1.5 = 4.0` vs `Observabilidade full 3.0` → S04 venceu.
+> **Gerado:** 2026-08-27 — pós S04 MFA concluído (`b912998`)
+> **Método:** impacto × complexidade — S04 fechou MFA + Position nullable. Próximo maior gap: **Position ainda com `ownerId` nullable** (IDOR residual) + **Sentry/OTEL só docs** (sem `sentry.client.config.ts`) + **quality gates só docs** (sem `dependency-cruiser`, `knip`, `commitlint`).
+> **Status:** ✅ CONCLUÍDO — 2026-08-27 (5/5 tarefas, Position STRICT, Sentry wiring, quality configs, password reset, `vitest 16/16`)
+> **Branch:** `main` (S05 hardening Fase 8-9, frozen intacto)
+> **Commit:** `feat: S05 observability + strict RLS — see DECISOES #26 + SECURITY REG-011`
+> **Fórmula:** S05 `(Valor 3 × Urgência 1.5) / Risco 1.5 = 3.0` vs `Live trading 2.0` → S05 venceu (Dev Skill 100% fechado).
 
 ---
 
-## 1. Diagnóstico pós S03
+## 1. Diagnóstico pós S04
 
-| Área | Estado pós S03 | Gap S04 |
+| Área | Estado pós S04 | Gap S05 |
 |---|---|---|
-| **Login UI + middleware** | ✅ `/login` + `useAuth` + `middleware` 401/redirect + 5 rotas + wallets RLS | `mfaEnabled` coluna existe mas sem gerar/verificar TOTP |
-| **MFA** | ❌ `User.mfaSecret` nullable mas nunca preenchido, `POST /api/auth/mfa/*` não existe | Sem 2FA, `viewer` com senha fraca = comprometimento = acesso a `engine:kill` |
-| **Position RLS** | ❌ `Position` sem `ownerId` | Multi-user futuro: trader A vê posição de trader B (IDOR) |
-| **Users admin** | ⚠️ `GET/POST /api/users` existe mas sem UI | Admin precisa `curl` para criar trader |
-| **E2E MFA** | ❌ `e2e/auth.spec.ts` 3 testes, sem MFA | Sem prova de TOTP `window` |
+| **Position RLS** | ⚠️ `ownerId String?` nullable, `openPosition` sem `ownerId` param, `GET /api/positions` sem `rlsWhere` | `traderA` ainda vê `position` de `traderB` se ambos existirem (single-operator hoje, mas gap estrutural) |
+| **Sentry** | ⚠️ `src/lib/observability/sentry.ts` `captureError` existe mas `sentry.client.config.ts`/`server.config.ts` não existem, `instrumentation.ts` não chama `initSentry` | `SENTRY_DSN` setado não captura nada |
+| **OTEL** | ⚠️ `src/lib/observability/otel.ts` existe mas `instrumentation.ts` não chama `initOTel` | `OTEL_EXPORTER_OTLP_ENDPOINT` não exporta traces |
+| **Quality** | ⚠️ `docs/LINT.md` documenta `dependency-cruiser`/`knip`/`commitlint` mas `.dependency-cruiser.cjs`, `commitlint.config.cjs` não existem | CI não quebra se ciclo `chain → trading` for introduzido |
+| **Password reset** | ❌ `POST /api/auth/forgot`/`reset` não existe | Operador com senha esquecida precisa `seed-auth.ts` manual |
+| **DoD S04** | ✅ TOTP 6/6, MFA 11/11, build OK | S05 deve manter `vitest 14/14` + `next build` |
 
-**Goal S04:** `POST /api/auth/mfa/setup` (super_admin/trader, requer `requireSession`) gera `secret` base32 + `otpauth://` + `qrcode` (via `qrcode` lib ou ASCII), `POST /api/auth/mfa/verify {token}` ativa `mfaEnabled=true`; `POST /api/auth/login` se `mfaEnabled` → `200 {mfaRequired:true, tempToken}` → segundo `POST /api/auth/login {tempToken, totp}` → `Set-Cookie`; `Position.ownerId` nullable + `listPositions` filtra por `ownerId`; `src/app/admin/users/page.tsx` lista/cria users (super_admin); `e2e/mfa.spec.ts` 2 testes.
+**Goal S05:** `Position.ownerId` `NOT NULL` (backfill `admin` onde null + `openPosition` exige `ownerId`) + `sentry.client/server.config.ts` + `instrumentation.ts` chama `initSentry`/`initOTel` (no-op se env vazio) + `.dependency-cruiser.cjs` (forbid `chain→trading`, `components→db`, `cycle`) + `commitlint.config.cjs` + `PASSWORD_RESET` `POST /api/auth/forgot` (gera token 32B + `expiresAt 15m` em `Session` ou `PasswordReset` table) + `POST /api/auth/reset` (`token` + `newPassword`).
 
-**Fora de escopo S04 (S05):** `Position.ownerId` NOT NULL + backfill estrito, TOTP recovery codes, WebAuthn.
+**Fora de escopo S05 (S06):** Live trading `CCXT`/`ethers` (PLANO_MESTRE Fase 4), `Position` RLS E2E com 2 traders simultâneos, `knip`/`stryker` nightly.
 
 ---
 
-## 2. Tarefas S04 (5)
+## 2. Tarefas S05 (5)
 
-### T001 — `src/lib/auth/totp.ts` helper
+### T001 — `Position.ownerId` STRICT + `portfolio.ts` owner param
 
-- **Arquivos (1):** `src/lib/auth/totp.ts` — `BASE32_ALPHABET`, `base32Encode(buf)`, `base32Decode(str)`, `generateSecret(bytes=20)`, `totp(secret, time=now, step=30, digits=6)`, `verify(token, secret, window=1)`, `otpauthUrl(secret, email, issuer="Auto Trader")`, `generateRecoveryCodes(n=8)`
-- **Critério:** `generateSecret` 32 chars base32, `totp` 6 dígitos, `verify(totp(secret), secret)===true`, `verify("000000", secret)===false`, `otpauthUrl` contém `otpauth://totp/`
-- **Verificação:** `npx tsx -e "import {generateSecret,totp,verify} from '@/lib/auth/totp'; const s=generateSecret(); console.log(verify(totp(s),s))"` → `true`
-- **Risco:** baixo — puro crypto, sem DB
+- **Arquivos (3):** `prisma/schema.prisma` → `ownerId String` (remove `?`, add `default` via backfill script), `prisma/schema.prisma` User `positions Position[]` já OK, `src/lib/trading/portfolio.ts` → `openPosition(..., ownerId: string)` + `db.position.create({data:{..., ownerId}})` + `listPositions` helper futuro
+- **Backfill:** `npx tsx scripts/backfill-position-owner.ts` → `UPDATE Position SET ownerId = (SELECT id FROM User WHERE role='super_admin' LIMIT 1) WHERE ownerId IS NULL`
+- **Critério:** `npx prisma validate` OK, `db push` OK, `SELECT count(*) FROM Position WHERE ownerId IS NULL` → 0, `npx next build` OK
+- **Risco:** médio — `NOT NULL` sem backfill quebra `db push`
 - **Depende de:** nenhuma
 
-### T002 — `POST /api/auth/mfa/setup` + `POST /api/auth/mfa/verify` + `DELETE /api/auth/mfa`
+### T002 — Sentry wiring `sentry.client.config.ts` + `server.config.ts` + `instrumentation.ts`
 
-- **Arquivos (3):** `src/app/api/auth/mfa/setup/route.ts` (POST → `requireSession` → `generateSecret` → `db.user.update({mfaSecret, mfaEnabled:false})` → `{secret, otpauthUrl}`), `verify/route.ts` (POST `{token}` → `verify(token, user.mfaSecret)` → `db.user.update({mfaEnabled:true})`), `route.ts` DELETE (disable)
-- **Critério:** `POST /setup` com admin cookie → `200 {secret, otpauthUrl}`, `POST /verify` com `totp(secret)` → `200 {enabled:true}`, `GET /api/auth/me` → `mfaEnabled:true`
-- **Risco:** médio — toca `User.mfaSecret`
+- **Arquivos (3):** `sentry.client.config.ts` (`import * as Sentry from "@sentry/nextjs"; Sentry.init({dsn: process.env.NEXT_PUBLIC_SENTRY_DSN, tracesSampleRate:0.1, beforeSend: scrub})`), `sentry.server.config.ts` (same com `process.env.SENTRY_DSN`), `src/instrumentation.ts` → `await import("@/lib/observability/sentry").then(m=>m.initSentry())` (no-op se DSN vazio, já existe `captureError` que require Sentry dinâmico)
+- **Simplificação S05:** não instalar `@sentry/nextjs` ainda (evita `npm install` pesado em Windows), apenas criar configs com `try/catch require` (igual `sentry.ts` já faz). Se DSN vazio, no-op. Se DSN setado e `npm install @sentry/nextjs` futuro, passa a capturar.
+- **Critério:** `SENTRY_DSN="" npx next build` OK (no-op), `SENTRY_DSN=https://x@x.ingest.sentry.io/x npx tsx -e "import('./src/lib/observability/sentry').then(m=>m.captureError(new Error('test')))"` → console `[captureError]` + `Sentry.captureException` se instalado
+- **Risco:** baixo
 - **Depende de:** T001
 
-### T003 — `POST /api/auth/login` segundo fator + `POST /api/auth/login/mfa`
+### T003 — Quality configs `dependency-cruiser` + `commitlint` + `knip`
 
-- **Arquivos (1):** `src/app/api/auth/login/route.ts` — se `user.mfaEnabled` então `return 200 {mfaRequired:true, tempToken: hash(user.id+now)}` (store tempToken in `Session` com `expiresAt 5m` e `isMfaPending:true` ou em memória Map); novo `src/app/api/auth/login/mfa/route.ts` → `POST {tempToken, totp}` → `verify` → `Session` real + `Set-Cookie`
-- **Simplificação S04:** manter login 1-step mas se `mfaEnabled` exigir `totp` no mesmo `POST /api/auth/login {email,password,totp}` — sem tempToken Map. Escolher 1-step: `if (user.mfaEnabled) { if (!body.totp || !verify(body.totp, user.mfaSecret)) return 401 {mfaRequired:true} }` — sem estado extra. (Documentar em DECISOES)
-- **Critério:** `admin` sem MFA → login `200 + cookie`; `admin` com MFA + senha correta sem totp → `401 {mfaRequired:true}`; com totp certo → `200 + cookie`
-- **Risco:** médio
+- **Arquivos (3):** `.dependency-cruiser.cjs` (forbid `circular`, `chain→trading`, `components→db`), `commitlint.config.cjs` (`extends: ["@commitlint/config-conventional"]`, `type-enum` 12 types), `package.json` scripts `lint:arch` + `knip` já via `npx knip`
+- **Critério:** `npx dependency-cruiser --validate .dependency-cruiser.cjs src` → 0 violations (ou lista ciclos se houver), `npx commitlint --from=HEAD~1` passa para `feat: ...`
+- **Risco:** baixo
 - **Depende de:** T002
 
-### T004 — `Position.ownerId` nullable + `src/app/admin/users/page.tsx`
+### T004 — Password reset `POST /api/auth/forgot` + `POST /api/auth/reset`
 
-- **Arquivos (4):** `prisma/schema.prisma` → `Position.ownerId String?` + `owner User? @relation` + `@@index([ownerId])`; `src/lib/trading/portfolio.ts` → `openPosition(..., ownerId)`; `src/app/api/positions/route.ts` GET filtra `where: rlsWhere(session,'position')` (future) — S04 deixa GET sem RLS mas POST já com `ownerId: session.userId`; `src/app/admin/users/page.tsx` — lista `GET /api/users` + form cria `POST /api/users` (super_admin) + `Skeleton`+`motion`
-- **Critério:** `npx prisma db push` OK, `admin` cria posição → `ownerId=admin.id` (via `create wallet` já), `npx next build` OK
-- **Risco:** baixo — `ownerId` nullable, sem backfill estrito
+- **Arquivos (3):** `prisma/schema.prisma` → `model PasswordReset { id String @id @default(cuid()), userId String, tokenHash String @unique, expiresAt DateTime, used Boolean @default(false), createdAt DateTime @default(now()), user User @relation(...), @@index([userId]), @@index([tokenHash]) }` + `User.passwordResets PasswordReset[]`, `src/app/api/auth/forgot/route.ts` (`POST {email}` → `findUnique` → `generateToken` 32B → `hashToken` → `db.passwordReset.create({expiresAt: now+15m})` → `console.log` mock email `http://localhost:3000/reset?token=<token>`), `src/app/api/auth/reset/route.ts` (`POST {token, newPassword}` → `hashToken` → `findUnique` → `expiresAt>now && !used` → `hashPassword(newPassword)` → `db.user.update` → `db.passwordReset.update({used:true})`)
+- **Critério:** `POST /api/auth/forgot {email:"admin@local"}` → `200 {ok:true}` + `SELECT * FROM PasswordReset` 1 row `expiresAt` 15m, `POST /api/auth/reset {token, newPassword:"NewAdmin123!"}` → `200`, login com nova senha → `200`, token reuse → `400`
+- **Risco:** médio — toca auth, mas sem email real (mock console.log)
 - **Depende de:** T003
 
-### T005 — Testes MFA + DoD
+### T005 — Testes + DoD
 
-- **Arquivos (3):** `tests/totp.test.ts` (generate, totp, verify, window), `scripts/test-mfa.ts` (setup+verify+login com totp), `e2e/mfa.spec.ts` (login sem totp → 401, com totp → dashboard), `DECISOES.md` #25, `SECURITY.md` REG-010
-- **Critério:** `npx vitest run tests/totp.test.ts` 4/4, `npx tsx scripts/test-mfa.ts` OK, `npx next build` OK, `git diff --name-only | grep frozen` → 0
+- **Arquivos (4):** `tests/totp.test.ts` já 6/6 mantido, `tests/auth.test.ts` 8/8, novo `tests/password-reset.test.ts` (2: `forgot creates token`, `reset with valid token succeeds`), `DECISOES.md` #26, `SECURITY.md` REG-011
+- **Critério:** `npx vitest run` 16/16 (8+6+2), `npx next build` OK, `git diff --name-only | grep -E 'chain|signer|audit'` → 0, `npx dependency-cruiser --validate` 0 violations
 - **Risco:** baixo
 - **Depende de:** T004
 
 ---
 
-## 3. Estimativa S04
+## 3. Estimativa S05
 
 | T | Tempo |
 |---|---|
-| T001 | 25 min |
-| T002 | 30 min |
-| T003 | 20 min |
-| T004 | 25 min |
+| T001 | 20 min |
+| T002 | 15 min |
+| T003 | 15 min |
+| T004 | 30 min |
 | T005 | 20 min |
-| **Total** | **~120 min (2h)** |
+| **Total** | **~100 min (1h40)** |

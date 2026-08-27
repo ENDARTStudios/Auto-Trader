@@ -57,6 +57,14 @@ export async function register(): Promise<void> {
   const { installRequestPeerCapture } = await import("@/lib/request-peer-capture");
   installRequestPeerCapture();
 
+  // S05: Observability — OTEL (no-op if OTEL_EXPORTER_OTLP_ENDPOINT empty)
+  try {
+    const { initOTel } = await import("@/lib/observability/otel");
+    await initOTel();
+  } catch {
+    // OTEL optional — no endpoint means no traces
+  }
+
   // The crash-logger itself writes a boot marker to logs/boot.log on
   // initialization, so we don't need a separate console.log here. Keeping
   // this function side-effect-free (apart from the registration) also helps

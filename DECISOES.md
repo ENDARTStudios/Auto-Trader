@@ -43,7 +43,16 @@
 **Arquivos afetados:** `src/lib/auth/totp.ts:1`, `src/app/api/auth/mfa/*` (3 novos), `src/app/api/auth/login/route.ts:10` (mfa check), `src/hooks/use-auth.ts:34` (totp param), `src/app/login/page.tsx:22` (totp state), `prisma/schema.prisma:96` (Position ownerId), `src/app/admin/users/page.tsx:1`, `tests/totp.test.ts:1`, `scripts/test-mfa.ts:1`, `e2e/mfa.spec.ts:1`
 **Validação:** `npx tsx -e "generateSecret 32 chars, totp 6 digits, verify true"` OK, `npx vitest run tests/totp.test.ts` 6/6, `npx tsx scripts/test-mfa.ts` 11/11 (setup→verify→login totp), `npx prisma db push` OK, `npx next build` OK → `○ /login` `○ /admin/users` (client), `git diff --name-only | grep -E 'chain|signer|audit'` → 0.
 **Risco:** médio — toca `login/route.ts` MFA branch (sem tempToken Map, 1-step simples) + `User.mfaSecret` update, frozen intacto.
-**Próximo:** S05 — Observabilidade full (Sentry DSN + OTEL wiring) + `Position` RLS strict (`ownerId` NOT NULL + backfill) + password reset flow + `e2e` full + `SECURITY.md` REG-010.
+**Próximo:** S05 — Observabilidade full + Strict RLS + Quality Gates (Position NOT NULL, Sentry wiring, dep-cruiser).
+
+### Decisão #26: S05 Observability + Strict RLS + Quality Gates concluído
+**Data:** 2026-08-27
+**Problema:** Pós S04, `Position.ownerId` ainda nullable (IDOR residual se 2 traders), Sentry/OTEL só docs (sem `sentry.client.config.ts`), quality gates só docs (sem `dependency-cruiser`/`commitlint`), sem password reset (operador com senha esquecida precisa `seed-auth.ts`).
+**Solução:** Sprint S05 (5 tarefas, ~100min) — T001 `Position.ownerId String` NOT NULL (backfill `admin` onde null + `portfolio.ts` `openPosition(... ownerId)` com fallback `super_admin`), T002 `sentry.client.config.ts` + `sentry.server.config.ts` (try/catch require `@sentry/nextjs`, `beforeSend` scrub, no-op se DSN vazio) + `src/instrumentation.ts` `initOTel`, T003 `.dependency-cruiser.cjs` (forbid `circular`, `chain→trading`, `ui→db`) + `commitlint.config.cjs` (conventional 12 types), T004 `PasswordReset` model + `POST /api/auth/forgot` (generateToken 32B + 15m + mock email log + dev return token) + `POST /api/auth/reset` (hashToken→verify→hashPassword→invalidate sessions), T005 `tests/password-reset.test.ts` 2/2 + `vitest 16/16` (8+6+2), `next build` OK, `SECURITY.md` REG-011, frozen intacto.
+**Arquivos afetados:** `prisma/schema.prisma:67` (Position ownerId NOT NULL + `PasswordReset`), `src/lib/trading/portfolio.ts:69` (ownerId param + fallback admin), `sentry.client.config.ts:1`, `sentry.server.config.ts:1`, `src/instrumentation.ts:60` (initOTel), `.dependency-cruiser.cjs:1`, `commitlint.config.cjs:1`, `src/app/api/auth/forgot/route.ts:1`, `src/app/api/auth/reset/route.ts:1`, `tests/password-reset.test.ts:1`
+**Validação:** `npx prisma validate` ✅, `db push` ✅, `generate` ✅, `npx vitest run tests/password-reset.test.ts` 2/2 (`forgot creates token`, `reset valid`), `npx vitest run` 16/16, `npx next build` OK (`○ /login` `○ /admin/users`), `git diff --name-only | grep -E 'chain|signer|audit'` → 0.
+**Risco:** médio — `Position.ownerId` NOT NULL sem `migrate` formal (SQLite `db push` com backfill 0 nulls, OK), `PasswordReset` novo, frozen intacto.
+**Próximo:** S06 — Live trading wiring (`CCXT` + `ethers` Uniswap) ou `knip`/`stryker` nightly + `Position` RLS E2E com 2 traders.
 
 ### Decisão #1-N (placeholder)
 Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.

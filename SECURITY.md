@@ -1971,3 +1971,40 @@ The 1-step flow (email+password+totp in same POST) is load-bearing S04 decision 
 Don't. Read `tests/totp.test.ts` — it asserts `verify(totp(secret),secret)===true` with window 1. Login without the check would allow `admin` with MFA enabled to be logged in with only password, defeating 2FA. If you have a structural reason to change the flow (e.g., tempToken 2-step), update this REG entry and the tests.
 
 **History:** Aug 27 2026 — S04 implemented after S03 frontend auth. S03 had `mfaSecret`/`mfaEnabled` columns but no logic; S04 wires TOTP end-to-end with pure `crypto` (no external deps), 1-step login, and `src/app/login/page.tsx` conditional TOTP field. Verified via `tests/totp.test.ts` 6/6, `scripts/test-mfa.ts` 11/11, `npx next build` OK, frozen intact.
+
+---
+
+## REG-011: Position strict RLS + PasswordReset — ownerId NOT NULL and reset token must be single-use with expiry
+
+**Test:** `tests/password-reset.test.ts` (2 assertions) + manual `curl` checks (`POST /api/auth/forgot {email}` → `200` + `SELECT * FROM PasswordReset` 1 row `used=false` `expiresAt` 15m, `POST /api/auth/reset {token, newPassword}` → `200` + `used=true` + `session` deleted + `verifyPassword` new true, reuse → `400`).
+
+**Code under test:** `prisma/schema.prisma:67` (`Position.ownerId String` NOT NULL), `src/lib/trading/portfolio.ts:69` (`openPosition` fallback `super_admin`), `src/app/api/auth/forgot/route.ts` (`generateToken` + `hashToken` + `expiresAt 15m` + mock `console.log` + dev return `token`), `src/app/api/auth/reset/route.ts` (`hashToken` → `findUnique` → `used/expiresAt` check → `hashPassword` → `db.$transaction([user.update, passwordReset.update used:true, session.deleteMany])`).
+
+**What the test pins:**
+1. `Position.ownerId` is `NOT NULL` (after S05, `SELECT count(*) WHERE ownerId IS NULL` → 0). Before S05 it was `String?` (nullable for backfill). Removing `NOT NULL` would allow a future `db.position.create` without `ownerId` to succeed, creating an orphan row that `rlsWhere` cannot filter.
+2. `POST /api/auth/forgot` always returns `200` even if email not found (avoids enumeration), and creates a `PasswordReset` row only if user exists, with `expiresAt` 15m and `tokenHash` SHA-256 (not plain token).
+3. `POST /api/auth/reset` with valid token → `used=true` + password hash updated + all sessions deleted (force re-login). Reuse of same token → `400` (single-use). Expired token → `400`.
+
+**Why this test exists:** Before S05, `Position` was nullable (S04 left it `String?` for backfill). A future maintainer might think `ownerId` is optional and call `openPosition` without it, creating a row that is invisible to RLS (since `rlsWhere` for `viewer` would filter `ownerId=viewerId` but orphan has `null` → no one sees it, or worse, super_admin bypass sees it but no audit). The `NOT NULL` constraint makes the omission fail at DB level, not silently. For `PasswordReset`, the single-use + expiry + hash + session invalidation is load-bearing: without `used=true`, a leaked token could be reused; without `hashToken`, the DB would store plain token; without `session.deleteMany`, a stolen session would survive password change.
+
+**The correct structure (do not simplify away):**
+```ts
+// In forgot handler:
+const token = generateToken(); // 32B hex, 256 bits
+const tokenHash = hashToken(token); // SHA-256, not plain
+await db.passwordReset.create({data:{userId:user.id, tokenHash, expiresAt: new Date(Date.now()+15*60*1000)}});
+// In reset handler:
+const reset = await db.passwordReset.findUnique({where:{tokenHash}});
+if (!reset || reset.used || reset.expiresAt.getTime() < Date.now()) return NextResponse.json({error:'invalid or expired token'},{status:400});
+await db.$transaction([
+  db.user.update({where:{id:reset.userId}, data:{passwordHash: await hashPassword(newPassword)}}),
+  db.passwordReset.update({where:{id:reset.id}, data:{used:true}}),
+  db.session.deleteMany({where:{userId: reset.userId}}),
+]);
+```
+Removing `hashToken` (store plain) would leak token in DB dump; removing `used` check would allow replay; removing `session.deleteMany` would allow stolen session to persist after password change.
+
+**If you are tempted to "simplify" by making Position.ownerId nullable again or removing PasswordReset used check:**
+Don't. Read `tests/password-reset.test.ts` — it asserts `used=false` then `used=true` after reset and that reuse fails. The `NOT NULL` is what guarantees every position is attributable to a user for audit and RLS. If you have a structural reason to allow anonymous positions (e.g., system positions), add an explicit `ownerId: "system"` sentinel and document it, and update this REG entry.
+
+**History:** Aug 27 2026 — S05 implemented after S04 MFA. S04 had `Position.ownerId String?` (nullable) + no `PasswordReset` model; S05 makes it `String` (NOT NULL) with backfill 0 nulls, adds `PasswordReset` with `tokenHash` unique + `expiresAt` 15m + `used` + `userId` FK cascade. Verified via `npx prisma validate` ✅, `db push` ✅, `generate` ✅, `npx vitest run tests/password-reset.test.ts` 2/2, `npx vitest run` 16/16, `npx next build` OK, frozen intact.
