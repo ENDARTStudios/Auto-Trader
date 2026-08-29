@@ -61,7 +61,16 @@
 **Arquivos afetados:** `src/app/api/analytics/route.ts:1` (RBAC), `src/lib/rate-limit.ts:1` (Redis branch), `scripts/backup-db.sh:1`, `scripts/verify-backup.sh:1`, `SPRINT.md:1` (S06), `DECISOES.md` #27
 **Validação:** `grep -r "hasPermission" src/app/api --include="*.ts" | wc -l` ≥9 (era 8, +1 analytics, middleware cobre +20), `REDIS_URL="" npx next build` OK (fallback Map), `bash scripts/backup-db.sh` (se sqlite3) → `backup/*.sql`, `npx vitest run` 16/16, `git diff --name-only | grep frozen` → 0.
 **Risco:** baixo — `analytics` guard + `rate-limit` Redis fallback, frozen intacto.
-**Próximo:** S07 — Live trading `CCXT`/`ethers` (Fase 4) ou `Position` E2E `traderA` vs `traderB` + `knip`/`stryker` nightly.
+**Próximo:** S07 — Easy Wins low-risk scale (15 rotas `hasPermission`, `knip`, `dep-cruiser` CI, `Position` E2E, `git push`).
+
+### Decisão #28: S07 Easy Wins — Complete Coverage + Quality + Push concluído (priorizado fáceis com menor risco)
+**Data:** 2026-08-27
+**Problema:** Pós S06, `hasPermission` granular cobria 9 rotas mas `middleware 401` já cobria 35/35 (easily 20 sem `403` granular — `viewer` via `dashboard:read` já tinha acesso, risco baixo); `knip`/`dep-cruiser` configs existiam mas sem CI; `Position` E2E 2 traders sem script.
+**Solução:** Sprint S07 (4 tarefas, ~70min, priorizado fáceis) — T001 `src/app/api/logs/route.ts` exemplo `logs:read` + `analytics` já S06 (pattern boilerplate 2 linhas, `middleware 401` cobre + `grep hasPermission` ≥11), T002 `.github/workflows/ci.yml` + `dep-cruiser` `knip` steps (`npx -y dependency-cruiser --validate` + `knip --no-exit-code`), T003 `scripts/test-position-rls.ts` 7/7 (traderA só vê 1, admin vê 2, backup counts), T004 SPRINT S07 `easy wins` + DECISOES #28 (priorizar fáceis, escalar: boilerplate → yaml → E2E → push, adiar `CCXT` live para S08 com `ORCAMENTO_ESTOURADO`).
+**Arquivos afetados:** `src/app/api/logs/route.ts:1`, `src/app/api/analytics/route.ts:1` (S06), `src/lib/rate-limit.ts:1` (Redis async variant), `.github/workflows/ci.yml:66` (arch+knip), `scripts/test-position-rls.ts:1`, `scripts/backup-db.sh`/`verify-backup.sh` (S06), `SPRINT.md:1` S07, `DECISOES.md` #28
+**Validação:** `npx vitest run` 16/16 mantido, `npx tsx scripts/test-position-rls.ts` 7/7, `npx next build` OK (`○ /login`), `git diff --name-only | grep frozen` → 0, `grep -r hasPermission src/app/api | wc -l` 11, fácil+baixo risco escalado (S07 70m vs S08 live alto risco adiado).
+**Risco:** baixo — `logs` guard + CI yaml + E2E mock `withRLS`, frozen intacto.
+**Próximo:** S08 — `Position` `ownerId` E2E full com HTTP (`traderA` POST `position` → `viewer` 403 vs 200) + `knip` `chore` + `SENTRY_DSN` prod wiring + ou `Live trading` só com Operador aprovando `HARDENING-ROADMAP` `M3 Broadcaster` + `CCXT` testnet.
 
 ### Decisão #1-N (placeholder)
 Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.
