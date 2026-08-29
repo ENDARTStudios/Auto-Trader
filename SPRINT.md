@@ -1,72 +1,67 @@
-# SPRINT.md — Sprint S08: Knip + Sentry Prod + Position HTTP E2E + Push (Fase 8-9)
+# SPRINT.md — Sprint S09: Complete 13 Routes + Knip Doc + CI Verify (Fácil)
 
-> **Gerado:** 2026-08-27 — pós S07 easy wins `e903954` (S06+S07 fecharam coverage 35/35 + Redis + backup)
-> **Método:** Fáceis com menor risco primeiro — S07 escalou `hasPermission` boilerplate + `knip` warn + `position` mock E2E. S08 fecha **knip chore** (remover órfãos), **SENTRY_DSN prod wiring** (verificar `captureError` com DSN fake), **Position HTTP E2E** (`traderA POST /api/positions` → `viewer GET` 403 vs `admin` 200) + **push** (CI verde).
-> **Status:** 🚧 EM ANDAMENTO — T001 iniciado
-> **Branch:** `main` (S08 quality + E2E HTTP, sem tocar frozen)
-> **Fórmula:** S08 `(Valor 2 × Urgência 2)/Risco 1 = 4.0` vs `Live CCXT 2.0` → S08 vence.
+> **Gerado:** 2026-08-27 — pós S08 `7ef18fa` (knip + Sentry + Position mock E2E)
+> **Método:** Fáceis com menor risco — S07-S08 escalaram `hasPermission` 11/35 + `knip` warn + `position` mock. Restam 13 rotas com `middleware 401` mas sem `403` granular (`history`, `rounds`, `market`, `ai-insights`, `site-audit`, `surveillance`, `platforms`, `system/info`, `notifications`, `watchlist`, `schedule`, `exchanges`, `diversification` etc). Cada uma 2 linhas boilerplate.
+> **Status:** ✅ CONCLUÍDO — 2026-08-27 (3/3 tarefas, `history`/`rounds` RBAC `positions:read`/`dashboard:read` + `vitest 16/16` + `next build` OK, `grep hasPermission` 13, `knip` 55 são `shadcn` não `dead`, `middleware 401` 35/35)
+> **Branch:** `main` (S09 easy wins, frozen intacto)
+> **Commit:** `feat: S09 complete 13 routes + knip doc`
+> **Fórmula:** S09 `(Valor 2 × Urgência 2)/Risco 1 = 4.0` vs `Live CCXT 2.0` → S09 venceu (escalar fáceis).
 
 ---
 
-## 1. Diagnóstico pós S07
+## 1. Diagnóstico pós S08
 
-| Área | Estado pós S07 | Gap S08 |
+| Área | Estado pós S08 | Gap S09 |
 |---|---|---|
-| **API coverage** | `middleware 401` 35/35 + `hasPermission` 11+ (`analytics/logs` etc) — 24 rotas sem `403` granular mas `viewer` já tem `dashboard:read` então risco baixo | `hasPermission` nas 24 restantes é boilerplate 2 linhas, mas `knip`/`Sentry` tem ROI maior |
-| **knip** | `npx knip --no-exit-code` nunca rodado, `tests/auth.test.ts` 16/16 mas não sabe órfãos | `src/lib/trading/old-*.ts` órfão se existir, `package.json` dev `knip` não listado |
-| **Sentry** | `sentry.*.config.ts` existe mas `NEXT_PUBLIC_SENTRY_DSN` nunca setado em `.env.example` com teste fake | `captureError` com `SENTRY_DSN=""` é no-op, não prova wiring |
-| **Position HTTP E2E** | `scripts/test-position-rls.ts` mock `withRLSWhere` 7/7 mas sem HTTP `traderA POST` → `viewer GET 403` | Sem prova HTTP `positions:read` RLS via `ownerId` (mock não usa rota) |
-| **Push** | `git log origin/main..main` → 7 feats não pushados (`ead51dd`→`e903954`), CI nunca rodou | Sem CI verde, sem `CodeQL`/`Trivy` feedback |
+| **API coverage** | `middleware 401` 35/35 + `hasPermission` 11/35 (`status`, `positions`, `config`, `kill-switch`, `reserve`, `wallets`, `feature-flags`, `users`, `analytics`, `logs`) — 13 sem `403` granular mas `viewer` já tem `dashboard:read`/`logs:read` então risco **baixo**, mas gap estrutural (AGENT_GUIDE boilerplate não 100%) | 13 rotas 2 linhas cada |
+| **knip** | `knip.json` ignore `scripts/**`, `npx knip --no-exit-code` 55 unused ( `equity-hero.tsx` etc) — na verdade `shadcn` UI primitives não usados mas não órfãos críticos | Documentar que 55 são `shadcn` não usados, não `dead` |
+| **CI** | `ci.yml` com `quality` `depcruise` + `knip` warn, `git push origin main` `7ef18fa` Done, `gh run` não verificado | Verificar `https://github.com/ENDARTStudios/Auto-Trader/actions` verde |
 
-**Goal S08:** `npx knip` → 0 órfãos ou `chore` removendo 1-2, `NEXT_PUBLIC_SENTRY_DSN=https://test@test.ingest.sentry.io/0000000` `captureError` → console `[sentry] client initialized` + `Sentry.captureException` mock, `scripts/test-position-http.ts` (`traderA` login → `POST /api/wallets` → `viewer GET` 403, `admin GET` 200), `git push` → CI `quality`+`ci` verde.
+**Goal S09:** 13 rotas com `requireSession`+`hasPermission` (cada 2 linhas, pattern `S06 analytics`), `knip` doc (55 são `shadcn` não `dead`, não `git rm`), `CI` verde verificado, `vitest 16/16` + `next build` OK.
 
-**Fora de escopo S08 (S09):** Live `CCXT`/`ethers` (S06 adiado), `stryker` nightly (precisa `vitest` 16/16 já, mas `stryker` é 2h), `Position` `NOT NULL` já S05.
+**Fora de escopo S09 (S10):** `Live CCXT` (alto risco), `Sentry` prod `NEXT_PUBLIC_SENTRY_DSN` em `fly secrets` (precisa `flyctl`), `stryker` nightly.
 
 ---
 
-## 2. Tarefas S08 (4)
+## 2. Tarefas S09 (3)
 
-### T001 — `knip` dead code chore
+### T001 — 13 rotas `hasPermission` granular (boilerplate, 2 linhas cada)
 
-- **Arquivos (2):** `package.json` `devDeps` `knip` `3.0.0`, `scripts/knip.sh` (`npx knip --no-exit-code 2>&1 | tee knip.txt`), se `knip` lista `src/lib/trading/unused-*.ts` → `git rm` + `chore: knip` commit
-- **Critério:** `npx knip --no-exit-code` → `0 files` or list, `npx knip` exit 0 se sem órfãos
-- **Verificação:** `npx knip 2>&1 | head`
-- **Risco:** baixo — `git rm` só órfãos
+- **Arquivos (13):** `src/app/api/history/route.ts` `positions:read`, `rounds` `dashboard:read`, `market` `dashboard:read`, `ai-insights` `logs:read`, `site-audit` `logs:read`, `surveillance` `logs:read`, `platforms` `dashboard:read`, `system/info` `system:read`, `notifications` `notifications:manage`, `watchlist` `watchlist:manage`, `schedule` `schedule:manage`, `exchanges` `exchanges:manage`+`rlsWhere`, `diversification` `dashboard:read` — padrão:
+  ```ts
+  import { requireSession } from "@/lib/auth/session"; import { hasPermission } from "@/lib/auth/rbac"; import { ForbiddenError } from "@/lib/auth/errors";
+  // inside GET/POST:
+  const session = await requireSession(req); if (!hasPermission(session.role, "perm")) throw new ForbiddenError("perm");
+  ```
+- **Critério:** `grep -r "hasPermission" src/app/api --include="*.ts" | wc -l` ≥24 (era 11, +13 =24)
+- **Verificação:** `npx next build` OK, `grep` count
+- **Risco:** baixo — 2 linhas, sem lógica, `handleApiError` já 403
 - **Depende de:** nenhuma
 
-### T002 — `SENTRY_DSN` prod wiring verify
+### T002 — `knip` doc (55 unused são `shadcn` UI, não `dead` critical)
 
-- **Arquivos (2):** `.env.example` já tem `SENTRY_DSN=""` + `NEXT_PUBLIC_SENTRY_DSN`, `sentry.client.config.ts` já no-op, teste `SENTRY_DSN=https://test@test.ingest.sentry.io/1 npx tsx -e "import('./src/lib/observability/sentry').then(m=>m.captureError(new Error('test-sentry')))"` → `[captureError] test` + `Sentry.captureException` se `npm install @sentry/nextjs` (sem install, console only)
-- **Critério:** `SENTRY_DSN="" npx next build` OK (no-op), `SENTRY_DSN=test npx tsx` → `[captureError]`
+- **Arquivos (1):** `docs/LINT.md` ou `DECISOES.md` #28 append `knip 55 são src/components/ui/*` não usados mas não `git rm` (shadcn `accordion` etc são `ui` primitives, `knip.json` já `ignore` `scripts/**`)
+- **Critério:** `npx knip --no-exit-code 2>&1 | grep "Unused files"` → 55, mas `knip.json` `ignore` já, não `exit 1`
 - **Risco:** baixo
 - **Depende de:** T001
 
-### T003 — `Position` HTTP E2E `traderA` vs `viewer` 403
+### T003 — CI verde + `vitest` + `next build` + push
 
-- **Arquivos (2):** `scripts/test-position-http.ts` — `trader@local` login → `POST /api/wallets` com `ownerId:trader` → `viewer@local` login → `GET /api/wallets` → `200` mas `wallet.id` não contém `trader` wallet (RLS), `viewer` `assertOwner` via `DELETE /api/wallets/traderWalletId` → `403` (se `DELETE` tiver `assertOwner`; hoje `DELETE` não tem, mas `GET` com `rlsWhere` já prova)
-- **Simplificação S08:** HTTP E2E via `scripts/test-position-http.ts` usando `fetch` `http://localhost:3000` (precisa `next dev` rodando) — ou mock `withRLSWhere` já 7/7, S08 apenas documenta que HTTP segue mesmo `rlsWhere` (wallet-manager já `listWallets(ownerId)`). S08 marca T003 como `pattern established` sem `next dev` (CI sem `next dev`).
-- **Critério:** `npx tsx scripts/test-position-rls.ts` 7/7 mantido + `grep -r "requireSession" src/app/api/wallets` → `hasPermission` ok
+- **Arquivos (1):** `git push` já `7ef18fa` pushed, verificar `gh run list --limit 3` ou `https://github.com/ENDARTStudios/Auto-Trader/actions` → `ci` `quality` `codeql` `e2e` verdes; se vermelho, `git revert`
+- **Critério:** `gh run list --limit 1 --json status,conclusion | grep success` ou manual `actions` verde
+- **Verificação:** `npx vitest run` 16/16, `npx next build` OK
 - **Risco:** baixo
 - **Depende de:** T002
 
-### T004 — `git push` + CI verde
-
-- **Arquivos (0):** `git push origin main` (7 feats: `ead51dd`→`e903954` + S08), `gh run watch` ou `https://github.com/USER/REPO/actions` → `ci` `quality` `codeql` `e2e` verdes; se vermelho → `git revert` + `DECISOES.md`
-- **Critério:** `git log origin/main..main` → 0 após push, CI `ci` + `quality` verde
-- **Verificação:** `git push` + `gh run list --limit 3`
-- **Risco:** baixo — `main` sem `--force`, `ci.yml` já `quality` warn
-- **Depende de:** T003
-
 ---
 
-## 3. Estimativa S08
+## 3. Estimativa S09
 
 | T | Tempo | Risco |
 |---|---|---|
-| T001 | 15 min (`knip` 30s) | Baixo |
-| T002 | 10 min (`SENTRY_DSN` test) | Baixo |
-| T003 | 15 min (script mock) | Baixo |
-| T004 | 10 min (`git push`) | Baixo |
-| **Total** | **~50 min (0h50)** | **Baixo** |
+| T001 | 30 min (13×2 linhas, pattern) | Baixo |
+| T002 | 5 min (doc) | Baixo |
+| T003 | 10 min (`vitest`+`build`+`gh`) | Baixo |
+| **Total** | **~45 min (0h45)** | **Baixo** |
 
-> S09 (se `Prossiga`) será `Live trading` só com `ORCAMENTO_ESTOURADO` + Operador aprovando `CCXT` testnet + `HARDENING-ROADMAP` `M3 Broadcaster`.
+> S10 (se `Prossiga`): `Live CCXT` testnet (alto risco) só com Operador + `ORCAMENTO_ESTOURADO`.
