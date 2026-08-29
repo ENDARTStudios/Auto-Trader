@@ -1,0 +1,5 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "ignore": ["scripts/**", "examples/**", "e2e/**", "tests/**", "prisma/**", "sentry.*.config.ts", ".dependency-cruiser.cjs", "commitlint.config.cjs"],
+  "ignoreDependencies": ["@sentry/nextjs", "redis", "knip", "dependency-cruiser"]
+}

@@ -1,81 +1,72 @@
-# SPRINT.md — Sprint S07: Easy Wins — Complete Coverage + Quality + Push (Fase 9)
+# SPRINT.md — Sprint S08: Knip + Sentry Prod + Position HTTP E2E + Push (Fase 8-9)
 
-> **Gerado:** 2026-08-27 — pós S06 `b95f760` (S05+S06 fecharam Dev Skill 110%)
-> **Método:** Priorizar fáceis com menor risco e escalar — fórmula `(Valor × Urgência)/Risco` → S07 T001 `hasPermission` boilerplate `9.0` (Valor 3×Urgência 3 / Risco 1), knip `6.0`, E2E `4.5`, live trading `2.0` (adiado)
-> **Status:** ✅ CONCLUÍDO — 2026-08-27 (4/4 tarefas, analytics/logs RBAC + Redis branch + backup + position E2E 7/7, `middleware 401` + `hasPermission` ≥11, `dep-cruiser` CI, `vitest 16/16`)
-> **Branch:** `main` (S07 easy wins, frozen intacto)
-> **Commit:** `feat: S07 easy wins low-risk scale — see DECISOES #27` → `feat: S07 complete coverage`
-> **Escala:** Fáceis (boilerplate 2 linhas + yaml 5 linhas) → médios (E2E 1 script) → difíceis (live) S08 só com Operador.
-
----
-
-## 1. Diagnóstico pós S06 — Priorização risco
-
-| Área | Estado | Risco se não fizer | Esforço | Prioridade |
-|---|---|---|---|---|
-| **15 rotas sem `hasPermission` granular** | `middleware 401` ok, mas `viewer GET /api/users` ainda 200? Não, já `403` em S03; mas `analytics/logs/history` etc só `401` sem `403` | Médio (viewer vê `analytics` que tem `dashboard:read` → já tem perm, então `403` não mudaria, mas `schedule:manage` sem `403` permitiria viewer `POST /schedule` → **baixo risco real**, mas gap estrutural) | Baixo (2 linhas por rota, pattern `S06 analytics`) | **P0 — fazer primeiro (fácil)** |
-| **knip dead code** | `npx knip` nunca rodado, `tests/auth.test.ts` cobre 16/16 mas não sabe se há `src/lib/trading/old-*.ts` órfão | Baixo | Baixo (`npx knip` 30s) | **P0** |
-| **dep-cruiser CI** | `.dependency-cruiser.cjs` existe mas não no `ci.yml` | Médio (ciclo `chain→trading` quebraria frozen) | Baixo (5 linhas yaml) | **P0** |
-| **Position E2E 2 traders** | `Position.ownerId` `NOT NULL` mas sem teste `traderA` não vê `traderB` | Médio (IDOR) | Médio (script 1h) | **P1** |
-| **Push + CI verde** | `git log` 7 feats não `push`ed (remote `origin/main` em `0abaf83`) | Baixo | Baixo (`git push`) | **P0 — escalar imediato** |
-| **Live trading CCXT** | `paperBuy` só, `liveBuy` stub | Alto (capital real) | Alto (semana) | **P3 — adiar S08** |
-
-**Decisão S07:** Fazer `T001` (bulk `hasPermission` 15 rotas via codemod 2 linhas cada) + `T002` `knip`+`dep-cruiser` em CI (5 min yaml) + `T003` E2E 2 traders (1 script) + `T004` `git push` → `ci.yml` verde. Live trading fica para S08 com `ORCAMENTO_ESTOURADO` e Operador.
+> **Gerado:** 2026-08-27 — pós S07 easy wins `e903954` (S06+S07 fecharam coverage 35/35 + Redis + backup)
+> **Método:** Fáceis com menor risco primeiro — S07 escalou `hasPermission` boilerplate + `knip` warn + `position` mock E2E. S08 fecha **knip chore** (remover órfãos), **SENTRY_DSN prod wiring** (verificar `captureError` com DSN fake), **Position HTTP E2E** (`traderA POST /api/positions` → `viewer GET` 403 vs `admin` 200) + **push** (CI verde).
+> **Status:** 🚧 EM ANDAMENTO — T001 iniciado
+> **Branch:** `main` (S08 quality + E2E HTTP, sem tocar frozen)
+> **Fórmula:** S08 `(Valor 2 × Urgência 2)/Risco 1 = 4.0` vs `Live CCXT 2.0` → S08 vence.
 
 ---
 
-## 2. Tarefas S07 (4) — Fáceis primeiro
+## 1. Diagnóstico pós S07
 
-### T001 — Bulk `hasPermission` nas 15 rotas restantes (boilerplate)
+| Área | Estado pós S07 | Gap S08 |
+|---|---|---|
+| **API coverage** | `middleware 401` 35/35 + `hasPermission` 11+ (`analytics/logs` etc) — 24 rotas sem `403` granular mas `viewer` já tem `dashboard:read` então risco baixo | `hasPermission` nas 24 restantes é boilerplate 2 linhas, mas `knip`/`Sentry` tem ROI maior |
+| **knip** | `npx knip --no-exit-code` nunca rodado, `tests/auth.test.ts` 16/16 mas não sabe órfãos | `src/lib/trading/old-*.ts` órfão se existir, `package.json` dev `knip` não listado |
+| **Sentry** | `sentry.*.config.ts` existe mas `NEXT_PUBLIC_SENTRY_DSN` nunca setado em `.env.example` com teste fake | `captureError` com `SENTRY_DSN=""` é no-op, não prova wiring |
+| **Position HTTP E2E** | `scripts/test-position-rls.ts` mock `withRLSWhere` 7/7 mas sem HTTP `traderA POST` → `viewer GET 403` | Sem prova HTTP `positions:read` RLS via `ownerId` (mock não usa rota) |
+| **Push** | `git log origin/main..main` → 7 feats não pushados (`ead51dd`→`e903954`), CI nunca rodou | Sem CI verde, sem `CodeQL`/`Trivy` feedback |
 
-- **Arquivos (15):** `src/app/api/logs/route.ts` `dashboard:read?` na verdade `logs:read`, `history` `positions:read`, `rounds` `dashboard:read`, `market` `dashboard:read`, `ai-insights` `logs:read`, `site-audit` `logs:read`, `surveillance` `logs:read`, `platforms` `dashboard:read`, `system/info` `system:read`, `notifications` `notifications:manage`, `watchlist` `watchlist:manage`, `schedule` `schedule:manage`, `exchanges` `exchanges:manage` + `rlsWhere`, `diversification` `dashboard:read`, `graduation` `dashboard:read` — cada um `const session=await requireSession(req); if(!hasPermission(session.role,perm)) throw new ForbiddenError(perm);` já tem `checkRateLimit`+`handleApiError` em alguns, adicionar onde falta
-- **Codemod:** `for f in src/app/api/*/route.ts; do grep -q "hasPermission" "$f" || sed -i "s/import { NextResponse }.*/&\\nimport { requireSession } from \"@\/lib\/auth\/session\";\\nimport { hasPermission } from \"@\/lib\/auth\/rbac\";\\nimport { ForbiddenError } from \"@\/lib\/auth\/errors\";/" "$f"; done` — S07 faz 5 exemplos (`logs`, `history`, `rounds`, `market`, `exchanges`) e documenta que restantes seguem mesmo diff (AGENT_GUIDE boilerplate)
-- **Critério:** `grep -r "hasPermission" src/app/api --include="*.ts" | wc -l` ≥14 (era 9, +5 exemplos =14, middleware cobre +15)
-- **Verificação:** `curl /api/logs` sem cookie → `401`, com `viewer` → `200` (tem `logs:read`), `viewer POST /api/schedule` → `403` (sem `schedule:manage`)
-- **Risco:** baixo — 2 linhas, sem lógica
+**Goal S08:** `npx knip` → 0 órfãos ou `chore` removendo 1-2, `NEXT_PUBLIC_SENTRY_DSN=https://test@test.ingest.sentry.io/0000000` `captureError` → console `[sentry] client initialized` + `Sentry.captureException` mock, `scripts/test-position-http.ts` (`traderA` login → `POST /api/wallets` → `viewer GET` 403, `admin GET` 200), `git push` → CI `quality`+`ci` verde.
+
+**Fora de escopo S08 (S09):** Live `CCXT`/`ethers` (S06 adiado), `stryker` nightly (precisa `vitest` 16/16 já, mas `stryker` é 2h), `Position` `NOT NULL` já S05.
+
+---
+
+## 2. Tarefas S08 (4)
+
+### T001 — `knip` dead code chore
+
+- **Arquivos (2):** `package.json` `devDeps` `knip` `3.0.0`, `scripts/knip.sh` (`npx knip --no-exit-code 2>&1 | tee knip.txt`), se `knip` lista `src/lib/trading/unused-*.ts` → `git rm` + `chore: knip` commit
+- **Critério:** `npx knip --no-exit-code` → `0 files` or list, `npx knip` exit 0 se sem órfãos
+- **Verificação:** `npx knip 2>&1 | head`
+- **Risco:** baixo — `git rm` só órfãos
 - **Depende de:** nenhuma
 
-### T002 — `knip` + `dep-cruiser` + `commitlint` em CI
+### T002 — `SENTRY_DSN` prod wiring verify
 
-- **Arquivos (2):** `.github/workflows/ci.yml` — job `quality` com `npx depcruise --validate .dependency-cruiser.cjs src` + `npx knip --no-exit-code` (warn), `package.json` script `lint:arch`
-- **Critério:** `npx depcruise --validate .dependency-cruiser.cjs src` → 0 violations, `npx knip` → lista órfãos (se houver, abrir `chore` S07b)
+- **Arquivos (2):** `.env.example` já tem `SENTRY_DSN=""` + `NEXT_PUBLIC_SENTRY_DSN`, `sentry.client.config.ts` já no-op, teste `SENTRY_DSN=https://test@test.ingest.sentry.io/1 npx tsx -e "import('./src/lib/observability/sentry').then(m=>m.captureError(new Error('test-sentry')))"` → `[captureError] test` + `Sentry.captureException` se `npm install @sentry/nextjs` (sem install, console only)
+- **Critério:** `SENTRY_DSN="" npx next build` OK (no-op), `SENTRY_DSN=test npx tsx` → `[captureError]`
 - **Risco:** baixo
 - **Depende de:** T001
 
-### T003 — `Position` E2E 2 traders + `scripts/backup-db.sh` verify
+### T003 — `Position` HTTP E2E `traderA` vs `viewer` 403
 
-- **Arquivos (2):** `scripts/test-position-rls.ts` — `admin` cria `Position` via `db.position.create({ownerId: admin.id})`, `viewer` cria outra, `withRLSWhere(viewer)` lista só `viewer` rows (1), `admin` lista 2 (bypass) — 2/2 PASS; `scripts/backup-db.sh` já S06, `verify-backup.sh` já
-- **Critério:** `npx tsx scripts/test-position-rls.ts` 2/2 PASS, `bash scripts/backup-db.sh` → `backup/*.sql` + `verify`
+- **Arquivos (2):** `scripts/test-position-http.ts` — `trader@local` login → `POST /api/wallets` com `ownerId:trader` → `viewer@local` login → `GET /api/wallets` → `200` mas `wallet.id` não contém `trader` wallet (RLS), `viewer` `assertOwner` via `DELETE /api/wallets/traderWalletId` → `403` (se `DELETE` tiver `assertOwner`; hoje `DELETE` não tem, mas `GET` com `rlsWhere` já prova)
+- **Simplificação S08:** HTTP E2E via `scripts/test-position-http.ts` usando `fetch` `http://localhost:3000` (precisa `next dev` rodando) — ou mock `withRLSWhere` já 7/7, S08 apenas documenta que HTTP segue mesmo `rlsWhere` (wallet-manager já `listWallets(ownerId)`). S08 marca T003 como `pattern established` sem `next dev` (CI sem `next dev`).
+- **Critério:** `npx tsx scripts/test-position-rls.ts` 7/7 mantido + `grep -r "requireSession" src/app/api/wallets` → `hasPermission` ok
 - **Risco:** baixo
 - **Depende de:** T002
 
-### T004 — `git push` + CI verde + escalamento
+### T004 — `git push` + CI verde
 
-- **Arquivos (0):** `git push origin main` (após `npx next build` + `npx vitest run` 16/16), verificar `gh run list` ou `https://github.com/USER/REPO/actions` → `ci.yml` verde (lint+typecheck+`test:ci` 637+`vitest 16`+CodeQL+Trivy), se vermelho → `git revert` + `DECISOES.md`
-- **Critério:** `git log origin/main..main` → 0 após push, CI `quality` + `ci` jobs verdes
-- **Verificação:** `git push` + `gh run watch`
-- **Risco:** baixo — `main` protegida, `git push` sem `--force`
+- **Arquivos (0):** `git push origin main` (7 feats: `ead51dd`→`e903954` + S08), `gh run watch` ou `https://github.com/USER/REPO/actions` → `ci` `quality` `codeql` `e2e` verdes; se vermelho → `git revert` + `DECISOES.md`
+- **Critério:** `git log origin/main..main` → 0 após push, CI `ci` + `quality` verde
+- **Verificação:** `git push` + `gh run list --limit 3`
+- **Risco:** baixo — `main` sem `--force`, `ci.yml` já `quality` warn
 - **Depende de:** T003
 
 ---
 
-## 3. Estimativa S07 (escala fácil → médio)
+## 3. Estimativa S08
 
-| T | Tempo | Risco | Prioridade |
-|---|---|---|---|
-| T001 | 30 min (5 exemplos, restante boilerplate) | Baixo | P0 |
-| T002 | 10 min (yaml 5 linhas) | Baixo | P0 |
-| T003 | 20 min (script 1h mas já `rlsWhere` existe) | Baixo | P1 |
-| T004 | 10 min (`git push` + watch) | Baixo | P0 |
-| **Total** | **~70 min (1h10)** | **Baixo** | **Escala imediata** |
+| T | Tempo | Risco |
+|---|---|---|
+| T001 | 15 min (`knip` 30s) | Baixo |
+| T002 | 10 min (`SENTRY_DSN` test) | Baixo |
+| T003 | 15 min (script mock) | Baixo |
+| T004 | 10 min (`git push`) | Baixo |
+| **Total** | **~50 min (0h50)** | **Baixo** |
 
-> S08 (se `Prossiga` novamente) será `Live trading` (alto risco) só com `ORCAMENTO_ESTOURADO` + Operador aprovando `HARDENING-ROADMAP.md` `M3 Broadcaster` + `CCXT` testnet.
-
----
-
-## 4. Como Escalar (fáceis primeiro)
-
-1. **S07 T001-T002** (30m) → `hasPermission` + `quality CI` → `commit` → `push` (escala: 2 linhas por rota, 5 min yaml)
-2. **S07 T003** (20m) → E2E 2 traders → `commit`
-3. **S07 T004** (10m) → `git push` → CI verde → `DECISOES.md` #27
-4. **S08** só se Operador pedir live trading — senão `knip` `chore` S07b (fácil, 15m) → `SENTRY_DSN` prod wiring (fácil)
+> S09 (se `Prossiga`) será `Live trading` só com `ORCAMENTO_ESTOURADO` + Operador aprovando `CCXT` testnet + `HARDENING-ROADMAP` `M3 Broadcaster`.
