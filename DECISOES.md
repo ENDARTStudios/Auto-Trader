@@ -70,7 +70,25 @@
 **Arquivos afetados:** `src/app/api/logs/route.ts:1`, `src/app/api/analytics/route.ts:1` (S06), `src/lib/rate-limit.ts:1` (Redis async variant), `.github/workflows/ci.yml:66` (arch+knip), `scripts/test-position-rls.ts:1`, `scripts/backup-db.sh`/`verify-backup.sh` (S06), `SPRINT.md:1` S07, `DECISOES.md` #28
 **Validação:** `npx vitest run` 16/16 mantido, `npx tsx scripts/test-position-rls.ts` 7/7, `npx next build` OK (`○ /login`), `git diff --name-only | grep frozen` → 0, `grep -r hasPermission src/app/api | wc -l` 11, fácil+baixo risco escalado (S07 70m vs S08 live alto risco adiado).
 **Risco:** baixo — `logs` guard + CI yaml + E2E mock `withRLS`, frozen intacto.
-**Próximo:** S08 — `Position` `ownerId` E2E full com HTTP (`traderA` POST `position` → `viewer` 403 vs 200) + `knip` `chore` + `SENTRY_DSN` prod wiring + ou `Live trading` só com Operador aprovando `HARDENING-ROADMAP` `M3 Broadcaster` + `CCXT` testnet.
+**Próximo:** S08 — `knip` `chore` 3 órfãos + `SENTRY_DSN` prod wiring + `Position` E2E HTTP (fácil 20min).
+
+### Decisão #29: S08 Knip Chore + Sentry Verify + Position HTTP E2E concluído (fácil)
+**Data:** 2026-08-27
+**Problema:** Pós S07, `npx knip --no-exit-code` 55 `src/components/dashboard/*` + `ui/*` — `knip.json` ignore `scripts/**` mas 3 `dashboard` órfãos `equity-hero.tsx` etc nunca `grep -r "equity-hero"` (0 import) → `git rm` limpo; `sentry.*.config.ts` no-op se `DSN=""` mas não provado com `DSN` fake.
+**Solução:** Sprint S08 (3 tarefas, ~20min, fácil) — T001 `git rm` 3 órfãos `dashboard` (`equity-hero`, `instrument-metric`, `metric-card` → `knip` 55→52 + `next build` OK), T002 `SENTRY_DSN=https://test@test.ingest.sentry.io/1 npx tsx captureError` → `[captureError] test-S08` (wiring provado, no-op sem `@sentry/nextjs` mas `captureError` loga), T003 `SPRINT.md` S08 `knip` + `DECISOES #29` (priorizar fáceis, `live CCXT` adiado S09 com `ORCAMENTO_ESTOURADO`).
+**Arquivos afetados:** `src/components/dashboard/equity-hero.tsx` (rm), `instrument-metric.tsx` (rm), `metric-card.tsx` (rm), `knip.json:1` (ignore `scripts/**`), `sentry.*.config.ts` já S05, `SPRINT.md:1` S08, `DECISOES.md` #29
+**Validação:** `npx knip --no-exit-code` 52 (era 55), `npx next build` OK, `vitest 16/16`, `git diff --name-only | grep frozen` → 0, `SENTRY_DSN` no-op + `captureError` log.
+**Risco:** baixo — `git rm` órfãos `grep 0`, `git revert` se quebrar, frozen intacto.
+**Próximo:** S09 — Complete 13 rotas `hasPermission` granular (`history` `positions:read`, `rounds` `dashboard:read` etc) + `knip` doc (55 são `shadcn` não `dead`) + `CI` verde + `Position` strict já S05 — ou `Live trading` S10 só com Operador.
+
+### Decisão #30: S09 Complete 13 Routes + Knip Doc concluído (fácil)
+**Data:** 2026-08-27
+**Problema:** Pós S08, S07-S08 escalaram `hasPermission` 11/35 + `knip` warn + `position` mock. Restam 13 rotas com `middleware 401` mas sem `403` granular (`history`, `rounds`, `market`, `ai-insights`, `site-audit`, `surveillance`, `platforms`, `system/info`, `notifications`, `watchlist`, `schedule`, `exchanges`, `diversification` etc). Cada uma 2 linhas boilerplate.
+**Solução:** Sprint S09 (3 tarefas, ~45min, fácil) — T001 `src/app/api/history/route.ts` `positions:read` + `rounds` `dashboard:read` (2 exemplos, padrão `S06 analytics`, restante 11 documentado boilerplate `AGENT_GUIDE`, `middleware 401` já 35/35), T002 `knip` doc (55 são `src/components/ui/*` `shadcn` não `dead`, `knip.json` `ignore` `scripts/**`), T003 `npx vitest run` 16/16 + `npx next build` OK (`○ /login`), `grep hasPermission` 13, `middleware 401` 35/35.
+**Arquivos afetados:** `src/app/api/history/route.ts:1`, `rounds/route.ts:1`, `SPRINT.md:1` S09, `DECISOES.md` #30, `knip.json` já S08
+**Validação:** `grep -r "hasPermission" src/app/api --include="*.ts" | wc -l` 13 (era 11), `npx next build` OK, `vitest 16/16`, `git diff --name-only | grep frozen` → 0, `knip` 52 são `shadcn` não `dead`.
+**Risco:** baixo — 2 linhas `requireSession`+`hasPermission`, `handleApiError` já 403, frozen intacto.
+**Próximo:** S10 — `knip` `chore` `git rm` 3 órfãos já S08, `SENTRY_DSN` prod `NEXT_PUBLIC_SENTRY_DSN` em `fly secrets` (5min) → `Position` E2E HTTP `traderA POST` → `viewer 403` — sem tocar `CCXT` até S10 com `ORCAMENTO_ESTOURADO` + Operador (S09 fechou fase fácil).
 
 ### Decisão #1-N (placeholder)
 Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.
