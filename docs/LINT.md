@@ -125,6 +125,10 @@ npx knip
 3. Abrir `chore` por grupo (ex: `[CHORE] remover 3 arquivos órfãos — knip`)
 4. Verificar com `npm run test:ci` + `npm run build` após cada remoção
 
+### Knip 52 são shadcn ui/* — não dead crítico (S11)
+
+> **2026-08-27 S11:** `npx knip --no-exit-code` `52` `src/components/ui/*` (`accordion`, `alert-dialog`, `aspect-ratio`, `avatar`, `breadcrumb`, `carousel`, `chart`, `collapsible` etc) são `shadcn` primitives — `knip.json` `ignore: ["scripts/**", "examples/**", "e2e/**", "tests/**"]` já, mas `ui/*` não são `dead` para `chore` (são `ui` kit, `grep -r "from.*ui/accordion" src` → 0 mas `accordion` é `shadcn` não usado mas não órfão crítico). `S10` `git rm` 3 `dashboard` órfãos `equity-hero` etc já (`52` era `55`→`52`). Próximo `knip` `chore` só se `ui/*` usado 0 por 3 sprints, então `git rm`.
+
 ---
 
 ## 6. Stryker — Mutation Testing
