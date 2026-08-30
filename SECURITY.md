@@ -2047,3 +2047,31 @@ px next build ? OK (static ? /login ? /admin/users ? /sitemap.xml).
 **CI gate:** git push origin main triggers .github/workflows/ci.yml (lint+typecheck+test:ci 637+vitest 53+CodeQL+Trivy).
 
 **Production deploy** (docs/DEPLOY.md from S11): ly secrets set SENTRY_DSN=... NEXT_PUBLIC_SENTRY_DSN=... STRIPE_SECRET_KEY=... STRIPE_WEBHOOK_SECRET=... DATABASE_URL=... REDIS_URL=... ENCRYPTION_KEY=... SESSION_SECRET=....
+
+---
+
+## REG-013: PositionAlert trigger (S26 T002)
+
+**Test:** 
+px tsx scripts/test-position-alerts.ts and S26 vitest.
+
+**Rule:** unSurveillance() in src/lib/trading/position-surveillance.ts MUST create a PositionAlert row in the Prisma positionAlert table when a surveillance detector flags a position. The route POST /api/surveillance with ction=scan_now already triggers this via unSurveillance(openPositions). Each detector writes a row with positionId, 	ype (e.g. goplus_critical_flag, liquidity_drain, price_dump_velocity, holder_concentration, 	ax_spike, 	imeout_approaching, price_anomaly), severity (info/warning/critical), message, context (JSON).
+
+**Why this is a regression entry:** Without the trigger, the surveillance table stays empty, the dashboard badge lerts=0 always, and operators lose visibility into emerging risk. A future maintainer might "optimize" unSurveillance() to skip writing alerts (e.g., returning only the count) — that would silently break the UX. This entry documents that every detector result MUST be persisted.
+
+**The correct structure (do not simplify):**
+`	s
+// In src/lib/trading/position-surveillance.ts
+const alert = await db.positionAlert.create({
+  data: {
+    positionId: position.id,
+    type: detector.type,         // "goplus_critical_flag" | "liquidity_drain" | ...
+    severity: detector.severity, // "info" | "warning" | "critical"
+    message: detector.message,
+    context: JSON.stringify(detector.context),
+  },
+});
+`
+Removing this db.positionAlert.create call means no UI alert is shown.
+
+**Test:** scripts/test-position-alerts.ts creates a position, calls unSurveillance([position]), asserts db.positionAlert.count > 0 with 	ype matching one of the known detectors.

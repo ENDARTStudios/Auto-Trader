@@ -624,6 +624,25 @@ model KnowledgeGraph {
 // Stored as AES-256-GCM ciphertext for apiKey / apiSecret / apiPassphrase.
 // The signer process loads these at unlock time.
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// DataSource — ETL provenance log (PLANO_MESTRE 6.4.3)
+// Each ETL run records source + timestamp so operators can audit which
+// data ingestion cycle produced the current token lists/market snapshots.
+// ---------------------------------------------------------------------------
+model DataSource {
+  id          String   @id @default(cuid())
+  name        String   // "CoinGecko" | "DexScreener" | "GoPlus" | "Etherscan" | "Wikipedia"
+  url         String?  // canonical URL or endpoint identifier
+  status      String   @default("pending") // "pending" | "ok" | "error"
+  recordsCount Int     @default(0)
+  error        String?
+  startedAt    DateTime @default(now())
+  finishedAt   DateTime?
+
+  @@index([name])
+  @@index([startedAt])
+}
+
 model ExchangeConnection {
   id                    String   @id @default(cuid())
   ownerId               String?  // RLS — nullable for backfill
