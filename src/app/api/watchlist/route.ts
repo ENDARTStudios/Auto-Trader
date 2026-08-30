@@ -1,54 +1,80 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { logger } from "@/lib/trading/logger";
 import {
   listWatchlist,
   addWatchlist,
-  type WatchlistTokenInput,
 } from "@/lib/trading/watchlist";
+import { requireSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/rbac";
+import { ForbiddenError } from "@/lib/auth/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { handleApiError } from "@/lib/api/error-handler";
+
+function getClientIp(req: Request): string {
+  const xff = (req.headers as unknown as Headers).get?.("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim();
+  return "unknown";
+}
+
+const postSchema = z
+  .object({
+    symbol: z.string().min(2).max(40),
+    source: z.enum(["cex", "dex"]).optional(),
+    chain: z.string().optional(),
+    tokenId: z.string().optional(),
+    notes: z.string().optional(),
+    alertThresholdPct: z.number().optional(),
+    enabled: z.boolean().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.source === "dex") {
+        return !!data.chain && !!data.tokenId;
+      }
+      return true;
+    },
+    { message: "DEX tokens require both chain and tokenId" },
+  );
 
 // GET /api/watchlist — list all watchlist tokens
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(ip, "/api/watchlist");
+    if (!rl.allowed) {
+      return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } });
+    }
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "watchlist:manage")) throw new ForbiddenError("watchlist:manage");
+
     const tokens = await listWatchlist();
     return NextResponse.json({ tokens });
   } catch (err) {
-    logger.error("api", `Erro listando watchlist: ${String(err)}`);
-    return NextResponse.json(
-      { error: "Failed to list watchlist" },
-      { status: 500 }
-    );
+    return handleApiError(err, "GET /api/watchlist");
   }
 }
 
 // POST /api/watchlist — add new token to watchlist
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as Partial<WatchlistTokenInput>;
-    if (!body.symbol || typeof body.symbol !== "string") {
-      return NextResponse.json(
-        { error: "Missing required field: symbol" },
-        { status: 400 }
-      );
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(ip, "/api/watchlist");
+    if (!rl.allowed) {
+      return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } });
     }
-    const source = body.source === "dex" ? "dex" : "cex";
-    if (source === "dex" && (!body.chain || !body.tokenId)) {
-      return NextResponse.json(
-        { error: "DEX tokens require both chain and tokenId" },
-        { status: 400 }
-      );
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "watchlist:manage")) throw new ForbiddenError("watchlist:manage");
+
+    const parsed = postSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "validation_error", details: parsed.error.flatten() }, { status: 400 });
     }
-    // Basic symbol format check
-    const sym = body.symbol.trim();
-    if (sym.length < 2 || sym.length > 40) {
-      return NextResponse.json(
-        { error: "Symbol must be 2-40 chars" },
-        { status: 400 }
-      );
-    }
+    const body = parsed.data;
 
     const created = await addWatchlist({
-      symbol: sym,
-      source,
+      symbol: body.symbol,
+      source: body.source ?? "cex",
       chain: body.chain ?? null,
       tokenId: body.tokenId ?? null,
       notes: body.notes ?? null,
@@ -58,10 +84,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ token: created });
   } catch (err) {
-    logger.error("api", `Erro criando watchlist token: ${String(err)}`);
-    return NextResponse.json(
-      { error: "Failed to create watchlist token" },
-      { status: 500 }
-    );
+    return handleApiError(err, "POST /api/watchlist");
   }
 }

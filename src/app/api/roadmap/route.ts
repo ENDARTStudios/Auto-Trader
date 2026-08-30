@@ -1,17 +1,35 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/trading/logger";
 import { listStrategicCapabilities, getRoadmapStats } from "@/lib/trading/strategic-roadmap";
+import { requireSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/rbac";
+import { ForbiddenError } from "@/lib/auth/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { handleApiError } from "@/lib/api/error-handler";
+
+function getClientIp(req: Request): string {
+  const xff = (req.headers as unknown as Headers).get?.("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim();
+  return "unknown";
+}
 
 // GET /api/roadmap — list all strategic capabilities + aggregate stats
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(ip, "/api/roadmap");
+    if (!rl.allowed) {
+      return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } });
+    }
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "dashboard:read")) throw new ForbiddenError("dashboard:read");
+
     const [capabilities, stats] = await Promise.all([
       listStrategicCapabilities(),
       getRoadmapStats(),
     ]);
     return NextResponse.json({ capabilities, stats });
   } catch (err) {
-    logger.error("api", `Erro lendo roadmap: ${String(err)}`);
-    return NextResponse.json({ error: "Failed to fetch roadmap" }, { status: 500 });
+    return handleApiError(err, "GET /api/roadmap");
   }
 }
