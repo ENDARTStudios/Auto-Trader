@@ -593,6 +593,33 @@ model FeatureFlag {
 }
 
 // ---------------------------------------------------------------------------
+// RAG — embeddings for pgvector (S12, SQLite mock String JSON, pg prod vector)
+// ---------------------------------------------------------------------------
+model Embedding {
+  id          String   @id @default(cuid())
+  entityType  String   // "ScamReport" | "MarketSnapshot" | "Position" | "Token"
+  entityId    String
+  embedding   String   // JSON array number[1536] — SQLite mock, pg prod vector(1536)
+  content     String   // original text for citation
+  createdAt   DateTime @default(now())
+
+  @@index([entityType])
+  @@index([entityId])
+}
+
+model KnowledgeGraph {
+  id        String   @id @default(cuid())
+  subject   String   // e.g. "BTC/USDT"
+  predicate String   // e.g. "listed_on", "scam_score", "chain"
+  object    String   // e.g. "binance", "85", "base"
+  weight    Float    @default(1.0)
+  createdAt DateTime @default(now())
+
+  @@index([subject])
+  @@index([predicate])
+}
+
+// ---------------------------------------------------------------------------
 // Exchange connections — encrypted API credentials for CEX trading.
 // Stored as AES-256-GCM ciphertext for apiKey / apiSecret / apiPassphrase.
 // The signer process loads these at unlock time.

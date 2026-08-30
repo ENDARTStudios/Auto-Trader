@@ -90,5 +90,14 @@
 **Risco:** baixo — 2 linhas `requireSession`+`hasPermission`, `handleApiError` já 403, frozen intacto.
 **Próximo:** S10 — `knip` `chore` `git rm` 3 órfãos já S08, `SENTRY_DSN` prod `NEXT_PUBLIC_SENTRY_DSN` em `fly secrets` (5min) → `Position` E2E HTTP `traderA POST` → `viewer 403` — sem tocar `CCXT` até S10 com `ORCAMENTO_ESTOURADO` + Operador (S09 fechou fase fácil).
 
+### Decisão #31: S12 IA RAG pgvector + Knowledge Graph — Opção A
+**Data:** 2026-08-27
+**Problema:** Pós S11 `cc33bd6` (knip 52 doc + Sentry), **Opção A** escolhida (Valor 3×Urgência 2/Risco 1.5=4.0 vs Live CCXT 1.0) — PLANO_MESTRE 6.5-6.6 `pgvector` + `Knowledge Graph` não existia (`embeddings` table, `vector` search, `POST /api/ai/ask` com citações, `GET /api/graph`).
+**Solução:** Sprint S12 (4 tarefas, ~110min, Opção A) — T001 `Embedding` + `KnowledgeGraph` models (`provider sqlite` mock `String` JSON `embedding` 1536, `content`, `subject/predicate/object`) + `src/lib/rag/embeddings.ts` (`generateEmbedding` 1536 `hash→mulberry32` + `cosine` + `searchEmbeddings` top 3 + `indexEntity`), T002 `askRag` (`generateEmbedding` query → `search` top 3 `ScamReport`/`MarketSnapshot` → `context` → mock LLM `Quem ganhou ...` + `citations`) + `POST /api/ai/ask` (`requireSession` `dashboard:read` + Zod `question` + `askRag`), T003 `buildGraph` (`token→platform→chain→scamScore→signal` nodes/edges + `FeatureFlag`) + `GET /api/graph`, T004 `tests/rag.test.ts` 6/6 (`generate 1536`, `cosine 1.0`, `search top3`, `askRag citations`, `buildGraph`), `vitest 22/22` (8+6+2+6), `next build` OK.
+**Arquivos afetados:** `prisma/schema.prisma:580` (`Embedding`/`KnowledgeGraph`), `src/lib/rag/embeddings.ts:1`, `pipeline.ts:1`, `graph.ts:1`, `src/app/api/ai/ask/route.ts:1`, `src/app/api/graph/route.ts:1`, `tests/rag.test.ts:1`
+**Validação:** `npx prisma validate` ✅, `db push` ✅, `generate` ✅, `npx tsx -e "cosine same ~1.0"` ✅, `npx vitest run tests/rag.test.ts` 6/6, `vitest` 22/22, `next build` OK (`○ /api/ai/ask`, `○ /api/graph`), `git diff --name-only | grep -E 'chain|signer|audit'` → 0.
+**Risco:** baixo — `String` JSON mock (prod `postgresql` `vector(1536)` S13), `mulberry32` determinístico, frozen intacto.
+**Próximo:** S13 — `ETL` `RSSSF`/`FBref` + `pgvector` real `postgresql` + `ollama` `nomic-embed-text` + `citation` `pg_trgm` (se Opção A continuar) ou `Billing Plans` Opção B.
+
 ### Decisão #1-N (placeholder)
 Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.
