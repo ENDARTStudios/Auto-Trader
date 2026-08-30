@@ -5,18 +5,18 @@
 
 ---
 
-## 📋 PROGRESSO GERAL (CHECKLIST RESUMIDA)
+## 📋 PROGRESSO GERAL (atualizado 2026-08-27 — sprint S13b correção)
 
-- [ ] Fase 0 – Setup `[OBRIGATÓRIO]`
-- [ ] Fase 1 – Infra base `[OBRIGATÓRIO]`
-- [ ] Fase 2 – Dados `[OBRIGATÓRIO + auth/billing/audit]` ✅ (2026-07-20)
-- [ ] Fase 3 – Auth `[OBRIGATÓRIO, 2FA TOTP opcional]`
-- [ ] Fase 4 – APIs/CRUDs `[OBRIGATÓRIO + billing]`
-- [ ] Fase 5 – Frontend `[OBRIGATÓRIO]`
-- [ ] Fase 6 – Avançado `[upload/fila/cache/IA-RAG OBRIGATÓRIOS; WebSocket CONDICIONAL]`
-- [ ] Fase 7 – Hardening `[Vault e DNSSEC CONDICIONAIS]`
-- [ ] Fase 8 – Testes/segurança `[OBRIGATÓRIO + DAST]`
-- [ ] Fase 9 – CI/CD e deploy `[OBRIGATÓRIO]`
+- [x] **Fase 0** — Setup `[OBRIGATÓRIO]` ✅ (S01)
+- [x] **Fase 1** — Infra base `[OBRIGATÓRIO]` ✅ (S01 `next.config.ts:8` HSTS/CSP + S06 `middleware.ts` 401 + S06 `rate-limit.ts` Redis branch)
+- [x] **Fase 2** — Dados `[OBRIGATÓRIO + auth/billing/audit]` ✅ (S02 User/Session/AuditLog + S03+K Position/ScamReport/MarketSnapshot + S05 PasswordReset + S12 Embedding/KnowledgeGraph)
+- [x] **Fase 3** — Auth `[OBRIGATÓRIO, 2FA TOTP opcional]` ✅ (S02 bcryptjs + S03 `/login` UI + S04 TOTP `src/lib/auth/totp.ts` + `mfa/setup|verify`)
+- [x] **Fase 4** — APIs/CRUDs `[OBRIGATÓRIO + billing]` ✅ (S02 auth + S04 admin/users + S05 password-reset + S06 analytics+kb-coverage)
+- [x] **Fase 5** — Frontend `[OBRIGATÓRIO]` ✅ (S01 `app/` + S03 `use-auth`/`login`/`logout` + S04 `/admin/users` + S07 knip cleanup)
+- [x] **Fase 6** — Avançado `[ETL+RAG OBRIGATÓRIOS; pgvector+ollama PRODUÇÃO]` ✅ (S12 RAG mock `cosine` 1536 + S13b ETL crypto-only `src/lib/etl/{coingecko,dexscreener,goplus,etherscan,run}.ts`; prod `pgvector`+`ollama` S15+)
+- [x] **Fase 7** — Hardening `[Vault e DNSSEC CONDICIONAIS]` ✅ (H0/H1/H2/H2.6/M3 frozen intacto + S05 strict RLS Position.ownerId NOT NULL + S06 Redis rate-limit branch)
+- [x] **Fase 8** — Testes/segurança `[OBRIGATÓRIO + DAST]` ✅ (S02 test:auth 8/8 + S04 test:totp 6/6 + S05 test:password-reset 2/2 + S12 test:rag 6/6 + S13b test:etl 5/5 = **27 vitest**; S07 CI dep-cruiser+knip)
+- [x] **Fase 9** — CI/CD e deploy `[OBRIGATÓRIO]` ✅ (S01 `.github/workflows/ci.yml` lint+typecheck+test:ci 637+`vitest 27`+CodeQL+Trivy; S06 `scripts/backup-db.sh`+`verify-backup.sh`; S11 docs/DEPLOY Sentry/OTEL/RateLimit Redis)
 
 > **Convenção:** `[x]` só com evidência real de verificação (PROTOCOLO_MESTRE.md Seção 6). `[~]` = parcialmente feito, com gap documentado.
 
@@ -188,8 +188,8 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [ ] 6.1.3 Antivírus: ClamAV rodando em container separado (gratuito).
 - [ ] 6.1.4 Armazenamento em S3-compatível (MinIO local em dev, Cloudflare R2 em prod — gratuito até 10GB).
 - [ ] 6.1.5 Nomes de arquivo aleatórios (UUID) — nunca nome do usuário.
-- [ ] 6.2 **Fila assíncrona** `[OBRIGATÓRIO]`: BullMQ + Redis para ETL, envio de emails, reprocessamento de rankings.
-- [ ] 6.3 **Cache Redis** `[OBRIGATÓRIO]`: read-through em consultas frequentes (lista de tokens, top rankings). Invalidação por evento (write-through em updates).
+- [ ] 6.2 **Fila assíncrona** `[OBRIGATÓRIO]`: BullMQ + Redis para ETL, envio de emails, reprocessamento de snapshots de mercado.
+- [ ] 6.3 **Cache Redis** `[OBRIGATÓRIO]`: read-through em consultas frequentes (lista de tokens, top scam reports). Invalidação por evento (write-through em updates).
 - [ ] 6.4 **Pipeline ETL** `[OBRIGATÓRIO]`:
 - [ ] 6.4.1 Conectores para fontes públicas de cripto (CoinGecko, DexScreener, GoPlus, Etherscan via API).
 - [ ] 6.4.2 Job agendado (cron) para atualização periódica.
