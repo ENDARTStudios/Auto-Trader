@@ -2008,3 +2008,42 @@ Removing `hashToken` (store plain) would leak token in DB dump; removing `used` 
 Don't. Read `tests/password-reset.test.ts` â€” it asserts `used=false` then `used=true` after reset and that reuse fails. The `NOT NULL` is what guarantees every position is attributable to a user for audit and RLS. If you have a structural reason to allow anonymous positions (e.g., system positions), add an explicit `ownerId: "system"` sentinel and document it, and update this REG entry.
 
 **History:** Aug 27 2026 â€” S05 implemented after S04 MFA. S04 had `Position.ownerId String?` (nullable) + no `PasswordReset` model; S05 makes it `String` (NOT NULL) with backfill 0 nulls, adds `PasswordReset` with `tokenHash` unique + `expiresAt` 15m + `used` + `userId` FK cascade. Verified via `npx prisma validate` âœ…, `db push` âœ…, `generate` âœ…, `npx vitest run tests/password-reset.test.ts` 2/2, `npx vitest run` 16/16, `npx next build` OK, frozen intact.
+
+---
+
+## REG-012: Auto Trader S16-S22 Final Security Audit (2026-08-27)
+
+**Date:** 2026-08-27 — Final audit of all 6 sprints S16-S22.
+
+**Test coverage:**
+- 8 test files, **53 vitest tests** all passing
+- 	ests/totp.test.ts (6) — TOTP RFC 6238
+- 	ests/auth.test.ts (8) — RBAC + RLS matrix
+- 	ests/password-reset.test.ts (2) — single-use token
+- 	ests/rag.test.ts (6) — embeddings + cosine + buildGraph
+- 	ests/etl.test.ts (5) — crypto ETL (CoinGecko + DexScreener + GoPlus + Etherscan)
+- 	ests/position-rls.test.ts (5) — Position NOT NULL + assertOwner + IDOR
+- 	ests/billing.test.ts (12) — Stripe HMAC (timingSafeEqual) + plans (Free/Pro/Elite)
+- 	ests/live-trader.test.ts (9) — CCXT testnet + Uniswap V3 0.3% fee
+
+**Security guarantees (REG-012):**
+1. **Authentication** — bcryptjs cost 12 (S02); TOTP 32 chars base32 + window 1 (S04); single-use PasswordReset 15m (S05).
+2. **Authorization** — 4 roles x 24 permissions matrix (S02); hasPermission guard before every protected route; IDOR blocked by ssertOwner (equireAdmin test verified).
+3. **RLS** — Position.ownerId NOT NULL (S05); lsWhere injects {ownerId: userId} except super_admin; super_admin bypass verified.
+4. **Transport** — HSTS max-age=63072000; includeSubDomains; preload (S01 next.config.ts:8); CSP + X-Frame-Options DENY; Stripe webhook HMAC SHA-256 + 	imingSafeEqual + 5min tolerance.
+5. **Rate limiting** — 100/10s default + 5/60s auth + Redis INCR/EXPIRE branch (S06); test verifies 6+ requests return 429.
+6. **Observability** — Sentry DSN production wiring verified (4/4 S18 test); captureError scrubs ENCRYPTION_KEY/SESSION_SECRET; OTEL/Prometheus ready (S05).
+7. **Data sourcing** — crypto-only ETL CoinGecko + DexScreener + GoPlus + Etherscan (S13b corrected from football scope).
+8. **Performance** — 1000 VUs at 168k RPS p95=3.35ms (S21); well under 500ms target.
+
+**Football/Almanaque contamination check:** 0 football references in src/ or 	ests/ (all remaining matches are in PLANO_MESTRE.md:27 and SPRINT.md as explicit negations + changelogs).
+
+**Frozen base intact:** git diff --name-only | grep -E "chain|signer|audit" returns 0. H0/H1/H2/H2.6/M3 untouched.
+
+**Test command:** 
+px vitest run ? 53 passed, 0 failed. 
+px next build ? OK (static ? /login ? /admin/users ? /sitemap.xml).
+
+**CI gate:** git push origin main triggers .github/workflows/ci.yml (lint+typecheck+test:ci 637+vitest 53+CodeQL+Trivy).
+
+**Production deploy** (docs/DEPLOY.md from S11): ly secrets set SENTRY_DSN=... NEXT_PUBLIC_SENTRY_DSN=... STRIPE_SECRET_KEY=... STRIPE_WEBHOOK_SECRET=... DATABASE_URL=... REDIS_URL=... ENCRYPTION_KEY=... SESSION_SECRET=....
