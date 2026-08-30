@@ -2075,3 +2075,29 @@ const alert = await db.positionAlert.create({
 Removing this db.positionAlert.create call means no UI alert is shown.
 
 **Test:** scripts/test-position-alerts.ts creates a position, calls unSurveillance([position]), asserts db.positionAlert.count > 0 with 	ype matching one of the known detectors.
+
+---
+
+## REG-014: Sentry + Ollama + BullMQ stubs (S28)
+
+**Date:** 2026-08-30 (S28 — observability stack stubs)
+
+**Test:** 	ests/bullmq-sentry-ollama.test.ts (7/7 PASS).
+
+**Rule 1 (Sentry init idempotent):** initSentry() in src/lib/observability/sentry-init.ts MUST be idempotent (if (initialized) return) and a no-op when SENTRY_DSN is absent. In production, deploy via 
+pm install @sentry/nextjs + ly secrets set SENTRY_DSN=.... The eforeSend scrub MUST strip ENCRYPTION_KEY, SESSION_SECRET, SENTRY_DSN, STRIPE_SECRET_KEY from event.request.headers and event.extra.
+
+**Rule 2 (Ollama fallback):** generateEmbeddingOllama(text) in src/lib/rag/ollama.ts MUST fallback to generateEmbedding (hash mock 1536 dims) when localhost:11434 is unreachable. Production runs ollama serve (or docker run ollama) and sets OLLAMA_URL env. The fallback ensures dev environments work without external dependencies.
+
+**Rule 3 (BullMQ stub):** src/lib/queue/bullmq-stub.ts is the in-process implementation used in dev/test. To switch to real BullMQ in production, replace the file body with export { Queue, Worker } from "bullmq". The stub maintains the same API surface (add/process/pollIntervalMs/attempts) so the swap is transparent.
+
+**Test pin (vitest):**
+1. initSentry is idempotent — second call does not throw.
+2. captureSentryException does not crash when @sentry/nextjs is not installed.
+3. generateEmbeddingOllama("BTC") returns 1536-dim non-zero vector even with no ollama server.
+4. Queue.add+process runs 3 jobs sequentially in declared order.
+5. Queue with ttempts:3 retries failed jobs exactly 3 times.
+6. Queue with ttempts:2 retries failed jobs exactly 2 times (then moves to ailed).
+7. Worker ticks at 10ms poll interval and exits cleanly via close().
+
+**Why these are regressions:** A future maintainer might remove the Sentry init guard (causing double-init in dev with HMR), might remove the Ollama fallback (causing dev tests to fail when ollama is not running), or might remove the BullMQ retry logic (causing silent job loss on transient errors). This entry documents the invariants.
