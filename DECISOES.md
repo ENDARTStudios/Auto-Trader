@@ -97,7 +97,7 @@
 **Arquivos afetados:** `prisma/schema.prisma:580` (`Embedding`/`KnowledgeGraph`), `src/lib/rag/embeddings.ts:1`, `pipeline.ts:1`, `graph.ts:1`, `src/app/api/ai/ask/route.ts:1`, `src/app/api/graph/route.ts:1`, `tests/rag.test.ts:1`
 **Validação:** `npx prisma validate` ✅, `db push` ✅, `generate` ✅, `npx tsx -e "cosine same ~1.0"` ✅, `npx vitest run tests/rag.test.ts` 6/6, `vitest` 22/22, `next build` OK (`○ /api/ai/ask`, `○ /api/graph`), `git diff --name-only | grep -E 'chain|signer|audit'` → 0.
 **Risco:** baixo — `String` JSON mock (prod `postgresql` `vector(1536)` S13), `mulberry32` determinístico, frozen intacto.
-**Próximo:** S13 — `ETL` `RSSSF`/`FBref` + `pgvector` real `postgresql` + `ollama` `nomic-embed-text` + `citation` `pg_trgm` (se Opção A continuar) ou `Billing Plans` Opção B.
+**Próximo:** S13 — `ETL` cripto-only (CoinGecko + DexScreener + GoPlus + Etherscan) + `pgvector` real `postgresql` + `ollama` `nomic-embed-text` + `citation` `pg_trgm` (corrigindo S13 anterior que estava com escopo errado) ou `Billing Plans` Opção B.
 
 ### Decisão #1-N (placeholder)
 Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.
