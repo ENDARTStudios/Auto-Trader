@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { fadeInUp } from "@/lib/ui/motion";
@@ -37,14 +38,16 @@ export default function AdminUsersPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("viewer");
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   const create = useMutation({
     mutationFn: async () => {
+      if (!acceptTerms) throw new Error("Você deve aceitar os Termos de Uso e a Política de Privacidade");
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({ email, password, role, acceptTerms }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create user");
@@ -54,6 +57,7 @@ export default function AdminUsersPage() {
       toast.success("Usuário criado");
       setEmail("");
       setPassword("");
+      setAcceptTerms(false);
       qc.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -130,11 +134,26 @@ export default function AdminUsersPage() {
               </Select>
             </div>
             <div className="flex items-end">
-              <Button type="submit" disabled={create.isPending} className="w-full">
+              <Button type="submit" disabled={create.isPending || !acceptTerms} className="w-full">
                 {create.isPending ? "Criando…" : "Criar"}
               </Button>
             </div>
           </form>
+          <div className="flex items-center gap-2 mt-3">
+            <Checkbox id="acceptTerms" checked={acceptTerms} onCheckedChange={(v) => setAcceptTerms(!!v)} />
+            <label htmlFor="acceptTerms" className="text-xs text-muted-foreground">
+              Confirmo que o usuário leu e aceitou os{" "}
+              <a href="/terms" target="_blank" className="underline hover:text-foreground">
+                Termos de Uso
+              </a>{" "}
+              e a{" "}
+              <a href="/privacy" target="_blank" className="underline hover:text-foreground">
+                Política de Privacidade
+              </a>
+              <span className="text-destructive"> *</span>
+            </label>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">* Aceite obrigatório para o cadastro (LGPD art. 7º, I). O aceite é registrado com data/hora e IP em AuditLog.</p>
         </CardContent>
       </Card>
 

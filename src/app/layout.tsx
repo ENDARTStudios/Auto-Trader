@@ -75,9 +75,34 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${inter.variable} ${geistMono.variable} antialiased bg-background text-foreground flex min-h-screen flex-col`}
       >
-        <Providers>{children}</Providers>
+        <div className="flex-1">
+          <Providers>{children}</Providers>
+        </div>
+        <footer className="border-t border-border/40 bg-background/50 py-4 text-center text-xs text-muted-foreground">
+          <div className="container mx-auto px-4">
+            <p>Copyright © 2026 END ART Studios — CNPJ 45.370.930/0001-75 — Osasco/SP - Brasil</p>
+            <p className="mt-1">
+              Contato:{" "}
+              <a href="mailto:endart.studios@gmail.com" className="underline hover:text-foreground">
+                endart.studios@gmail.com
+              </a>{" "}
+              ·{" "}
+              <a href="https://t.me/AutoTrader2027" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
+                Telegram
+              </a>{" "}
+              ·{" "}
+              <a href="/terms" className="underline hover:text-foreground">
+                Termos de Uso
+              </a>{" "}
+              ·{" "}
+              <a href="/privacy" className="underline hover:text-foreground">
+                Privacidade
+              </a>
+            </p>
+          </div>
+        </footer>
         <Toaster richColors position="top-right" theme="dark" />
       </body>
     </html>
