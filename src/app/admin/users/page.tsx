@@ -59,6 +59,20 @@ export default function AdminUsersPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const del = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/users/${id}`, { method: "DELETE", credentials: "include" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error || "Failed to delete");
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Usuário removido");
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   if (isLoading) {
     return (
       <div className="container mx-auto p-6 space-y-3">
@@ -138,6 +152,7 @@ export default function AdminUsersPage() {
                   <th>Active</th>
                   <th>Last login</th>
                   <th>Created</th>
+                  <th className="text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -150,6 +165,19 @@ export default function AdminUsersPage() {
                     <td>{u.isActive ? "✅" : "❌"}</td>
                     <td className="text-xs text-muted-foreground">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("pt-BR") : "—"}</td>
                     <td className="text-xs text-muted-foreground">{new Date(u.createdAt).toLocaleDateString("pt-BR")}</td>
+                    <td className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs text-destructive hover:text-destructive"
+                        onClick={() => {
+                          if (confirm(`Remover ${u.email}?`)) del.mutate(u.id);
+                        }}
+                        disabled={del.isPending}
+                      >
+                        Remover
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
