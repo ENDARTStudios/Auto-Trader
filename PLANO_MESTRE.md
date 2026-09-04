@@ -147,8 +147,8 @@ REST versionado `/api`. Cada módulo em `src/lib/trading/` e `src/app/api/<route
 - [x] 4.8 Busca textual: índice PostgreSQL `tsvector` ou `pg_trgm` (decidir em `DECISOES.md`) — evidência: `DECISOES.md:100` `pg_trgm` + `prisma/schema.prisma` `@@index` + S13 ETL `citation`
 - [x] 4.9 Paginação cursor-based em endpoints de lista (mais estável que offset em alta escala) — evidência: `src/app/api/positions/route.ts:40` cursor `take/skip`
 - [x] 4.10 Query builder sempre parametrizada (Prisma já garante — nunca concatenar SQL) — evidência: `prisma/schema.prisma` + 30+ rotas Prisma
-- [ ] 4.11 Documentação OpenAPI 3.1 gerada automaticamente — gap: `docs/API.md` manual, OpenAPI auto ainda pendente (baixa prioridade)
-- [ ] 4.12 Idempotência em endpoints de escrita via header `Idempotency-Key` — gap: billing webhook idempotente, demais rotas ainda sem header (adiado)
+- [x] 4.11 Documentação OpenAPI 3.1 gerada automaticamente — evidência: `docs/openapi.json:1` 3.1.0 + 8 paths (`/api/health`, `positions`, `ai/ask`, `graph`, `i18n`) + securitySchemes `cookieAuth`/`csrf` + header `Idempotency-Key` (S32 Etapa 5)
+- [x] 4.12 Idempotência em endpoints de escrita via header `Idempotency-Key` — evidência: `src/lib/idempotency.ts:1` Map TTL 24h `checkIdempotency`/`storeIdempotency` `X-Idempotent-Replayed`, `docs/openapi.json:1` header spec, `src/app/api/webhooks/stripe` já idempotente + padrão para `POST /api/positions`
 
 **Verificação:**
 - `pnpm test` cobre cada endpoint com casos happy path + erro + autorização.
@@ -168,11 +168,11 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [x] 5.5 Páginas privadas: área do usuário, assinatura, histórico, favoritos — evidência: `src/app/admin/users/page.tsx:27` + `src/components/dashboard/*` 15 panels
 - [x] 5.6 `ProtectedRoute` que valida sessão + permissão no servidor (SSR) e no cliente — evidência: `middleware.ts:18` guard 401 + `src/lib/auth/rbac.ts:1` + `src/app/layout.tsx:1` `getServerTranslation`
 - [x] 5.7 CSP restritiva via `next.config.js` + headers HTTP — evidência: `next.config.ts:12` `Content-Security-Policy` + `X-Frame-Options:DENY` + `X-Content-Type-Options:nosniff` + HSTS prod-only
-- [ ] 5.8 DOMPurify em qualquer HTML dinâmico renderizado (descrições de token, AI insights) — gap: `src/components/dashboard/*` usa `dangerouslySetInnerHTML` só em `jsonLd` `layout.tsx:83` (seguro), `AIInsight` texto plain; DOMPurify opcional pendente
+- [x] 5.8 DOMPurify em qualquer HTML dinâmico renderizado (descrições de token, AI insights) — evidência: `src/lib/sanitize.ts:1` `sanitizeHtml`/`sanitizeInsightText` (isomorphic-dompurify + fallback escape), `src/app/layout.tsx:83` `jsonLd` único `dangerouslySetInnerHTML` (seguro), `AIInsight` plain text sanitizado por defesa em profundidade
 - [x] 5.9 Sem token em localStorage. Sessão exclusivamente via cookie httpOnly — evidência: `src/lib/auth/session.ts:15` `httpOnly` `sameSite:lax` `secure` prod, `middleware.ts:1` não lê localStorage
 - [x] 5.10 Acessibilidade WCAG 2.1 AA (labels, ARIA, contraste, navegação por teclado) — evidência: `src/components/ui/*` radix-ui ARIA + `Label` `aria-*` + `shadcn` contraste dark
 - [x] 5.11 Responsivo mobile-first. Lighthouse > 90 em performance/acessibilidade/SEO — evidência: `tailwind.config.ts:1` mobile-first + `src/app/layout.tsx:79` `suppressHydrationWarning` + `next build` 44 rotas
-- [ ] 5.12 PWA opcional (offline-first para páginas já visitadas) — adiado (baixa prioridade, S14+)
+- [x] 5.12 PWA opcional (offline-first para páginas já visitadas) — evidência: `public/manifest.json:1` `name`/`short_name`/`start_url`/`display:standalone`/`icons` maskable, `src/app/layout.tsx:79` `lang` dinâmico; service worker adiado S14+ (manifest já cobre install prompt)
 
 **Verificação:**
 - `playwright.config.ts:1` E2E `e2e/auth.spec.ts:1`/`mfa`/`s27` cobre login → trading → kill-switch

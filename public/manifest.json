@@ -1,0 +1,13 @@
+{
+  "name": "Auto Trader — Autonomous Crypto Paper Trading",
+  "short_name": "Auto Trader",
+  "description": "Sistema autônomo de trading de criptomoedas com scam detection multicamada. Paper trading por padrão.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    { "src": "https://z-cdn.chatglm.cn/z-ai/static/logo.svg", "sizes": "192x192", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "lang": "pt-BR"
+}
