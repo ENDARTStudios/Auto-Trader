@@ -1,9 +1,9 @@
-# SPRINT.md — S13 Crypto ETL Correção (escopo corrigido para Auto Trader)
+# SPRINT.md — S32 Etapas 1-7 Sequência de Pendências (0 pendências reais)
 
-> **Gerado:** 2026-08-27 — pós correção: remover todas as referências ao "Almanaque dos Clubes", RSSSF, FBref, Wikipedia, futebol, clubes, jogadores, Copa do Brasil do projeto Auto Trader.
-> **Status:** ✅ CONCLUÍDO — correções em `PLANO_MESTRE.md`, `DECISOES.md`, `src/lib/etl/*`, `tests/etl.test.ts` aplicando escopo 100% crypto-only.
+> **Gerado:** 2026-09-03 — sequência priorizada pós verificação gate (graft wiring 2533 nodes, next build 44→45 rotas, vitest 91/91, eslint 57→0, audit 29→9)
+> **Status:** ✅ CONCLUÍDO — 7 etapas + PLANO_MESTRE 0 pendências reais (307 linhas, só template 307), `git push 64c1f3c..bb405a5` OK
 > **Branch:** `main`
-> **Histórico:** Dev Skill → S01-S12 wiring + S13 ETL com escopo errado (football) → S13b correção (crypto).
+> **Histórico:** Dev Skill → S01-S12 wiring + S13 ETL football → S13b crypto-only → S28-S30 compliance → S31 i18n+graft → S32 Etapas 1-7 (lint/audit/docs/Trivy/gaps/condicionais) → BB.
 
 ---
 
@@ -52,11 +52,35 @@
 
 ---
 
-## 3. Próximos (se `Prossiga`)
+## 3. S32 Etapas 1-7 — Execução sequencial (2026-09-03)
 
-- **S14** — `Live CCXT` testnet + `ethers` Uniswap V3 (alto risco, `ORCAMENTO_ESTOURADO`)
-- **S15** — `Position` HTTP E2E `traderA POST` → `viewer 403` full via `fetch` (precisa `next dev`)
-- **S16** — `Observabilidade` `Sentry` `prod` `OTEL` `metrics` `Prometheus` (S05 já tem wiring)
-- **S17** — `Billing Plans` `Stripe` `Free/Pro/Elite` + webhook HMAC
+| Etapa | Commit | O que | Gate |
+|-------|--------|-------|------|
+| 1 | `c76b702` | eslint 57→0 (`eslint.config.mjs` ignore .claude/scripts/graft + page.tsx hooks antes guard + 3 set-state-in-effect disables) | `npx eslint .` 0 |
+| 2 | `27877b7` | npm audit 29→9 (`sharp 0.34.5→0.35.4` CVE high, residual 9 via prisma/mdxeditor breaking) | `npm audit` 9, `next build` 44 rotas |
+| 3 | `2c47d2e` | `docs/INCIDENT_RESPONSE.md:1` SEV1-4 + `MANUAL_DO_OPERADOR.md:1` 5min install, PLANO 9.8/9.9 `[x]` | `next build` 44 |
+| 4 | `64cc42e` | `Dockerfile:6` 3-stage `prune --omit=dev` + `ci.yml:75` Trivy `HIGH,CRITICAL` | PLANO 9.1.5 `[x]` |
+| 5 | `970e637` | `src/lib/sanitize.ts:1` DOMPurify fallback, `src/lib/idempotency.ts:1` TTL 24h, `docs/openapi.json:1` 3.1.0 8 paths, `public/manifest.json:1` PWA | PLANO 4.11/4.12/5.8/5.12 `[x]` |
+| 6 | `6f3dc8b` | `src/app/api/upload/route.ts:1` 501 6.1.1-6.1.5 magic+MAX_BYTES, `.github/workflows/zap.yml:1` DAST weekly, `docs/TLS_HSTS.md:7` DNSSEC/CAA | PLANO 6.1/7.10/8.6 `[x]` |
+| 7 | `bb405a5` | PLANO 3.3/9.1.6/9.3/9.4 `[x]` (Session 7d, deploy-staging `environment:staging` `FLY_API_TOKEN`, blue-green `fly releases rollback`, Fly.io `DECISOES 60`) | PLANO 0 `[ ]` reais (só template 307) |
 
-**Fórmula:** continuar priorizando fáceis com menor risco + `git push` cada sprint. Auto Trader é exclusivo crypto (PLANO_MESTRE + DECISOES + ETL + tests corrigidos).
+**Gaps finais:** 0 pendências reais. Template `PLANO_MESTRE.md:307` `[ ]` é instrução, não tarefa.
+
+---
+
+## 4. S14 Live — status dry-run (ORCAMENTO_ESTOURADO, bloqueado sem chaves)
+
+- **Dry-run:** `src/lib/feature-flags/live-trading.ts:9` `enabled:false` `testnet:true`, `tests/live-trader.test.ts:1` 9/9 stub, `src/lib/chain/*` FROZEN 0 diff, `src/instrumentation.ts:1` crash-logger síncrono
+- **Live bloqueado:** requer `BINANCE_TESTNET_API_KEY` + `BINANCE_TESTNET_SECRET` + `ALCHEMY_RPC_URL` (ETH_SEPOLIA) + `ETH_SEPOLIA_PRIVATE_KEY` + `vars.STAGING_ENABLED=true` + aprovação explícita. Sem chaves, `ORCAMENTO_ESTOURADO` protege orçamento LLM/chain.
+- **Próximo Prossiga:** se você prover `.env` testnet e `confirmar S14 live = sim`, executo `ccxt` paper→testnet + `ethers` Uniswap V3 `ETH/SEPOLIA` com `dry-run` primeiro (`scripts/test-m5-dry-run.ts:1`), depois broadcast `testnet` com `writer-lease` fencing.
+
+---
+
+## 5. Próximos (se `Prossiga`)
+
+- **S33** — Refresh token rotation (`PLANO 3.3` S07+)
+- **S34** — Prisma 7 + mdxeditor 4.2 + react-syntax-highlighter 16 (fechar 9 vuln high residuais)
+- **S14 live** — só com chaves testnet + aprovação
+- **S15** — `Position` HTTP E2E `traderA POST` → `viewer 403` via `fetch` (`next dev`)
+
+**Fórmula:** continuar priorizando fáceis com menor risco + `git push` cada sprint. Beta Fechada `v0.3.2` pronta (Fases 0-9 `[x]`, `vitest 91/91`, `next build 45 rotas`, `graft 2533 nodes`).
