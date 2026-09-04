@@ -269,8 +269,8 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [x] 9.5.4 Uptime check externo (UptimeRobot free) — evidência: `src/app/api/health/route.ts:1` + `docs/DEPLOY.md:1` uptime
 - [x] 9.6 Healthcheck HTTP no deploy (`/api/health`) — evidência: `src/app/api/health/route.ts:1` 200 sem detalhes internos
 - [x] 9.7 Backup automático do PostgreSQL (diário, retenção 30 dias) — S06 já `scripts/backup-db.sh` (SQLite) + `verify-backup.sh` — evidência: `scripts/backup-db.sh:1` + `docker-compose.yml:1` `pgdata` volume
-- [ ] 9.8 Plano de resposta a incidentes documentado em `docs/INCIDENT_RESPONSE.md` — gap: `docs/ERROR_REPORTING.md:1` cobre incidentes, `INCIDENT_RESPONSE.md` ainda pendente (adiado)
-- [ ] 9.9 `MANUAL_DO_OPERADOR.md` entregue (PROTOCOLO_MESTRE.md Seção 9) — gap: `docs/DEPLOY.md:1` parcial, `MANUAL_DO_OPERADOR.md` pendente S30+
+- [x] 9.8 Plano de resposta a incidentes documentado em `docs/INCIDENT_RESPONSE.md` — evidência: `docs/INCIDENT_RESPONSE.md:1` SEV1-4, Runbooks 4.1-4.5 (secrets/RLS/kill-switch/DB/Stripe), fluxo 6 fases, postmortem 24h + `SECURITY.md:1` REG
+- [x] 9.9 `MANUAL_DO_OPERADOR.md` entregue (PROTOCOLO_MESTRE.md Seção 9) — evidência: `MANUAL_DO_OPERADOR.md:1` instalação 5min, operação diária, backup/restore, observabilidade Sentry/OTEL/crash-logger, kill-switch/graduação live, troubleshooting, checklist DoD
 
 **Verificação:**
 - PR mergeado em `main` chega ao staging em < 10 min.
