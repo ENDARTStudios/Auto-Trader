@@ -112,7 +112,7 @@ de evidência**, não por presunção.
 - [x] 3.0 Preflight Auth (deps + `src/lib/env.ts` com Zod + `.env.example` S01 já) — evidência: `src/lib/env.ts:1` + `.env.example:1`
 - [x] 3.1 Setup Cookie + tipos (S02 já: `src/lib/auth/session.ts` opaque 32B + `hashToken` SHA-256) — evidência: `src/lib/auth/session.ts:15` `hashToken`
 - [x] 3.2 Rotas Register / Login / Logout (`src/app/api/auth/{login,logout,me}/route.ts` S02+S03) — evidência: `src/app/api/auth/login/route.ts:1` + `logout` + `me` + `register` + `middleware.ts:1`
-- [x] 3.3 Refresh token flow (S07+ — não bloqueia MVP) — evidência: `Session` 7d `expiresAt` `src/lib/auth/session.ts:15` + renovado no `login` (capítulo 3.3 adiado — refresh token rotation previsto S33, não bloqueia Beta pois cookie httpOnly 7d já cobre MVP)
+- [x] 3.3 Refresh token flow (S07+ — não bloqueia MVP) — evidência: `src/app/api/auth/refresh/route.ts:1` `POST /api/auth/refresh` rotaciona session 7d `generateToken`+`hashToken`+`$transaction` create/delete + `Set-Cookie`, `src/lib/auth/session.ts:15` 7d TTL, `vitest` refresh rotation validado
 - [x] 3.4 Middleware de Autenticação (`requireSession(req)` em `src/lib/auth/session.ts` S02) — evidência: `src/lib/auth/session.ts:40` + `middleware.ts:18` guard 401
 - [x] 3.5 Middleware RBAC (`hasPermission(role, perm)` em `src/lib/auth/rbac.ts` S02, 4×24 matriz) — evidência: `src/lib/auth/rbac.ts:12` + `tests/rbac-matrix.test.ts:1` 10 tests
 - [x] 3.6 Reset de senha (token único, expira 15min) — `POST /api/auth/forgot` + `/reset` S05 + `PasswordReset` table — evidência: `src/app/api/auth/forgot/route.ts:1` + `tests/password-reset.test.ts:1` 2 tests
