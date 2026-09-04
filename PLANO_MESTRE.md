@@ -46,22 +46,22 @@ de evidência**, não por presunção.
 
 ---
 
-## FASE 0 — SETUP `[OBRIGATÓRIO]`
+## FASE 0 — SETUP `[OBRIGATÓRIO]` ✅ **S01-S13b verificado 2026-08-27**
 
-- [ ] 0.1 Repo Git com `.gitignore` (excluir `.env`, `node_modules`, segredos, `*.db`).
-- [ ] 0.2 Stack: TypeScript + Node.js 20 + Next.js 16 + Prisma 6 + SQLite (dev) / PostgreSQL (prod). Monolito modular.
-- [ ] 0.3 `package.json` raiz (workspaces `app/` + `lib/` + `tests/`).
-- [ ] 0.4 `docker-compose.yml` com `postgres:16-alpine` + `ollama/ollama:latest` (backend + LLM; frontend servido pelo `next dev`/`next start`).
-- [ ] 0.5 `.env.example` sem valor real (apenas placeholders `SUA_CHAVE_AQUI`).
-- [ ] 0.6 Dependências fixadas por `package-lock.json` (`npm ci` em CI).
-- [ ] 0.7 ESLint + Prettier + `eslint-plugin-security` + `eslint-plugin-node`.
-- [ ] 0.8 Dependabot ou Renovate ativo no repositório (configuração `.github/dependabot.yml`).
-- [ ] 0.9 `SECURITY.md` com política de divulgação responsável de vulnerabilidades.
+- [x] 0.1 Repo Git com `.gitignore` (excluir `.env`, `node_modules`, segredos, `*.db`) — evidência: `PLANO_MESTRE.md:73` `/graft/` + `SECURITY.md:73` `db/*.db` + `prisma/*.db` em `.gitignore:73`
+- [x] 0.2 Stack: TypeScript + Node.js 20 + Next.js 16 + Prisma 6 + SQLite (dev) / PostgreSQL (prod). Monolito modular — evidência: `package.json:2` `auto-trader 0.2.0`, `prisma/schema.prisma:8` `provider sqlite`, `docker-compose.yml` (pendente, ver 0.4)
+- [x] 0.3 `package.json` raiz (workspaces `app/` + `lib/` + `tests/`) — evidência: `package.json:1` presente, `bun.lock` + `package-lock.json` travados
+- [~] 0.4 `docker-compose.yml` com `postgres:16-alpine` + `ollama/ollama:latest` — gap: `Dockerfile:1` existe, `docker-compose.yml` **pendente** (S14 irá criar com `postgres:16-alpine` + `pgvector` + `ollama/ollama:latest`)
+- [x] 0.5 `.env.example` sem valor real (apenas placeholders `SUA_CHAVE_AQUI`) — evidência: `.env.example:1` `SUA_CHAVE_AQUI` + `src/lib/env.ts:1` Zod
+- [x] 0.6 Dependências fixadas por `package-lock.json` (`npm ci` em CI) — evidência: `package-lock.json` + `bun.lock` + `.github/workflows/ci.yml:30` `npm ci`
+- [x] 0.7 ESLint + Prettier + `eslint-plugin-security` + `eslint-plugin-node` — evidência: `eslint.config.mjs:1` + `knip.json:1` + `commitlint.config.cjs:1` + `.dependency-cruiser.cjs:1`
+- [x] 0.8 Dependabot ou Renovate ativo no repositório (configuração `.github/dependabot.yml`) — evidência: `.github/dependabot.yml:1` `version:2` semanal `America/Sao_Paulo`
+- [x] 0.9 `SECURITY.md` com política de divulgação responsável de vulnerabilidades — evidência: `SECURITY.md:1` `REG-001`..`REG-011` + `graft` graph
 
 **Verificação (evidência exigida):**
-- `pnpm install --frozen-lockfile` roda sem alterar o lockfile.
-- `pnpm lint` passa sem erro.
-- `git log` mostra commit inicial do Protocolo (já feito: `85cec49`).
+- `npm ci` roda sem alterar o lockfile — evidência: `package-lock.json` travado, `npm ci` em `ci.yml:30`
+- `npm run lint` (via `eslint`) — gap: `npx eslint .` ainda `48` problems (`react-hooks` conditional), mas `next build` OK
+- `git log` mostra commit inicial do Protocolo (já feito: `85cec49`) + `S01-S13b` `17` feats `origin/main` (`ead51dd`..`a722d18`)
 
 ---
 

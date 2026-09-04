@@ -69,3 +69,8 @@ server.log
 /skills/
 # tool-result scratch files (large file reads)
 tool-results/
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
+# gemini cli local settings (regenerable, contains local paths)
+.gemini/

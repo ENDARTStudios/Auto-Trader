@@ -1,0 +1,90 @@
+{
+  "common": {
+    "appName": "Auto Trader",
+    "tagline": "Trading autónomo de criptomonedas con detección multicapa de estafas",
+    "loading": "Cargando...",
+    "error": "Error",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "back": "Volver",
+    "yes": "Sí",
+    "no": "No"
+  },
+  "footer": {
+    "copyright": "Copyright © 2026 END ART Studios — CNPJ 45.370.930/0001-75 — Osasco/SP - Brasil",
+    "contact": "Contacto",
+    "telegram": "Telegram",
+    "terms": "Términos de Uso",
+    "privacy": "Privacidad"
+  },
+  "header": {
+    "dashboard": "Panel",
+    "admin": "Admin",
+    "users": "Usuarios",
+    "pricing": "Precios",
+    "logout": "Salir",
+    "login": "Entrar",
+    "language": "Idioma"
+  },
+  "login": {
+    "title": "Auto Trader — Iniciar sesión",
+    "subtitle": "Ingrese sus credenciales para acceder al terminal",
+    "email": "Email",
+    "password": "Contraseña",
+    "signIn": "Entrar",
+    "signingIn": "Ingresando…",
+    "credentialsTest": "Credenciales de prueba:",
+    "adminRole": "(super_admin)",
+    "traderRole": "(trader)",
+    "viewerRole": "(viewer)"
+  },
+  "register": {
+    "title": "Crear cuenta",
+    "mustAccept": "Debe aceptar los Términos de Uso y la Política de Privacidad",
+    "acceptLabel": "Confirmo que he leído y acepto los",
+    "acceptLabelEnd": "y la"
+  },
+  "pricing": {
+    "title": "Auto Trader Precios",
+    "free": "Free",
+    "pro": "Pro",
+    "elite": "Elite",
+    "popular": "Popular",
+    "downgrade": "Downgrade",
+    "subscribe": "Suscribir",
+    "subscribeTo": "Suscribir a",
+    "error": "Error",
+    "freeFeatures": ["Paper trading", "1 posición abierta", "Soporte de la comunidad"],
+    "proFeatures": ["Paper → live trading", "20 posiciones abiertas", "Soporte prioritario", "TOTP MFA", "Alertas Discord"],
+    "eliteFeatures": ["Live trading", "Posiciones ilimitadas", "Soporte dedicado", "Estrategias personalizadas", "Onboarding white-glove"],
+    "rateLimit": "Rate limit",
+    "maxPositions": "posiciones"
+  },
+  "admin": {
+    "users": {
+      "title": "Admin — Usuarios",
+      "superAdminOnly": "solo super_admin",
+      "create": "Crear usuario",
+      "email": "Email",
+      "password": "Contraseña (≥8)",
+      "role": "Rol",
+      "remove": "Eliminar",
+      "confirmRemove": "¿Eliminar {email}?",
+      "list": "Usuarios ({count})"
+    }
+  },
+  "dashboard": {
+    "engine": "Engine",
+    "killSwitch": "Kill Switch",
+    "broker": "Broker"
+  },
+  "errors": {
+    "rateLimited": "Demasiadas solicitudes. Intente de nuevo en {seconds}s.",
+    "unauthorized": "No autorizado",
+    "forbidden": "Acceso denegado",
+    "notFound": "No encontrado",
+    "validationError": "Error de validación",
+    "internalError": "Error interno del servidor"
+  }
+}

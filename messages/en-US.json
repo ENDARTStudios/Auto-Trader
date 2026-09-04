@@ -1,0 +1,90 @@
+{
+  "common": {
+    "appName": "Auto Trader",
+    "tagline": "Autonomous crypto trading with multi-layer scam detection",
+    "loading": "Loading...",
+    "error": "Error",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "back": "Back",
+    "yes": "Yes",
+    "no": "No"
+  },
+  "footer": {
+    "copyright": "Copyright © 2026 END ART Studios — CNPJ 45.370.930/0001-75 — Osasco/SP - Brazil",
+    "contact": "Contact",
+    "telegram": "Telegram",
+    "terms": "Terms of Service",
+    "privacy": "Privacy"
+  },
+  "header": {
+    "dashboard": "Dashboard",
+    "admin": "Admin",
+    "users": "Users",
+    "pricing": "Pricing",
+    "logout": "Logout",
+    "login": "Sign in",
+    "language": "Language"
+  },
+  "login": {
+    "title": "Auto Trader — Sign in",
+    "subtitle": "Sign in with your credentials to access the terminal",
+    "email": "Email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "credentialsTest": "Test credentials:",
+    "adminRole": "(super_admin)",
+    "traderRole": "(trader)",
+    "viewerRole": "(viewer)"
+  },
+  "register": {
+    "title": "Create account",
+    "mustAccept": "You must accept the Terms of Service and Privacy Policy",
+    "acceptLabel": "I confirm I have read and accept the",
+    "acceptLabelEnd": "and the"
+  },
+  "pricing": {
+    "title": "Auto Trader Pricing",
+    "free": "Free",
+    "pro": "Pro",
+    "elite": "Elite",
+    "popular": "Popular",
+    "downgrade": "Downgrade",
+    "subscribe": "Subscribe",
+    "subscribeTo": "Subscribe to",
+    "error": "Error",
+    "freeFeatures": ["Paper trading", "1 open position", "Community support"],
+    "proFeatures": ["Paper → live trading", "20 open positions", "Priority support", "TOTP MFA", "Discord alerts"],
+    "eliteFeatures": ["Live trading", "Unlimited positions", "Dedicated support", "Custom strategies", "White-glove onboarding"],
+    "rateLimit": "Rate limit",
+    "maxPositions": "positions"
+  },
+  "admin": {
+    "users": {
+      "title": "Admin — Users",
+      "superAdminOnly": "super_admin only",
+      "create": "Create user",
+      "email": "Email",
+      "password": "Password (≥8)",
+      "role": "Role",
+      "remove": "Remove",
+      "confirmRemove": "Remove {email}?",
+      "list": "Users ({count})"
+    }
+  },
+  "dashboard": {
+    "engine": "Engine",
+    "killSwitch": "Kill Switch",
+    "broker": "Broker"
+  },
+  "errors": {
+    "rateLimited": "Too many requests. Try again in {seconds}s.",
+    "unauthorized": "Unauthorized",
+    "forbidden": "Forbidden",
+    "notFound": "Not found",
+    "validationError": "Validation error",
+    "internalError": "Internal server error"
+  }
+}
