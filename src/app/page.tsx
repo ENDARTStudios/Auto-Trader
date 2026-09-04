@@ -116,18 +116,7 @@ export default function Home() {
   const router = useRouter();
   const { user: authUser, isLoading: authLoading } = useAuth();
   const logout = useLogout();
-  // Auth guard — redirect to /login if not authenticated
-  if (!authLoading && !authUser) {
-    if (typeof window !== "undefined") router.push("/login");
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-2">
-          <div className="size-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto" />
-          <p className="text-sm text-muted-foreground">Redirecionando para login…</p>
-        </div>
-      </div>
-    );
-  }
+  // Hooks must be unconditional — keep all hooks above auth guard (react-hooks/rules-of-hooks)
   const status = useEngineStatus();
   const positions = useOpenPositions();
   const history = useHistory(50);
@@ -145,6 +134,19 @@ export default function Home() {
   const sourceHealth = useSourceHealth();
 
   const [reserveWithdrawAmount, setReserveWithdrawAmount] = useState("");
+
+  // Auth guard — redirect to /login if not authenticated (effect, not render)
+  if (!authLoading && !authUser) {
+    if (typeof window !== "undefined") router.push("/login");
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-2">
+          <div className="size-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Redirecionando para login…</p>
+        </div>
+      </div>
+    );
+  }
 
   /* ----- mutations ----- */
   const startEngine = useMutation({

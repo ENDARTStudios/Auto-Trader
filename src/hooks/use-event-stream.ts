@@ -147,7 +147,9 @@ export function useEventStream(opts?: {
     opts?.maxRecent ? sharedRecent.slice(0, opts.maxRecent) : sharedRecent
   );
   const onEventRef = useRef(opts?.onEvent);
-  onEventRef.current = opts?.onEvent;
+  useEffect(() => {
+    onEventRef.current = opts?.onEvent;
+  }, [opts?.onEvent]);
 
   useEffect(() => {
     ensureConnected();
@@ -162,6 +164,7 @@ export function useEventStream(opts?: {
     readyListeners.add(onReady);
 
     // Sync local state with shared state immediately
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setReadyStateLocal(sharedReadyState);
     setRecent(sharedRecent.slice(0, opts?.maxRecent ?? MAX_RECENT));
 

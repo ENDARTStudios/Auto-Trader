@@ -25,8 +25,10 @@ export function ConfigEditor({ config, isLoading }: Props) {
   const [cexSymbolsText, setCexSymbolsText] = useState("");
   const [dexChainsText, setDexChainsText] = useState("");
 
+  // Sync form when config loads — setState in effect is intentional (form hydration)
   useEffect(() => {
     if (config) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm(config);
       setCexSymbolsText(config.cexSymbols.join(", "));
       setDexChainsText(config.dexChains.join(", "));

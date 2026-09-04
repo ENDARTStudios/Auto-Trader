@@ -31,7 +31,6 @@ export function useTranslationHydration(initial: { locale: Locale; messages: Rec
         if (cookieLocale !== locale) void loadMessages(cookieLocale as Locale, setLocaleState, setMessages);
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const t = useTranslationStore.getState().t; // placeholder

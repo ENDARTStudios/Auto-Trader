@@ -133,7 +133,6 @@ class EventBus {
 // same Node.js process. Next.js dev mode may reload modules; for production
 // builds this is stable.
 declare global {
-  // eslint-disable-next-line no-var
   var __AUTO_TRADER_EVENT_BUS__: EventBus | undefined;
 }
 

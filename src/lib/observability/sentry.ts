@@ -20,7 +20,7 @@ export function captureError(error: Error, context?: Record<string, unknown>): v
 export function captureMessage(message: string, level: 'info' | 'warning' | 'error' = 'info', context?: Record<string, unknown>): void {
   console.log(`[captureMessage:${level}]`, message, context ?? '');
   try {
-    // eslint-disable-next-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const Sentry = require('@sentry/nextjs') as typeof import('@sentry/nextjs');
     if (process.env.SENTRY_DSN || process.env.NEXT_PUBLIC_SENTRY_DSN) {
       Sentry.captureMessage(message, { level, extra: context });
