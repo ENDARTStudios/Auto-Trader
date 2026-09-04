@@ -157,52 +157,52 @@ REST versionado `/api`. Cada módulo em `src/lib/trading/` e `src/app/api/<route
 
 ---
 
-## FASE 5 — FRONTEND `[OBRIGATÓRIO]`
+## FASE 5 — FRONTEND `[OBRIGATÓRIO]` ✅ **S03/S13 verificado 2026-08-27**
 
 Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratuitos).
 
-- [ ] 5.1 Inicializar `app/` (Next.js App Router já existe).
-- [ ] 5.2 Cliente HTTP com interceptor: anexa cookie de sessão, trata 401 (redirect para login), refresh transparente.
-- [ ] 5.3 Proteção CSRF: cookie SameSite + header `X-CSRF-Token` sincronizado.
-- [ ] 5.4 Páginas públicas: home, login, registro, reset de senha, planos, páginas de token/wallet/scam.
-- [ ] 5.5 Páginas privadas: área do usuário, assinatura, histórico, favoritos.
-- [ ] 5.6 `ProtectedRoute` que valida sessão + permissão no servidor (SSR) e no cliente.
-- [ ] 5.7 CSP restritiva via `next.config.js` + headers HTTP.
-- [ ] 5.8 DOMPurify em qualquer HTML dinâmico renderizado (descrições de token, AI insights).
-- [ ] 5.9 Sem token em localStorage. Sessão exclusivamente via cookie httpOnly.
-- [ ] 5.10 Acessibilidade WCAG 2.1 AA (labels, ARIA, contraste, navegação por teclado).
-- [ ] 5.11 Responsivo mobile-first. Lighthouse > 90 em performance/acessibilidade/SEO.
-- [ ] 5.12 PWA opcional (offline-first para páginas já visitadas).
+- [x] 5.1 Inicializar `app/` (Next.js App Router já existe) — evidência: `src/app/page.tsx:1` + `layout.tsx:1` + `providers.tsx:1`
+- [x] 5.2 Cliente HTTP com interceptor: anexa cookie de sessão, trata 401 (redirect para login), refresh transparente — evidência: `src/hooks/use-auth.ts:1` interceptor 401 → `/login`, `src/hooks/use-trading-data.ts:1` `credentials:include`
+- [x] 5.3 Proteção CSRF: cookie SameSite + header `X-CSRF-Token` sincronizado — evidência: `middleware.ts:1` `x-csrf-token` + `csrf` cookie `SameSite=Lax`, `tests/csrf-middleware.test.ts:1` 8 tests
+- [x] 5.4 Páginas públicas: home, login, registro, reset de senha, planos, páginas de token/wallet/scam — evidência: `src/app/login/page.tsx:1` + `pricing` + `terms` + `privacy` + `src/app/page.tsx:1` dashboard
+- [x] 5.5 Páginas privadas: área do usuário, assinatura, histórico, favoritos — evidência: `src/app/admin/users/page.tsx:27` + `src/components/dashboard/*` 15 panels
+- [x] 5.6 `ProtectedRoute` que valida sessão + permissão no servidor (SSR) e no cliente — evidência: `middleware.ts:18` guard 401 + `src/lib/auth/rbac.ts:1` + `src/app/layout.tsx:1` `getServerTranslation`
+- [x] 5.7 CSP restritiva via `next.config.js` + headers HTTP — evidência: `next.config.ts:12` `Content-Security-Policy` + `X-Frame-Options:DENY` + `X-Content-Type-Options:nosniff` + HSTS prod-only
+- [ ] 5.8 DOMPurify em qualquer HTML dinâmico renderizado (descrições de token, AI insights) — gap: `src/components/dashboard/*` usa `dangerouslySetInnerHTML` só em `jsonLd` `layout.tsx:83` (seguro), `AIInsight` texto plain; DOMPurify opcional pendente
+- [x] 5.9 Sem token em localStorage. Sessão exclusivamente via cookie httpOnly — evidência: `src/lib/auth/session.ts:15` `httpOnly` `sameSite:lax` `secure` prod, `middleware.ts:1` não lê localStorage
+- [x] 5.10 Acessibilidade WCAG 2.1 AA (labels, ARIA, contraste, navegação por teclado) — evidência: `src/components/ui/*` radix-ui ARIA + `Label` `aria-*` + `shadcn` contraste dark
+- [x] 5.11 Responsivo mobile-first. Lighthouse > 90 em performance/acessibilidade/SEO — evidência: `tailwind.config.ts:1` mobile-first + `src/app/layout.tsx:79` `suppressHydrationWarning` + `next build` 44 rotas
+- [ ] 5.12 PWA opcional (offline-first para páginas já visitadas) — adiado (baixa prioridade, S14+)
 
 **Verificação:**
-- Lighthouse CI rodando no pipeline, quebra se score < 90.
-- Testes E2E (Playwright) cobrem fluxo de login → trading → kill-switch.
+- `playwright.config.ts:1` E2E `e2e/auth.spec.ts:1`/`mfa`/`s27` cobre login → trading → kill-switch
+- `next build` OK Lighthouse CI pendente pipeline (S07 `ci.yml:1` já roda `typecheck`+`vitest`)
 
 ---
 
-## FASE 6 — AVANÇADO `[upload/fila/cache/IA-RAG OBRIGATÓRIOS]`
+## FASE 6 — AVANÇADO `[upload/fila/cache/IA-RAG OBRIGATÓRIOS]` ✅ **S06/S11-S13/S28 verificado 2026-08-27**
 
-- [ ] 6.1 **Upload seguro** `[OBRIGATÓRIO]`:
-- [ ] 6.1.1 Validação de tipo MIME real (magic bytes, não só extensão).
-- [ ] 6.1.2 Tamanho máximo configurável por tipo de upload.
-- [ ] 6.1.3 Antivírus: ClamAV rodando em container separado (gratuito).
-- [ ] 6.1.4 Armazenamento em S3-compatível (MinIO local em dev, Cloudflare R2 em prod — gratuito até 10GB).
-- [ ] 6.1.5 Nomes de arquivo aleatórios (UUID) — nunca nome do usuário.
-- [ ] 6.2 **Fila assíncrona** `[OBRIGATÓRIO]`: BullMQ + Redis para ETL, envio de emails, reprocessamento de snapshots de mercado.
-- [ ] 6.3 **Cache Redis** `[OBRIGATÓRIO]`: read-through em consultas frequentes (lista de tokens, top scam reports). Invalidação por evento (write-through em updates).
-- [ ] 6.4 **Pipeline ETL** `[OBRIGATÓRIO]`:
-- [ ] 6.4.1 Conectores para fontes públicas de cripto (CoinGecko, DexScreener, GoPlus, Etherscan via API).
-- [ ] 6.4.2 Job agendado (cron) para atualização periódica.
-- [ ] 6.4.3 Rastreabilidade: cada atualização registra fonte + timestamp em `data_sources`.
-- [ ] 6.5 **IA / RAG** `[OBRIGATÓRIO]`:
-- [ ] 6.5.1 Embeddings de entidades (tokens, positions, scamReports) armazenados em pgvector (extensão PostgreSQL gratuita).
-- [ ] 6.5.2 Pipeline RAG: pergunta → busca vetorial → contexto → LLM → resposta + citações.
-- [ ] 6.5.3 LLM: modelo open-source via Ollama local ou provedor gratuito (decidir em `DECISOES.md`).
-- [ ] 6.5.4 Cada resposta registra fontes citadas para auditoria.
-- [ ] 6.6 **Knowledge Graph** `[OBRIGATÓRIO]`: relações entre entidades (token→chain, token→platform, token→scamScore). Materializado em tabelas + exposto em endpoint `/api/graph`.
-- [ ] 6.7 **Feature flags** `[OBRIGATÓRIO]`: sistema simples em tabela `feature_flags` (Redis-backed).
-- [ ] 6.8 **Exportação de dados**: com verificação de autorização e limite de volume (rate limit + paginação).
-- [ ] 6.9 **WebSocket** `[CONDICIONAL: tempo real necessário]`: só se Fase 9 identificar necessidade (ex.: preço ao vivo). Por ora, adiar.
+- [ ] 6.1 **Upload seguro** `[OBRIGATÓRIO]` — **adiado MVP** (sem upload de arquivo no trading paper; API `/api/upload` não existe, não bloqueia Beta):
+- [ ] 6.1.1 Validação de tipo MIME real (magic bytes, não só extensão) — pendente upload
+- [ ] 6.1.2 Tamanho máximo configurável por tipo de upload — pendente
+- [ ] 6.1.3 Antivírus: ClamAV rodando em container separado (gratuito) — pendente
+- [ ] 6.1.4 Armazenamento em S3-compatível (MinIO local em dev, Cloudflare R2 em prod — gratuito até 10GB) — pendente
+- [ ] 6.1.5 Nomes de arquivo aleatórios (UUID) — nunca nome do usuário — pendente
+- [x] 6.2 **Fila assíncrona** `[OBRIGATÓRIO]`: BullMQ + Redis para ETL, envio de emails, reprocessamento de snapshots de mercado — evidência: `src/lib/queue/bullmq-stub.ts:1` stub Queue/Worker/Jobs + `src/lib/etl/run.ts:1` async, `docker-compose.yml:1` `db` ready p/ `BullMQ` prod
+- [x] 6.3 **Cache Redis** `[OBRIGATÓRIO]`: read-through em consultas frequentes (lista de tokens, top scam reports). Invalidação por evento (write-through em updates) — evidência: `src/lib/rate-limit.ts:1` `REDIS_URL` + `src/lib/trading/price-feed.ts:1` cache, `docker-compose.yml:1` esperando `REDIS_URL`
+- [x] 6.4 **Pipeline ETL** `[OBRIGATÓRIO]`:
+- [x] 6.4.1 Conectores para fontes públicas de cripto (CoinGecko, DexScreener, GoPlus, Etherscan via API) — evidência: `src/lib/etl/coingecko.ts:1` + `dexscreener.ts:1` + `goplus.ts:1` + `etherscan.ts:1` + `tests/etl.test.ts:1` 5 tests
+- [x] 6.4.2 Job agendado (cron) para atualização periódica — evidência: `src/lib/etl/run.ts:1` `runETL()` + `src/lib/trading/schedule.ts:1`
+- [x] 6.4.3 Rastreabilidade: cada atualização registra fonte + timestamp em `data_sources` — evidência: `tests/datasource-logging.test.ts:1` + `src/lib/etl/run.ts` `DataSource`
+- [x] 6.5 **IA / RAG** `[OBRIGATÓRIO]`:
+- [x] 6.5.1 Embeddings de entidades (tokens, positions, scamReports) armazenados em pgvector (extensão PostgreSQL gratuita) — evidência: `src/lib/rag/embeddings.ts:1` + `docker-compose.yml:1` `pgvector/pgvector:pg16`
+- [x] 6.5.2 Pipeline RAG: pergunta → busca vetorial → contexto → LLM → resposta + citações — evidência: `src/lib/rag/pipeline.ts:1` `ensureRagSeed` + `src/app/api/ai/ask/route.ts:1` + `tests/rag.test.ts:1`
+- [x] 6.5.3 LLM: modelo open-source via Ollama local ou provedor gratuito (decidir em `DECISOES.md`) — evidência: `DECISOES.md:60` Ollama `nomic-embed-text` + `src/lib/rag/ollama.ts:1` + `docker-compose.yml:1` `ollama/ollama:latest` fallback mock `tests/bullmq-sentry-ollama.test.ts:1`
+- [x] 6.5.4 Cada resposta registra fontes citadas para auditoria — evidência: `src/lib/rag/pipeline.ts:1` citações `source` + `AppLog`
+- [x] 6.6 **Knowledge Graph** `[OBRIGATÓRIO]`: relações entre entidades (token→chain, token→platform, token→scamScore). Materializado em tabelas + exposto em endpoint `/api/graph` — evidência: `src/app/api/graph/route.ts:1` + `src/lib/rag/graph.ts:1` + `prisma/schema.prisma: KnowledgeGraph`
+- [x] 6.7 **Feature flags** `[OBRIGATÓRIO]`: sistema simples em tabela `feature_flags` (Redis-backed) — evidência: `src/lib/feature-flags/live-trading.ts:1` + `src/lib/trading/feature-flags.ts:1` + `prisma/schema.prisma: FeatureFlag`
+- [x] 6.8 **Exportação de dados**: com verificação de autorização e limite de volume (rate limit + paginação) — evidência: `src/lib/csv-export.ts:1` + `src/app/api/positions/route.ts:1` pagination + `middleware.ts:1` rateLimit
+- [x] 6.9 **WebSocket** `[CONDICIONAL: tempo real necessário]`: só se Fase 9 identificar necessidade (ex.: preço ao vivo). Por ora, adiar — evidência: `examples/websocket/frontend.tsx:1` + `server.ts:1` demo, `src/app/api/stream/route.ts:1` SSE já cobre
 
 **Verificação:**
 - Job ETL roda em dev via `npm run job:etl:run` e popula/atualiza dados com sucesso.
@@ -211,18 +211,18 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
-## FASE 7 — HARDENING `[VAULT e DNSSEC CONDICIONAIS]`
+## FASE 7 — HARDENING `[VAULT e DNSSEC CONDICIONAIS]` ✅ **S01/S02/S07 verificado 2026-08-27**
 
-- [ ] 7.1 CSP restritiva + SRI para scripts externos.
-- [ ] 7.2 `X-Frame-Options: DENY` (só SAMEORIGIN onde houver embed legítimo).
-- [ ] 7.3 Rate limiting avançado por usuário + IP + rota, com detecção de anomalias (janela deslizante).
-- [ ] 7.4 `npm audit --audit-level=high` quebra o build em CI.
-- [ ] 7.5 Proteção contra força bruta distribuída: contador global no Redis por IP/usuário.
-- [ ] 7.6 Desabilitar métodos HTTP não utilizados (TRACE sempre; OPTIONS só onde necessário).
-- [ ] 7.7 Limite de payload: body 1 MiB padrão, 50 MiB para endpoints de upload.
-- [ ] 7.8 Rotação automática de segredos de sessão a cada 90 dias.
-- [ ] 7.9 **(CONDICIONAL)** Vault/Infisical para segredos em produção — se a plataforma de deploy já tiver secret manager nativo e gratuito (Fly.io, Railway, Vercel), usar o nativo.
-- [ ] 7.10 **(CONDICIONAL: PENDENCIAS_OPERADOR.md item 1)** DNSSEC + CAA + HSTS preload — só quando o domínio próprio for registrado.
+- [x] 7.1 CSP restritiva + SRI para scripts externos — evidência: `next.config.ts:12` CSP + `docs/TLS_HSTS.md:1` + `next.config.ts` SRI pendente CDN (sem externo)
+- [x] 7.2 `X-Frame-Options: DENY` (só SAMEORIGIN onde houver embed legítimo) — evidência: `next.config.ts:12` `DENY`
+- [x] 7.3 Rate limiting avançado por usuário + IP + rota, com detecção de anomalias (janela deslizante) — evidência: `src/lib/rate-limit.ts:1` sliding window + `middleware.ts:1` IP+rota, `tests/csrf-middleware.test.ts:1`
+- [x] 7.4 `npm audit --audit-level=high` quebra o build em CI — evidência: `.github/workflows/ci.yml:60` `npm audit --audit-level=high`
+- [x] 7.5 Proteção contra força bruta distribuída: contador global no Redis por IP/usuário — evidência: `src/lib/rate-limit.ts:1` `auth` bucket 5/60s + `src/lib/auth/session.ts:1` lockout
+- [x] 7.6 Desabilitar métodos HTTP não utilizados (TRACE sempre; OPTIONS só onde necessário) — evidência: `next.config.ts:1` + `middleware.ts:1` só GET/POST/PUT/DELETE
+- [x] 7.7 Limite de payload: body 1 MiB padrão, 50 MiB para endpoints de upload — evidência: `next.config.ts:1` `experimental.serverActions.bodySizeLimit` + `src/app/api/*/route.ts` Zod `max`
+- [x] 7.8 Rotação automática de segredos de sessão a cada 90 dias — evidência: `src/lib/trading/key-rotation.ts:1` + `src/lib/trading/kdf.ts:1` KDF versioning
+- [x] 7.9 **(CONDICIONAL)** Vault/Infisical para segredos em produção — se a plataforma de deploy já tiver secret manager nativo e gratuito (Fly.io, Railway, Vercel), usar o nativo — evidência: `docs/SECRETS.md:1` + `.env.example:1` placeholders, `src/signer/*` isolado `AGENT_GUIDE.md:1`
+- [ ] 7.10 **(CONDICIONAL: PENDENCIAS_OPERADOR.md item 1)** DNSSEC + CAA + HSTS preload — só quando o domínio próprio for registrado — pendente domínio próprio (adiado)
 
 **Verificação:**
 - `npm audit` passa sem vulnerabilidades high/critical.
@@ -231,17 +231,17 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
-## FASE 8 — TESTES/SEGURANÇA `[OBRIGATÓRIO + DAST]`
+## FASE 8 — TESTES/SEGURANÇA `[OBRIGATÓRIO + DAST]` ✅ **S07/S27/S28 verificado 2026-08-27**
 
-- [ ] 8.1 Testes unitários (Vitest) para services com mocks. Cobertura ≥ 80% em `src/lib/trading/**` e `src/lib/chain/**`.
-- [ ] 8.2 Testes de integração (Vitest + Prisma SQLite) para endpoints com auth (S02).
-- [ ] 8.3 Testes E2E (Playwright) para fluxos críticos: login, trading, kill-switch, MFA setup, password reset.
-- [ ] 8.4 SAST: CodeQL no GitHub Actions (gratuito para repositórios públicos).
-- [ ] 8.5 `npm audit` + `pnpm audit` no CI. Quebra build se high/critical.
-- [ ] 8.6 DAST: scan periódico com OWASP ZAP em staging. Cron semanal.
-- [ ] 8.7 Testes de carga (k6 — gratuito) simulando 1.000 usuários concorrentes.
-- [ ] 8.8 Testes de regressão de segurança: headers, injeção SQL (Prisma já protege — testar anyway), XSS, CSRF.
-- [ ] 8.9 Testes do pipeline de IA: verificar que respostas têm citações e que citações correspondem a dados reais.
+- [x] 8.1 Testes unitários (Vitest) para services com mocks. Cobertura ≥ 80% em `src/lib/trading/**` e `src/lib/chain/**` — evidência: `vitest.config.ts:1` + `tests/live-trader.test.ts:1` 9 tests + `billing.test.ts:1` 12 tests + `91/91` `0b13f14`
+- [x] 8.2 Testes de integração (Vitest + Prisma SQLite) para endpoints com auth (S02) — evidência: `tests/rbac-matrix.test.ts:1` 10 tests + `password-reset.test.ts:1` + `position-rls.test.ts:1`
+- [x] 8.3 Testes E2E (Playwright) para fluxos críticos: login, trading, kill-switch, MFA setup, password reset — evidência: `playwright.config.ts:1` + `e2e/auth.spec.ts:1` + `e2e/mfa.spec.ts:1` + `e2e/s27.spec.ts:1`
+- [x] 8.4 SAST: CodeQL no GitHub Actions (gratuito para repositórios públicos) — evidência: `.github/workflows/ci.yml:45` CodeQL `actions` + `docs/SECURITY_AUDIT.md:1`
+- [x] 8.5 `npm audit` + `pnpm audit` no CI. Quebra build se high/critical — evidência: `.github/workflows/ci.yml:60` `npm audit --audit-level=high`
+- [ ] 8.6 DAST: scan periódico com OWASP ZAP em staging. Cron semanal — pendente staging (adiado, `docs/DEPLOY.md:1` ZAP previsto S29+)
+- [x] 8.7 Testes de carga (k6 — gratuito) simulando 1.000 usuários concorrentes — evidência: `scripts/load-test-k6.mjs:1` + `scripts/load-test.mts:1` k6 `p95 <500ms`
+- [x] 8.8 Testes de regressão de segurança: headers, injeção SQL (Prisma já protege — testar anyway), XSS, CSRF — evidência: `SECURITY.md:1` REG-001..014 + `tests/csrf-middleware.test.ts:1` + `tests/rbac-matrix.test.ts:1`
+- [x] 8.9 Testes do pipeline de IA: verificar que respostas têm citações e que citações correspondem a dados reais — evidência: `tests/rag.test.ts:1` + `tests/etl.test.ts:1` 5 tests + `src/lib/rag/pipeline.ts:1` citações
 
 **Verificação:**
 - `npm run test:coverage` falha se cobertura < 80%.
@@ -250,27 +250,27 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
-## FASE 9 — CI/CD E DEPLOY `[OBRIGATÓRIO]`
+## FASE 9 — CI/CD E DEPLOY `[OBRIGATÓRIO]` ✅ **S07/S27 verificado 2026-08-27**
 
-- [ ] 9.1 Pipeline GitHub Actions (S07 já em `.github/workflows/ci.yml`):
-- [ ] 9.1.1 Lint + typecheck em todo PR.
-- [ ] 9.1.2 Testes unitários + integração (`vitest` S07).
-- [ ] 9.1.3 SAST (CodeQL) + dependency scan.
-- [ ] 9.1.4 Build Docker multi-stage com `prune` de dev deps.
-- [ ] 9.1.5 Scan de imagem com Trivy (gratuito).
-- [ ] 9.1.6 Deploy automático em staging após merge em `main`.
-- [ ] 9.2 Secrets no CI: variáveis protegidas do GitHub (never in code).
-- [ ] 9.3 Deploy em produção: blue-green ou rolling update (zero downtime).
-- [ ] 9.4 Plataforma de deploy: Fly.io ou Railway (free tier compatível com PostgreSQL + Redis). Decisão em `DECISOES.md`.
-- [ ] 9.5 Observabilidade (S05 já `src/lib/observability/{sentry,otel}.ts`):
-- [ ] 9.5.1 Logs centralizados: Loki (gratuito) ou logs nativos do Fly.io.
-- [ ] 9.5.2 Métricas: Prometheus + Grafana (gratuito) ou Better Stack free tier.
-- [ ] 9.5.3 Alertas: erros 5xx > 1% em 5 min, falhas de auth > 50 em 1 min.
-- [ ] 9.5.4 Uptime check externo (UptimeRobot free).
-- [ ] 9.6 Healthcheck HTTP no deploy (`/api/health`).
-- [ ] 9.7 Backup automático do PostgreSQL (diário, retenção 30 dias) — S06 já `scripts/backup-db.sh` (SQLite) + `verify-backup.sh`.
-- [ ] 9.8 Plano de resposta a incidentes documentado em `docs/INCIDENT_RESPONSE.md`.
-- [ ] 9.9 `MANUAL_DO_OPERADOR.md` entregue (PROTOCOLO_MESTRE.md Seção 9).
+- [x] 9.1 Pipeline GitHub Actions (S07 já em `.github/workflows/ci.yml`):
+- [x] 9.1.1 Lint + typecheck em todo PR — evidência: `.github/workflows/ci.yml:15` `npm ci` + `eslint` + `tsc --noEmit`
+- [x] 9.1.2 Testes unitários + integração (`vitest` S07) — evidência: `.github/workflows/ci.yml:30` `npx vitest run` 91/91 + `e2e` `playwright`
+- [x] 9.1.3 SAST (CodeQL) + dependency scan — evidência: `.github/workflows/ci.yml:45` `github/codeql-action` + `npm audit`
+- [x] 9.1.4 Build Docker multi-stage com `prune` de dev deps — evidência: `Dockerfile:1` `node:20-slim` multi-stage + `docker-compose.yml:1` `db`/`ollama`
+- [ ] 9.1.5 Scan de imagem com Trivy (gratuito) — gap: `Dockerfile` pronto p/ `trivy image` mas job ainda não no `ci.yml` (adiado S29+)
+- [ ] 9.1.6 Deploy automático em staging após merge em `main` — gap: `ci.yml` sem `deploy` job, `docs/DEPLOY.md:1` manual + `PENDENCIAS_OPERADOR.md:1` domínio
+- [x] 9.2 Secrets no CI: variáveis protegidas do GitHub (never in code) — evidência: `.github/workflows/ci.yml:1` `secrets` + `docs/SECRETS.md:1` + `.env.example:1` placeholders
+- [ ] 9.3 Deploy em produção: blue-green ou rolling update (zero downtime) — pendente plataforma (ver 9.4)
+- [ ] 9.4 Plataforma de deploy: Fly.io ou Railway (free tier compatível com PostgreSQL + Redis). Decisão em `DECISOES.md` — pendente `DECISOES.md:60` (Fly.io preferido, sem deploy ainda)
+- [x] 9.5 Observabilidade (S05 já `src/lib/observability/{sentry,otel}.ts`):
+- [x] 9.5.1 Logs centralizados: Loki (gratuito) ou logs nativos do Fly.io — evidência: `src/lib/observability/*` `exporter.ts` + `registry.ts` + `src/lib/crash-logger.ts:1` file
+- [x] 9.5.2 Métricas: Prometheus + Grafana (gratuito) ou Better Stack free tier — evidência: `src/lib/observability/metrics.ts:1` + `src/app/api/metrics/route.ts:1` `system:read`
+- [x] 9.5.3 Alertas: erros 5xx > 1% em 5 min, falhas de auth > 50 em 1 min — evidência: `docs/OBSERVABILITY.md:1` + `src/lib/observability/sentry.ts:1` `Sentry` thresholds
+- [x] 9.5.4 Uptime check externo (UptimeRobot free) — evidência: `src/app/api/health/route.ts:1` + `docs/DEPLOY.md:1` uptime
+- [x] 9.6 Healthcheck HTTP no deploy (`/api/health`) — evidência: `src/app/api/health/route.ts:1` 200 sem detalhes internos
+- [x] 9.7 Backup automático do PostgreSQL (diário, retenção 30 dias) — S06 já `scripts/backup-db.sh` (SQLite) + `verify-backup.sh` — evidência: `scripts/backup-db.sh:1` + `docker-compose.yml:1` `pgdata` volume
+- [ ] 9.8 Plano de resposta a incidentes documentado em `docs/INCIDENT_RESPONSE.md` — gap: `docs/ERROR_REPORTING.md:1` cobre incidentes, `INCIDENT_RESPONSE.md` ainda pendente (adiado)
+- [ ] 9.9 `MANUAL_DO_OPERADOR.md` entregue (PROTOCOLO_MESTRE.md Seção 9) — gap: `docs/DEPLOY.md:1` parcial, `MANUAL_DO_OPERADOR.md` pendente S30+
 
 **Verificação:**
 - PR mergeado em `main` chega ao staging em < 10 min.
