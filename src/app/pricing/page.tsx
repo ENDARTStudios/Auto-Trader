@@ -8,8 +8,10 @@ import { motion } from "framer-motion";
 import { fadeInUp, staggerContainer, cardMotion } from "@/lib/ui/motion";
 import { useAuth } from "@/hooks/use-auth";
 import { PLANS } from "@/lib/billing/plans";
+import { useTranslation } from "@/lib/i18n/hooks";
 
 export default function PricingPage() {
+  const { t } = useTranslation();
   const { user, isLoading } = useAuth();
   const [submitting, setSubmitting] = useState<string | null>(null);
 
@@ -45,9 +47,9 @@ export default function PricingPage() {
         className="container mx-auto max-w-6xl space-y-8"
       >
         <motion.div variants={fadeInUp} className="text-center space-y-2">
-          <h1 className="text-3xl md:text-5xl font-bold">Auto Trader Pricing</h1>
+          <h1 className="text-3xl md:text-5xl font-bold">{t("pricing.title")}</h1>
           <p className="text-muted-foreground text-lg">
-            Crypto trading plans for every level — paper-only to live broadcast
+            {t("common.tagline")}
           </p>
         </motion.div>
 
@@ -61,7 +63,7 @@ export default function PricingPage() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-xl">{plan.name}</CardTitle>
-                    {plan.id === "pro" && <Badge>Popular</Badge>}
+                    {plan.id === "pro" && <Badge>{t("pricing.popular")}</Badge>}
                   </div>
                   <div className="mt-2">
                     <span className="text-3xl font-bold">${plan.priceUsdMonthly}</span>
@@ -78,7 +80,7 @@ export default function PricingPage() {
                     ))}
                   </ul>
                   <div className="text-xs text-muted-foreground">
-                    Rate limit: {plan.rateLimitPerMinute}/min · Max {plan.maxOpenPositions} positions
+                    {t("pricing.rateLimit")}: {plan.rateLimitPerMinute}/min · {t("pricing.maxPositions")} {plan.maxOpenPositions}
                   </div>
                   <Button
                     onClick={() => handleSubscribe(plan.id)}
@@ -86,7 +88,7 @@ export default function PricingPage() {
                     className="w-full"
                     variant={plan.id === "pro" ? "default" : "outline"}
                   >
-                    {submitting === plan.id ? "..." : plan.id === "free" ? "Downgrade" : `Subscribe to ${plan.name}`}
+                    {submitting === plan.id ? "..." : plan.id === "free" ? t("pricing.downgrade") : `${t("pricing.subscribeTo")} ${plan.name}`}
                   </Button>
                 </CardContent>
               </Card>

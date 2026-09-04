@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { fadeInUp } from "@/lib/ui/motion";
 import { Shield, Users } from "lucide-react";
+import { useTranslation } from "@/lib/i18n/hooks";
 
 interface UserRow {
   id: string;
@@ -25,6 +26,7 @@ interface UserRow {
 }
 
 export default function AdminUsersPage() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { data, isLoading } = useQuery<{ users: UserRow[] }>({
     queryKey: ["admin-users"],
@@ -42,7 +44,7 @@ export default function AdminUsersPage() {
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!acceptTerms) throw new Error("Você deve aceitar os Termos de Uso e a Política de Privacidade");
+      if (!acceptTerms) throw new Error(t("register.mustAccept"));
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -90,9 +92,9 @@ export default function AdminUsersPage() {
     <motion.div variants={fadeInUp} initial="hidden" animate="visible" className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-2">
         <Users className="size-5 text-primary" />
-        <h1 className="text-xl font-semibold">Admin — Users</h1>
+        <h1 className="text-xl font-semibold">{t("admin.users.title")}</h1>
         <Badge variant="outline" className="ml-2">
-          super_admin only
+          {t("admin.users.superAdminOnly")}
         </Badge>
       </div>
 
@@ -100,7 +102,7 @@ export default function AdminUsersPage() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Shield className="size-4" />
-            Criar usuário
+            {t("admin.users.create")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -112,15 +114,15 @@ export default function AdminUsersPage() {
             className="grid grid-cols-1 md:grid-cols-4 gap-3"
           >
             <div className="space-y-1">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("admin.users.email")}</Label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="new@local" required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="password">Senha (≥8)</Label>
+              <Label htmlFor="password">{t("admin.users.password")}</Label>
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
             </div>
             <div className="space-y-1">
-              <Label>Role</Label>
+              <Label>{t("admin.users.role")}</Label>
               <Select value={role} onValueChange={setRole}>
                 <SelectTrigger>
                   <SelectValue />
@@ -135,20 +137,20 @@ export default function AdminUsersPage() {
             </div>
             <div className="flex items-end">
               <Button type="submit" disabled={create.isPending || !acceptTerms} className="w-full">
-                {create.isPending ? "Criando…" : "Criar"}
+                {create.isPending ? "..." : t("admin.users.create")}
               </Button>
             </div>
           </form>
           <div className="flex items-center gap-2 mt-3">
             <Checkbox id="acceptTerms" checked={acceptTerms} onCheckedChange={(v) => setAcceptTerms(!!v)} />
             <label htmlFor="acceptTerms" className="text-xs text-muted-foreground">
-              Confirmo que o usuário leu e aceitou os{" "}
+              {t("register.acceptLabel")}{" "}
               <a href="/terms" target="_blank" className="underline hover:text-foreground">
-                Termos de Uso
+                {t("footer.terms")}
               </a>{" "}
-              e a{" "}
+              {t("register.acceptLabelEnd")}{" "}
               <a href="/privacy" target="_blank" className="underline hover:text-foreground">
-                Política de Privacidade
+                {t("footer.privacy")}
               </a>
               <span className="text-destructive"> *</span>
             </label>
@@ -159,7 +161,7 @@ export default function AdminUsersPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Usuários ({data?.users.length ?? 0})</CardTitle>
+          <CardTitle className="text-base">{t("admin.users.list", { count: data?.users.length ?? 0 })}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -190,11 +192,11 @@ export default function AdminUsersPage() {
                         size="sm"
                         className="h-6 text-xs text-destructive hover:text-destructive"
                         onClick={() => {
-                          if (confirm(`Remover ${u.email}?`)) del.mutate(u.id);
+                          if (confirm(t("admin.users.confirmRemove", { email: u.email }))) del.mutate(u.id);
                         }}
                         disabled={del.isPending}
                       >
-                        Remover
+                        {t("admin.users.remove")}
                       </Button>
                     </td>
                   </tr>
