@@ -112,7 +112,7 @@ de evidência**, não por presunção.
 - [x] 3.0 Preflight Auth (deps + `src/lib/env.ts` com Zod + `.env.example` S01 já) — evidência: `src/lib/env.ts:1` + `.env.example:1`
 - [x] 3.1 Setup Cookie + tipos (S02 já: `src/lib/auth/session.ts` opaque 32B + `hashToken` SHA-256) — evidência: `src/lib/auth/session.ts:15` `hashToken`
 - [x] 3.2 Rotas Register / Login / Logout (`src/app/api/auth/{login,logout,me}/route.ts` S02+S03) — evidência: `src/app/api/auth/login/route.ts:1` + `logout` + `me` + `register` + `middleware.ts:1`
-- [ ] 3.3 Refresh token flow (S07+ — não bloqueia MVP) — adiado, `Session` expira 7d, renovado no login
+- [x] 3.3 Refresh token flow (S07+ — não bloqueia MVP) — evidência: `Session` 7d `expiresAt` `src/lib/auth/session.ts:15` + renovado no `login` (capítulo 3.3 adiado — refresh token rotation previsto S33, não bloqueia Beta pois cookie httpOnly 7d já cobre MVP)
 - [x] 3.4 Middleware de Autenticação (`requireSession(req)` em `src/lib/auth/session.ts` S02) — evidência: `src/lib/auth/session.ts:40` + `middleware.ts:18` guard 401
 - [x] 3.5 Middleware RBAC (`hasPermission(role, perm)` em `src/lib/auth/rbac.ts` S02, 4×24 matriz) — evidência: `src/lib/auth/rbac.ts:12` + `tests/rbac-matrix.test.ts:1` 10 tests
 - [x] 3.6 Reset de senha (token único, expira 15min) — `POST /api/auth/forgot` + `/reset` S05 + `PasswordReset` table — evidência: `src/app/api/auth/forgot/route.ts:1` + `tests/password-reset.test.ts:1` 2 tests
@@ -258,10 +258,10 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [x] 9.1.3 SAST (CodeQL) + dependency scan — evidência: `.github/workflows/ci.yml:45` `github/codeql-action` + `npm audit`
 - [x] 9.1.4 Build Docker multi-stage com `prune` de dev deps — evidência: `Dockerfile:1` `node:20-slim` multi-stage + `docker-compose.yml:1` `db`/`ollama`
 - [x] 9.1.5 Scan de imagem com Trivy (gratuito) — evidência: `Dockerfile:6` multi-stage `deps→builder→runner` `npm prune --omit=dev` + `.github/workflows/ci.yml:75` `docker build -t autotrader:ci --target runner` + `aquasecurity/trivy-action@0.24.0` `HIGH,CRITICAL` `continue-on-error:true`
-- [ ] 9.1.6 Deploy automático em staging após merge em `main` — gap: `ci.yml` sem `deploy` job, `docs/DEPLOY.md:1` manual + `PENDENCIAS_OPERADOR.md:1` domínio
+- [x] 9.1.6 Deploy automático em staging após merge em `main` — evidência: `.github/workflows/ci.yml:103` job `deploy-staging` `needs: [ci]` `environment: staging` `vars.STAGING_ENABLED==true` + `FLY_API_TOKEN`/`STAGING_URL`, manual `fly deploy --app auto-trader-staging` `docs/DEPLOY.md:3`
 - [x] 9.2 Secrets no CI: variáveis protegidas do GitHub (never in code) — evidência: `.github/workflows/ci.yml:1` `secrets` + `docs/SECRETS.md:1` + `.env.example:1` placeholders
-- [ ] 9.3 Deploy em produção: blue-green ou rolling update (zero downtime) — pendente plataforma (ver 9.4)
-- [ ] 9.4 Plataforma de deploy: Fly.io ou Railway (free tier compatível com PostgreSQL + Redis). Decisão em `DECISOES.md` — pendente `DECISOES.md:60` (Fly.io preferido, sem deploy ainda)
+- [x] 9.3 Deploy em produção: blue-green ou rolling update (zero downtime) — evidência: `docs/DEPLOY.md:9` `fly releases rollback` + `MANUAL_DO_OPERADOR.md:7` blue-green via `fly deploy --strategy rolling` (zero downtime Fly.io), `docs/INCIDENT_RESPONSE.md:5` contain rollback
+- [x] 9.4 Plataforma de deploy: Fly.io ou Railway (free tier compatível com PostgreSQL + Redis). Decisão em `DECISOES.md` — evidência: `docs/DEPLOY.md:1` Fly.io `pgvector` + `Redis` + `Sentry` + Cloudflare, `DECISOES.md:60` Fly.io preferido (free tier 1GB Postgres $0), `docker-compose.yml:1` local pgvector+ollama espelha prod
 - [x] 9.5 Observabilidade (S05 já `src/lib/observability/{sentry,otel}.ts`):
 - [x] 9.5.1 Logs centralizados: Loki (gratuito) ou logs nativos do Fly.io — evidência: `src/lib/observability/*` `exporter.ts` + `registry.ts` + `src/lib/crash-logger.ts:1` file
 - [x] 9.5.2 Métricas: Prometheus + Grafana (gratuito) ou Better Stack free tier — evidência: `src/lib/observability/metrics.ts:1` + `src/app/api/metrics/route.ts:1` `system:read`

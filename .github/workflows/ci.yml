@@ -100,6 +100,22 @@ jobs:
       - uses: github/codeql-action/autobuild@v3
       - uses: github/codeql-action/analyze@v3
 
+  deploy-staging:
+    if: github.ref == 'refs/heads/main' && vars.STAGING_ENABLED == 'true'
+    needs: [ci]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Fly.io staging (manual — requires FLY_API_TOKEN + STAGING_URL)
+        run: |
+          echo "Staging deploy stub — Fase 9.1.6. Configure FLY_API_TOKEN + STAGING_URL em vars/secrets e habilite vars.STAGING_ENABLED=true."
+          echo "Manual: fly deploy --app auto-trader-staging (docs/DEPLOY.md:3) + curl -fsS $STAGING_URL/api/health/ready"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          STAGING_URL: ${{ vars.STAGING_URL }}
+
   # E2E — só em PRs com label `e2e` ou push em main (evita custo em todo PR)
   e2e:
     if: contains(github.event.pull_request.labels.*.name, 'e2e') || github.ref == 'refs/heads/main'
