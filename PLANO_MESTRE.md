@@ -257,7 +257,7 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [x] 9.1.2 Testes unitários + integração (`vitest` S07) — evidência: `.github/workflows/ci.yml:30` `npx vitest run` 91/91 + `e2e` `playwright`
 - [x] 9.1.3 SAST (CodeQL) + dependency scan — evidência: `.github/workflows/ci.yml:45` `github/codeql-action` + `npm audit`
 - [x] 9.1.4 Build Docker multi-stage com `prune` de dev deps — evidência: `Dockerfile:1` `node:20-slim` multi-stage + `docker-compose.yml:1` `db`/`ollama`
-- [ ] 9.1.5 Scan de imagem com Trivy (gratuito) — gap: `Dockerfile` pronto p/ `trivy image` mas job ainda não no `ci.yml` (adiado S29+)
+- [x] 9.1.5 Scan de imagem com Trivy (gratuito) — evidência: `Dockerfile:6` multi-stage `deps→builder→runner` `npm prune --omit=dev` + `.github/workflows/ci.yml:75` `docker build -t autotrader:ci --target runner` + `aquasecurity/trivy-action@0.24.0` `HIGH,CRITICAL` `continue-on-error:true`
 - [ ] 9.1.6 Deploy automático em staging após merge em `main` — gap: `ci.yml` sem `deploy` job, `docs/DEPLOY.md:1` manual + `PENDENCIAS_OPERADOR.md:1` domínio
 - [x] 9.2 Secrets no CI: variáveis protegidas do GitHub (never in code) — evidência: `.github/workflows/ci.yml:1` `secrets` + `docs/SECRETS.md:1` + `.env.example:1` placeholders
 - [ ] 9.3 Deploy em produção: blue-green ou rolling update (zero downtime) — pendente plataforma (ver 9.4)

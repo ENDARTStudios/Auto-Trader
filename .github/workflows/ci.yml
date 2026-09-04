@@ -72,6 +72,10 @@ jobs:
       - name: Knip — dead code (warn)
         run: npx -y knip --no-exit-code || echo "::warning::knip dead code (see docs/LINT.md)"
 
+      - name: Build Docker image (multi-stage, pruned)
+        if: hashFiles('Dockerfile') != ''
+        run: docker build -t autotrader:ci -f Dockerfile . --target runner
+
       - name: Trivy — image scan (if Dockerfile exists)
         if: hashFiles('Dockerfile') != ''
         uses: aquasecurity/trivy-action@0.24.0

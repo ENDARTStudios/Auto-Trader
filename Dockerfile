@@ -1,21 +1,29 @@
-# Dockerfile for Auto Trader CI/test environment
-# Uses Node.js 20 LTS on Debian for full Unix socket support
-FROM node:20-slim
-
+# Dockerfile — Auto Trader (multi-stage, prune dev deps) — Fase 9.1.4
+# Stage 1: deps
+FROM node:20-slim AS deps
 WORKDIR /app
-
-# Install dependencies
 COPY package*.json bun.lock ./
 RUN npm ci
 
-# Copy source files
+# Stage 2: builder
+FROM node:20-slim AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-
-# Generate Prisma client
 RUN npx prisma generate
-
-# Build the application
 RUN npm run build
 
-# Run tests by default
-CMD ["npm", "run", "test:ci"]
+# Stage 3: runner (pruned, production)
+FROM node:20-slim AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/bun.lock ./
+RUN npm prune --omit=dev && npm cache clean --force
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+EXPOSE 3000
+CMD ["npm", "start"]
