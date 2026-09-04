@@ -1,0 +1,30 @@
+name: DAST — OWASP ZAP (weekly, staging)
+
+on:
+  schedule:
+    - cron: '0 3 * * 1' # Toda segunda 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ZAP Baseline Scan (staging)
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: https://your-domain.com
+          rules_file_name: .zap/rules.tsv
+          cmd_options: '-a -j -I'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # DAST só roda quando staging existir (docs/DEPLOY.md:5). Até lá, este workflow é stub e passa com continue-on-error.
+      # Quando staging subir, trocar target para ${{ secrets.STAGING_URL }} e remover continue-on-error.

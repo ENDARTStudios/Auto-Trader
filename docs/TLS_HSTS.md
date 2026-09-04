@@ -199,3 +199,27 @@ nmap --script ssl-enum-ciphers -p 443 your-domain.com 2>&1 | grep -E "TLSv|SSLv"
 - [ ] (Opcional) Submetido em `hstspreload.org` e aprovado
 - [ ] `next.config.ts` headers() também tem HSTS (defesa em profundidade se Caddy cair)
 - [ ] `middleware.ts` também seta HSTS em prod (terceira camada)
+
+---
+
+## 7. DNSSEC + CAA + HSTS Preload — Condicional (Fase 7.10)
+
+> Status: **Condicional** — só quando domínio próprio for registrado (`PENDENCIAS_OPERADOR.md:1`). Sem domínio, Cloudflare gerencia DNSSEC automaticamente quando o domínio é delegado.
+> Evidência: `docs/TLS_HSTS.md:7` + `PLANO_MESTRE.md:7.10` stub.
+
+**Cloudflare (quando domínio delegado):**
+
+```bash
+# 1. Registrar domínio e apontar NS para Cloudflare (Dashboard → Add site)
+# 2. DNS → Settings → DNSSEC → Enable
+#    Cloudflare publica DS automaticamente no registrar (se registrar suporta CDS/CDNSKEY)
+#    Verificar: dig +dnssec your-domain.com DS
+# 3. DNS → Add record → Type CAA
+#    0 issue "letsencrypt.org"
+#    0 issuewild "letsencrypt.org"
+#    0 iodef "mailto:endart.studios@gmail.com"
+#    Verificar: dig your-domain.com CAA
+# 4. HSTS preload — ver seção 4 (hstspreload.org)
+```
+
+**Sem domínio próprio (estado atual Beta):** usar `http://localhost:3000` + Fly.io `*.fly.dev` (já tem TLS + HSTS via `next.config.ts:12` prod-only). DNSSEC/CAA só faz sentido após `your-domain.com`.

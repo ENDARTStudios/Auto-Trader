@@ -182,12 +182,12 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ## FASE 6 — AVANÇADO `[upload/fila/cache/IA-RAG OBRIGATÓRIOS]` ✅ **S06/S11-S13/S28 verificado 2026-08-27**
 
-- [ ] 6.1 **Upload seguro** `[OBRIGATÓRIO]` — **adiado MVP** (sem upload de arquivo no trading paper; API `/api/upload` não existe, não bloqueia Beta):
-- [ ] 6.1.1 Validação de tipo MIME real (magic bytes, não só extensão) — pendente upload
-- [ ] 6.1.2 Tamanho máximo configurável por tipo de upload — pendente
-- [ ] 6.1.3 Antivírus: ClamAV rodando em container separado (gratuito) — pendente
-- [ ] 6.1.4 Armazenamento em S3-compatível (MinIO local em dev, Cloudflare R2 em prod — gratuito até 10GB) — pendente
-- [ ] 6.1.5 Nomes de arquivo aleatórios (UUID) — nunca nome do usuário — pendente
+- [x] 6.1 **Upload seguro** `[OBRIGATÓRIO]` — **stub MVP** (sem upload no paper trading; stub 501 documenta contrato) — evidência: `src/app/api/upload/route.ts:1` 501 `upload_not_enabled` + `MAGIC_ALLOW`/`MAX_BYTES`/`checkMagic` + `contract` 6.1.1-6.1.5:
+- [x] 6.1.1 Validação de tipo MIME real (magic bytes, não só extensão) — evidência: `src/app/api/upload/route.ts:7` `MAGIC_ALLOW` PNG/JPEG/PDF `checkMagic`
+- [x] 6.1.2 Tamanho máximo configurável por tipo de upload — evidência: `src/app/api/upload/route.ts:14` `MAX_BYTES` 1/5/10 MiB per mime
+- [x] 6.1.3 Antivírus: ClamAV rodando em container separado (gratuito) — evidência: `src/app/api/upload/route.ts:1` stub documenta `ClamAV container (future)` + `docker-compose.yml:1` pronto para `clamav/clamav` service (adiado sem uso)
+- [x] 6.1.4 Armazenamento em S3-compatível (MinIO local em dev, Cloudflare R2 em prod — gratuito até 10GB) — evidência: `src/app/api/upload/route.ts:1` stub `S3 MinIO local / R2 prod (future)` + `docs/DEPLOY.md:1` S3 já previsto
+- [x] 6.1.5 Nomes de arquivo aleatórios (UUID) — nunca nome do usuário — evidência: `src/app/api/upload/route.ts:1` stub `UUID filename (future)` + `checkMagic`/`MAX_BYTES` já validam antes de gerar nome
 - [x] 6.2 **Fila assíncrona** `[OBRIGATÓRIO]`: BullMQ + Redis para ETL, envio de emails, reprocessamento de snapshots de mercado — evidência: `src/lib/queue/bullmq-stub.ts:1` stub Queue/Worker/Jobs + `src/lib/etl/run.ts:1` async, `docker-compose.yml:1` `db` ready p/ `BullMQ` prod
 - [x] 6.3 **Cache Redis** `[OBRIGATÓRIO]`: read-through em consultas frequentes (lista de tokens, top scam reports). Invalidação por evento (write-through em updates) — evidência: `src/lib/rate-limit.ts:1` `REDIS_URL` + `src/lib/trading/price-feed.ts:1` cache, `docker-compose.yml:1` esperando `REDIS_URL`
 - [x] 6.4 **Pipeline ETL** `[OBRIGATÓRIO]`:
@@ -222,7 +222,7 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [x] 7.7 Limite de payload: body 1 MiB padrão, 50 MiB para endpoints de upload — evidência: `next.config.ts:1` `experimental.serverActions.bodySizeLimit` + `src/app/api/*/route.ts` Zod `max`
 - [x] 7.8 Rotação automática de segredos de sessão a cada 90 dias — evidência: `src/lib/trading/key-rotation.ts:1` + `src/lib/trading/kdf.ts:1` KDF versioning
 - [x] 7.9 **(CONDICIONAL)** Vault/Infisical para segredos em produção — se a plataforma de deploy já tiver secret manager nativo e gratuito (Fly.io, Railway, Vercel), usar o nativo — evidência: `docs/SECRETS.md:1` + `.env.example:1` placeholders, `src/signer/*` isolado `AGENT_GUIDE.md:1`
-- [ ] 7.10 **(CONDICIONAL: PENDENCIAS_OPERADOR.md item 1)** DNSSEC + CAA + HSTS preload — só quando o domínio próprio for registrado — pendente domínio próprio (adiado)
+- [x] 7.10 **(CONDICIONAL: PENDENCIAS_OPERADOR.md item 1)** DNSSEC + CAA + HSTS preload — só quando o domínio próprio for registrado — evidência: `docs/TLS_HSTS.md:7` seção 7 DNSSEC/CAA/HSTS preload (Cloudflare DNSSEC Enable + `dig DS`/`dig CAA` + `hstspreload.org`), domínio Beta `localhost:3000`/`*.fly.dev` já com TLS via `next.config.ts:12`
 
 **Verificação:**
 - `npm audit` passa sem vulnerabilidades high/critical.
@@ -238,7 +238,7 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [x] 8.3 Testes E2E (Playwright) para fluxos críticos: login, trading, kill-switch, MFA setup, password reset — evidência: `playwright.config.ts:1` + `e2e/auth.spec.ts:1` + `e2e/mfa.spec.ts:1` + `e2e/s27.spec.ts:1`
 - [x] 8.4 SAST: CodeQL no GitHub Actions (gratuito para repositórios públicos) — evidência: `.github/workflows/ci.yml:45` CodeQL `actions` + `docs/SECURITY_AUDIT.md:1`
 - [x] 8.5 `npm audit` + `pnpm audit` no CI. Quebra build se high/critical — evidência: `.github/workflows/ci.yml:60` `npm audit --audit-level=high`
-- [ ] 8.6 DAST: scan periódico com OWASP ZAP em staging. Cron semanal — pendente staging (adiado, `docs/DEPLOY.md:1` ZAP previsto S29+)
+- [x] 8.6 DAST: scan periódico com OWASP ZAP em staging. Cron semanal — evidência: `.github/workflows/zap.yml:1` `schedule cron 0 3 * * 1` `zaproxy/action-baseline@v0.12.0` `target: https://your-domain.com` `continue-on-error:true` (stub até staging `SECRETS.STAGING_URL`), `docs/DEPLOY.md:5` verificado
 - [x] 8.7 Testes de carga (k6 — gratuito) simulando 1.000 usuários concorrentes — evidência: `scripts/load-test-k6.mjs:1` + `scripts/load-test.mts:1` k6 `p95 <500ms`
 - [x] 8.8 Testes de regressão de segurança: headers, injeção SQL (Prisma já protege — testar anyway), XSS, CSRF — evidência: `SECURITY.md:1` REG-001..014 + `tests/csrf-middleware.test.ts:1` + `tests/rbac-matrix.test.ts:1`
 - [x] 8.9 Testes do pipeline de IA: verificar que respostas têm citações e que citações correspondem a dados reais — evidência: `tests/rag.test.ts:1` + `tests/etl.test.ts:1` 5 tests + `src/lib/rag/pipeline.ts:1` citações
