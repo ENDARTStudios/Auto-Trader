@@ -1,0 +1,33 @@
+{
+  "_comment": "Risk envelope humano — skill auto-trade-bubble-macro-evolution §4.3/§8 — imutável sem revisão humana. Learner nunca afrouxa.",
+  "risk_per_trade_pct": 0.5,
+  "risk_per_trade_max_pct": 1.0,
+  "risk_per_trade_min_pct": 0.25,
+  "net_exposure_max_pct": { "bull": 60, "bubble_risk_gt70": 20, "crisis": 0 },
+  "gross_max_pct": 150,
+  "max_drawdown_day_pct": -2.0,
+  "max_drawdown_week_pct": -5.0,
+  "max_drawdown_month_pct": -8.0,
+  "concentration_per_asset_pct": 15,
+  "concentration_per_cluster_pct": 30,
+  "correlation_threshold": 0.8,
+  "max_leverage_by_regime": {
+    "goldilocks": 2.0,
+    "reflation": 1.5,
+    "disinflation-bull": 1.5,
+    "stagflation": 0.8,
+    "recession-fear": 0.0,
+    "crisis-liquidity": 0.0,
+    "policy-pivot": 0.5,
+    "war-risk-premium": 0.0,
+    "bubble-blowoff": 0.0,
+    "post-bubble-deleverage": 0.3,
+    "range-illiquid": 0.0,
+    "unknown_regime": 0.0
+  },
+  "max_trades_per_day": 20,
+  "slippage_k_by_liquidity": { "liquid": 0.5, "small_crypto": 1.2 },
+  "convergence_tol": "1 tick / 0.5% ADV",
+  "T_lang_days": 14,
+  "T_sla_days": 30
+}

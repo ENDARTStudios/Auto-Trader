@@ -1,0 +1,36 @@
+{
+  "_comment": "DAG vivo — skill §2.5/2.6 — vocabulário válido humano. Quarentena em dag_edges_quarantine.json. Correlação sem mecanismo = inválida.",
+  "nodes": [
+    "Rate_Hike", "Rate_Cut", "WACC_Up", "WACC_Down", "Valuation_Down", "Valuation_Up",
+    "Liquidity_Drain", "Liquidity_Flood", "Fiscal_Expansion", "Inflation_Up",
+    "Central_Bank_Hawkish", "Central_Bank_Dovish", "Crypto_Correlation_100pct", "Crypto_Down",
+    "Retail_FOMO", "Options_Call_Buying", "Gamma_Squeeze", "Price_Up", "Price_Down",
+    "Credit_Spread_Widen", "RiskOff_Flow", "DXY_Up", "Yields_Up", "Earnings_Up", "Margin_Compression",
+    "FCF_Up", "Earnings_Down"
+  ],
+  "edges": [
+    ["Rate_Hike", "WACC_Up"],
+    ["WACC_Up", "Valuation_Down"],
+    ["Rate_Cut", "WACC_Down"],
+    ["WACC_Down", "Valuation_Up"],
+    ["Fiscal_Expansion", "Inflation_Up"],
+    ["Inflation_Up", "Central_Bank_Hawkish"],
+    ["Central_Bank_Hawkish", "Rate_Hike"],
+    ["Central_Bank_Dovish", "Rate_Cut"],
+    ["Liquidity_Drain", "Crypto_Correlation_100pct"],
+    ["Crypto_Correlation_100pct", "Crypto_Down"],
+    ["Liquidity_Flood", "Price_Up"],
+    ["Retail_FOMO", "Options_Call_Buying"],
+    ["Options_Call_Buying", "Gamma_Squeeze"],
+    ["Gamma_Squeeze", "Price_Up"],
+    ["Credit_Spread_Widen", "RiskOff_Flow"],
+    ["RiskOff_Flow", "Price_Down"],
+    ["DXY_Up", "Valuation_Down"],
+    ["Yields_Up", "Valuation_Down"],
+    ["Earnings_Up", "Valuation_Up"],
+    ["Earnings_Up", "FCF_Up"],
+    ["FCF_Up", "Valuation_Up"],
+    ["Earnings_Down", "Margin_Compression"],
+    ["Margin_Compression", "Valuation_Down"]
+  ]
+}

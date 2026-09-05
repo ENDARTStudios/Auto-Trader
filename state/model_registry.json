@@ -1,0 +1,6 @@
+{
+  "_comment": "Champion/Challenger dual — skill §5.4 — M_param e M_lang separados",
+  "model_param": { "champion": "model_param_v17", "challenger": null, "last_stable": "model_param_v17" },
+  "model_lang": { "champion": "model_lang_v10", "challenger": null, "last_stable": "model_lang_v10" },
+  "updatedAt": "2026-09-05T00:00:00.000Z"
+}
