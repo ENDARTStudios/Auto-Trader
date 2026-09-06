@@ -76,11 +76,30 @@
 
 ---
 
-## 5. Próximos (se `Prossiga`)
+## 5. S33 + Skill v1.6 + Fases TA/skill 1→5 (2026-09-05/06)
 
-- **S33** — Refresh token rotation (`PLANO 3.3` S07+)
-- **S34** — Prisma 7 + mdxeditor 4.2 + react-syntax-highlighter 16 (fechar 9 vuln high residuais)
-- **S14 live** — só com chaves testnet + aprovação
+> Skill `skills/auto-trade-bubble-macro-evolution.md:1` v1.6.0 absorvida como regra geral vinculante (`AGENTS.md:1`, `6c075de`). TradingAgents incorporado **assimetricamente**: só como `M_lang` + `perception` — nunca decide, nunca dimensiona, nunca executa (`§0/0.5`).
+
+| Fase | Commit | O que | Gate |
+|------|--------|-------|------|
+| skill | `6c075de` | skill 763 linhas + `config/risk_config.json:1` envelope + `dag_edges.json:1` 26 nós/23 arestas + `edge_to_feature_map.json:1` 0.5e + `state/mode.json:1` + `model_registry.json:1` + `logs/*.jsonl` | graft 2549 nodes |
+| S33 | `82800f4` | `POST /api/auth/refresh:1` rotation `$transaction` 7d, PLANO 3.3 `[x]` | build 46 rotas |
+| F1 | `cc125f3` | `perception-enrichment.ts:1` N/R/M + gate §1 (stale só primário) + §4.4d (TA diverge→penaliza, broker vence) | 6/6 tests |
+| F2 | `da29f2e` | `tradingagents-adapter.ts:1` prosa→`DebateAux` (conviction, sem prob) + DAG veto + forward `needs_fill` + kill→fallback + `scoreChallengerLang` §5.4 | 7/7 tests |
+| F2.1+F3 | `13c15d3` | `llm-extractor.ts:1` BYOK + roteamento determinístico + validação estrita; `challenger-loop.ts:1` canary/kill/latência/SLA; `bootstrap.ts:1` wiring | 13/13 tests |
+| F4 | `2395814` | envelope migrado (`_meta` human-only) + `envelope.ts:1` write-fence + `cron-evolution.ts:1` ciclo §7 | 10/10 tests |
+| F4.1 | `3df82fe` | B-fim por design: `inspect_ta_schema.py:1` manifest AST + `schema-descriptor.ts:1` injetável (default ALTA, null seguro) | 3/3 tests |
+| F5 | `9f28589` | `sizing-fixed-point.ts:1` Picard §4.7b/4.7c + `degraded-recovery.ts:1` timer §5.13c + `mc-posterior.ts:1` gate §5.4c | 16/16 tests |
+
+**B-fim:** keys ALTA confirmadas por índice (funciona); MÉDIAS/BAIXA pendentes de `python scripts/inspect_ta_schema.py <clone>` — não-bloqueante por design (null→ignora→fallback).
+
+---
+
+## 6. Próximos (se `Prossiga`)
+
+- **S34** — Prisma 7 + mdxeditor 4.2 + react-syntax-highlighter 16 (fechar 9 vuln high residuais, breaking — exige staging)
+- **S14 live** — só com chaves testnet + aprovação (`ORCAMENTO_ESTOURADO`)
 - **S15** — `Position` HTTP E2E `traderA POST` → `viewer 403` via `fetch` (`next dev`)
+- **B-fim real** — colar saída do manifest ou `setup.py`+`agents/*.py` do `TradingAgentsX` → trava keys MÉDIAS, remove TODOs
 
-**Fórmula:** continuar priorizando fáceis com menor risco + `git push` cada sprint. Beta Fechada `v0.3.2` pronta (Fases 0-9 `[x]`, `vitest 91/91`, `next build 45 rotas`, `graft 2533 nodes`).
+**Fórmula:** continuar priorizando fáceis com menor risco + `git push` cada sprint. Beta `v0.3.4` pronta (Fases 0-9 `[x]` + skill v1.6 + Fases TA 1→5, `vitest 147`, `next build 46 rotas`, `graft 2717 nodes`).
