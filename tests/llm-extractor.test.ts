@@ -129,7 +129,7 @@ describe('Fase 2.1 — llm-extractor (skill §2.7/§0.5/§4.4d/§5.12)', () => {
     expect(aux.forward_prediction?.event).toContain('41.5');
   });
 
-  it('roteamento determinístico: macro derivado do news_report; prosa trivial ignorada', () => {
+  it('roteamento determinístico (descriptor): macro derivado do news_report; prosa trivial ignorada', () => {
     const blocks = routeProsaToBlocks({
       market_report: PROSA.market_report,
       news_report: PROSA.news_report,
@@ -137,9 +137,32 @@ describe('Fase 2.1 — llm-extractor (skill §2.7/§0.5/§4.4d/§5.12)', () => {
     });
     const kinds = blocks.map((b) => b.kind);
     expect(kinds).toContain('technical');
-    expect(kinds).toContain('macro'); // derivado do news
+    expect(kinds).toContain('macro'); // derivado do news (default ALTA)
     expect(kinds).not.toContain('fundamental'); // ausente
-    // 'ok' trivial (<40 chars) ignorado no sentiment sem news? news presente, então sentiment existe
-    expect(kinds).toContain('sentiment');
+    // sentiment = social_media_report single-key; 'ok' trivial (<40) → ausente
+    expect(kinds).not.toContain('sentiment');
+  });
+
+  it('roteamento descriptor-driven: social real → sentiment; key null → ignorada', () => {
+    const blocks = routeProsaToBlocks({
+      social_media_report: PROSA.social_media_report,
+      news_report: PROSA.news_report,
+    });
+    expect(blocks.map((b) => b.kind)).toEqual(expect.arrayContaining(['sentiment', 'macro']));
+
+    // override: technical via key customizada; null ignora com segurança
+    const custom = routeProsaToBlocks(
+      { custom_tech: PROSA.market_report } as unknown as Parameters<typeof routeProsaToBlocks>[0],
+      {
+        graph_entry_keys: ['company_name', 'trade_date'],
+        prosa_keys: { technical: 'custom_tech', fundamental: null, sentiment: null, macro: null },
+        debate_keys: { bull: null, bear: null, judge: null },
+        decision_keys: { trader: null, final: null },
+        risk_keys_ignored: null,
+        nodes_detected: [],
+        json_mode_detected: false,
+      },
+    );
+    expect(custom.map((b) => b.kind)).toEqual(['technical']);
   });
 });

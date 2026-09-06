@@ -19,6 +19,8 @@
  */
 
 import type { TAAnalystReport } from './perception-enrichment';
+import type { SchemaDescriptor } from './schema-descriptor';
+import { DEFAULT_DESCRIPTOR, loadDescriptor } from './schema-descriptor';
 
 /* ------------------------------------------------------------------ *
  * 1. Contrato do grafo LangGraph (do fork). Ajustar keys apos o
@@ -71,6 +73,7 @@ export interface LLMExtractor {
   extractProsaToReports(
     state: TAGraphState,
     asOf: number,
+    descriptor?: SchemaDescriptor,
   ): Promise<TAAnalystReport[]>;
   /** PATCH 2.1 (Fase 2.1): forward real se o extractor achou alvo/prazo; senão null (stub vale). */
   extractForward?(state: TAGraphState): Promise<{ event: string; deadline_days: number } | null>;
@@ -102,14 +105,18 @@ export class UnparseableThesis extends Error {}
 export interface AdapterConfig {
   timeout_s?: number;
   forwardDefaultDays?: number;
+  /** Fase 4.1: descriptor injetado (manifest) ou path p/ JSON; default = ALTA-por-indice. */
+  descriptor?: SchemaDescriptor;
+  descriptorJsonPath?: string;
 }
 
 export class TradingAgentsAdapter {
   private readonly timeout_s: number;
   private readonly forwardDefaultDays: number;
+  private readonly descriptor: SchemaDescriptor;
 
   constructor(
-    private readonly graph: TAGraph,
+    private readonly graph: TAGGraph,
     private readonly extractor: LLMExtractor,
     private readonly dagValidator: (thesis: string[]) => { pass: boolean; failed_edges?: string[] },
     private readonly fallbackDebate: (ctx: RegimeCtx) => Promise<DebateAux>,
@@ -117,6 +124,7 @@ export class TradingAgentsAdapter {
   ) {
     this.timeout_s = cfg.timeout_s ?? 45;
     this.forwardDefaultDays = cfg.forwardDefaultDays ?? 20;
+    this.descriptor = cfg.descriptor ?? (cfg.descriptorJsonPath ? loadDescriptor(cfg.descriptorJsonPath) : DEFAULT_DESCRIPTOR);
   }
 
   /** Injeta contexto da Camada 3 (3.6 obrigatorio). */
@@ -145,8 +153,8 @@ export class TradingAgentsAdapter {
     asOf: number,
     ctxHash: string,
   ): Promise<DebateAux> {
-    // (a) prosa -> reports estruturados (extrator LLM, JSON mode)
-    const reports = await this.extractor.extractProsaToReports(state, asOf);
+    // (a) prosa -> reports estruturados (extrator LLM, JSON mode; descriptor injetado Fase 4.1)
+    const reports = await this.extractor.extractProsaToReports(state, asOf, this.descriptor);
     if (!reports.length) throw new UnparseableThesis('extractor retornou vazio');
 
     // (b) conviccao = media ponderada do rawConfidence do extractor (NAO prob)

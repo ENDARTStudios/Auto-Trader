@@ -11,6 +11,8 @@
 import type { TAAnalystReport, AnalystKind } from './perception-enrichment';
 import type { TAGraphState, LLMExtractor } from './tradingagents-adapter';
 import { UnparseableThesis } from './tradingagents-adapter';
+import type { SchemaDescriptor } from './schema-descriptor';
+import { DEFAULT_DESCRIPTOR } from './schema-descriptor';
 
 /* ===================== provedor-agnóstico (BYOK) ===================== */
 export interface JSONSchema {
@@ -125,22 +127,26 @@ const EXTRACT_SCHEMA: JSONSchema = {
 interface LabeledBlock { kind: AnalystKind; text: string }
 
 /**
- * Mapeia keys do TAGraphState -> blocos rotulados. Coerente com achado (B):
- * o core NÃO tem nó macro dedicado -> derivamos macro do news_report.
+ * Roteamento descriptor-driven (Fase 4.1): lê as keys do SchemaDescriptor
+ * em vez de hardcodear. Coerente com achado (B): o core NÃO tem nó macro
+ * dedicado -> default deriva macro do news_report. Key null (não confirmada)
+ * -> ignorada com segurança; fallback interno cobre (§4.4d).
  * Isso tira do LLM a decisão "qual texto é qual analista" (menos alucinação).
  *
- * TODO(manifest-B): ajustar keys se o fork X renomear os reports.
+ * TODO(manifest-B): rodar scripts/inspect_ta_schema.py no fork e injetar o
+ * descriptor gerado; default ALTA sustenta o core até lá.
  */
-export function routeProsaToBlocks(state: TAGraphState): LabeledBlock[] {
+export function routeProsaToBlocks(state: TAGraphState, desc: SchemaDescriptor = DEFAULT_DESCRIPTOR): LabeledBlock[] {
   const blocks: LabeledBlock[] = [];
-  const push = (kind: AnalystKind, text?: string) => {
-    const t = (text ?? '').trim();
+  const push = (kind: AnalystKind, key: string | null) => {
+    if (!key) return; // B-fim: key nao confirmada -> ignora com seguranca (fallback cobre)
+    const t = String((state as Record<string, unknown>)[key] ?? '').trim();
     if (t.length > 40) blocks.push({ kind, text: t }); // ignora prosa vazia/trivial
   };
-  push('technical', state.market_report);
-  push('fundamental', state.fundamentals_report);
-  push('sentiment', [state.social_media_report, state.news_report].filter(Boolean).join('\n\n'));
-  push('macro', state.news_report); // derivado (sem nó macro no core)
+  push('technical',   desc.prosa_keys.technical);
+  push('fundamental', desc.prosa_keys.fundamental);
+  push('sentiment',   desc.prosa_keys.sentiment);
+  push('macro',       desc.prosa_keys.macro);
   return blocks;
 }
 
@@ -148,22 +154,30 @@ export function routeProsaToBlocks(state: TAGraphState): LabeledBlock[] {
 export interface ExtractorConfig {
   /** teto de custo/latência: 1 chamada por runDebate. */
   maxBlocksPerCall?: number;
+  /** descriptor do manifest; default = ALTA-por-indice (seguro p/ core). */
+  descriptor?: SchemaDescriptor;
 }
 
 export class ProsaToReportExtractor implements LLMExtractor {
   private lastParsed: { reports: TAAnalystReport[]; forward: ExtractorForward | null } | null = null;
   private readonly maxBlocks: number;
+  private readonly descriptor: SchemaDescriptor;
 
   constructor(
     private readonly provider: LLMProvider,
     cfg: ExtractorConfig = {},
   ) {
     this.maxBlocks = cfg.maxBlocksPerCall ?? 4;
+    this.descriptor = cfg.descriptor ?? DEFAULT_DESCRIPTOR;
   }
 
   /** Contrato Fase 2: prosa -> TAAnalystReport[]. Cacheia p/ extractForward. */
-  async extractProsaToReports(state: TAGraphState, asOf: number): Promise<TAAnalystReport[]> {
-    const blocks = routeProsaToBlocks(state).slice(0, this.maxBlocks);
+  async extractProsaToReports(
+    state: TAGraphState,
+    asOf: number,
+    desc?: SchemaDescriptor,
+  ): Promise<TAAnalystReport[]> {
+    const blocks = routeProsaToBlocks(state, desc ?? this.descriptor).slice(0, this.maxBlocks);
     if (!blocks.length) throw new UnparseableThesis('sem prosa utilizável do TA');
 
     const user = this.buildUserPrompt(blocks, asOf);
