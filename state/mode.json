@@ -1,7 +1,10 @@
 {
-  "mode": "ok",
-  "reason": "bootstrap — skill v1.6 absorbed, teto ok (FAST+DEEP, limites por regime)",
-  "updatedAt": "2026-09-05T00:00:00.000Z",
-  "precedence": "crisis_lock > frozen_autonomy > unknown_regime > lang_degraded > ok",
-  "slas": { "T_lang_days": 14, "T_sla_days": 30 }
+  "$schema": "./mode.schema.json",
+  "_meta": { "owner": "system_runtime", "learner_writable": false, "note": "Escrito pelo runtime/cron, NAO pelo learner. §8c precedencia monotonica." },
+  "state": "ok",
+  "reason": null,
+  "timestamp": "2026-09-05T12:00:00Z",
+  "history": [
+    { "from": "ok", "to": "ok", "trigger": "init", "timestamp": "2026-09-05T12:00:00Z" }
+  ]
 }

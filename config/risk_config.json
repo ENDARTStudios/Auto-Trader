@@ -1,33 +1,50 @@
 {
-  "_comment": "Risk envelope humano — skill auto-trade-bubble-macro-evolution §4.3/§8 — imutável sem revisão humana. Learner nunca afrouxa.",
-  "risk_per_trade_pct": 0.5,
-  "risk_per_trade_max_pct": 1.0,
-  "risk_per_trade_min_pct": 0.25,
-  "net_exposure_max_pct": { "bull": 60, "bubble_risk_gt70": 20, "crisis": 0 },
-  "gross_max_pct": 150,
-  "max_drawdown_day_pct": -2.0,
-  "max_drawdown_week_pct": -5.0,
-  "max_drawdown_month_pct": -8.0,
-  "concentration_per_asset_pct": 15,
-  "concentration_per_cluster_pct": 30,
-  "correlation_threshold": 0.8,
-  "max_leverage_by_regime": {
-    "goldilocks": 2.0,
-    "reflation": 1.5,
-    "disinflation-bull": 1.5,
-    "stagflation": 0.8,
-    "recession-fear": 0.0,
-    "crisis-liquidity": 0.0,
-    "policy-pivot": 0.5,
-    "war-risk-premium": 0.0,
-    "bubble-blowoff": 0.0,
-    "post-bubble-deleverage": 0.3,
-    "range-illiquid": 0.0,
-    "unknown_regime": 0.0
+  "$schema": "./risk_config.schema.json",
+  "_meta": {
+    "owner": "human",
+    "learner_writable": false,
+    "note": "Learner NUNCA escreve aqui. Write-fence em envelope.ts garante. Só humano muda. §5.5/§7.",
+    "version": "1.6.0",
+    "last_human_edit": "2026-09-05T12:00:00Z"
   },
-  "max_trades_per_day": 20,
-  "slippage_k_by_liquidity": { "liquid": 0.5, "small_crypto": 1.2 },
-  "convergence_tol": "1 tick / 0.5% ADV",
-  "T_lang_days": 14,
-  "T_sla_days": 30
+  "risk_per_trade_pct": { "default": 0.5, "max_goldilocks": 1.0, "min_crisis": 0.25 },
+  "exposure_liquid_max_pct": { "bull": 60, "bubble_gt70": 20, "crisis": 0 },
+  "gross_max_pct": 150,
+  "kelly_fraction_max": 0.25,
+  "max_drawdown": { "day_pct": -2, "week_pct": -5, "month_pct": -8 },
+  "concentration": { "per_asset_pct": 15, "per_thesis_cluster_pct": 30 },
+  "correlation_merge_threshold": 0.8,
+  "regime_leverage": { "crisis-liquidity": 0, "range-illiquid": 0, "default": 1 },
+  "kill_switches": {
+    "drawdown_switch": true,
+    "volatility_switch": { "vix_spike_day_pct": 30, "atr_mult": 3 },
+    "liquidity_switch": { "spread_mult_median": 3 },
+    "feed_stale_switch": { "is_emergency": true, "action": "close_neutralize" },
+    "macro_shock_switch": true,
+    "model_miscalibration_switch": { "brier_30d_worse_pct": 15 },
+    "calibration_drift_switch": { "brier_7d_worse_pct": 10 },
+    "order_pattern_compliance_switch": true,
+    "order_to_trade_ratio_switch": { "max_per_session": 50, "on_breach": "degrade_to_advisory" },
+    "unknown_regime_switch": true,
+    "manual_panic_button": true
+  },
+  "evolution_envelope": {
+    "learner_writable_paths": [
+      "state/model_param_weights.json",
+      "state/model_lang_prompts/**",
+      "config/dag_edges_quarantine.json"
+    ],
+    "learner_forbidden_paths": [
+      "config/risk_config.json",
+      "config/dag_edges.json",
+      "state/mode.json"
+    ],
+    "sla_days": 30,
+    "n_min_forward": 40,
+    "forward_deadline_days": 20,
+    "t_lang_days": 14,
+    "dag_fail_rate_limit": 0.3,
+    "canary_stages_pct": [10, 50, 100],
+    "canary_kill": { "brier_7d_worse_pct": 10, "drawdown_breach": true }
+  }
 }
