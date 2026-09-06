@@ -72,6 +72,8 @@ export interface LLMExtractor {
     state: TAGraphState,
     asOf: number,
   ): Promise<TAAnalystReport[]>;
+  /** PATCH 2.1 (Fase 2.1): forward real se o extractor achou alvo/prazo; senão null (stub vale). */
+  extractForward?(state: TAGraphState): Promise<{ event: string; deadline_days: number } | null>;
 }
 
 /* ------------------------------------------------------------------ *
@@ -159,7 +161,7 @@ export class TradingAgentsAdapter {
     const thesis = this.collectThesis(state);
 
     // (e) forward obrigatorio (5.12c): sem alvo/prazo -> needs_fill
-    const forward = this.extractForward();
+    const forward = await this.extractForward(state);
 
     return {
       bull_conviction: round2(bullConv),
@@ -189,9 +191,11 @@ export class TradingAgentsAdapter {
     return out.filter(Boolean);
   }
 
-  private extractForward(): DebateAux['forward_prediction'] {
-    // TA nao traz alvo numerico de forma confiavel (prosa). Stub obrigatorio:
-    // o agente DEVE preencher, senao NO_TRADE (5.12c).
+  private async extractForward(state: TAGraphState): Promise<DebateAux['forward_prediction']> {
+    // PATCH 2.1: delega ao extractor concreto (Fase 2.1) se ele extraiu alvo/prazo real.
+    const real = await this.extractor.extractForward?.(state);
+    if (real) return { event: real.event, deadline_days: real.deadline_days };
+    // senão, stub obrigatório: agente DEVE preencher, ou NO_TRADE (5.12c).
     return {
       event: 'PREENCHER: close > alvo em <=N dias (extrair do final_trade_decision)',
       deadline_days: this.forwardDefaultDays,
