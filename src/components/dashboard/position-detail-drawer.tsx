@@ -266,7 +266,7 @@ function PositionDetailContent({ data }: { data: PositionDetailData }) {
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Saída</p>
-            <p className="font-mono text-xs">{fmtDate(p.exitAt)}</p>
+            <p className="font-mono text-xs">{fmtDate(p.exitAt ?? null)}</p>
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Expira</p>
@@ -565,7 +565,7 @@ function PositionDetailContent({ data }: { data: PositionDetailData }) {
             </div>
             <div>
               <p className="text-muted-foreground">Finalizado</p>
-              <p className="font-mono">{fmtDate(data.round.endedAt)}</p>
+              <p className="font-mono">{fmtDate(data.round.endedAt ?? null)}</p>
             </div>
             <div>
               <p className="text-muted-foreground">Tokens escaneados</p>
@@ -583,7 +583,7 @@ function PositionDetailContent({ data }: { data: PositionDetailData }) {
               <p className="text-muted-foreground">Posições fechadas</p>
               <p className="font-mono">{data.round.positionsClosed}</p>
             </div>
-            {data.round.roundPnlUsd !== null && (
+            {data.round.roundPnlUsd != null && (
               <div className="col-span-2">
                 <p className="text-muted-foreground">P&L do round</p>
                 <p

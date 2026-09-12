@@ -524,7 +524,8 @@ async function main(): Promise<number> {
   // This is the mode used for the v19.3 additional 120-180s sample the
   // operator requested: same order of magnitude as the prior 120s/35,570
   // homogeneous test, but with heterogeneous operation sequences.
-  let check2Result: "pending" | "not-triggered" | "passed" | "failed" | "organically-crashed" | "skipped" =
+  type Check2Outcome = "pending" | "not-triggered" | "passed" | "failed" | "organically-crashed" | "skipped";
+  let check2Result: Check2Outcome =
     RUN_CHECK_2 === "0" ? "skipped" : "pending";
 
   let debugTriggerTimer: NodeJS.Timeout | null = null;
@@ -649,7 +650,13 @@ async function main(): Promise<number> {
   //   - serverDiedDuringStress=true AND the crash log does NOT contain
   //     "DELIBERATE CRASH TEST" (the crash was from something other than
   //     the debug endpoint)
-  const organicCrash = serverDiedDuringStress && (check2Result === "organically-crashed" || (!isDebugCrash && check2Result !== "passed"));
+  // Widen back to the full union: the assignments above happen inside async
+  // callbacks, so CFA narrows `check2Result` (and even an annotated const) to
+  // a subset and flags the verdict comparisons as unintentional (TS2367).
+  // All six values ARE possible here at runtime — the `as` is the documented
+  // escape hatch, not a lie.
+  const outcomeAtVerdict = check2Result as Check2Outcome;
+  const organicCrash = serverDiedDuringStress && (outcomeAtVerdict === "organically-crashed" || (!isDebugCrash && outcomeAtVerdict !== "passed"));
   if (organicCrash) {
     log(`\n=== CHECK 1: POSITIVE — server crashed ORGANICALLY under heterogeneous load ===`);
     log(`This is the crash we were trying to reproduce. The crash-*.log has a real stack trace.`);
@@ -658,7 +665,7 @@ async function main(): Promise<number> {
   }
 
   // CHECK 2: did the debug crash trigger produce a crash-*.log?
-  if (check2Result === "passed") {
+  if (outcomeAtVerdict === "passed") {
     log(`\n=== CHECK 2: PASSED — crash handler fires under concurrent load ===`);
     log(`The debug crash endpoint produced a crash-*.log even with ${totalSent} requests in flight.`);
     log(`This confirms the handler was armed and firing throughout the stress test.`);
@@ -668,7 +675,7 @@ async function main(): Promise<number> {
     return 3;
   }
 
-  if (check2Result === "failed") {
+  if (outcomeAtVerdict === "failed") {
     log(`\n=== CHECK 2: FAILED — crash handler did NOT fire under load ===`);
     log(`The debug endpoint was called but no crash-*.log was produced. This means the`);
     log(`handler registered at boot is somehow not firing under concurrent load. This is`);
@@ -676,7 +683,7 @@ async function main(): Promise<number> {
     return 4;
   }
 
-  if (check2Result === "skipped") {
+  if (outcomeAtVerdict === "skipped") {
     log(`\n=== CHECK 1 (clean run): NEGATIVE — server survived ${DURATION_SEC}s without organic crash ===`);
     log(`CHECK 2: SKIPPED (RUN_CHECK_2=0) — already validated separately in prior run.`);
     log(`This clean run provides a same-order-of-magnitude sample (target: 120-180s)`);

@@ -33,7 +33,7 @@ export function runWeeklyEvolution(deps: CronDeps): CycleResult {
   // 1) modo do mercado (Camada 3) -> aplica precedencia monotonica (8c) via runtime.
   const marketMode = deps.readMarketMode();
   runtimeSetMode(env, { state: marketMode.state, reason: marketMode.reason ?? 'market' }, SEVERITY, deps.auditLog);
-  const mode: ModeFile = { state: env.mode.state as ModeFile['state'], reason: env.mode.reason, timestamp: env.mode.timestamp };
+  const mode: ModeFile = { state: env.mode.state as ModeFile['state'], reason: env.mode.reason ?? undefined, timestamp: env.mode.timestamp };
 
   // 2) ciclo de promocao (Fase 3) — mede sempre (5.5b), aplica so fora de crise/frozen (8c).
   const result = weeklyPromotionCycle(

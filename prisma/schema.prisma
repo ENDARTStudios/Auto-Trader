@@ -56,6 +56,15 @@ model Config {
   paperCyclesRequired Int      @default(50)
   paperCyclesPassed   Int      @default(0)
   graduatedToLive     Boolean  @default(false)
+  // Diversification caps (used by diversification.ts)
+  maxPositionsPerSymbol Int    @default(2)
+  maxPositionsPerChain Int     @default(5)
+  maxPositionsPerStrategy Int  @default(5)
+  // Enabled strategy tags (JSON-encoded string array, like cexSymbols)
+  enabledStrategies   String   @default("[\"scalp\",\"day\",\"swing\"]")
+  // Fee model defaults in basis points (used by fee-model.ts)
+  feeBps              Float    @default(10.0)
+  slippageBps         Float    @default(30.0)
   // Timestamps
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
@@ -93,6 +102,8 @@ model Position {
   // Scam score at time of entry (for audit trail)
   scamScore           Int      @default(0)
   scamBreakdown       String?  // JSON of sub-scores
+  // Strategy tag for diversification caps (used by diversification.ts)
+  strategy            String   @default("day") // "scalp" | "day" | "swing"
   // Ownership — RLS strict (S05, backfilled S04)
   ownerId             String
   owner               User     @relation(fields: [ownerId], references: [id])
@@ -105,6 +116,7 @@ model Position {
   @@index([status])
   @@index([roundId])
   @@index([symbol])
+  @@index([strategy])
 }
 
 // ---------------------------------------------------------------------------
@@ -664,4 +676,128 @@ model ExchangeConnection {
   @@index([ownerId])
   @@index([exchange])
   @@index([isActive])
+}
+
+// ---------------------------------------------------------------------------
+// WatchlistToken — operator-curated tokens to monitor WITHOUT auto-trading.
+// Used by watchlist.ts (CRUD + refreshWatchlistPrices + analyzeWatchlistToken)
+// and the /api/watchlist routes + dashboard watchlist panel.
+// ---------------------------------------------------------------------------
+model WatchlistToken {
+  id                String   @id @default(cuid())
+  symbol            String
+  source            String   // "cex" | "dex"
+  chain             String?
+  tokenId           String?
+  notes             String?
+  alertThresholdPct Float    @default(10.0)
+  enabled           Boolean  @default(true)
+  addedPriceUsd     Float?
+  lastPriceUsd      Float?
+  lastCheckedAt     DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([symbol])
+  @@index([enabled])
+}
+
+// ---------------------------------------------------------------------------
+// SourceHealth — availability/error-rate tracking for external data sources
+// (binance, dexscreener, goplus, zai, rdap, safebrowsing). Used by
+// source-health.ts; the engine pauses SCOUT when critical sources degrade.
+// ---------------------------------------------------------------------------
+model SourceHealth {
+  id                 String    @id
+  source             String    @unique
+  lastSuccessAt      DateTime?
+  lastErrorAt        DateTime?
+  lastErrorMsg       String?
+  successCount24h    Int       @default(0)
+  errorCount24h      Int       @default(0)
+  rateLimited        Boolean   @default(false)
+  rateLimitUntil     DateTime?
+  windowStartedAt    DateTime  @default(now())
+  windowSuccessCount Int       @default(0)
+  windowErrorCount   Int       @default(0)
+
+  @@index([source])
+}
+
+// ---------------------------------------------------------------------------
+// StrategicCapability — capability roadmap rows seeded by
+// strategic-roadmap.ts (ensureStrategicCapabilitiesSeeded, idempotent).
+// Operator edits are preserved (upsert only sets fields on create).
+// ---------------------------------------------------------------------------
+model StrategicCapability {
+  id            String @id
+  category      String
+  title         String
+  description   String
+  status        String // "shipped" | "in_progress" | "planned" | "blocked"
+  completionPct Int    @default(0)
+  notes         String?
+  sortOrder     Int    @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([category])
+}
+
+// ---------------------------------------------------------------------------
+// ScoutSkipStat — persistent SCOUT skip telemetry (per reason), replacing
+// the old in-memory counters. Used by scout-skip-stats.ts.
+// ---------------------------------------------------------------------------
+model ScoutSkipStat {
+  reason  String    @id
+  count   Int       @default(0)
+  lastAt  DateTime?
+}
+
+// ---------------------------------------------------------------------------
+// FeeAuditLog — per-trade fee + slippage breakdown. Written by
+// fee-model.ts (recordFeeAuditLog, silent on failure); read by getFeeStats
+// and the /api/fees dashboard panel.
+// ---------------------------------------------------------------------------
+model FeeAuditLog {
+  id               String   @id @default(cuid())
+  positionId       String
+  symbol           String
+  side             String   // "buy" | "sell"
+  grossAmountUsd   Float
+  executedPriceUsd Float    @default(0)
+  qty              Float    @default(0)
+  feeBps           Float
+  feeUsd           Float
+  slippageBps      Float
+  slippageUsd      Float
+  totalCostUsd     Float
+  netAmountUsd     Float
+  strategy         String?
+  exchange         String?
+  executedAt       DateTime @default(now())
+
+  @@index([positionId])
+  @@index([executedAt])
+  @@index([symbol])
+}
+
+// ---------------------------------------------------------------------------
+// PaperCycleAttempt — one row per paper-trading evaluation cycle. Used by
+// graduation.ts to compute win rate / drawdown over the trailing window
+// before allowing graduation to live trading.
+// ---------------------------------------------------------------------------
+model PaperCycleAttempt {
+  id              String   @id @default(cuid())
+  roundId         Int
+  pnlUsd          Float
+  tokensScanned   Int      @default(0)
+  positionsOpened Int      @default(0)
+  positionsClosed Int      @default(0)
+  profitable      Boolean  @default(false)
+  completedAt     DateTime @default(now())
+
+  @@index([completedAt])
+  @@index([roundId])
 }

@@ -60,7 +60,7 @@ test.describe('S27 e2e (no dev server required)', () => {
       deadline: Math.floor(Date.now() / 1000) + 600,
     });
     expect(swap.ok).toBe(true);
-    expect(swap.exchange).toBeUndefined(); // swap returns txHash not exchange
+    expect(swap.txHash).toMatch(/^0x[0-9a-f]{64}$/); // swap returns txHash, not exchange
     expect(LIVE_TRADER_CONFIG.testnet).toBe(true);
   });
 });

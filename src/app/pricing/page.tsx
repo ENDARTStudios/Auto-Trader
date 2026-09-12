@@ -58,7 +58,7 @@ export default function PricingPage() {
           className="grid grid-cols-1 md:grid-cols-3 gap-4"
         >
           {PLANS.map((plan) => (
-            <motion.div key={plan.id} variants={cardMotion}>
+            <motion.div key={plan.id} {...cardMotion}>
               <Card className={plan.id === "pro" ? "border-primary shadow-lg" : ""}>
                 <CardHeader>
                   <div className="flex items-center justify-between">

@@ -48,7 +48,7 @@ import {
 let pass = 0;
 let fail = 0;
 
-function assert(cond: boolean, msg: string): void {
+function assert(cond: unknown, msg: string): void {
   if (cond) {
     console.log(`  \u2713 PASS`);
     pass++;

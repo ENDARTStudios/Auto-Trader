@@ -141,7 +141,7 @@ async function sendRpc(
   method: string,
   params?: unknown,
   timeoutMs = 5000
-): Promise<{ jsonrpc: string; result?: unknown; error?: { code: number; message: string; data?: unknown }; id: number | string | null }> {
+): Promise<{ jsonrpc: string; result?: Record<string, unknown>; error?: { code: number; message: string; data?: unknown }; id: number | string | null }> {
   return new Promise((resolve, reject) => {
     const id = Math.floor(Math.random() * 1000000);
     const frame = JSON.stringify({ jsonrpc: "2.0", method, ...(params !== undefined ? { params } : {}), id });

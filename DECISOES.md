@@ -99,5 +99,14 @@
 **Risco:** baixo — `String` JSON mock (prod `postgresql` `vector(1536)` S13), `mulberry32` determinístico, frozen intacto.
 **Próximo:** S13 — `ETL` cripto-only (CoinGecko + DexScreener + GoPlus + Etherscan) + `pgvector` real `postgresql` + `ollama` `nomic-embed-text` + `citation` `pg_trgm` (corrigindo S13 anterior que estava com escopo errado) ou `Billing Plans` Opção B.
 
+### Decisão #32: S37 Auditoria tsc 231→0 + Prisma drift + ignoreBuildErrors off
+**Data:** 2026-09-12
+**Problema:** `npx tsc --noEmit` (gate CI) com 231 erros mascarados por `ignoreBuildErrors: true`; 6 models Prisma ausentes com ~42 call sites que quebrariam em runtime (`db.watchlistToken` etc); hooks `useWatchlist*` importados pelo painel mas inexistentes; `npm run build` quebrava no Windows (`cp` unix).
+**Solução:** (1) tsc 231→0: LogSource +7 fontes, target ES2020 (28 BigInt), `optional-deps.d.ts` (sentry/otel/redis/socket.io), 6 models Prisma (`WatchlistToken/SourceHealth/StrategicCapability/ScoutSkipStat/FeeAuditLog/PaperCycleAttempt`) + `Position.strategy` + 6 campos `Config` via `db push` (canônico por DEPLOY.md; sem reset/dataloss), `EngineConfig` espelhado, 6 hooks watchlist em `use-trading-data.ts`, asserts `unknown`, `result?: Record`, mocks sem `implements Simulator`, `export {}` anti-TS2393, fixes pontuais (zod v4 `error`, Variants spread, DexSwap). (2) `ignoreBuildErrors: false` + build Windows-safe (`node fs.cpSync` + `build:assets`) + script `typecheck`. (3) Coverage 6.48% linhas documentado como gate vermelho conhecido (S38 backlog; +5 tests fee-model puros).
+**Arquivos afetados:** `prisma/schema.prisma` (+133), `config.ts`, `use-trading-data.ts` (+120), `logger.ts`, `tsconfig.json`, `next.config.ts`, `package.json`, 35 arquivos no total; `dev.db` migrado via push (gitignored).
+**Validação:** `tsc` 0 erros, `eslint` 0, `vitest` 160/160 (26 files), `next build` 46 rotas OK com type-check ligado, `graft` 2744 nodes.
+**Risco:** baixo-médio — mudanças de runtime mínimas (`?? null`, `?? ""`, `!= null`, `?? 0` removido onde errado); nenhuma lógica de trade alterada; `dev.db` com backup implícito? NÃO há backup — operador deve rodar `scripts/backup-db.sh` antes de `db push` em prod (adicionado ao SPRINT).
+**Próximo:** S38 — cobertura 80% (expansão sistemática de tests p/ `src/lib/{trading,chain,auth}`) + S34 breaking majors + S14 live com chaves.
+
 ### Decisão #1-N (placeholder)
 Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.

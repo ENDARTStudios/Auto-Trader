@@ -34,3 +34,7 @@ main().catch((e) => {
   console.error(e);
   process.exit(1);
 });
+
+// Module marker: without a top-level import/export this file is a global
+// script and its `main` collides with every other script's `main` (TS2393).
+export {};

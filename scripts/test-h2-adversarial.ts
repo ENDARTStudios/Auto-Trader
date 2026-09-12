@@ -103,10 +103,14 @@ import {
 import { SlippageInputs } from "../src/lib/chain/mev-baseline";
 import { getAddress, zeroPadValue } from "ethers";
 
+// ethers v6 removed the `Address` alias (v5) in favor of `AddressLike`.
+// This script only needs 0x-hex strings, so alias locally.
+type Address = string;
+
 let pass = 0;
 let fail = 0;
 
-function assert(cond: boolean, msg: string): void {
+function assert(cond: unknown, msg: string): void {
   if (cond) {
     console.log(`  \u2713 PASS`);
     pass++;

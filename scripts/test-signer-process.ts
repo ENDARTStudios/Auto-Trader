@@ -154,7 +154,7 @@ async function sendRpc(
   socketPath: string,
   frame: string,
   timeoutMs = 5000
-): Promise<{ jsonrpc: string; result?: unknown; error?: { code: number; message: string; data?: unknown }; id: number | string | null }> {
+): Promise<{ jsonrpc: string; result?: Record<string, unknown>; error?: { code: number; message: string; data?: unknown }; id: number | string | null }> {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection(socketPath, () => {
       // Connected — send the frame.

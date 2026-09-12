@@ -103,7 +103,11 @@
 
 > 11 URLs → 10 únicas (`Agency-agents` = `Agency`, mesma URL — dedup honesto). Todas acessadas por evidência; licença do `awesome-harness-engineering` confirmada via API GitHub (**NOASSERTION** → classe `unverified`, SPEC-ONLY por precaução). 10 skills (`skills/agent-*.md`) + índice Parte 2 + registry com `category` + camada `docs` + 8→10 tests (19 entradas, 9 trading + 10 agent-infra). Integração real hoje = doutrina + contratos (memória 4-tier≈§5.2, personas p/ debate, coleta N/R/M futura, red-team p/ CI); nada executa.
 
-## 8. Próximos (se `Prossiga`)
+## 8. S37 — Auditoria geral: tsc 231→0 + Prisma drift + build Windows-safe (2026-09-12)
+
+> Auditoria completa achou CI typecheck vermelho (231 erros sob `ignoreBuildErrors: true`) + 6 models Prisma ausentes (~42 call sites com crash em runtime) + painel watchlist sem hooks + build quebrada no Windows. Tudo corrigido: tsc 0, `db push` (canônico DEPLOY.md, sem dataloss), 6 hooks watchlist, `ignoreBuildErrors: false`, `node fs.cpSync`, `typecheck` script. Detalhes em `DECISOES.md` #32. **Gate ainda vermelho (conhecido): coverage 6.48% linhas vs 80% (S38 backlog)** + audit 12 vuln breaking-majors (S34). Antes de `db push` em prod: `bash scripts/backup-db.sh` + `verify-backup.sh`.
+
+## 9. Próximos (se `Prossiga`)
 
 - **S34** — Prisma 7 + mdxeditor 4.2 + react-syntax-highlighter 16 (fechar 9 vuln high residuais, breaking — exige staging)
 - **S14 live** — só com chaves testnet + aprovação (`ORCAMENTO_ESTOURADO`)

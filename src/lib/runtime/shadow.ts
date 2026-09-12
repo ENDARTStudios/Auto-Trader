@@ -211,7 +211,7 @@ export class ShadowMode {
 
       return {
         blockNumber: parseHex(blockRes),
-        gasPrice: gasRes.ok ? gasRes.value : null,
+        gasPrice: gasRes.ok ? (gasRes.value ?? null) : null,
         nonce: parseHex(nonceRes),
         baseFeePerGas: feeRes.ok && feeRes.value?.baseFeePerGas?.[0]
           ? feeRes.value.baseFeePerGas[0]
@@ -247,7 +247,7 @@ export class ShadowMode {
 
       return {
         blockNumber: parseHex(blockRes) ?? 0,
-        gasPrice: gasRes.ok ? gasRes.value : null,
+        gasPrice: gasRes.ok ? (gasRes.value ?? null) : null,
         nonce: parseHex(nonceRes) ?? 0,
         baseFeePerGas: feeRes.ok && feeRes.value?.baseFeePerGas?.[0]
           ? feeRes.value.baseFeePerGas[0]

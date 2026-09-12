@@ -49,7 +49,7 @@ import { SignHandlerError } from "../src/signer/sign-methods";
 let pass = 0;
 let fail = 0;
 
-function assert(cond: boolean, msg: string): void {
+function assert(cond: unknown, msg: string): void {
   if (cond) {
     console.log(`  \u2713 PASS`);
     pass++;
@@ -159,7 +159,7 @@ async function sendRpc(
   method: string,
   params?: unknown,
   timeoutMs = 5000,
-): Promise<{ jsonrpc: string; result?: unknown; error?: { code: number; message: string; data?: unknown }; id: number | string | null }> {
+): Promise<{ jsonrpc: string; result?: Record<string, unknown>; error?: { code: number; message: string; data?: unknown }; id: number | string | null }> {
   return new Promise((resolve, reject) => {
     const id = Math.floor(Math.random() * 1000000);
     const frame = JSON.stringify({ jsonrpc: "2.0", method, ...(params !== undefined ? { params } : {}), id });
@@ -359,7 +359,7 @@ async function main(): Promise<void> {
 
       // Verify the signed tx is parseable + recovers the wallet address.
       const parsed = Transaction.from(result.rawSignedTx!);
-      assertEqual(parsed.from.toLowerCase(), wallet.address.toLowerCase(), "A.1: signed tx recovers wallet address");
+      assertEqual((parsed.from ?? "").toLowerCase(), wallet.address.toLowerCase(), "A.1: signed tx recovers wallet address");
       assertEqual(parsed.hash, result.txHash, "A.1: parsed.hash matches returned txHash");
     }
 

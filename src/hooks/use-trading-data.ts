@@ -1,6 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { WatchlistTokenRow } from "@/lib/trading/watchlist";
+import type { AIInsightResult } from "@/lib/trading/ai-agent";
 
 export interface EngineSnapshot {
   status: "stopped" | "running" | "killed" | "paused";
@@ -934,5 +936,121 @@ export function usePositionDetail(id: string | null) {
     },
     enabled: id !== null,
     refetchInterval: 5000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Watchlist (operator-curated tokens — no auto-trading).
+// Shapes mirror src/lib/trading/watchlist.ts (WatchlistTokenRow) and the
+// /api/watchlist routes (GET/POST / PATCH/DELETE / POST reset_alert /
+// POST [id]/analyze). Mutations invalidate ["watchlist"].
+// ---------------------------------------------------------------------------
+export type WatchlistToken = WatchlistTokenRow;
+export type WatchlistInsight = AIInsightResult;
+
+async function parseWatchlistError(r: Response, fallback: string): Promise<never> {
+  const body = (await r.json().catch(() => ({}))) as { error?: string };
+  throw new Error(body.error ?? fallback);
+}
+
+export function useWatchlist() {
+  return useQuery<WatchlistToken[]>({
+    queryKey: ["watchlist"],
+    queryFn: async () => {
+      const r = await fetch("/api/watchlist");
+      if (!r.ok) await parseWatchlistError(r, "watchlist failed");
+      const j = (await r.json()) as { tokens: WatchlistToken[] };
+      return j.tokens;
+    },
+    refetchInterval: 15000,
+  });
+}
+
+export interface AddWatchlistTokenInput {
+  symbol: string;
+  source: "cex" | "dex";
+  chain?: string;
+  tokenId?: string;
+  notes?: string;
+  alertThresholdPct?: number;
+}
+
+export function useAddWatchlistToken() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AddWatchlistTokenInput): Promise<WatchlistToken> => {
+      const r = await fetch("/api/watchlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      if (!r.ok) await parseWatchlistError(r, "add watchlist token failed");
+      const j = (await r.json()) as { token: WatchlistToken };
+      return j.token;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["watchlist"] }),
+  });
+}
+
+export interface UpdateWatchlistTokenInput {
+  id: string;
+  patch: { notes?: string | null; alertThresholdPct?: number; enabled?: boolean };
+}
+
+export function useUpdateWatchlistToken() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, patch }: UpdateWatchlistTokenInput): Promise<WatchlistToken> => {
+      const r = await fetch(`/api/watchlist/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(patch),
+      });
+      if (!r.ok) await parseWatchlistError(r, "update watchlist token failed");
+      const j = (await r.json()) as { token: WatchlistToken };
+      return j.token;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["watchlist"] }),
+  });
+}
+
+export function useRemoveWatchlistToken() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const r = await fetch(`/api/watchlist/${id}`, { method: "DELETE" });
+      if (!r.ok) await parseWatchlistError(r, "remove watchlist token failed");
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["watchlist"] }),
+  });
+}
+
+export interface AnalyzeWatchlistTokenResult {
+  insight: WatchlistInsight;
+  durationMs: number;
+}
+
+export function useAnalyzeWatchlistToken() {
+  return useMutation({
+    mutationFn: async (id: string): Promise<AnalyzeWatchlistTokenResult> => {
+      const r = await fetch(`/api/watchlist/${id}/analyze`, { method: "POST" });
+      if (!r.ok) await parseWatchlistError(r, "analyze watchlist token failed");
+      return (await r.json()) as AnalyzeWatchlistTokenResult;
+    },
+  });
+}
+
+export function useResetWatchlistAlert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      const r = await fetch(`/api/watchlist/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reset_alert" }),
+      });
+      if (!r.ok) await parseWatchlistError(r, "reset watchlist alert failed");
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["watchlist"] }),
   });
 }

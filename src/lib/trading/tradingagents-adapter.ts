@@ -116,7 +116,7 @@ export class TradingAgentsAdapter {
   private readonly descriptor: SchemaDescriptor;
 
   constructor(
-    private readonly graph: TAGGraph,
+    private readonly graph: TAGraph,
     private readonly extractor: LLMExtractor,
     private readonly dagValidator: (thesis: string[]) => { pass: boolean; failed_edges?: string[] },
     private readonly fallbackDebate: (ctx: RegimeCtx) => Promise<DebateAux>,

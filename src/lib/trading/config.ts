@@ -31,6 +31,12 @@ export interface EngineConfig {
   paperCyclesRequired: number;
   paperCyclesPassed: number;
   graduatedToLive: boolean;
+  maxPositionsPerSymbol: number;
+  maxPositionsPerChain: number;
+  maxPositionsPerStrategy: number;
+  enabledStrategies: string[];
+  feeBps: number;
+  slippageBps: number;
 }
 
 export const DEFAULT_CONFIG: EngineConfig = {
@@ -63,6 +69,12 @@ export const DEFAULT_CONFIG: EngineConfig = {
   paperCyclesRequired: 50,
   paperCyclesPassed: 0,
   graduatedToLive: false,
+  maxPositionsPerSymbol: 2,
+  maxPositionsPerChain: 5,
+  maxPositionsPerStrategy: 5,
+  enabledStrategies: ["scalp", "day", "swing"],
+  feeBps: 10.0,
+  slippageBps: 30.0,
 };
 
 function parseJsonArray(raw: string): string[] {
@@ -109,6 +121,12 @@ export async function getConfig(): Promise<EngineConfig> {
     paperCyclesRequired: row.paperCyclesRequired,
     paperCyclesPassed: row.paperCyclesPassed,
     graduatedToLive: row.graduatedToLive,
+    maxPositionsPerSymbol: row.maxPositionsPerSymbol,
+    maxPositionsPerChain: row.maxPositionsPerChain,
+    maxPositionsPerStrategy: row.maxPositionsPerStrategy,
+    enabledStrategies: parseJsonArray(row.enabledStrategies),
+    feeBps: row.feeBps,
+    slippageBps: row.slippageBps,
   };
 }
 
@@ -118,7 +136,7 @@ export async function updateConfig(
   const data: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(patch)) {
     if (v === undefined) continue;
-    if (k === "cexSymbols" || k === "dexChains") {
+    if (k === "cexSymbols" || k === "dexChains" || k === "enabledStrategies") {
       data[k] = JSON.stringify(v);
     } else {
       data[k] = v;

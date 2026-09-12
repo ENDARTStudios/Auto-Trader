@@ -152,7 +152,7 @@ async function sendRpcNoThrow(
   socketPath: string,
   frame: string,
   timeoutMs = 5000
-): Promise<{ jsonrpc: string; result?: unknown; error?: { code: number; message: string; data?: unknown }; id: number | string | null } | null> {
+): Promise<{ jsonrpc: string; result?: Record<string, unknown>; error?: { code: number; message: string; data?: unknown }; id: number | string | null } | null> {
   return new Promise((resolve) => {
     const socket = net.createConnection(socketPath, () => {
       socket.write(frame + "\n");

@@ -285,7 +285,9 @@ class MockTradeSimulator implements TradeSimulator {
   }
 }
 
-class MockSimulator implements Simulator {
+// NOTE: mutable holder with a simulate() method, adapted at call sites as
+// `(tx) => mocks.simulator.simulate(tx)` because Simulator is a function type.
+class MockSimulator {
   result: SimulationResult = {
     ok: true,
     changes: [],

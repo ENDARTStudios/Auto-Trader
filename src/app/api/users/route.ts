@@ -20,7 +20,7 @@ const createUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   role: z.enum(['super_admin', 'trader', 'viewer', 'service']).default('viewer'),
-  acceptTerms: z.literal(true, { errorMap: () => ({ message: 'Você deve aceitar os Termos de Uso e a Política de Privacidade' }) }),
+  acceptTerms: z.literal(true, { error: 'Você deve aceitar os Termos de Uso e a Política de Privacidade' }),
 });
 
 export async function GET(req: Request) {

@@ -4,7 +4,7 @@ export type Locale = "pt-BR" | "en-US" | "es-ES";
 export const LOCALES: Locale[] = ["pt-BR", "en-US", "es-ES"];
 export const DEFAULT_LOCALE: Locale = "pt-BR";
 
-const messages: Record<Locale, Record<string, unknown>> = {};
+const messages = {} as Record<Locale, Record<string, unknown>>;
 async function loadMessages(): Promise<typeof messages> {
   if (Object.keys(messages).length > 0) return messages;
   const [{ default: ptBR }, { default: enUS }, { default: esES }] = await Promise.all([
@@ -44,10 +44,13 @@ export type TParams = Record<string, string | number>;
 
 export function makeT(messages: Record<string, unknown>, fallback?: string) {
   return function t(key: string, params?: TParams): string {
-    let v = resolve(messages, key);
-    if (typeof v !== "string") {
-      v = resolve(messages, key.replace(/^[a-z]+_/, "")) ?? (fallback ?? key);
-      if (typeof v !== "string") v = key;
+    const found = resolve(messages, key);
+    let v: string;
+    if (typeof found === "string") {
+      v = found;
+    } else {
+      const alt = resolve(messages, key.replace(/^[a-z]+_/, ""));
+      v = typeof alt === "string" ? alt : (fallback ?? key);
     }
     if (params) {
       for (const [k, val] of Object.entries(params)) v = v.replace(`{${k}}`, String(val));

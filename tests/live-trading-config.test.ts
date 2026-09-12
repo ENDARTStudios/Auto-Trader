@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Lightweight integration tests for live_trading config and health split.
 // These tests do not need a real DB — they only verify in-memory helpers

@@ -56,7 +56,8 @@ export class Queue<T = unknown> {
   async process(processor: JobProcessor<T>): Promise<void> {
     const items = queues.get(this.name) ?? [];
     while (items.length > 0) {
-      const job = items.shift()!;
+      // The stub map holds heterogeneous jobs; the queue owner guarantees T.
+      const job = items.shift()! as Job<T>;
       job.status = "active";
       job.attempts++;
       try {
@@ -70,7 +71,7 @@ export class Queue<T = unknown> {
           logger.warn("queue", `Job retry ${job.attempts}: ${job.id} (${e})`);
         } else {
           job.status = "failed";
-          logger.error("queue", `Job failed after ${job.attempts} attempts: ${job.id}`, e);
+          logger.error("queue", `Job failed after ${job.attempts} attempts: ${job.id}`, { error: String(e) });
         }
       }
     }
