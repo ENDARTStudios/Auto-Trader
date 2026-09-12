@@ -7,7 +7,7 @@
 > **Checklist operacional (§3 + §4.1):** `1 SNAPSHOT/TIER/ESTADO 2 REGIME+P(transição)+P-unknown+drift 3 BOLHA 7 pilares 4 SUSTENTABILIDADE 5 DEBATE+DAG+REDTEAMx2+FORWARD 6 P[M_param only]+shrinkage 7 CENÁRIOS 8 EV_REAL ponto-fixo 9 DECISÃO+sizing convergido 10 INVALIDAÇÃO+FORWARD 11 RISCO kill/cluster/corr/OTT 12 APRENDIZADO owner+taxonomia` — sem `stop/invalidação/forward` definível = `NO_TRADE`.
 > **Arquivos vivos:** `config/risk_config.json` (0.5% default), `config/dag_edges.json` (vivo) / `dag_edges_quarantine.json`, `config/edge_to_feature_map.json` (0.5e), `state/mode.json` (`ok|lang_degraded|unknown_regime|crisis_lock|frozen_autonomy`), `state/model_registry.json` (`param_vNN/lang_vNN`), `logs/episodes.jsonl` (`P_Mparam` sempre), `logs/shadow_valid/coherence/rejected/forward_collection.jsonl`.
 > Em dúvida: **proteja capital, reduza tamanho, espere regime claro, aprenda com o log**.
-> **Sistemas externos:** 9 repos analisados por evidência em `skills/EXTERNAL_SYSTEMS_INDEX.md` (TA/backtrader/nautilus/freqtrade/ccxt/vectorbt/lumibot/hummingbot/finrl) — todos **advisory-only** (`src/lib/trading/external-systems.ts:1`); copyleft/fair-code = SPEC-ONLY sem código copiado; execução só em S14 com envelope.
+> **Sistemas externos:** 19 repos analisados por evidência em `skills/EXTERNAL_SYSTEMS_INDEX.md` — 9 trading (TA/backtrader/nautilus/freqtrade/ccxt/vectorbt/lumibot/hummingbot/finrl) + 10 agent-infra (memória/harness/coleta/diagramas/red-team) — todos **advisory-only** (`src/lib/trading/external-systems.ts:1`); copyleft/fair-code/unverified = SPEC-ONLY sem código copiado; execução só em S14 com envelope.
 
 <!-- graft:start -->
 ## Graft — repo context graph

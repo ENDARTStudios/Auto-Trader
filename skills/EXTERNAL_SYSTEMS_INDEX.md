@@ -18,6 +18,28 @@
 - `permissive` (MIT/Apache): uso direto permitido; mesmo assim só spec exceto CCXT.
 - `copyleft` (GPL/LGPL): **SPEC-ONLY — nenhum código copiado** (contaminação de repo proprietário).
 - `fair-code` (Commons Clause): spec apenas; revenda baseada é proibida.
+- `unverified` (ex: NOASSERTION via API): SPEC-ONLY por precaução até confirmação.
 
 **Mapa de cobertura (sem lacuna, sem sobreposição decisória):**
 perception (TA analysts, CCXT público, Lumibot SEC/FRED) · debate (TA, Lumibot, FinRL ensemble) · backtest (Backtrader, Freqtrade, VectorBT) · risco/operação (Freqtrade protections, Nautilus boundary, Hummingbot triple-barrier/keystore) · evolução (VectorBT grade, FinRL gates, Freqtrade hyperopt) · execução (CCXT+Hummingbot, **ambos S14-gated**).
+
+---
+
+## Parte 2 — Agent-infra (10 repos, 2026-09-12)
+
+> Segunda leva: infraestrutura de agentes (memória, harness, coleta, diagramas, red-team) — a **meta-camada** que opera o agente/engenheiro, não o mercado. Nota honesta: `Agency-agents` e `Agency` da lista original são **a mesma URL** (`msitarzewski/agency-agents`) — 11 URLs → **10 skills**.
+
+| # | Skill | Sistema (★ em 2026-09-12) | Função em uma frase | Toca o projeto em | Status | Licença |
+|---|-------|---------------------------|---------------------|-------------------|--------|---------|
+| 10 | `agent-codebase-memory-mcp.md` | codebase-memory-mcp (43k★) | Graph-first validado (gêmeo do graft/) | Doutrina GRAFT-FIRST | SPEC (doutrina) | MIT |
+| 11 | `agent-agency-agents.md` | agency-agents (152k★) | Personas Finance/Security/Testing p/ debate/red-team | Debate/red-team | SPEC-ONLY | MIT |
+| 12 | `agent-agentmemory.md` | agentmemory (28.4k★) | Memória 4-tier + RRF + privacy-first (≈ §5.2) | `logs/*.jsonl` | SPEC (doutrina) | Apache-2.0 |
+| 13 | `agent-openviking-plugins.md` | openviking-plugins (17★) | Precedente mínimo recall/capture (menor) | Doutrina (menor) | SPEC (doutrina) | Apache-2.0 |
+| 14 | `agent-browser-use.md` | browser-use (114k★) | Coleta web read-only sandboxed | Perception (ETL futuro) | SPEC-ONLY | MIT |
+| 15 | `agent-harness-engineering.md` | awesome-harness-engineering (4.1k★) | Catálogo harness (loops/contexto/evals/HITL) | Doutrina harness | SPEC (doutrina) | **NOASSERTION** |
+| 16 | `agent-diagram-design.md` | diagram-design (38.5k★) | 39 diagramas editoriais p/ docs | Docs (`docs/ARCHITECTURE.md`, `UML.md`) | SPEC (convenção) | MIT |
+| 17 | `agent-scientific-skills.md` | scientific-agent-skills (44.5k★) | Falsificação validada + FRED + TimesFM/PyMC | Evolução/perception | SPEC-ONLY | MIT |
+| 18 | `agent-agent-reach.md` | Agent-Reach (79.5k★) | Coleta social N/R/M (Twitter/Reddit/YT/Bili/Xiaohongshu) | Pilares N/R/M §2.2 | SPEC-ONLY | MIT |
+| 19 | `agent-strix.md` | Strix (61.9k★) | Red-team PoC-validado + CI gate | Risco/CI (Fase 8) | SPEC (doutrina) | Apache-2.0 |
+
+**Cobertura agent-infra:** perception (browser-use, agent-reach, scientific FRED) · debate (agency personas) · risco/operação (strix) · evolução (scientific challengers) · docs (diagram-design) · doutrina (codebase-memory, agentmemory, openviking, harness-catalog).

@@ -99,7 +99,11 @@
 
 > 9 URLs acessadas e analisadas por evidência (não memória). Cada uma virou skill com papel único na v1.6 + guardrails + status. Commit `a ser fechado`: 9 skills (`skills/ext-*.md`) + `EXTERNAL_SYSTEMS_INDEX.md` + `external-systems.ts:1` (registry puro, sem `place_order`) + 8 tests. Copyleft (backtrader/freqtrade/lumibot) e fair-code (vectorbt) = SPEC-ONLY; única dependência viva = CCXT (MIT, já em `package.json:1`); execução (ccxt/hummingbot) só em S14 com envelope. Nota honesta: skills são doutrina+contratos — autonomia live continua gated (S14), sem hype.
 
-## 7. Próximos (se `Prossiga`)
+## 7. S36 — 10 agent-infra: skills + registry 19 entradas (2026-09-12)
+
+> 11 URLs → 10 únicas (`Agency-agents` = `Agency`, mesma URL — dedup honesto). Todas acessadas por evidência; licença do `awesome-harness-engineering` confirmada via API GitHub (**NOASSERTION** → classe `unverified`, SPEC-ONLY por precaução). 10 skills (`skills/agent-*.md`) + índice Parte 2 + registry com `category` + camada `docs` + 8→10 tests (19 entradas, 9 trading + 10 agent-infra). Integração real hoje = doutrina + contratos (memória 4-tier≈§5.2, personas p/ debate, coleta N/R/M futura, red-team p/ CI); nada executa.
+
+## 8. Próximos (se `Prossiga`)
 
 - **S34** — Prisma 7 + mdxeditor 4.2 + react-syntax-highlighter 16 (fechar 9 vuln high residuais, breaking — exige staging)
 - **S14 live** — só com chaves testnet + aprovação (`ORCAMENTO_ESTOURADO`)
