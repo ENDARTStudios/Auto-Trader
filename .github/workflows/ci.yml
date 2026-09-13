@@ -128,6 +128,14 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # test.db precisa de schema + seed: sem isso /api/health retorna 503
+      # e o webServer do Playwright estoura o timeout de 120s (S39).
+      - run: npx prisma db push
+        env:
+          DATABASE_URL: file:./prisma/test.db
+      - run: npx tsx scripts/seed-auth.ts
+        env:
+          DATABASE_URL: file:./prisma/test.db
       - run: npx playwright install --with-deps
       - run: npx playwright test
         env:

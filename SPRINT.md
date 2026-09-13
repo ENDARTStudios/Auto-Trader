@@ -111,7 +111,11 @@
 
 > Fork DragonJAR (17★, AGPL-3.0) do 666ghj/MiroFish (72k★, motor OASIS): GraphRAG + personas com memória + simulação paralela + injeção divina + ReportAgent; previsão financeira "próximamente" (imaturo). Skill `agent-mirofish.md` + registry #20 (agent-infra, debate/evolution, copyleft SPEC-ONLY — cláusula de rede). Papel: gerar cenários/teses e choques p/ gerador (§5.4b); nunca probabilidade (§0.5), promoção só por forward OOS. Cobertura S38 foi reordenada p/ S40.
 
-## 10. Próximos (se `Prossiga`)
+## 10. S39 — CI pós-billing: verdict real + trivy + e2e DB + postinstall (2026-09-13)
+
+> Billing resolvido → rerun CI #34769653115 executou de verdade: **codeql success**; `ci` morto em `Set up job` (`trivy-action@0.24.0` inexistente no upstream — todos os runs 4s falhavam ali, não por billing); `e2e` com `webServer timeout 120s` porque `test.db` não tinha schema/seed (`/api/health` → 503). Fixes: merge PR #2 (trivy 0.36.0) + merge PR #7 (dev group: tailwind-merge, eslint-config-next c/ security fixes, tailwindcss) + `e2e` job com `prisma db push` + `seed-auth.ts` + `postinstall` cross-platform (`install-git-hooks.mjs`, corrigia `npm install` quebrado no Windows). Triage 15 PRs: 5 Actions pins pendentes de changelog; 9 npm majors = S34/staging (TS7, eslint10, prisma7, vitest, mdxeditor, framer-motion, day-picker, lucide, prod-41).
+
+## 11. Próximos (se `Prossiga`)
 
 - **S40** — cobertura 80% (expansão sistemática de tests p/ `src/lib/{trading,chain,auth}`)
 - **S34** — Prisma 7 + mdxeditor 4.2 + react-syntax-highlighter 16 (fechar 12 vuln high/moderate residuais, breaking — exige staging)

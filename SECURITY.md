@@ -239,7 +239,9 @@ the suite-start cleanup as the correct fix.
 ## REG-004: pre-push git hook runs `test:ci` before any push
 
 **Test:** the `pre-push` git hook itself, installed by
-`scripts/install-git-hooks.sh` from the tracked source at
+`scripts/install-git-hooks.mjs` (cross-platform Node port of
+`scripts/install-git-hooks.sh`, kept for manual Unix use) from the tracked
+source at
 `scripts/git-hooks/pre-push`.
 
 **Code under test:** the project's full CI gate (`npm run test:ci`),
@@ -291,7 +293,7 @@ auditable in shell history and terminal scrollback.
 **Installation (automatic via `npm install`):**
 
 The hook is installed automatically by npm's `postinstall` script —
-`package.json` has `"postinstall": "bash scripts/install-git-hooks.sh"`,
+`package.json` has `"postinstall": "node scripts/install-git-hooks.mjs"`,
 which copies the tracked hook files from `scripts/git-hooks/` into
 `.git/hooks/` and makes them executable. A fresh clone followed by
 `npm install` is sufficient to activate the hooks — no separate manual
