@@ -4,7 +4,9 @@ test('redirect to /login when no cookie', async ({ page }) => {
   await page.goto('/');
   // middleware or client guard should redirect to /login
   await expect(page).toHaveURL(/\/login/, { timeout: 5000 });
-  await expect(page.locator('text=Auto Trader — Login')).toBeVisible();
+  // i18n-agnostic: login page always has #email + submit (text varies por locale)
+  await expect(page.locator('#email')).toBeVisible();
+  await expect(page.locator('button[type=submit]')).toBeVisible();
 });
 
 test('viewer cannot POST kill-switch (RBAC)', async ({ request }) => {

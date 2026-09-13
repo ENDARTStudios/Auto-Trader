@@ -141,3 +141,6 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
           DATABASE_URL: file:./prisma/test.db
+          SESSION_SECRET: test-session-secret-32-chars-minimum-for-ci-e2e
+          ENCRYPTION_KEY: "base64:dGVzdC1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcy1iYXNlNjQ="
+          SIGNER_TEST_HOOKS: "1"
