@@ -17,7 +17,8 @@ test.describe('S27 e2e (no dev server required)', () => {
 
   test('login without totp works for non-MFA user (admin@local)', async ({ request }) => {
     const res = await request.post('/api/auth/login', {
-      data: { email: 'admin@local', password: 'Admin123!' },
+      data: JSON.stringify({ email: 'admin@local', password: 'Admin123!' }),
+      headers: { 'Content-Type': 'application/json' },
     });
     expect(res.status()).toBe(200);
     const data = await res.json();
@@ -27,7 +28,8 @@ test.describe('S27 e2e (no dev server required)', () => {
 
   test('login with wrong password returns 401', async ({ request }) => {
     const res = await request.post('/api/auth/login', {
-      data: { email: 'admin@local', password: 'wrong' },
+      data: JSON.stringify({ email: 'admin@local', password: 'wrong' }),
+      headers: { 'Content-Type': 'application/json' },
     });
     expect(res.status()).toBe(401);
   });
