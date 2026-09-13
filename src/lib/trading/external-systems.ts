@@ -1,5 +1,5 @@
 /**
- * Registry dos 19 sistemas externos (skills/EXTERNAL_SYSTEMS_INDEX.md).
+ * Registry dos 20 sistemas externos (skills/EXTERNAL_SYSTEMS_INDEX.md).
  * Skill v1.6. Módulo PURO de doutrina: declara papel, camada e constraint
  * de cada sistema. NÃO executa, NÃO decide, NÃO dimensiona — não há
  * place_order aqui por construção (advisory-only, §0/§8c).
@@ -275,6 +275,18 @@ export const EXTERNAL_SYSTEMS: ExternalSystem[] = [
     layers: ['risk', 'operation'],
     license: 'Apache-2.0',
     licenseClass: 'permissive',
+    status: 'spec-only',
+    advisoryOnly: true,
+  },
+  {
+    id: 'mirofish',
+    skillFile: 'skills/agent-mirofish.md',
+    repo: 'https://github.com/DragonJAR/MiroFish-ES',
+    category: 'agent-infra',
+    role: 'Enxame simulador: cenários/teses p/ debate + choques p/ gerador (nunca prob)',
+    layers: ['debate', 'evolution'],
+    license: 'AGPL-3.0',
+    licenseClass: 'copyleft',
     status: 'spec-only',
     advisoryOnly: true,
   },

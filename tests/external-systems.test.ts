@@ -11,13 +11,13 @@ const VALID_LICENSES = new Set<string>(['permissive', 'copyleft', 'fair-code', '
 const VALID_STATUS = new Set<string>(['wired', 'dependency', 'spec-only']);
 const VALID_CATEGORIES = new Set<string>(['trading', 'agent-infra']);
 
-describe('External systems registry (19 skills, advisory-only)', () => {
-  it('registry tem 19 sistemas (9 trading + 10 agent-infra), ids únicos', () => {
-    expect(EXTERNAL_SYSTEMS.length).toBe(19);
+describe('External systems registry (20 skills, advisory-only)', () => {
+  it('registry tem 20 sistemas (9 trading + 11 agent-infra), ids únicos', () => {
+    expect(EXTERNAL_SYSTEMS.length).toBe(20);
     const ids = EXTERNAL_SYSTEMS.map((s) => s.id);
-    expect(new Set(ids).size).toBe(19);
+    expect(new Set(ids).size).toBe(20);
     expect(byCategory('trading').length).toBe(9);
-    expect(byCategory('agent-infra').length).toBe(10);
+    expect(byCategory('agent-infra').length).toBe(11);
   });
 
   it('todos advisoryOnly=true (regra-mãe: ninguém decide/executa)', () => {
@@ -71,6 +71,8 @@ describe('External systems registry (19 skills, advisory-only)', () => {
   it('getExternalSystem: hit trading + hit agent-infra + miss', () => {
     expect(getExternalSystem('ccxt')?.repo).toContain('ccxt/ccxt');
     expect(getExternalSystem('strix')?.repo).toContain('usestrix/strix');
+    expect(getExternalSystem('mirofish')?.repo).toContain('DragonJAR/MiroFish-ES');
+    expect(getExternalSystem('mirofish')?.licenseClass).toBe('copyleft');
     expect(getExternalSystem('inexistente')).toBeNull();
   });
 

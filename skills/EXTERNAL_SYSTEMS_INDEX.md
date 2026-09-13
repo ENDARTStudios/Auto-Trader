@@ -41,5 +41,6 @@ perception (TA analysts, CCXT público, Lumibot SEC/FRED) · debate (TA, Lumibot
 | 17 | `agent-scientific-skills.md` | scientific-agent-skills (44.5k★) | Falsificação validada + FRED + TimesFM/PyMC | Evolução/perception | SPEC-ONLY | MIT |
 | 18 | `agent-agent-reach.md` | Agent-Reach (79.5k★) | Coleta social N/R/M (Twitter/Reddit/YT/Bili/Xiaohongshu) | Pilares N/R/M §2.2 | SPEC-ONLY | MIT |
 | 19 | `agent-strix.md` | Strix (61.9k★) | Red-team PoC-validado + CI gate | Risco/CI (Fase 8) | SPEC (doutrina) | Apache-2.0 |
+| 20 | `agent-mirofish.md` | MiroFish-ES fork (17★; upstream 72k★) | Enxame: cenários/teses + choques p/ gerador | Debate/evolução | SPEC-ONLY | **AGPL-3.0** |
 
-**Cobertura agent-infra:** perception (browser-use, agent-reach, scientific FRED) · debate (agency personas) · risco/operação (strix) · evolução (scientific challengers) · docs (diagram-design) · doutrina (codebase-memory, agentmemory, openviking, harness-catalog).
+**Cobertura agent-infra:** perception (browser-use, agent-reach, scientific FRED) · debate (agency personas, **mirofish cenários**) · risco/operação (strix) · evolução (scientific challengers, **mirofish choques p/ gerador**) · docs (diagram-design) · doutrina (codebase-memory, agentmemory, openviking, harness-catalog).

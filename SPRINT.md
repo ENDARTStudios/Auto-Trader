@@ -105,13 +105,18 @@
 
 ## 8. S37 — Auditoria geral: tsc 231→0 + Prisma drift + build Windows-safe (2026-09-12)
 
-> Auditoria completa achou CI typecheck vermelho (231 erros sob `ignoreBuildErrors: true`) + 6 models Prisma ausentes (~42 call sites com crash em runtime) + painel watchlist sem hooks + build quebrada no Windows. Tudo corrigido: tsc 0, `db push` (canônico DEPLOY.md, sem dataloss), 6 hooks watchlist, `ignoreBuildErrors: false`, `node fs.cpSync`, `typecheck` script. Detalhes em `DECISOES.md` #32. **Gate ainda vermelho (conhecido): coverage 6.48% linhas vs 80% (S38 backlog)** + audit 12 vuln breaking-majors (S34). Antes de `db push` em prod: `bash scripts/backup-db.sh` + `verify-backup.sh`.
+> Auditoria completa achou CI typecheck vermelho (231 erros sob `ignoreBuildErrors: true`) + 6 models Prisma ausentes (~42 call sites com crash em runtime) + painel watchlist sem hooks + build quebrada no Windows. Tudo corrigido: tsc 0, `db push` (canônico DEPLOY.md, sem dataloss), 6 hooks watchlist, `ignoreBuildErrors: false`, `node fs.cpSync`, `typecheck` script. Detalhes em `DECISOES.md` #32. **Gate ainda vermelho (conhecido): coverage 6.48% linhas vs 80% (S40 backlog — S38 foi usado p/ MiroFish)** + audit 12 vuln breaking-majors (S34). Antes de `db push` em prod: `bash scripts/backup-db.sh` + `verify-backup.sh`.
 
-## 9. Próximos (se `Prossiga`)
+## 9. S38 — MiroFish-ES: enxame simulador como challenger de cenários (2026-09-13)
 
-- **S34** — Prisma 7 + mdxeditor 4.2 + react-syntax-highlighter 16 (fechar 9 vuln high residuais, breaking — exige staging)
+> Fork DragonJAR (17★, AGPL-3.0) do 666ghj/MiroFish (72k★, motor OASIS): GraphRAG + personas com memória + simulação paralela + injeção divina + ReportAgent; previsão financeira "próximamente" (imaturo). Skill `agent-mirofish.md` + registry #20 (agent-infra, debate/evolution, copyleft SPEC-ONLY — cláusula de rede). Papel: gerar cenários/teses e choques p/ gerador (§5.4b); nunca probabilidade (§0.5), promoção só por forward OOS. Cobertura S38 foi reordenada p/ S40.
+
+## 10. Próximos (se `Prossiga`)
+
+- **S40** — cobertura 80% (expansão sistemática de tests p/ `src/lib/{trading,chain,auth}`)
+- **S34** — Prisma 7 + mdxeditor 4.2 + react-syntax-highlighter 16 (fechar 12 vuln high/moderate residuais, breaking — exige staging)
 - **S14 live** — só com chaves testnet + aprovação (`ORCAMENTO_ESTOURADO`)
 - **S15** — `Position` HTTP E2E `traderA POST` → `viewer 403` via `fetch` (`next dev`)
 - **B-fim real** — colar saída do manifest ou `setup.py`+`agents/*.py` do `TradingAgentsX` → trava keys MÉDIAS, remove TODOs
 
-**Fórmula:** continuar priorizando fáceis com menor risco + `git push` cada sprint. Beta `v0.3.4` pronta (Fases 0-9 `[x]` + skill v1.6 + Fases TA 1→5, `vitest 147`, `next build 46 rotas`, `graft 2717 nodes`).
+**Fórmula:** continuar priorizando fáceis com menor risco + `git push` cada sprint. Beta pronta (Fases 0-9 `[x]` + skill v1.6 + Fases TA 1→5 + 20 sistemas mapeados, `vitest 160`, `tsc 0`, `next build 46 rotas`, `graft 2744 nodes`).
