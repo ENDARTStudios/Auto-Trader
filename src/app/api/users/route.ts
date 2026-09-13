@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { zAccountEmail } from '@/lib/auth/email';
 import { hashPassword } from '@/lib/auth/password';
 import { requireSession } from '@/lib/auth/session';
 import { hasPermission } from '@/lib/auth/rbac';
@@ -17,7 +18,7 @@ function getClientIp(req: Request): string {
 }
 
 const createUserSchema = z.object({
-  email: z.string().email(),
+  email: zAccountEmail,
   password: z.string().min(8),
   role: z.enum(['super_admin', 'trader', 'viewer', 'service']).default('viewer'),
   acceptTerms: z.literal(true, { error: 'Você deve aceitar os Termos de Uso e a Política de Privacidade' }),
