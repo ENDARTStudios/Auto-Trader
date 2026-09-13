@@ -7,22 +7,17 @@ title = "Auto Trader gitleaks config"
 # Falsos positivos: endereços EVM mock (0x...) em fixtures de teste são
 # confundidos com generic-api-key (entropia + hex longo). São dados públicos,
 # não chaves. Allowlist por path resolve sem desabilitar a regra.
-[[allowlist]]
-  description = "fixtures de teste com endereços EVM mock — não são segredos"
+[allowlist]
+  description = "fixtures e artefatos que não são segredos"
   paths = [
     "e2e/s27.spec.ts",
     "scripts/seed-flags.ts",
     "scripts/seed-auth.ts",
-  ]
-  regexes = [
-    "0x[a-fA-F0-9]{40}",
-  ]
-
-[[allowlist]]
-  description = "DB de teste e artefatos de build nunca são segredos reais"
-  paths = [
     "prisma/test.db",
     "prisma/test.db-journal",
     "coverage/.*",
     ".next/.*",
+  ]
+  regexes = [
+    "0x[a-fA-F0-9]{40}",
   ]
