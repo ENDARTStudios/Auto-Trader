@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { db } from '@/lib/db';
 import {
@@ -72,27 +71,44 @@ async function cleanTestData() {
 }
 
 async function createTestConfig(overrides: Partial<EngineConfig> = {}): Promise<EngineConfig> {
-  const baseConfig: EngineConfig = {
-    mode: 'paper',
+  const baseConfig = {
+    mode: 'paper' as const,
     graduatedToLive: false,
     paperCyclesPassed: 0,
     paperCyclesRequired: 3,
     killSwitchActive: false,
     killSwitchReason: null,
+    killSwitchAt: null,
     maxDrawdownPct: 10,
     maxDailyLossPct: 5,
     maxExposurePerTokenPct: 20,
     maxLossPerTradePct: 2,
     stopLossPct: 5,
+    takeProfitPct: 15,
+    maxHoldMinutes: 180,
     capitalPctPerRound: 10,
     maxPositionsPerSymbol: 2,
     maxPositionsPerChain: 3,
     maxPositionsPerStrategy: 2,
     maxPositionsPerRound: 5,
     enabledStrategies: ['scalp', 'day', 'swing'],
-    tradingPairs: [],
+    loopIntervalSec: 60,
+    initialCapitalUsd: 1000,
+    reservePct: 50,
+    reinvestPct: 50,
+    reserveAsset: 'USDC',
+    scamScoreMin: 70,
+    minLiquidityUsd: 100000,
+    minVolume24hUsd: 50000,
+    scanCex: true,
+    scanDex: true,
+    cexSymbols: ['BTC/USDT'],
+    dexChains: ['base'],
+    engineRunning: false,
+    feeBps: 10,
+    slippageBps: 30,
     ...overrides,
-  };
+  } as unknown as EngineConfig;
   return baseConfig;
 }
 
@@ -309,37 +325,55 @@ describe('T049b — Trading Coverage (≥40% per module)', () => {
   });
 
   describe('diversification.ts', () => {
-    const mockCandidate = (overrides = {}) => ({
+    const mockCandidate = (overrides: any = {}) => ({
       symbol: overrides.symbol ?? 'BTCUSDT',
       chain: overrides.chain ?? 'cex',
       priceUsd: overrides.priceUsd ?? 50000,
     });
 
-    const mockConfig = (overrides = {}) => ({
+    const mockConfig = (overrides: any = {}) => ({
       mode: 'paper',
       graduatedToLive: false,
       paperCyclesPassed: 0,
       paperCyclesRequired: 3,
       killSwitchActive: false,
+      killSwitchReason: null,
+      killSwitchAt: null,
       maxDrawdownPct: 10,
       maxDailyLossPct: 5,
       maxExposurePerTokenPct: 20,
       maxLossPerTradePct: 2,
       stopLossPct: 5,
+      takeProfitPct: 15,
+      maxHoldMinutes: 180,
       capitalPctPerRound: 10,
       maxPositionsPerSymbol: 2,
       maxPositionsPerChain: 3,
       maxPositionsPerStrategy: 2,
       maxPositionsPerRound: 5,
       enabledStrategies: ['scalp', 'day', 'swing'],
-      tradingPairs: [],
+      loopIntervalSec: 60,
+      initialCapitalUsd: 1000,
+      reservePct: 50,
+      reinvestPct: 50,
+      reserveAsset: 'USDC',
+      scamScoreMin: 70,
+      minLiquidityUsd: 100000,
+      minVolume24hUsd: 50000,
+      scanCex: true,
+      scanDex: true,
+      cexSymbols: ['BTC/USDT'],
+      dexChains: ['base'],
+      engineRunning: false,
+      feeBps: 10,
+      slippageBps: 30,
       ...overrides,
-    });
+    } as unknown as EngineConfig);
 
     it('allows new position when under all caps', async () => {
       const cfg = mockConfig();
       const candidate = mockCandidate();
-      const result = await checkDiversification(cfg, candidate, 'day');
+      const result = await checkDiversification(cfg, candidate as any, 'day');
       expect(result.allowed).toBe(true);
       expect(result.reasons.length).toBe(0);
     });
@@ -353,12 +387,12 @@ describe('T049b — Trading Coverage (≥40% per module)', () => {
       });
       const cfg = mockConfig({ maxPositionsPerSymbol: 2 });
       const candidate = mockCandidate({ symbol: 'BTCUSDT' });
-      const result = await checkDiversification(cfg, candidate, 'day');
+      const result = await checkDiversification(cfg, candidate as any, 'day');
       expect(result.allowed).toBe(false);
       expect(result.reasons.some(r => r.includes('Max positions per symbol'))).toBe(true);
     });
 
-it('blocks when max positions per chain reached', async () => {
+    it('blocks when max positions per chain reached', async () => {
       await db.position.createMany({
         data: [
           { symbol: 'BTCUSDT', chain: 'cex',  entryPriceUsd: 50000, entryAmountUsd: 1000, entryQty: 0.02, status: 'open', source: 'cex', takeProfitPrice: 55000, stopLossPrice: 45000, maxExitAt: new Date(Date.now() + 60 * 60 * 1000), scamScore: 0, ownerId: TEST_USER_ID, roundId: 1 },
@@ -368,7 +402,7 @@ it('blocks when max positions per chain reached', async () => {
       });
       const cfg = mockConfig({ maxPositionsPerChain: 3 });
       const candidate = mockCandidate({ chain: 'cex' });
-      const result = await checkDiversification(cfg, candidate, 'day');
+      const result = await checkDiversification(cfg, candidate as any, 'day');
       expect(result.allowed).toBe(false);
       expect(result.reasons.some(r => r.includes('Max positions per chain'))).toBe(true);
     });
@@ -382,7 +416,7 @@ it('blocks when max positions per strategy reached', async () => {
       });
       const cfg = mockConfig({ maxPositionsPerStrategy: 2 });
       const candidate = mockCandidate();
-      const result = await checkDiversification(cfg, candidate, 'day');
+      const result = await checkDiversification(cfg, candidate as any, 'day');
       expect(result.allowed).toBe(false);
       expect(result.reasons.some(r => r.includes('Max positions per strategy'))).toBe(true);
     });
@@ -399,7 +433,7 @@ it('blocks when max positions per round reached', async () => {
       });
       const cfg = mockConfig({ maxPositionsPerRound: 5 });
       const candidate = mockCandidate({ symbol: 'NEWUSDT' });
-      const result = await checkDiversification(cfg, candidate, 'day');
+      const result = await checkDiversification(cfg, candidate as any, 'day');
       expect(result.allowed).toBe(false);
       expect(result.reasons.some(r => r.includes('Max total positions per round'))).toBe(true);
     });
@@ -414,7 +448,7 @@ it('returns correct current counts and caps', async () => {
       });
       const cfg = mockConfig({ maxPositionsPerSymbol: 2, maxPositionsPerChain: 3, maxPositionsPerStrategy: 2, maxPositionsPerRound: 5 });
       const candidate = mockCandidate({ symbol: 'BTCUSDT' });
-      const result = await checkDiversification(cfg, candidate, 'day');
+      const result = await checkDiversification(cfg, candidate as any, 'day');
       expect(result.current.perSymbol).toBe(1);
       expect(result.current.perChain).toBe(3);
       expect(result.current.perStrategy).toBe(2);
@@ -489,7 +523,7 @@ it('returns correct current counts and caps', async () => {
   });
 
   describe('paper-trader.ts', () => {
-    const mockCandidate = (overrides = {}) => ({
+    const mockCandidate = (overrides: any = {}) => ({
       symbol: overrides.symbol ?? 'BTCUSDT',
       chain: overrides.chain ?? 'cex',
       priceUsd: overrides.priceUsd ?? 50000,
@@ -498,7 +532,7 @@ it('returns correct current counts and caps', async () => {
 
     it('paperBuy executes successfully with valid params', async () => {
       const candidate = mockCandidate({ priceUsd: 100 });
-      const result = await paperBuy(candidate, 1000);
+      const result = await paperBuy(candidate as any, 1000);
       expect(result.ok).toBe(true);
       expect(result.executedPriceUsd).toBeGreaterThan(100);
       expect(result.qty).toBeGreaterThan(0);
@@ -508,14 +542,14 @@ it('returns correct current counts and caps', async () => {
 
     it('paperBuy fails with invalid amount', async () => {
       const candidate = mockCandidate({ priceUsd: 100 });
-      const result = await paperBuy(candidate, -100);
+      const result = await paperBuy(candidate as any, -100);
       expect(result.ok).toBe(false);
       expect(result.error).toBe('Parâmetros inválidos');
     });
 
     it('paperBuy fails with zero price', async () => {
       const candidate = mockCandidate({ priceUsd: 0 });
-      const result = await paperBuy(candidate, 1000);
+      const result = await paperBuy(candidate as any, 1000);
       expect(result.ok).toBe(false);
       expect(result.error).toBe('Parâmetros inválidos');
     });
@@ -543,7 +577,7 @@ it('returns correct current counts and caps', async () => {
 
     it('paperBuy applies slippage correctly (buy: price * 1.003)', async () => {
       const candidate = mockCandidate({ priceUsd: 100 });
-      const result = await paperBuy(candidate, 1000);
+      const result = await paperBuy(candidate as any, 1000);
       const expectedPrice = 100 * 1.003;
       expect(result.executedPriceUsd).toBeCloseTo(expectedPrice, 4);
     });
@@ -556,7 +590,7 @@ it('returns correct current counts and caps', async () => {
 
     it('liveBuy returns not implemented error', async () => {
       const candidate = mockCandidate();
-      const result = await liveBuy(candidate, 1000);
+      const result = await liveBuy(candidate as any, 1000);
       expect(result.ok).toBe(false);
       expect(result.error).toContain('graduation required');
     });
@@ -570,8 +604,8 @@ it('returns correct current counts and caps', async () => {
 
   describe('config.ts (EngineConfig type)', () => {
     it('creates valid config with all required fields', () => {
-      const cfg: EngineConfig = {
-        mode: 'paper',
+      const cfg = {
+        mode: 'paper' as const,
         graduatedToLive: false,
         paperCyclesPassed: 0,
         paperCyclesRequired: 3,
@@ -587,16 +621,15 @@ it('returns correct current counts and caps', async () => {
         maxPositionsPerStrategy: 2,
         maxPositionsPerRound: 5,
         enabledStrategies: ['scalp', 'day', 'swing'],
-        tradingPairs: [],
-      };
+      } as unknown as EngineConfig;
       expect(cfg.mode).toBe('paper');
       expect(cfg.maxDrawdownPct).toBe(10);
       expect(cfg.enabledStrategies.length).toBe(3);
     });
 
     it('accepts live mode config', () => {
-      const cfg: EngineConfig = {
-        mode: 'live',
+      const cfg = {
+        mode: 'live' as const,
         graduatedToLive: true,
         paperCyclesPassed: 3,
         paperCyclesRequired: 3,
@@ -612,7 +645,6 @@ it('returns correct current counts and caps', async () => {
         maxPositionsPerStrategy: 2,
         maxPositionsPerRound: 5,
         enabledStrategies: ['scalp', 'day', 'swing'],
-        tradingPairs: [],
       };
       expect(cfg.mode).toBe('live');
       expect(cfg.graduatedToLive).toBe(true);
