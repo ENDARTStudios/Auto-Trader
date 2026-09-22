@@ -27,12 +27,23 @@
 //   5. Pure function: parseRpcFrame + dispatchRpc (complementary, not replacement)
 //
 // Run with: npx tsx scripts/test-signer-process.ts
+//
+// PLATFORM NOTE (Windows / win32):
+//   Tests 1-4 spawn the real signer and bind a Unix domain socket
+//   (`/tmp/signer-test-*.sock`). On Windows, Node's AF_UNIX listen fails
+//   with EACCES and spawning `npx.cmd` without shell throws EINVAL.
+//   `src/signer/*` is frozen and speaks Unix sockets only — there is no
+//   pipe/named-socket transport. Those 4 tests therefore SKIP on win32
+//   with an explicit banner; test 5 (parseRpcFrame pure) always runs.
+//   CI (Linux) runs the full 5-test suite — skip is platform-gated only.
 
 import { spawn, type ChildProcess } from "node:child_process";
 import net from "node:net";
 import fs from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
+
+const IS_WIN = process.platform === "win32";
 
 // ---------------------------------------------------------------------------
 // Test harness
@@ -93,10 +104,12 @@ async function spawnSigner(): Promise<SignerHandle> {
   }
 
   const child = spawn(
-    process.platform === 'win32' ? 'npx.cmd' : 'npx',
+    IS_WIN ? "npx.cmd" : "npx",
     ["tsx", path.join(__dirname, "..", "src", "signer", "main.ts")],
     {
       stdio: ["pipe", "pipe", "pipe"],
+      // Node ≥18 rejects spawning .cmd without shell (throws EINVAL).
+      shell: IS_WIN,
       env: {
         ...process.env,
         SIGNER_SOCKET_PATH: socketPath,
@@ -226,6 +239,14 @@ async function main(): Promise<void> {
   console.log("=== Signer Process Integration Test Suite (Phase 1 / M1) ===\n");
   console.log("  (exercises the REAL signer process: spawn, socket, RPC, disconnect)\n");
 
+  if (IS_WIN) {
+    console.log(
+      "  SKIP tests 1-4 on Windows: AF_UNIX listen → EACCES; src/signer is frozen Unix-socket only.\n" +
+        "  (Linux CI runs the full suite; test 5 pure-function still executes here.)\n"
+    );
+  }
+
+  if (!IS_WIN) {
   // Test 1: the happy path — spawn, health_check, disconnect, exit.
   await runTest("spawn → SIGNER_READY → health_check → ok → disconnect → signer exits", async () => {
     // Don't pre-set SIGNER_SOCKET_PATH — spawnSigner() generates its own
@@ -329,6 +350,7 @@ async function main(): Promise<void> {
       `socket file must be cleaned up after exit — ${handle.socketPath} still exists`
     );
   });
+  } // end !IS_WIN (spawn + Unix-socket tests)
 
   // Test 5: pure function tests (complementary, not replacement).
   // These test parseRpcFrame directly — fast, deterministic, no process spawn.

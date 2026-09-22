@@ -25,7 +25,12 @@
  * only the adapter side is mocked where needed.
  *
  * Run: npx tsx scripts/test-m3-signer-handlers.ts
+ *
+ * PLATFORM: requires spawn + AF_UNIX. Skips entirely on Windows (EACCES);
+ * src/signer is frozen Unix-only. Linux/CI runs the full suite.
  */
+
+const IS_WIN = process.platform === "win32";
 
 import { spawn, type ChildProcess } from "node:child_process";
 import net from "node:net";
@@ -314,6 +319,11 @@ function buildValidSignTypedDataEnvelope(signerAddress: string): SignHandlerPara
 // =========================================================================
 
 async function main(): Promise<void> {
+  if (IS_WIN) {
+    console.log("=== M3.2 Signer Handler Suite — SKIP on Windows ===");
+    console.log("  Requires spawn + AF_UNIX (EACCES on win32); src/signer frozen Unix-only. Linux CI runs full suite.");
+    process.exit(0);
+  }
   console.log("=== M3.2 — Signer RPC Handler Test Suite ===\n");
   console.log("  (real signer process, real socket, real DB-backed wallet)\n");
 

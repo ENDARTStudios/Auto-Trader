@@ -28,6 +28,9 @@
 // the dead process's memory directly).
 //
 // Run with: npx tsx scripts/test-signer-vault-integration.ts
+//
+// PLATFORM: requires spawn + AF_UNIX. Skips entirely on Windows (EACCES);
+// Linux CI runs the full suite.
 
 import { spawn, type ChildProcess } from "node:child_process";
 import net from "node:net";
@@ -35,6 +38,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { createInterface } from "node:readline";
 import { randomBytes } from "node:crypto";
+
+const IS_WIN = process.platform === "win32";
 
 // ---------------------------------------------------------------------------
 // Test harness
@@ -234,6 +239,11 @@ async function cleanupTestWallets(): Promise<void> {
 // ---------------------------------------------------------------------------
 
 async function main(): Promise<void> {
+  if (IS_WIN) {
+    console.log("=== Signer Vault Integration — SKIP on Windows ===");
+    console.log("  Requires spawn + AF_UNIX (EACCES on win32); src/signer frozen Unix-only. Linux CI runs full suite.");
+    process.exit(0);
+  }
   console.log("=== Signer Vault Integration Test Suite (Phase 1 / M2.3) ===\n");
   console.log("  (real integration: live signer process, real socket, unlock/lock/zeroize cycle)\n");
 
