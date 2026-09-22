@@ -40,6 +40,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Push test DB schema (for test:ci vault/signer)
+        run: npx prisma db push
+        env:
+          DATABASE_URL: file:./prisma/test.db
+
       - name: Dependency audit (high+)
         run: npm audit --audit-level=high
 
