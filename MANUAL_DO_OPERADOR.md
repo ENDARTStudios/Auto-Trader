@@ -38,7 +38,7 @@ Verifique gates:
 
 ```bash
 npx eslint .                    # deve ser 0 errors (c76b702)
-npm audit --audit-level=high    # 9 vuln residuais (js-yaml/prismjs via mdxeditor — adiado S15)
+npm audit --audit-level=high    # 0 high (deepmerge-ts/effect via override prisma; mdxeditor/rsh removidos — mortos); 3 moderate vitest (S34)
 npx vitest run --reporter=dot   # 15 files 91 passed
 npx next build                  # 44 rotas, proxy middleware
 bunx graft check                # wiring 2533 nodes OK (graft/ é cache local, não commitar)
