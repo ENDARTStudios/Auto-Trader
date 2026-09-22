@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
@@ -65,7 +65,7 @@ import {
 } from "@/components/dashboard/workspace-header";
 import { WatchlistScreener, type ScreenerRow } from "@/components/dashboard/watchlist-screener";
 import { CommandPalette, type ExplorerTab } from "@/components/dashboard/command-palette";
-import { isShortcutEvent } from "@/components/dashboard/command-palette-utils";
+import { isShortcutEvent, isEditableTarget } from "@/components/dashboard/command-palette-utils";
 import { NewsPanel } from "@/components/dashboard/news-panel";
 import { OnboardingWizard } from "@/components/onboarding/wizard";
 import { AIDecisionPanel, type GateStatus } from "@/components/dashboard/ai-decision-panel";
@@ -146,12 +146,16 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<ExplorerTab>("history");
   const [wizardClosed, setWizardClosed] = useState(false);
 
+  const paletteOpenRef = useRef(paletteOpen);
+  paletteOpenRef.current = paletteOpen;
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (isShortcutEvent(e)) {
-        e.preventDefault();
-        setPaletteOpen((o) => !o);
-      }
+      if (!isShortcutEvent(e)) return;
+      // Block opening while typing; always allow toggle when open (close from palette input)
+      if (isEditableTarget(e.target) && !paletteOpenRef.current) return;
+      e.preventDefault();
+      setPaletteOpen((o) => !o);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

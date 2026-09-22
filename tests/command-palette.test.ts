@@ -4,6 +4,7 @@ import {
   filterActions,
   filterSymbols,
   isShortcutEvent,
+  isEditableTarget,
   type PaletteEntry,
 } from "@/components/dashboard/command-palette-utils";
 
@@ -89,5 +90,21 @@ describe("isShortcutEvent", () => {
   it("rejects other keys", () => {
     expect(isShortcutEvent({ metaKey: true, key: "j" } as KeyboardEvent)).toBe(false);
     expect(isShortcutEvent({ metaKey: false, ctrlKey: false, key: "k" } as KeyboardEvent)).toBe(false);
+  });
+});
+
+describe("isEditableTarget", () => {
+  it("detects input/textarea/contenteditable", () => {
+    expect(isEditableTarget({ tagName: "INPUT" })).toBe(true);
+    expect(isEditableTarget({ tagName: "TEXTAREA" })).toBe(true);
+    expect(isEditableTarget({ tagName: "DIV", isContentEditable: true })).toBe(true);
+  });
+
+  it("rejects non-editable targets", () => {
+    expect(isEditableTarget({ tagName: "BUTTON" })).toBe(false);
+    expect(isEditableTarget({ tagName: "DIV" })).toBe(false);
+    expect(isEditableTarget(null)).toBe(false);
+    expect(isEditableTarget(undefined)).toBe(false);
+    expect(isEditableTarget("string")).toBe(false);
   });
 });

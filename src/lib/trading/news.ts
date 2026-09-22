@@ -106,9 +106,10 @@ function sourceNameFromUrl(url: string): NewsSource {
 }
 
 export async function getNews(limit = 20): Promise<NewsResult> {
+  const safeLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 20;
   const now = Date.now();
   if (cache && now - cache.at < CACHE_TTL_MS) {
-    return { ...cache.result, items: cache.result.items.slice(0, limit) };
+    return { ...cache.result, items: cache.result.items.slice(0, safeLimit) };
   }
 
   const settled = await Promise.allSettled(
@@ -139,7 +140,7 @@ export async function getNews(limit = 20): Promise<NewsResult> {
   }
 
   const result: NewsResult = {
-    items: deduped.slice(0, limit),
+    items: deduped.slice(0, safeLimit),
     degraded: !anyOk,
     fetchedAt: new Date().toISOString(),
   };

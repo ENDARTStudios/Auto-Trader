@@ -178,4 +178,20 @@ describe("getNews", () => {
     const result = await getNews();
     expect(result.degraded).toBe(true);
   });
+
+  it("clamps non-positive/NaN limit to default 20", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        text: async () => FIXTURE,
+      })),
+    );
+    const neg = await getNews(-5);
+    expect(neg.items).toHaveLength(2);
+    const zero = await getNews(0);
+    expect(zero.items).toHaveLength(2);
+    const nan = await getNews(NaN);
+    expect(nan.items).toHaveLength(2);
+  });
 });

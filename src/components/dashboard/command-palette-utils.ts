@@ -36,3 +36,11 @@ export function filterSymbols(entries: PaletteEntry[], query: string): PaletteEn
 export function isShortcutEvent(e: KeyboardEvent): boolean {
   return (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k";
 }
+
+export function isEditableTarget(target: unknown): boolean {
+  if (!target || typeof target !== "object") return false;
+  const t = target as { tagName?: string; isContentEditable?: boolean };
+  if (t.isContentEditable) return true;
+  const tag = (t.tagName ?? "").toUpperCase();
+  return tag === "INPUT" || tag === "TEXTAREA";
+}

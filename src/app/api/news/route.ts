@@ -30,7 +30,8 @@ export async function GET(req: Request) {
     }
 
     const url = new URL(req.url);
-    const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "20", 10) || 20, 50);
+    const parsed = parseInt(url.searchParams.get("limit") ?? "", 10);
+    const limit = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 50) : 20;
 
     const result = await getNews(limit);
     return NextResponse.json(result);
