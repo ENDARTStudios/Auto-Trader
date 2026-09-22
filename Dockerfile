@@ -1,6 +1,10 @@
 # Dockerfile — Auto Trader (multi-stage, prune dev deps) — Fase 9.1.4
 # Stage 1: deps
 FROM node:20-slim AS deps
+# node-gyp needs Python for optional native builds (tree-sitter via @nanonets/graft)
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package*.json bun.lock ./
 RUN npm ci
