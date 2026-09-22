@@ -54,7 +54,7 @@ jobs:
           DATABASE_URL: file:./prisma/test.db
           SIGNER_TEST_HOOKS: "1"
 
-      - name: Tests — coverage (Vitest, 80% threshold)
+      - name: Tests — coverage (Vitest, baseline thresholds)
         run: npx vitest run --coverage --run
         env:
           DATABASE_URL: file:./prisma/test.db
