@@ -1049,8 +1049,93 @@ export function useResetWatchlistAlert() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reset_alert" }),
       });
-      if (!r.ok) await parseWatchlistError(r, "reset watchlist alert failed");
+      if (!r.ok) await parseWatchlistError(r, "reset watchlist token failed");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["watchlist"] }),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// News (RSS aggregation via /api/news)
+// ---------------------------------------------------------------------------
+export interface NewsItemRow {
+  title: string;
+  link: string;
+  summary: string;
+  source: string;
+  publishedAt: string | null;
+}
+
+export interface NewsFeedData {
+  items: NewsItemRow[];
+  degraded: boolean;
+  fetchedAt: string;
+}
+
+export function useNews(limit = 12) {
+  return useQuery<NewsFeedData>({
+    queryKey: ["news", limit],
+    queryFn: async () => {
+      const r = await fetch(`/api/news?limit=${limit}`);
+      if (!r.ok) throw new Error("news failed");
+      return r.json();
+    },
+    refetchInterval: 300_000,
+    staleTime: 60_000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Preferences / onboarding (GET/PUT /api/preferences)
+// ---------------------------------------------------------------------------
+export interface UserPreferencesData {
+  onboarded: boolean;
+  onboardedAt: string | null;
+  preferences: {
+    riskTolerance?: "conservative" | "balanced" | "aggressive";
+    goals?: string[];
+    preferredChains?: string[];
+    preferredSources?: string[];
+  };
+}
+
+export function usePreferences() {
+  return useQuery<UserPreferencesData>({
+    queryKey: ["preferences"],
+    queryFn: async () => {
+      const r = await fetch("/api/preferences", { credentials: "include" });
+      if (!r.ok) throw new Error("preferences failed");
+      return r.json();
+    },
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+export interface SavePreferencesInput {
+  riskTolerance?: "conservative" | "balanced" | "aggressive";
+  goals?: string[];
+  preferredChains?: string[];
+  preferredSources?: string[];
+  onboarded?: boolean;
+}
+
+export function useSavePreferences() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: SavePreferencesInput): Promise<UserPreferencesData> => {
+      const r = await fetch("/api/preferences", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(input),
+      });
+      if (!r.ok) {
+        const body = (await r.json().catch(() => ({}))) as { error?: string };
+        throw new Error(body.error ?? "save preferences failed");
+      }
+      return r.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["preferences"] }),
   });
 }

@@ -47,6 +47,7 @@ interface WorkspaceHeaderProps {
   isKilling?: boolean;
   notificationCount?: number;
   onNotificationsClick?: () => void;
+  onOpenPalette?: () => void;
 }
 
 /* health → accent class map */
@@ -119,6 +120,7 @@ export function WorkspaceHeader({
   isKilling,
   notificationCount,
   onNotificationsClick,
+  onOpenPalette,
 }: WorkspaceHeaderProps) {
   const isRunning = engineStatus === "running";
   const isKilled = engineStatus === "killed";
@@ -189,6 +191,17 @@ export function WorkspaceHeader({
               </span>
             </div>
           </div>
+
+          {onOpenPalette && (
+            <button
+              onClick={onOpenPalette}
+              className="hidden sm:flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border/60 bg-muted/30 hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+              title="Command palette (Ctrl/⌘+K)"
+              data-testid="open-command-palette"
+            >
+              <span className="label-mono text-[10px]">⌘K</span>
+            </button>
+          )}
 
           {onNotificationsClick && (
             <button

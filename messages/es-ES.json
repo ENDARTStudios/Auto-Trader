@@ -8,6 +8,7 @@
     "cancel": "Cancelar",
     "confirm": "Confirmar",
     "back": "Volver",
+    "next": "Siguiente",
     "yes": "Sí",
     "no": "No"
   },
@@ -86,5 +87,66 @@
     "notFound": "No encontrado",
     "validationError": "Error de validación",
     "internalError": "Error interno del servidor"
+  },
+  "palette": {
+    "title": "Paleta de comandos",
+    "description": "Navega, actúa y busca símbolos",
+    "placeholder": "Escribe un comando o símbolo…",
+    "empty": "Sin resultados",
+    "active": "activo",
+    "group": {
+      "navigate": "Navegar",
+      "actions": "Acciones",
+      "symbols": "Símbolos"
+    },
+    "nav": {
+      "history": "Historial",
+      "rounds": "Rondas",
+      "site": "Auditoría de sitios",
+      "platforms": "Plataformas",
+      "backtest": "Backtest",
+      "analytics": "Analíticas",
+      "notifications": "Alertas",
+      "system": "Sistema"
+    },
+    "action": {
+      "start": "Iniciar engine",
+      "stop": "Detener engine",
+      "kill": "Kill switch",
+      "logout": "Cerrar sesión"
+    }
+  },
+  "news": {
+    "title": "Noticias",
+    "updated": "actualizado",
+    "degraded": "Fuentes degradadas — los elementos pueden estar desactualizados",
+    "empty": "Sin noticias disponibles"
+  },
+  "onboarding": {
+    "title": "Bienvenido a Auto Trader",
+    "subtitle": "Configura tus preferencias en 4 pasos rápidos",
+    "step1": "Riesgo",
+    "step2": "Objetivos",
+    "step3": "Cadenas y fuentes",
+    "step4": "Revisión",
+    "riskQuestion": "¿Cuál es tu tolerancia al riesgo?",
+    "risk": {
+      "conservative": "Conservador",
+      "balanced": "Equilibrado",
+      "aggressive": "Agresivo"
+    },
+    "goalsQuestion": "¿Cuáles son tus objetivos?",
+    "goals": {
+      "swing": "Swing trading",
+      "long-term": "Largo plazo",
+      "income": "Ingresos",
+      "growth": "Crecimiento"
+    },
+    "chainsQuestion": "Cadenas preferidas",
+    "sourcesQuestion": "Fuentes preferidas",
+    "reviewTitle": "Revisión de preferencias",
+    "finish": "Finalizar",
+    "skip": "Omitir por ahora",
+    "saved": "Preferencias guardadas"
   }
 }

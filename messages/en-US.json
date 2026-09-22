@@ -8,6 +8,7 @@
     "cancel": "Cancel",
     "confirm": "Confirm",
     "back": "Back",
+    "next": "Next",
     "yes": "Yes",
     "no": "No"
   },
@@ -86,5 +87,66 @@
     "notFound": "Not found",
     "validationError": "Validation error",
     "internalError": "Internal server error"
+  },
+  "palette": {
+    "title": "Command palette",
+    "description": "Navigate, act, and search symbols",
+    "placeholder": "Type a command or symbol…",
+    "empty": "No results",
+    "active": "active",
+    "group": {
+      "navigate": "Navigate",
+      "actions": "Actions",
+      "symbols": "Symbols"
+    },
+    "nav": {
+      "history": "History",
+      "rounds": "Rounds",
+      "site": "Site Audit",
+      "platforms": "Platforms",
+      "backtest": "Backtest",
+      "analytics": "Analytics",
+      "notifications": "Alerts",
+      "system": "System"
+    },
+    "action": {
+      "start": "Start engine",
+      "stop": "Stop engine",
+      "kill": "Kill switch",
+      "logout": "Log out"
+    }
+  },
+  "news": {
+    "title": "News",
+    "updated": "updated",
+    "degraded": "Degraded sources — items may be stale",
+    "empty": "No news available"
+  },
+  "onboarding": {
+    "title": "Welcome to Auto Trader",
+    "subtitle": "Set your preferences in 4 quick steps",
+    "step1": "Risk",
+    "step2": "Goals",
+    "step3": "Chains & sources",
+    "step4": "Review",
+    "riskQuestion": "What is your risk tolerance?",
+    "risk": {
+      "conservative": "Conservative",
+      "balanced": "Balanced",
+      "aggressive": "Aggressive"
+    },
+    "goalsQuestion": "What are your goals?",
+    "goals": {
+      "swing": "Swing trading",
+      "long-term": "Long term",
+      "income": "Income",
+      "growth": "Growth"
+    },
+    "chainsQuestion": "Preferred chains",
+    "sourcesQuestion": "Preferred sources",
+    "reviewTitle": "Review preferences",
+    "finish": "Finish",
+    "skip": "Skip for now",
+    "saved": "Preferences saved"
   }
 }

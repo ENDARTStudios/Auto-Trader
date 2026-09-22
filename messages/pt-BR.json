@@ -8,6 +8,7 @@
     "cancel": "Cancelar",
     "confirm": "Confirmar",
     "back": "Voltar",
+    "next": "Próximo",
     "yes": "Sim",
     "no": "Não"
   },
@@ -86,5 +87,66 @@
     "notFound": "Não encontrado",
     "validationError": "Erro de validação",
     "internalError": "Erro interno do servidor"
+  },
+  "palette": {
+    "title": "Paleta de comandos",
+    "description": "Navegue, aja e busque símbolos",
+    "placeholder": "Digite um comando ou símbolo…",
+    "empty": "Nenhum resultado",
+    "active": "ativo",
+    "group": {
+      "navigate": "Navegar",
+      "actions": "Ações",
+      "symbols": "Símbolos"
+    },
+    "nav": {
+      "history": "Histórico",
+      "rounds": "Rodadas",
+      "site": "Auditoria de Sites",
+      "platforms": "Plataformas",
+      "backtest": "Backtest",
+      "analytics": "Analíticas",
+      "notifications": "Alertas",
+      "system": "Sistema"
+    },
+    "action": {
+      "start": "Iniciar engine",
+      "stop": "Parar engine",
+      "kill": "Kill switch",
+      "logout": "Sair"
+    }
+  },
+  "news": {
+    "title": "Notícias",
+    "updated": "atualizado",
+    "degraded": "Fontes degradadas — itens podem estar desatualizados",
+    "empty": "Nenhuma notícia disponível"
+  },
+  "onboarding": {
+    "title": "Bem-vindo ao Auto Trader",
+    "subtitle": "Configure suas preferências em 4 passos rápidos",
+    "step1": "Risco",
+    "step2": "Objetivos",
+    "step3": "Cadeias e fontes",
+    "step4": "Revisão",
+    "riskQuestion": "Qual é a sua tolerância a risco?",
+    "risk": {
+      "conservative": "Conservador",
+      "balanced": "Equilibrado",
+      "aggressive": "Agressivo"
+    },
+    "goalsQuestion": "Quais são seus objetivos?",
+    "goals": {
+      "swing": "Swing trading",
+      "long-term": "Longo prazo",
+      "income": "Renda",
+      "growth": "Crescimento"
+    },
+    "chainsQuestion": "Cadeias preferidas",
+    "sourcesQuestion": "Fontes preferidas",
+    "reviewTitle": "Revisão das preferências",
+    "finish": "Concluir",
+    "skip": "Pular por ora",
+    "saved": "Preferências salvas"
   }
 }
