@@ -7,6 +7,8 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package*.json bun.lock ./
+# postinstall needs this file present (no-ops without .git)
+COPY scripts/install-git-hooks.mjs scripts/
 RUN npm ci
 
 # Stage 2: builder
