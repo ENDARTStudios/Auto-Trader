@@ -123,7 +123,12 @@
 
 > REVIEW R037 = APPROVED (T054). T050c/T053/T054 formalmente DONE via T055. Evidência: commits `2600ef8` (T050c+skips), `7d4d939` (STATUS T053), `b8366b4` (STATUS T054); CI runs `35780453613`, `35781411589`, `35782766264` success (ci 23/23, e2e, codeql verdes; deploy-staging skipped); chain 70.96% ≥40%; tsc 0; eslint 0 errors (1 warning pré-existente `src/app/pricing/page.tsx:20`).
 > Causa raiz do "exit code 1": step Trivy (`.github/workflows/ci.yml:84-92`, `exit-code: "1"` + `continue-on-error: true`) por CVEs HIGH/CRITICAL em `node-tar` — anotação non-blocking, não regressão. **Exceção aberta vinculada a S34/T051; CI verde ≠ dependências seguras.**
-> Próximo ciclo: **T052** (S41 + fix warning pricing) em paralelo de planejamento com **T051** (plano S34, sem majors em `main`); **T056** visual check pendente de URL/ambiente do Operador; S14 live bloqueado (chaves + aprovação).
+> Próximo ciclo: **T052** (S41 + fix warning pricing) em paralelo de planejamento com **T051** (plano S34, sem majors em `main`); **T058** visual check pendente de URL/ambiente do Operador (era `T056` no rascunho T055 — renumerado pelo Thinker); S14 live bloqueado (chaves + aprovação).
+
+## 14. T057 — Fechamento T055/T056 com evidência cruzada do Gitleaks (2026-09-24)
+
+> REVIEW R038 rejeitou fechar T055 sobre o run `35924575435` (Gitleaks falhou por `unknown revision` em checkout depth 1 — infra, não leak). T056 corrigiu com `fetch-depth: 0` no job `ci` (commit `d0d408a`); runs `35927373492` e `35928192775` (heads `d0d408a`, `1b298bb`) success com Gitleaks exit 0, e2e e codeql verdes, sem leak real; REVIEW R039 = APPROVED; D023 autoriza fechar T055 por evidência cruzada (conteúdo de `b65b44f` escaneado nos runs verdes). F09 CI/coverage/Gitleaks encerrada. **Trivy CVEs HIGH/CRITICAL node-tar seguem abertos (S34); CI verde ≠ dependências seguras.**
+> Próximo ciclo: **T052** caminho crítico funcional (S41 + fix warning pricing) → **T051** planejamento S34 isolado (sem majors em `main`) → **T058** visual check pendente de URL/ambiente do Operador; S14 live bloqueado (chaves + aprovação).
 
 ## 12. Próximos (se `Prossiga`)
 

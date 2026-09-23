@@ -126,5 +126,11 @@
 **Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `logs/episodes.jsonl` (só docs/logs; sem código de produção).
 **Próximo:** T052 (S41 + fix warning pricing) → T051 (plano S34) → T056 (visual check, depende do Operador). S14 live bloqueado (chaves + aprovação).
 
-### Decisão #1-N (placeholder)
+### Decisão #35: D023 — Aprovar T056 e fechar T055 por evidência cruzada do Gitleaks
+**Data:** 2026-09-24
+**Problema:** T055 ficou BLOCKED (R038): run `35924575435` em `b65b44f` falhou no Gitleaks por `unknown revision` (checkout depth 1 + range multi-commit) — infra, não leak (`no leaks found in partial scan`).
+**Solução:** T056 aplicou `fetch-depth: 0` no checkout do job `ci` (commit `d0d408a`); runs `35927373492` e `35928192775` (heads `d0d408a`, `1b298bb`) success com Gitleaks exit 0, e2e e codeql verdes, sem leak real; R039 = APPROVED. T055 fechada por evidência cruzada: o conteúdo de `b65b44f` foi escaneado completamente nos runs verdes descendentes. Sem bypass, sem `continue-on-error`, sem upgrade de actions.
+**Risco aberto (NÃO resolvido):** CVEs HIGH/CRITICAL em `node-tar` (Trivy non-blocking) seguem para S34/T051. Gitleaks verde = ausência de segredo detectado; CodeQL/e2e verdes = SAST/fluxo ok — nenhum deles declara dependências seguras.
+**Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `logs/episodes.jsonl` (só docs/logs; workflow intocado nesta tarefa).
+**Próximo:** T052 caminho crítico (S41 + fix warning pricing) → T051 planejamento S34 isolado → T058 visual check (depende do Operador: URL/ambiente). S14 live bloqueado (chaves + aprovação).
 Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.
