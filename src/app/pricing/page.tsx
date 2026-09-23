@@ -89,6 +89,7 @@ export default function PricingPage() {
                     disabled={submitting === plan.id || isLoading}
                     className="w-full"
                     variant={plan.id === "pro" ? "default" : "outline"}
+                    data-testid={`pricing-subscribe-${plan.id}`}
                   >
                     {submitting === plan.id ? "..." : plan.id === "free" ? t("pricing.downgrade") : `${t("pricing.subscribeTo")} ${plan.name}`}
                   </Button>

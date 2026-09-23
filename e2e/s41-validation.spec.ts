@@ -104,9 +104,16 @@ test('news API returns sanitized shape (tolerant to degraded sandbox)', async ({
 });
 
 test('pricing logged-out subscribe redirects to /login via router', async ({ page }) => {
-  await page.goto('/pricing');
-  // first subscribe button (Free plan downgrade or Pro subscribe)
-  await page.getByRole('button').first().click();
+  await page.goto('/pricing', { waitUntil: 'networkidle' });
+  const subscribe = page.getByTestId('pricing-subscribe-pro');
+  await expect(subscribe).toBeEnabled({ timeout: 15_000 });
+  // Retry clicks until hydration attaches the handler (dev/Turbopack can
+  // render static HTML before React listeners are attached).
+  const deadline = Date.now() + 15_000;
+  while (!/\/login/.test(page.url()) && Date.now() < deadline) {
+    await subscribe.click({ timeout: 5_000 }).catch(() => {});
+    await page.waitForTimeout(1_000);
+  }
   await expect(page).toHaveURL(/\/login/, { timeout: 5_000 });
 });
 
