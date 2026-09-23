@@ -117,5 +117,14 @@
 **Risco:** baixo — nenhum arquivo frozen (`chain`/`signer`/`audit`/`wallet-crypto`) tocado; schema só adiciona campos nullable; rotas novas com RBAC+rate-limit padrão.
 **Próximo:** commit convencional + push; retomar T050c (chain 26.03% → ≥40%).
 
+### Decisão #34: D021 — Fechar T050c/T053/T054 com exceção Trivy/node-tar como risco aberto (S34)
+**Data:** 2026-09-24
+**Problema:** Anotação "ci Process completed with exit code 1" no run 35780453613 sugeria regressão, bloqueando o fechamento de T050c/T053.
+**Solução:** T054 isolou a causa: step Trivy (`.github/workflows/ci.yml:84-92`, `exit-code: "1"` + `continue-on-error: true`) por CVEs HIGH/CRITICAL em `node-tar` — anotação non-blocking, não regressão de lint/typecheck/teste/build. REVIEW R037 = APPROVED. T050c/T053/T054 marcadas DONE via T055.
+**Evidência:** commits `2600ef8`, `7d4d939`, `b8366b4`; runs `35780453613`, `35781411589`, `35782766264` success (ci 23/23, e2e, codeql); `logs/episodes.jsonl` L5; `gh run view --log-failed` vazio; chain 70.96% ≥40%; tsc 0; eslint 0 errors (warning pré-existente `src/app/pricing/page.tsx:20`).
+**Risco aberto (NÃO resolvido):** CVEs HIGH/CRITICAL em `node-tar` persistem; `continue-on-error` mantido até remediação (T051/S34, staging com rollback) ou aceitação formal de risco. CI verde ≠ dependências seguras.
+**Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `logs/episodes.jsonl` (só docs/logs; sem código de produção).
+**Próximo:** T052 (S41 + fix warning pricing) → T051 (plano S34) → T056 (visual check, depende do Operador). S14 live bloqueado (chaves + aprovação).
+
 ### Decisão #1-N (placeholder)
 Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.

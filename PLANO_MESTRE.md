@@ -279,6 +279,16 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
+## F09-cicd-deploy — Fechamento T050c/T053/T054 (T055, 2026-09-24) ✅
+
+- [x] T050c chain coverage ≥40% — evidência: `tests/chain-t050c.test.ts` 91 testes, chain 70.96% stmts (branch 75.74 / funcs 92.24); commits `2600ef8` + `7d4d939`; CI runs `35780453613`, `35781411589`, `35782766264` success
+- [x] T053 commit/CI T050c — evidência: commit `2600ef8` pushed com pre-push `test:ci` PASS sem bypass; run `35780453613` success (ci/e2e/codeql verdes, deploy-staging skipped); skips `IS_WIN` condicionais em 5 suites Unix-socket (Linux/CI roda full)
+- [x] T054 causa raiz exit code 1 — evidência: forense concluiu exceção não-bloqueante do step Trivy (`.github/workflows/ci.yml:84-92`, `exit-code: "1"` + `continue-on-error: true`), CVEs HIGH/CRITICAL em `node-tar`; job ci 23/23 steps success; `gh run view --log-failed` vazio; STATUS em `logs/episodes.jsonl` L5, commit `b8366b4`; REVIEW R037 = APPROVED
+- ⚠️ Exceção registrada (NÃO resolvida): Trivy encontra CVEs HIGH/CRITICAL em `node-tar`; step opera como scan não-bloqueante. **CI verde ≠ dependências seguras.** Risco aberto vinculado a S34/T051 (remediação em staging com rollback). `continue-on-error` só sai após remediação ou aceitação formal de risco.
+- Próximo caminho crítico: T052 (S41 + fix warning `src/app/pricing/page.tsx:20`) → T051 (plano S34) → T056 (visual check, depende do Operador: URL/ambiente). S14 live bloqueado (chaves + aprovação do Operador).
+
+---
+
 ## Marcos de Lançamento (Definition of Done por marco)
 
 | Marco | Critério | Fases exigidas |

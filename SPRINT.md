@@ -119,6 +119,12 @@
 
 > CI `#34782794854` (pós rate-limit fix): logins ainda `400` em massa — não era mais rate-limit nem body, e sim `loginSchema` com `z.string().email()`: Zod 4.3.5 exige ponto no domínio, e **todas** as contas seedadas (`admin/viewer/trader@local`) falhavam na validação. Bug real de produção (ninguém logava com as credenciais do seed/página de login). Fix: `src/lib/auth/email.ts:1` (`zAccountEmail`, `local@domínio`, sem RFC estrita — app não envia e-mail) aplicado em `login` + `users` (register) + `forgot`; `tests/account-email.test.ts:1` 3/3. Verificação local: dev server Win não sobe em 120s (Turbopack cold), então CI e2e é o verificador (push feito).
 
+## 13. T055 — Fechamento documental F09 T050c/T053/T054 (2026-09-24)
+
+> REVIEW R037 = APPROVED (T054). T050c/T053/T054 formalmente DONE via T055. Evidência: commits `2600ef8` (T050c+skips), `7d4d939` (STATUS T053), `b8366b4` (STATUS T054); CI runs `35780453613`, `35781411589`, `35782766264` success (ci 23/23, e2e, codeql verdes; deploy-staging skipped); chain 70.96% ≥40%; tsc 0; eslint 0 errors (1 warning pré-existente `src/app/pricing/page.tsx:20`).
+> Causa raiz do "exit code 1": step Trivy (`.github/workflows/ci.yml:84-92`, `exit-code: "1"` + `continue-on-error: true`) por CVEs HIGH/CRITICAL em `node-tar` — anotação non-blocking, não regressão. **Exceção aberta vinculada a S34/T051; CI verde ≠ dependências seguras.**
+> Próximo ciclo: **T052** (S41 + fix warning pricing) em paralelo de planejamento com **T051** (plano S34, sem majors em `main`); **T056** visual check pendente de URL/ambiente do Operador; S14 live bloqueado (chaves + aprovação).
+
 ## 12. Próximos (se `Prossiga`)
 
 - **S40** — cobertura 80% (expansão sistemática de tests p/ `src/lib/{trading,chain,auth}`)
