@@ -71,6 +71,18 @@ function can(role: string | null, perm: Permission): boolean {
   return hasPermission(role as Role, perm);
 }
 
+// T052: pure, unit-testable RBAC gate for privileged palette actions.
+// Client-side hiding only — server routes still enforce permissions.
+export type PaletteActionId = "start" | "stop" | "kill" | "logout";
+
+export function getAvailableActionIds(role: string | null): PaletteActionId[] {
+  const ids: PaletteActionId[] = [];
+  if (can(role, "engine:control")) ids.push("start", "stop");
+  if (can(role, "engine:kill")) ids.push("kill");
+  ids.push("logout");
+  return ids;
+}
+
 export function CommandPalette({
   open,
   onOpenChange,
@@ -92,18 +104,18 @@ export function CommandPalette({
     onOpenChange(next);
   };
 
-  const canControl = can(role, "engine:control");
-  const canKill = can(role, "engine:kill");
+  const actionMeta: Record<PaletteActionId, { labelKey: string; keywords: string[] }> = {
+    start: { labelKey: "palette.action.start", keywords: ["start", "play", "iniciar"] },
+    stop: { labelKey: "palette.action.stop", keywords: ["stop", "pause", "parar"] },
+    kill: { labelKey: "palette.action.kill", keywords: ["kill", "emergency", "emergencia"] },
+    logout: { labelKey: "palette.action.logout", keywords: ["logout", "sair", "exit"] },
+  };
 
-  const actions: PaletteEntry[] = [];
-  if (canControl) {
-    actions.push({ id: "start", label: t("palette.action.start"), keywords: ["start", "play", "iniciar"] });
-    actions.push({ id: "stop", label: t("palette.action.stop"), keywords: ["stop", "pause", "parar"] });
-  }
-  if (canKill) {
-    actions.push({ id: "kill", label: t("palette.action.kill"), keywords: ["kill", "emergency", "emergencia"] });
-  }
-  actions.push({ id: "logout", label: t("palette.action.logout"), keywords: ["logout", "sair", "exit"] });
+  const actions: PaletteEntry[] = getAvailableActionIds(role).map((id) => ({
+    id,
+    label: t(actionMeta[id].labelKey),
+    keywords: actionMeta[id].keywords,
+  }));
 
   const navEntries: PaletteEntry[] = NAV_ITEMS.map((n) => ({
     id: n.id,
