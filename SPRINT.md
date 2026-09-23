@@ -130,6 +130,10 @@
 > REVIEW R038 rejeitou fechar T055 sobre o run `35924575435` (Gitleaks falhou por `unknown revision` em checkout depth 1 — infra, não leak). T056 corrigiu com `fetch-depth: 0` no job `ci` (commit `d0d408a`); runs `35927373492` e `35928192775` (heads `d0d408a`, `1b298bb`) success com Gitleaks exit 0, e2e e codeql verdes, sem leak real; REVIEW R039 = APPROVED; D023 autoriza fechar T055 por evidência cruzada (conteúdo de `b65b44f` escaneado nos runs verdes). F09 CI/coverage/Gitleaks encerrada. **Trivy CVEs HIGH/CRITICAL node-tar seguem abertos (S34); CI verde ≠ dependências seguras.**
 > Próximo ciclo: **T052** caminho crítico funcional (S41 + fix warning pricing) → **T051** planejamento S34 isolado (sem majors em `main`) → **T058** visual check pendente de URL/ambiente do Operador; S14 live bloqueado (chaves + aprovação).
 
+## 15. T060 — Fechamento T052/T051, D025 registrada (2026-09-24)
+
+> REVIEW R041 (T052) = APPROVED e R042 (T051) = APPROVED. T052: TDD 18/18, suíte 35 files 408 passed/1 skip, eslint 0/0, commits `fd35fec`+`65f6134`, runs `35932052281` e `35932769421` success. T051: `docs/s34-remediation-plan.md` plan-only, zero upgrades. D025 aprova ambas e define próximo ciclo: **T061** (Phase A higiene CI, branch isolada) + **T062** (axe a11y, devDependency revisada) em paralelo; **T058** visual e **S14** live seguem com o Operador. CVEs node-tar HIGH/CRITICAL abertos; CI verde ≠ dependências seguras.
+
 ## 12. Próximos (se `Prossiga`)
 
 - **S40** — cobertura 80% (expansão sistemática de tests p/ `src/lib/{trading,chain,auth}`)

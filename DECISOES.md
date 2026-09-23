@@ -133,4 +133,10 @@
 **Risco aberto (NÃO resolvido):** CVEs HIGH/CRITICAL em `node-tar` (Trivy non-blocking) seguem para S34/T051. Gitleaks verde = ausência de segredo detectado; CodeQL/e2e verdes = SAST/fluxo ok — nenhum deles declara dependências seguras.
 **Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `logs/episodes.jsonl` (só docs/logs; workflow intocado nesta tarefa).
 **Próximo:** T052 caminho crítico (S41 + fix warning pricing) → T051 planejamento S34 isolado → T058 visual check (depende do Operador: URL/ambiente). S14 live bloqueado (chaves + aprovação).
-Este formato é baseado no template do PROMPT_DOER_MESTRE.md. Decisões anteriores seriam listadas aqui com números sequenciais.
+### Decisão #36: D025 — Aprovar T052/T051 e definir próximo ciclo (T060/T061/T062)
+**Data:** 2026-09-24
+**Problema:** S41 endurecida mas sem axe automatizado; S34 planejado mas sem execução; higiene CI (Node20/ubuntu/CodeQL v3) pendente; visual e live dependem do Operador.
+**Solução:** R041 (T052) e R042 (T051) = APPROVED (D024, que liberou a execução, considerada cumprida com `fd35fec`/`65f6134`/`d65a392` e runs `35932052281`/`35932769421`). T060 fecha docs. Autorizadas: T061 (só Phase A, higiene CI não-breaking em branch isolada, sem majors npm, sem remover gates) e T062 (axe a11y com devDependency revisada). T058 e S14 seguem com o Operador.
+**Risco aberto (NÃO resolvido):** node-tar HIGH/CRITICAL; a11y axe; visual; S14; Node20/ubuntu. CI verde não declara segurança completa.
+**Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `logs/episodes.jsonl` (só docs/logs).
+**Próximo:** T060 → T061 + T062 em paralelo → T058 (URL/ambiente) → decisão staging/S14.

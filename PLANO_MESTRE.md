@@ -291,6 +291,16 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
+## F10-s41 + F11-s34plan — Fechamento T052/T051 (T060, 2026-09-24) ✅
+
+- [x] T052 S41 a11y/security — evidência: TDD `tests/s41-security.test.ts` 18/18 (9 falhas iniciais convertidas); suíte 35 files, 408 passed / 1 skipped; tsc 0; eslint 0 errors / **0 warnings** (warning pricing eliminado via `router.push`); commits `fd35fec` + `65f6134`; runs `35932052281` e `35932769421` success (ci 23/23, e2e `s41-validation.spec.ts`, codeql, gitleaks); REVIEW R041 = APPROVED. Fixes: strip dangerous-tags + `MAX_FEED_BYTES` 512KB em `news.ts`, `getAvailableActionIds` RBAC testável, mass-assignment neutralizado (zod strip + ownership `session.userId`). Axe automatizado ficou como dívida explícita → T062.
+- [x] T051 plano S34 — evidência: `docs/s34-remediation-plan.md` (plan-only, **zero upgrades**); `npm audit` 3 moderates dev-only (cadeia vitest→major 5.x), 0 high/critical; CVEs node-tar HIGH/CRITICAL documentados como abertos; fases A–D, matriz de 8 Actions pins, branch/staging/rollback, frozen preservada; REVIEW R042 = APPROVED. Execução autorizada só Phase A (T061, higiene CI não-breaking).
+- ⚠️ Riscos preservados (NÃO resolvidos): node-tar HIGH/CRITICAL (S34); a11y axe pendente (T062); visual/funcional pendente de URL/ambiente (T058); S14 live (chaves + aprovação); higiene Node20/ubuntu (T061).
+- Nota de reconciliação: escopo legado "Almanaque dos Clubes" foi expurgado do plano em S32 (produto = Auto Trader crypto-only); histórico preservado, sem reescrita. T056 (gitleaks fix) ≠ T058 (visual check) — renumeração do Thinker respeitada.
+- Próximo: T060 fecha docs → T061 + T062 em paralelo → T058/S14 dependem do Operador.
+
+---
+
 ## Marcos de Lançamento (Definition of Done por marco)
 
 | Marco | Critério | Fases exigidas |
