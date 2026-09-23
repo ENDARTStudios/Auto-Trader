@@ -15,7 +15,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      # T056: full history para o Gitleaks resolver o range de commits
+      # (checkout raso quebrava o scan com 'unknown revision').
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node 20
         uses: actions/setup-node@v4
