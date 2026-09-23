@@ -1,8 +1,9 @@
 # Arquitetura Modular — Catálogo de Apps + Feature Flags
 
-> **Versão:** 1.0 — 2026-08-26
+> **Versão:** 1.1 — 2026-09-23 (v1.0 — 2026-08-26; revisão S32 confirmou escopo, v1.1 adiciona cross-links)
 > **Padrão:** Monolito modular (não microsserviços) — escala 100→50k sem overhead de rede.
 > **Princípio:** Cada módulo tem `types.ts` + `service.ts` + `routes.ts` + `tests` isolados; depende de interfaces, não de implementações.
+> **Relacionados:** [API.md](./API.md) (rotas) · [DESIGN.md](./DESIGN.md) (UI) · [CHOOSE_TECH_STACK.md](./CHOOSE_TECH_STACK.md) (por quê) · índice em [README.md](./README.md)
 
 ---
 

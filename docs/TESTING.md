@@ -1,8 +1,9 @@
 # Testes — Unitários, Integração e E2E
 
-> **Versão:** 1.0 — 2026-08-26
+> **Versão:** 1.1 — 2026-09-23 (v1.0 — 2026-08-26; atualizado pós T050-T054: chain de coverage fechada, e2e no CI condicional a label `e2e`)
 > **Stack:** Vitest (unit) + Vitest+Prisma (integração) + Playwright (E2E) + Codecov
 > **Gate:** `npm run test:ci` deve passar antes de qualquer push (pre-push hook REG-004)
+> **Relacionados:** [QA_TESTING.md](./QA_TESTING.md) (plano de QA por release) · índice em [README.md](./README.md)
 
 ---
 

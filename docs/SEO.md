@@ -1,8 +1,10 @@
 # SEO, AEO, AIO e GEO — Estrutura Completa
 
-> **Versão:** 1.0 — 2026-08-26
+> **Versão:** 1.2 — 2026-09-23 (v1.0 — 2026-08-26 · v1.1 cross-links · v1.2 checklist §2 sincronizado com a implementação real + pilares viraram docs dedicados)
 > **Pilares:** SEO (Google), AEO (Answer Engines), AIO (AI Overviews), GEO (Generative Engine Optimization)
 > **Princípio:** O Google precisa descobrir, entender e confiar nas páginas. IAs precisam citar.
+> **Pilares detalhados:** [AEO.md](./AEO.md) · [AIO.md](./AIO.md) · [GEO.md](./GEO.md)
+> **Relacionados:** [CONTENT.md](./CONTENT.md) (conteúdo/i18n) · [ACCESSIBILITY.md](./ACCESSIBILITY.md) (headings) · índice em [README.md](./README.md)
 
 ---
 
@@ -23,12 +25,13 @@
 |---|---|---|---|
 | **Title** (50-60 chars, único por página) | `src/app/layout.tsx` `metadata.title` + por rota | ✅ base, precisa por rota | `curl -s http://localhost:3000 \| grep -o '<title>.*</title>'` |
 | **Description** (120-160 chars) | `metadata.description` | ✅ base | `curl -s http://localhost:3000 \| grep -o 'name="description".*'` |
-| **Canonical** | `metadata.alternates.canonical` | ⚠️ falta | Adicionar `alternates: { canonical: 'https://domain.com/' }` |
-| **Open Graph** | `metadata.openGraph` | ⚠️ falta | Adicionar `openGraph: { title, description, images, type }` |
-| **Twitter Card** | `metadata.twitter` | ⚠️ falta | `twitter: { card: 'summary_large_image', ... }` |
-| **JSON-LD (Structured Data)** | `<script type="application/ld+json">` em layout | ❌ falta | Ver §3 |
-| **robots.txt** | `public/robots.txt` ou `src/app/robots.ts` | ❌ falta | Ver §4 |
-| **sitemap.xml** | `public/sitemap.xml` ou `src/app/sitemap.ts` | ❌ falta | Ver §4 |
+| **Canonical** | `metadata.alternates.canonical` | ✅ implementado | `src/app/layout.tsx:38` — conferir domínio real em prod (`metadataBase`) |
+| **Open Graph** | `metadata.openGraph` | ✅ implementado | `src/app/layout.tsx:39-47` (com locale por idioma) |
+| **Twitter Card** | `metadata.twitter` | ✅ implementado | `src/app/layout.tsx:48-53` (`summary_large_image`) |
+| **JSON-LD (Structured Data)** | `<script type="application/ld+json">` em layout | ✅ implementado | `src/app/layout.tsx:61-83` (SoftwareApplication) — ampliar com FAQPage ([AEO.md](./AEO.md)) |
+| **robots.txt** | `public/robots.txt` **ou** `src/app/robots.ts` | ⚠️ duplicado | `public/robots.txt` estático (placeholder `your-domain.com`, sem `disallow /api/`) conflita com `src/app/robots.ts` dinâmico — consolidar num só source (backlog [TASKS.md](./TASKS.md)) |
+| **sitemap.xml** | `src/app/sitemap.ts` | ✅ mínimo | 2 URLs (`/` + `/api/health`) — ampliar com páginas públicas (`/pricing`, `/privacy`, `/terms`) |
+| **llms.txt** | `public/llms.txt` | ❌ não existe | Padrão llmstxt.org — ver [GEO.md](./GEO.md) §3.1 |
 | **Viewport + lang** | `layout.tsx` `<html lang="pt-BR">` | ✅ `lang="pt-BR"` ok | View source |
 | **H1 único** | `page.tsx` | ⚠️ verificar | Só 1 H1 por página |
 | **Imagens com alt** | `next/image` | ⚠️ verificar | Auditar `alt=""` |

@@ -1,9 +1,10 @@
 # PRD — Auto Trader: Autonomous Crypto Paper Trading
 
-> **Versão:** 1.0 — 2026-08-26
+> **Versão:** 1.1 — 2026-09-23 (v1.0 — 2026-08-26; revisão S32 confirmou escopo, v1.1 adiciona cross-links)
 > **Status:** Ativo — base para SPRINT.md e PLANO_MESTRE.md
 > **Owner:** Operador (Doer implementa, Thinker revisa)
 > **Stack:** Next.js 16 + TypeScript + Prisma (SQLite/PostgreSQL) + Tailwind + shadcn/ui
+> **Índice da documentação:** [README.md](./README.md) — personas detalhadas em [DEFINE_THE_USER.md](./DEFINE_THE_USER.md)
 
 ---
 
