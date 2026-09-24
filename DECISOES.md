@@ -164,3 +164,11 @@
 **Risco aberto (NÃO resolvido):** node-tar HIGH/CRITICAL (S34 B-D); visual/funcional (T058, com Operador); S14 (chaves + aprovação); terminal-header morto (T067 backlog).
 **Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `PENDENCIAS_OPERADOR.md`, `logs/episodes.jsonl` (só docs/logs).
 **Próximo:** T058 (URL/ambiente do Operador) → T067 (baixa prioridade) → decisão staging/S14.
+
+### Decisão #40: D033 — Aprovar T069 outcome B, registrar Phase B, autorizar Phase C diagnóstica
+**Data:** 2026-09-25
+**Problema:** CVEs HIGH/CRITICAL de node-tar (Trivy) sem dono claro: lockfile (`npm ls tar` vazio) ou toolchain da imagem?
+**Solução:** R051 = APPROVED como outcome B. Prova via `docker run node:20-slim`: npm 10.8.2 embarca `tar@6.2.1`; maintainer recusa backport 6.x; fix exige major+Dockerfile. PR #28 (docs-only: plano §10 + episodes BLOCKED) mergeado (`13de992`); main verde (`36060538217`). T072 autorizada como diagnóstico isolado Phase C (npm@latest no build primeiro; sem merge sem review). T073 prepara harness T058 sem segredos.
+**Risco aberto (NÃO resolvido):** node-tar HIGH/CRITICAL até Phase C ou aceite formal; T058 sem URL válida (DEPLOYMENT_NOT_FOUND); S14 chaves + aprovação; T067 backlog.
+**Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `PENDENCIAS_OPERADOR.md`, `logs/episodes.jsonl` (só docs/logs).
+**Próximo:** T072 (branch isolada + PR draft) + T073 (paralela) → decisão Phase C/staging → T058 quando Operador responder.

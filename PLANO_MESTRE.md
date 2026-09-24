@@ -329,6 +329,15 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
+## F11-s34-B — Phase B outcome B + T070 audit (T071, 2026-09-25) ✅
+
+- [x] T069 Phase B — evidência: outcome (B) provado; `npm audit` high/critical só moderates vitest-major (proibido); `npm ls tar` vazio; `node:20-slim` embarca npm 10.8.2 + `tar@6.2.1` (docker reproduzível); maintainer recusa backport, fix exige major+Dockerfile; PR #28 draft diagnóstico (`3184b30`, CI `36056280921` success); REVIEW R051 = APPROVED. Zero mudanças em main por T069.
+- [x] T070 live audit — evidência: `origin/main e1a93eb`, 5 runs success, `docs/current-state-audit.md`, commit `dcc1cc7` (CI `36057835839` success); site `DEPLOYMENT_NOT_FOUND`; PLANO live sem divergência; REVIEW R052 = APPROVED.
+- [x] T071 merge + docs — evidência: PR #28 docs-only verificado (`s34-plan.md` + `episodes`), merge `13de992`; main pós-merge `36060538217` success; D033 registrada (#40).
+- Riscos preservados: node-tar HIGH/CRITICAL até Phase C/aceite (T072 autorizada, branch isolada + PR draft); T058 sem URL válida; S14 chaves + aprovação; T067 backlog.
+
+---
+
 ## Marcos de Lançamento (Definition of Done por marco)
 
 | Marco | Critério | Fases exigidas |

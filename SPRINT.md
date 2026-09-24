@@ -146,6 +146,10 @@
 
 > R049 (T066) = APPROVED. Merge #27 squash `4e6957a` limpo; main pós-merge `36052370734` success (ci/e2e+axe/codeql/gitleaks). Exceção color-contrast encerrada como falso positivo comprovado (aria-hidden + contraste zero com modal aberto). D030: T058 formalmente ESCALADA ao Operador (URL/ambiente + credenciais de teste); T067 backlog; S14 chaves + aprovação; node-tar/S34 B-D abertos.
 
+## 19. T071 — Merge #28 + T069 DONE/B, D033 (2026-09-25)
+
+> R051 (T069 outcome B) = APPROVED. PR #28 verificado docs-only (plano §10 + episodes BLOCKED) e mergeado (`13de992`); main pós-merge `36060538217` success (ci/e2e/codeql/gitleaks). T070 audit confirmou base. D033: Phase B encerrada sem fix (tar no toolchain da imagem); T072 autorizada (diagnóstico isolado tar7); T058 segue sem URL válida (DEPLOYMENT_NOT_FOUND); S14 chaves + aprovação; T067 backlog; node-tar aberto.
+
 ## 12. Próximos (se `Prossiga`)
 
 - **S40** — cobertura 80% (expansão sistemática de tests p/ `src/lib/{trading,chain,auth}`)
