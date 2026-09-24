@@ -197,11 +197,18 @@ alcance de `overrides`/lockfile do app.
   `node`, com validação de staging) — NÃO corrigido aqui para manter o diff
   mínimo e revisável.
 
-### 11.4 Trivy — veredicto pendente do CI do PR
+### 11.4 Trivy — veredicto CONFIRMADO no CI do PR (run `36065096390`)
 
-Sem Trivy local; o step Trivy do CI escaneia a imagem do branch. Se zerar os
-CVEs node-tar HIGH/CRITICAL → hipótese (a) confirmada end-to-end. Se
-persistirem → escalar para hipótese (b) (base `node:22-slim`) ou aceite formal.
+Hipótese (a) **confirmada end-to-end**: zero ocorrências dos 7 CVEs node-tar
+rastreados (`CVE-2026-31802/59874/73566/24842/26960/59873/23745`) e zero linhas
+de pacote `node-tar` na tabela Trivy da imagem do branch. Jobs ci/e2e/codeql/
+gitleaks verdes no mesmo run.
+- Restam 65 achados (HIGH 59 / CRITICAL 6) em pacotes **OS Debian bookworm**
+  (util-linux, gzip, libacl, libblkid, libcap2…) — backlog distinto (patch de
+  SO via `apt upgrade` ou base atualizada), fora do escopo node-tar.
+- Recomendação: merge da Phase C + follow-up para OS patching + entrypoint
+  `bun` (achado §11.3), com staging/smoke antes de qualquer `continue-on-error`
+  do Trivy ser revisto.
 
 ## 8. Verificação desta tarefa (planejamento)
 
