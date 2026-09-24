@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       # T056: full history para o Gitleaks resolver o range de commits
@@ -96,23 +96,23 @@ jobs:
         continue-on-error: true
 
   codeql:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
       security-events: write
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
-      - uses: github/codeql-action/autobuild@v3
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/autobuild@v4
+      - uses: github/codeql-action/analyze@v4
 
   deploy-staging:
     if: github.ref == 'refs/heads/main' && vars.STAGING_ENABLED == 'true'
     needs: [ci]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: staging
     steps:
@@ -128,7 +128,7 @@ jobs:
   # E2E — só em PRs com label `e2e` ou push em main (evita custo em todo PR)
   e2e:
     if: contains(github.event.pull_request.labels.*.name, 'e2e') || github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
