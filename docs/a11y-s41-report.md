@@ -1,7 +1,8 @@
 # S41 Accessibility Report — axe validation (T062, 2026-09-24)
 
-> Status: PRELIMINARY — unit gate green locally; browser scan runs in PR CI
-> (`e2e/s41-a11y-axe.spec.ts`). Results below will be updated from CI evidence.
+> Status: GREEN — CI run `35937737433` (PR #25, head `4e780bd`): e2e, ci, codeql e
+> gitleaks verdes; 4 contextos axe sem serious/critical. Backlog dashboard-wide
+> segue aberto e visível (§4.2 + probe log-only).
 > No production code changed for tooling; axe runs only in e2e (never in bundle).
 
 ## 1. Supply-chain review — `@axe-core/playwright@4.13.0` (devDependency only)
@@ -34,13 +35,12 @@ filtering, viewer RBAC hiding, Escape handling.
 
 ## 4. Results
 
-### 4.1 S41 surfaces (gated — must be 0 serious/critical)
+### 4.1 S41 surfaces (gated — 0 serious/critical, evidência CI `35937737433`)
 
-- [ ] news-panel (`[data-testid="news-panel"]` scope): pending PR CI re-run
-- [ ] palette-open (`[role="dialog"]` scope): pending PR CI re-run
-- [ ] wizard-step-0 (`[role="dialog"]` scope, trader login): pending PR CI re-run
-- [ ] pricing (full page): pending PR CI re-run (passed in run 35936927008 — no
-  failure logged for it; re-confirmed on re-run)
+- [x] news-panel (`[data-testid="news-panel"]` scope): 0 serious/critical
+- [x] palette-open (`[role="dialog"]` scope): 0 serious/critical
+- [x] wizard-step-0 (`[role="dialog"]` scope, trader login): 0 serious/critical
+- [x] pricing (full page): 0 serious/critical
 
 ### 4.2 Dashboard-wide backlog (NOT S41 scope — open, tracked, never hidden)
 
