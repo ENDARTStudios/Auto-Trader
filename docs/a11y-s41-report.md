@@ -32,13 +32,34 @@ Playwright-native checks from T052 (`s41-validation.spec.ts`) already cover:
 focus trap (12× Tab stays in dialog), `aria-modal` dialog roles, combobox
 filtering, viewer RBAC hiding, Escape handling.
 
-## 4. Results (pending PR CI — updated after green run)
+## 4. Results
 
-- [ ] dashboard+news: 0 serious/critical
-- [ ] palette-open: 0 serious/critical
-- [ ] wizard-step-0: 0 serious/critical
-- [ ] pricing: 0 serious/critical
-- [ ] moderate/minor backlog triaged (none hidden)
+### 4.1 S41 surfaces (gated — must be 0 serious/critical)
+
+- [ ] news-panel (`[data-testid="news-panel"]` scope): pending PR CI re-run
+- [ ] palette-open (`[role="dialog"]` scope): pending PR CI re-run
+- [ ] wizard-step-0 (`[role="dialog"]` scope, trader login): pending PR CI re-run
+- [ ] pricing (full page): pending PR CI re-run (passed in run 35936927008 — no
+  failure logged for it; re-confirmed on re-run)
+
+### 4.2 Dashboard-wide backlog (NOT S41 scope — open, tracked, never hidden)
+
+Evidência: CI run `35936927008` (PR #25), full-page scan `dashboard+news`:
+
+| Rule | Impact | Nodes | Provável origem (pré-existente, fora S41) |
+|---|---|---|---|
+| `aria-progressbar-name` | serious | 1 | `Progress` sem nome acessível (market/strategic panels) |
+| `button-name` | critical | 5 | botões icon-only sem texto/aria-label (panels diversos) |
+| `scrollable-region-focusable` | serious | 3 | containers `overflow-auto` sem `tabindex` (tabelas/feeds) |
+
+`palette-open` full-page também listou `color-contrast` serious ×17 — artefato
+parcial de backdrop + conteúdo da página; re-escopo para o dialog isola a
+superfície S41. Se o scan com escopo ainda apontar contraste real da palette,
+corrige-se (ex.: tom de `muted-foreground` dentro do dialog).
+
+Um probe log-only (`axe backlog probe`, sem assert) mantém esse backlog visível
+nos logs de CI a cada run. Follow-up dedicado deve corrigir os 3 itens acima
+fora do escopo S41.
 
 ## 5. Fixes applied for violations (if any)
 

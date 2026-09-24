@@ -9,10 +9,14 @@ export interface AxeSummary {
   moderateOrMinor: Array<{ id: string; impact: string; nodes: number }>;
 }
 
-export async function scanAxe(page: Page, context = 'page'): Promise<AxeSummary> {
-  const results = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa'])
-    .analyze();
+export async function scanAxe(
+  page: Page,
+  context = 'page',
+  includeSelector?: string,
+): Promise<AxeSummary> {
+  const builder = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']);
+  if (includeSelector) builder.include(includeSelector);
+  const results = await builder.analyze();
   const impactOf = (v: { impact?: string | null }): string => v.impact ?? 'unknown';
   const byImpact = (impacts: string[]) =>
     results.violations
