@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { closeDialogViaEscape } from './a11y-helpers';
 
 // T066 — modal background inert validation + formal color-contrast proof.
 // Thesis: with a Radix dialog open, background is aria-hidden (hideOthers) +
@@ -99,8 +100,7 @@ test('palette open: background AT-hidden; contrast only in hidden subtrees', asy
   await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5_000 });
   await expectBackgroundAtHidden(page, 'palette');
   await expectContrastOnlyInHidden(page, 'palette');
-  await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog')).toBeHidden({ timeout: 5_000 });
+  await closeDialogViaEscape(page);
 });
 
 test('wizard open: background AT-hidden; contrast only in hidden subtrees', async ({

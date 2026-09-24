@@ -38,3 +38,21 @@ export function expectNoSeriousOrCritical(summary: AxeSummary, context: string) 
     `axe serious/critical violations in ${context}: ${JSON.stringify(summary.seriousOrCritical)}`,
   ).toEqual([]);
 }
+
+/**
+ * Dismiss the open dialog via Escape with retries. A single Escape can be
+ * swallowed (e.g. cmdk input handling, post-axe focus on body), so retry
+ * until hidden instead of asserting on the first keypress.
+ */
+export async function closeDialogViaEscape(page: Page, timeoutMs = 12_000) {
+  const dialog = page.getByRole('dialog');
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if ((await dialog.count()) === 0 || !(await dialog.first().isVisible().catch(() => false))) {
+      return;
+    }
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(800);
+  }
+  await expect(dialog).toBeHidden({ timeout: 5_000 });
+}
