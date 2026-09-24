@@ -129,7 +129,7 @@ export function MarketPanel({ data, isLoading }: Props) {
                   {fg.value}
                 </div>
                 <div className="text-sm text-muted-foreground">{fg.classification}</div>
-                <Progress value={fg.value} className="h-2" />
+                <Progress value={fg.value} className="h-2" aria-label="Fear and greed index" />
                 <p className="text-xs text-muted-foreground mt-2">
                   Índice global de sentimento cripto — 0 (medo extremo) a 100 (ganância extrema).
                   Estratégia contrarian: comprar em medo extremo, ter cautela em ganância extrema.
