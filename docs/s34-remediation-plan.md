@@ -90,6 +90,29 @@ exige tarefa própria com evidência de quebra real.
 - [ ] Aceitar risco temporário dos CVEs `node-tar` até Fase A, ou exigir contenção imediata.
 - [ ] Cronograma: Fase A estimada curta (dias); Fases B–D conforme carga de T052.
 
+## 9. Phase A — status de execução (T061, branch `chore/s34-phase-a-ci-hygiene`)
+
+> Aplicado (não-breaking, com leitura de changelog):
+> - `ubuntu-latest` → `ubuntu-24.04` em todos os jobs de `ci.yml` (ci, codeql,
+>   deploy-staging, e2e) e `zap.yml` — elimina migração surpresa p/ Ubuntu 26.
+> - CodeQL `v3` → `v4` (init/autobuild/analyze) — migração oficial GitHub
+>   (blog 2025-10-28); nosso uso só tem input `languages` (inputs removidos
+>   `add-snippets`/`cleanup-level` não usados); v4 roda em Node24, suportado
+>   nos runners hospedados.
+> - `fetch-depth: 0` do job ci e `continue-on-error` do Trivy **preservados**.
+>
+> Avaliado e ADIADO com justificativa (fora da Phase A):
+> - `actions/checkout v4→v5` / `setup-node v4→v5`: v5 exige runner ≥v2.327.1 e
+>   muda runtime p/ Node24; setup-node v5 ainda liga cache automático por
+>   padrão (mudança de comportamento em workflow com segredos) e checkout v5
+>   teve incidente de compat (#2240). v4 segue funcional (só warnings).
+>   Reavaliar após estabilização do ecossistema, em PR próprio.
+> - `codecov-action v4`, `setup-bun v2`, `trivy-action 0.36.0`,
+>   `gitleaks-action v2`, `zaproxy v0.12.0`: mantidos — sem depreciação
+>   bloqueante; gitleaks estabilizado em T056 (não mexer).
+>
+> Verificação T061: PR da branch + CI verde (ci/e2e/codeql/gitleaks) antes do merge.
+
 ## 8. Verificação desta tarefa (planejamento)
 
 ```sh
