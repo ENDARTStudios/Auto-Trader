@@ -34,7 +34,7 @@ export function NewsPanel() {
 
   if (news.isLoading && !news.data) {
     return (
-      <Card>
+      <Card data-testid="news-panel">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Newspaper className="size-4" />
@@ -54,7 +54,7 @@ export function NewsPanel() {
   const degraded = news.data?.degraded ?? false;
 
   return (
-    <Card>
+    <Card data-testid="news-panel">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-medium flex items-center gap-2">
           <Newspaper className="size-4" />
