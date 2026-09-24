@@ -301,6 +301,16 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
+## F11-s34-A + F10-a11y — Fechamento T061/T062 via PRs (T063, 2026-09-24) ✅
+
+- [x] T061 Phase A CI hygiene — evidência: PR #24 squash `e189de2`; `ubuntu-24.04` em 5 jobs + CodeQL v3→v4; checkout/setup-node v5 adiados com changelog; runs `35936642382`/`35938395389` success; REVIEW R044 = APPROVED.
+- [x] T062 axe S41 — evidência: PR #25 squash `7f153b3`; `@axe-core/playwright` devDep revisada; TDD com falha real; 4 contextos 0 serious/critical (run `35938373330`); backlog dashboard-wide documentado; REVIEW R045 = APPROVED.
+- Merge ordem #24 → #25 (D027); conflito `logs/episodes.jsonl` resolvido sem perda (16 linhas, 0 marcadores, bytes verificados contra fontes).
+- Main pós-merges verde: runs `35942312294` (e189de2) e `35942415265` (7f153b3) success.
+- T064 criada (backlog a11y dashboard-wide) — NÃO iniciada. T058/S14 seguem com o Operador.
+
+---
+
 ## Marcos de Lançamento (Definition of Done por marco)
 
 | Marco | Critério | Fases exigidas |

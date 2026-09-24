@@ -140,3 +140,11 @@
 **Risco aberto (NÃO resolvido):** node-tar HIGH/CRITICAL; a11y axe; visual; S14; Node20/ubuntu. CI verde não declara segurança completa.
 **Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `logs/episodes.jsonl` (só docs/logs).
 **Próximo:** T060 → T061 + T062 em paralelo → T058 (URL/ambiente) → decisão staging/S14.
+
+### Decisão #37: D027 — Merges ordenados #24/#25 + backlog a11y T064
+**Data:** 2026-09-24
+**Problema:** PRs #24 (higiene CI) e #25 (axe a11y) verdes mas não mergeados; conflito esperado em `logs/episodes.jsonl`; dívida dashboard-wide precisava de dono.
+**Solução:** R044/R045 = APPROVED PARA MERGE. Ordem #24 (`e189de2`) → resolução de conflito sem perda (16 linhas, 0 marcadores) → #25 (`7f153b3`). Main verde pós-merges (`35942312294`, `35942415265`). T064 criada para o backlog a11y (contrast/scrollable/button-name), NÃO iniciada nesta tarefa.
+**Risco aberto (NÃO resolvido):** node-tar HIGH/CRITICAL (S34 B-D); backlog a11y (T064); visual (T058); S14 (chaves + aprovação).
+**Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `logs/episodes.jsonl` (só docs/logs).
+**Próximo:** T064 (requer autorização de escopo) → T058 (URL/ambiente) → decisão staging/S14.
