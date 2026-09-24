@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { scanAxe, expectNoSeriousOrCritical } from './a11y-helpers';
+import { scanAxe, expectNoSeriousOrCritical, closeDialogViaEscape } from './a11y-helpers';
 
 // T062 — S41 axe validation (TDD: strict on serious/critical, backlog rest).
 // Fails on serious/critical violations; moderate/minor are logged as backlog.
@@ -58,8 +58,7 @@ test('axe: command palette dialog has no serious/critical violations', async ({
   // pollute contrast results with non-palette content.
   const summary = await scanAxe(page, 'palette-open', '[role="dialog"]');
   expectNoSeriousOrCritical(summary, 'palette-open');
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden({ timeout: 5_000 });
+  await closeDialogViaEscape(page);
 });
 
 test('axe: onboarding wizard steps have no serious/critical violations', async ({

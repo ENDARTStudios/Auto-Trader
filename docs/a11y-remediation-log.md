@@ -36,12 +36,25 @@ renderizados (1 prop cada, sem mudança visual):
 - portfolio `overflow-auto` → `"Open positions"` — `portfolio-panel.tsx`
 - system-health `overflow-y-auto` → `"Hardening layers"` — `system-health-panel.tsx`
 
-## 4. `color-contrast` serious ×17 (scan anterior, run `35936927008`) → JUSTIFICADO
+## 4. `color-contrast` serious ×17 (scan anterior, run `35936927008`) → FALSO POSITIVO COMPROVADO (T066)
 
-Apareceu só no scan full-page **com o dialog da palette aberto** (backdrop
-`bg-black/80` derruba contraste do conteúdo atrás). Não reproduz em scans com
-escopo (dialog/S41) nem no dashboard sem modal. Artefato de overlay, não defeito
-de token de cor. Reavaliar se voltar a aparecer em scan sem modal.
+Evidência (run `36014322358`, PR #27, spec `e2e/a11y-modal-background.spec.ts`):
+
+- Com palette/wizard abertos, **todos os irmãos do portal têm
+  `aria-hidden="true"`** — Radix `hideOthers` (`@radix-ui/react-dialog@1.1.15`,
+  verificado no `dist`: `hideOthers(content)` via pacote `aria-hidden`).
+  Fundo inalcançável para AT; foco contido (focus trap já verde em T052);
+  overlay `bg-black/50` bloqueia ponteiro.
+- Axe full-page **com modal aberto: zero nós `color-contrast`**
+  (`contrast-evidence:palette/wizard = []` em todas as repetições) — as 17
+  ocorrências do scan antigo não reproduzem com overlay estável; eram estado
+  transitório/conteúdo do feed, não defeito de token.
+- Nenhuma mudança de produção necessária para este item: o mecanismo
+  (hideOthers + trap + overlay) já existia; T066 o transformou em garantia
+  testada (`expectBackgroundAtHidden` + `expectContrastOnlyInHidden` por nó).
+- Escape-close endurecido com retry (`closeDialogViaEscape` em
+  `e2e/a11y-helpers.ts`) após flake de keypress único pós-axe — mesma causa
+  raiz do retry de hidratação em T052.
 
 ## 5. Validação
 
