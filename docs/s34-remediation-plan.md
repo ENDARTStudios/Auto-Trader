@@ -113,6 +113,60 @@ exige tarefa própria com evidência de quebra real.
 >
 > Verificação T061: PR da branch + CI verde (ci/e2e/codeql/gitleaks) antes do merge.
 
+## 10. Phase B — resultado: BLOCKED sem fix não-breaking (T069, branch `chore/s34-phase-b-nonbreaking`)
+
+> Nenhum `package.json`/`lockfile`/`Dockerfile`/workflow foi alterado.
+> Evidência abaixo; conclusão: outcome (B) do critério T069.
+
+### 10.1 Baseline
+
+- `npm audit --audit-level=high`: só 3 moderates (cadeia vitest → fix exige
+  major 5.0.1 = breaking, proibido). **Zero high/critical no audit.**
+- `npm ls node-tar` e `npm ls tar`: **vazios** — o pacote vulnerável NÃO está
+  na árvore npm do projeto.
+
+### 10.2 Causa raiz provada (comando reproduzível)
+
+`node:20-slim` recém-puxado (`sha256:2cf067...`) embarca **npm 10.8.2 com
+`tar@6.2.1`** em `/usr/local/lib/node_modules/npm/node_modules/`:
+
+```sh
+docker run --rm node:20-slim ls /usr/local/lib/node_modules/npm/node_modules/ | grep tar
+# tar
+docker run --rm node:20-slim cat /usr/local/lib/node_modules/npm/node_modules/tar/package.json | grep version
+# "version": "6.2.1"
+```
+
+O Trivy escaneia a imagem e encontra esse `tar` do npm embarcado — fora do
+alcance de `overrides`/lockfile do app.
+
+### 10.3 Por que não há fix não-breaking
+
+- Maintainer (`isaacs/node-tar#449`, 2026-01-17): **recusa backport para 6.x**,
+  recomenda `tar@7`, vai depreciar tudo pré-v7. O "workaround 6.2.2" citado em
+  outro projeto foi desmentido como conselho errôneo.
+- Fixes exigem `tar@7.5.11+` (até 7.5.22), i.e. **major + troca de licença
+  ISC → BlueOak-1.0.0**. Não existe patch 6.x seguro.
+- Opções reais tocam `Dockerfile`/toolchain e estão FORA do escopo T069
+  (arquivos afetados não incluem `Dockerfile`):
+  - (a) `npm install -g npm@latest` no build (npm 11 embarca tar 7);
+  - (b) bump de base `node:20-slim` → `node:22/24-slim` (runtime major);
+  - (c) remover npm do stage runner (entrypoint `node` direto).
+- Exposição real: `src/` nunca importa `tar`; o pacote é exercido só via npm
+  embarcado (build `npm ci`/`prune`, `npm start`). Isso **contextualiza, sem
+  rebaixar** o veredicto HIGH/CRITICAL do scanner.
+
+### 10.4 PROPOSTA (Phase C isolada, para decisão do Thinker/Operador)
+
+1. Branch `feature/s34-tar7-toolchain` a partir de main verde; aplicar UMA
+   opção ((a) preferida: menor diff) com rebuild + Trivy + suíte verde.
+2. Validar em staging (smoke T058-like) antes de qualquer merge.
+3. Só então decidir sobre `continue-on-error` do Trivy (manter até verde ou
+   aceitação formal de risco).
+4. Rejeitado: `overrides tar@7` no app (tar nem está na árvore; override
+   fantasma não remove o tar do npm embarcado), patch 6.x (inexistente),
+   major npm em main sem staging.
+
 ## 8. Verificação desta tarefa (planejamento)
 
 ```sh
