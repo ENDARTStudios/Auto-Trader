@@ -156,3 +156,11 @@
 **Risco aberto (NÃO resolvido):** color-contrast/modal-inert (T066); node-tar HIGH/CRITICAL (S34 B-D); visual (T058); S14 (chaves + aprovação). A11y NÃO declarada totalmente fechada.
 **Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `logs/episodes.jsonl` (só docs/logs).
 **Próximo:** T066 (branch isolada + PR) → T058 (URL/ambiente) → decisão staging/S14.
+
+### Decisão #39: D030 — Aprovar T066, encerrar exceção color-contrast, escalar T058
+**Data:** 2026-09-24
+**Problema:** Exceção provisória de 17 color-contrast (T064) bloqueava T058/demo por falta de prova de background inert para AT.
+**Solução:** R049 = APPROVED. Prova nó-por-nó: siblings do portal com `aria-hidden="true"` (Radix `hideOthers` 1.1.15) + focus trap + overlay + `contrast-evidence` vazia com modal aberto (runs `36014322358`/`36015397581`). Merge #27 (`4e6957a`); main verde (`36052370734`). Exceção reclassificada: **falso positivo comprovado**. `inert` nativo dispensado (redundante); revisitar só se Radix/portais mudarem. T058 formalmente escalada ao Operador.
+**Risco aberto (NÃO resolvido):** node-tar HIGH/CRITICAL (S34 B-D); visual/funcional (T058, com Operador); S14 (chaves + aprovação); terminal-header morto (T067 backlog).
+**Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `PENDENCIAS_OPERADOR.md`, `logs/episodes.jsonl` (só docs/logs).
+**Próximo:** T058 (URL/ambiente do Operador) → T067 (baixa prioridade) → decisão staging/S14.

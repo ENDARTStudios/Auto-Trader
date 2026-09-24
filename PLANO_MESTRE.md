@@ -321,6 +321,14 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
+## F12-a11y-inert — Fechamento T066 via PR #27 (T068, 2026-09-24) ✅
+
+- [x] T066 modal-background inert — evidência: PR #27 squash `4e6957a`; TDD red (`36012998319`, flake Escape) → green (`36014322358`, `36015397581`); prova: siblings `aria-hidden="true"` (Radix `hideOthers` 1.1.15) + `contrast-evidence` vazia palette/wizard; 17 color-contrast = **falso positivo comprovado**; `inert` nativo dispensado com justificativa; REVIEW R049 = APPROVED.
+- [x] T068 merge + docs — evidência: merge #27 limpo; main pós-merge `36052370734` success; D030 registrada (#39).
+- T058 formalmente ESCALADA ao Operador (sem bloqueio técnico interno restante). T067 backlog baixa prioridade. S14: chaves + aprovação. S34 B-D/node-tar abertos.
+
+---
+
 ## Marcos de Lançamento (Definition of Done por marco)
 
 | Marco | Critério | Fases exigidas |

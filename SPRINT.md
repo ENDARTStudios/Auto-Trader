@@ -142,6 +142,10 @@
 
 > R047 (T064) = APPROVED PARA MERGE com condição (color-contrast provisória). Merge #26 squash `61fe9af` limpo; main pós-merge `36004898568` success (ci/e2e+axe/codeql/gitleaks). D029: T066 OBRIGATÓRIA antes de T058/demo (modal-background inert); T067 backlog baixa prioridade (terminal-header morto). T058/S14 com o Operador; node-tar/S34 B-D abertos.
 
+## 18. T068 — Merge #27 + T066 DONE, D030, T058 escalada (2026-09-24)
+
+> R049 (T066) = APPROVED. Merge #27 squash `4e6957a` limpo; main pós-merge `36052370734` success (ci/e2e+axe/codeql/gitleaks). Exceção color-contrast encerrada como falso positivo comprovado (aria-hidden + contraste zero com modal aberto). D030: T058 formalmente ESCALADA ao Operador (URL/ambiente + credenciais de teste); T067 backlog; S14 chaves + aprovação; node-tar/S34 B-D abertos.
+
 ## 12. Próximos (se `Prossiga`)
 
 - **S40** — cobertura 80% (expansão sistemática de tests p/ `src/lib/{trading,chain,auth}`)
