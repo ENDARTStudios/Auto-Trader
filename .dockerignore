@@ -1,0 +1,19 @@
+# T072 S34-Phase C: keep build context small, fast and secret-free.
+# (Builder re-installs deps via npm ci; nothing below is needed at build.)
+node_modules
+.next
+.git
+*.db
+*.db-journal
+*.log
+coverage
+test-results
+playwright-report
+.env*
+!.env.example
+tmp
+.opencode
+.agents
+skills-lock.json
+dev.log
+server.log

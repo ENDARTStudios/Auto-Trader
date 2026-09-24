@@ -167,6 +167,42 @@ alcance de `overrides`/lockfile do app.
    fantasma não remove o tar do npm embarcado), patch 6.x (inexistente),
    major npm em main sem staging.
 
+## 11. Phase C — diagnóstico hipótese (a): npm@11.20.0 pinado (T072)
+
+> Branch `feature/s34-tar7-toolchain`. Status: diagnóstico local VERDE;
+> veredicto Trivy delegado ao CI do PR (sem Trivy local).
+
+### 11.1 Implementação (mínima, pinada)
+
+- `Dockerfile`: `RUN npm install -g npm@11.20.0 --no-audit --no-fund` nas 3
+  stages que usam npm (deps/builder/runner). Node runtime permanece 20.
+  **NÃO** usado `npm@latest` solto; versão exata pinada.
+- `.dockerignore` criado (não existia): contexto caiu de **~1.8GB para build
+  de 66s**. Exclui node_modules/.next/.git/*.db/secrets/logs — também fecha
+  vazamento de segredos/DB para o contexto de build.
+
+### 11.2 Evidência local (docker 29.8.0, base `node:20-slim` digest `2cf067`)
+
+- Imagem `autotrader-phasec` (2.43GB): `npm -v` → 11.20.0,
+  `tar` embarcado → **7.5.22** (linha corrigida), `node -v` → v20.20.2.
+- `npm ci` + `prisma generate` + `next build` + `npm prune` verdes no build.
+- Runtime: `/api/health` → **200** via `node .next/standalone/server.js`.
+- Lockfile do repo **intocado** (`git status` limpo para package*.json).
+
+### 11.3 Achado adicional (pré-existente, fora do escopo do fix)
+
+- `CMD ["npm","start"]` → script `start` invoca **`bun`**, ausente na imagem
+  (`sh: 1: bun: not found`). A imagem atual **nunca inicializa** por esse
+  entrypoint, com npm 10 ou 11. Requer follow-up próprio (trocar CMD para
+  `node`, com validação de staging) — NÃO corrigido aqui para manter o diff
+  mínimo e revisável.
+
+### 11.4 Trivy — veredicto pendente do CI do PR
+
+Sem Trivy local; o step Trivy do CI escaneia a imagem do branch. Se zerar os
+CVEs node-tar HIGH/CRITICAL → hipótese (a) confirmada end-to-end. Se
+persistirem → escalar para hipótese (b) (base `node:22-slim`) ou aceite formal.
+
 ## 8. Verificação desta tarefa (planejamento)
 
 ```sh
