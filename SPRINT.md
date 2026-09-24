@@ -138,6 +138,10 @@
 
 > R044 (T061) e R045 (T062) = APPROVED PARA MERGE. Ordem #24 (`e189de2`) → #25 (`7f153b3`); conflito `episodes.jsonl` resolvido sem perda (16 linhas verificadas byte-a-byte). Main verde pós-merges: `35942312294` e `35942415265` success. T064 (backlog a11y dashboard) criada, não iniciada. T058/S14 com o Operador.
 
+## 17. T065 — Merge #26 + T064 DONE, D029 (2026-09-24)
+
+> R047 (T064) = APPROVED PARA MERGE com condição (color-contrast provisória). Merge #26 squash `61fe9af` limpo; main pós-merge `36004898568` success (ci/e2e+axe/codeql/gitleaks). D029: T066 OBRIGATÓRIA antes de T058/demo (modal-background inert); T067 backlog baixa prioridade (terminal-header morto). T058/S14 com o Operador; node-tar/S34 B-D abertos.
+
 ## 12. Próximos (se `Prossiga`)
 
 - **S40** — cobertura 80% (expansão sistemática de tests p/ `src/lib/{trading,chain,auth}`)

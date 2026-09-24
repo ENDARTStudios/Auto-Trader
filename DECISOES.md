@@ -148,3 +148,11 @@
 **Risco aberto (NÃO resolvido):** node-tar HIGH/CRITICAL (S34 B-D); backlog a11y (T064); visual (T058); S14 (chaves + aprovação).
 **Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `logs/episodes.jsonl` (só docs/logs).
 **Próximo:** T064 (requer autorização de escopo) → T058 (URL/ambiente) → decisão staging/S14.
+
+### Decisão #38: D029 — Aprovar T064, exigir T066 antes de T058/demo
+**Data:** 2026-09-24
+**Problema:** T064 corrigiu 9 violações com TDD real, mas 17 color-contrast ficaram como hipótese provisória de artefato de backdrop — insuficiente sem prova de background inert para AT.
+**Solução:** R047 = APPROVED PARA MERGE. Merge #26 (`61fe9af`); main verde (`36004898568`). T066 OBRIGATÓRIA antes de T058/demo (inert/aria-hidden + axe com modal aberto). T067 backlog baixa prioridade (terminal-header morto, sem import ativo).
+**Risco aberto (NÃO resolvido):** color-contrast/modal-inert (T066); node-tar HIGH/CRITICAL (S34 B-D); visual (T058); S14 (chaves + aprovação). A11y NÃO declarada totalmente fechada.
+**Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `logs/episodes.jsonl` (só docs/logs).
+**Próximo:** T066 (branch isolada + PR) → T058 (URL/ambiente) → decisão staging/S14.

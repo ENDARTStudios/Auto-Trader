@@ -311,6 +311,16 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
+## F12-a11y-remediation — Fechamento T064 via PR #26 (T065, 2026-09-24) ✅
+
+- [x] T064 dashboard backlog — evidência: PR #26 squash `61fe9af`; TDD red (`35946550038`) → green (`35947361113`); 9 violações corrigidas (button ×5, progressbar ×1, scroll ×3); color-contrast ×17 como exceção provisória de backdrop (NÃO provada); `docs/a11y-remediation-log.md`; REVIEW R047 = APPROVED.
+- [x] T065 merge + docs — evidência: merge #26 limpo; main pós-merge `36004898568` success; D029 registrada (#38).
+- ⚠️ Exceção provisória: color-contrast/modal-background-inert — T066 OBRIGATÓRIA antes de T058/demo. T067 (terminal-header dead code) backlog baixa prioridade.
+- Riscos preservados: node-tar HIGH/CRITICAL (S34 B-D); visual (T058); S14 (chaves + aprovação).
+- Próximo: T066 (branch isolada + PR) → T058 (URL/ambiente) → decisão staging/S14.
+
+---
+
 ## Marcos de Lançamento (Definition of Done por marco)
 
 | Marco | Critério | Fases exigidas |
