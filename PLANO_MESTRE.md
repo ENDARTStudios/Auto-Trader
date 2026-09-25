@@ -348,6 +348,13 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
+## F11-s34-OS — Triagem OS bookworm + reclassificação Trivy (T075, 2026-09-25) ✅
+
+- [x] T075 triagem — evidência: tabela Trivy run `36065096390` (61 CVE-2026 + 4 outros anos = 65); 9 remediáveis via base update (libcap2×1, libgnutls30×5 incl. 2 critical, libpcre2×3); 52 sem fix (affected/deferred); aplicabilidade runtime baixa (app não executa mount/perl/gzip; gap: container roda como root); exit-1 reclassificado como backlog OS (NÃO node-tar); `docs/s34-remediation-plan.md` §12.
+- Recomendação: Phase C2 (`apt-get upgrade` + rescan + staging) para os 9; aceite formal com controles (non-root, read-only FS, no-new-privs, scan contínuo) para os 52; sem Node 24/distroless agora.
+
+---
+
 ## Marcos de Lançamento (Definition of Done por marco)
 
 | Marco | Critério | Fases exigidas |

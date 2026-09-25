@@ -30,7 +30,8 @@ Requer, separadamente e só após T058:
 
 Sem chaves, `ORCAMENTO_ESTOURADO` mantém live desabilitado por design.
 
-## 3. S34 fases B/C/D — Phase C mergeada; restam OS + docs (NÃO urgente para demo)
+## 3. S34 — node-tar mitigado; OS bookworm triado (T075); `continue-on-error` mantido
 
 - node-tar HIGH/CRITICAL: **mitigado** (PR #29 em main; tar 7.5.22; zero ocorrências).
-- Pendentes sem bloquear T058: T075 (65 achados OS bookworm), T078 (docs bun vs Node), `continue-on-error` mantido até decisão formal.
+- OS Debian bookworm: **65 achados triados** (9 remediáveis via base update incl. 2 critical; 52 sem fix → aceite formal). Exit-1 do Trivy = backlog OS, NÃO exceção node-tar.
+- Pendentes sem bloquear T058: T075 (aguardando decisão Phase C2 vs aceite), T078 (docs bun vs Node), `continue-on-error` mantido até decisão formal.

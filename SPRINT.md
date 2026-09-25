@@ -154,6 +154,10 @@
 
 > R056 (T076) = APPROVED. PR #29 diff verificado (Dockerfile, .dockerignore, validate script, plano, episodes) e mergeado (`63cb975`); main pós-merge `36085026818` success (ci/e2e/codeql/gitleaks). T072/T074/T076 fechadas; node-tar HIGH/CRITICAL **mitigado** (tar 7.5.22, zero ocorrências). D037: T075 (OS bookworm) e T078 (docs bun) seguem; T058 sem URL; S14 chaves + aprovação; T067 backlog; `continue-on-error` mantido.
 
+## 21. T075 — Triagem OS bookworm + reclassificação Trivy (2026-09-25)
+
+> Tabela Trivy run `36065096390`: 65 achados (HIGH 59/CRITICAL 6) em 16 pacotes bookworm. 9 com fix (libcap2, libgnutls30×5, libpcre2×3) → Phase C2 (`apt-get upgrade` + rescan). 52 sem fix → aceite formal (non-root, read-only, no-new-privs, scan contínuo). Exit-1 do Trivy = backlog OS, NÃO node-tar. App não executa mount/perl/gzip; gap: root sem USER. T058/S14/T067 inalterados.
+
 ## 12. Próximos (se `Prossiga`)
 
 - **S40** — cobertura 80% (expansão sistemática de tests p/ `src/lib/{trading,chain,auth}`)

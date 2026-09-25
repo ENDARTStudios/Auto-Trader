@@ -240,3 +240,42 @@ cat docs/s34-remediation-plan.md | grep -E 'CVE|Major|Staging|Rollback'
 > Critério T051: inventário + classificação + ordem segura + branch/staging +
 > rollback + matriz de pins + higiene CI + decisão Trivy — todos acima, sem
 > execução de upgrades.
+
+## 12. T075 — triagem OS Debian bookworm + reclassificação do Trivy (2026-09-25)
+
+> Fonte: tabela Trivy do CI run `36065096390` (imagem Phase C): 61 linhas
+> CVE-2026 + 4 de outros anos = Total 65 (HIGH 59 / CRITICAL 6). Inventário
+> extraído por pacote/CVE/severidade/status; node-tar com ZERO ocorrências.
+
+### 12.1 Inventário por pacote (contagem de CVEs)
+
+- `perl-base` 8 (3 CRITICAL: CVE-2026-13221/42496/8376 — affected/deferred)
+- `util-linux*` 35 no conjunto (bsdutils, libblkid1, libmount1, libsmartcols1,
+  libuuid1, mount, util-linux, util-linux-extra — 5 cada; mount/nsenter/login)
+- `libgnutls30` 5 (2 CRITICAL CVE-2026-33845/42010 + 3 HIGH — **fixed**)
+- `libpcre2-8-0` 3 HIGH (**fixed**); `libcap2` 1 HIGH (**fixed**)
+- `gzip`, `libsystemd0`, `libudev1`, `libacl1` 1 cada (affected/deferred)
+
+### 12.2 Classificação
+
+- **Remediáveis via update de base (9)**: libcap2×1, libgnutls30×5,
+  libpcre2-8-0×3 — status `fixed` (existe versão corrigida no bookworm).
+  Candidatos a Phase C2: `apt-get upgrade` no Dockerfile + rescan + staging.
+- **Sem fix disponível (52)**: `affected` 45 + `fix_deferred` 7 (Debian
+  adiou) — caminho é aceite formal de risco, não patch.
+- **Aplicabilidade em runtime (app Node, sem shell-out)**: o app NÃO executa
+  mount/nsenter/login (util-linux), perl, gzip binário, nem linka
+  gnutls/pcre2 do sistema (Node usa crypto próprio). Exposição direta baixa;
+  risco residual existe em superfície compartilhada (kernel-adjacent libs).
+- **Gap de controle**: imagem roda como **root** (sem `USER` no Dockerfile),
+  FS gravável. Controles propostos: usuário non-root, FS read-only,
+  `no-new-privileges`, scan contínuo, janela de remediação.
+
+### 12.3 Reclassificação obrigatória do gate Trivy
+
+- ANTES (T054–T071): exit-1 = "exceção node-tar".
+- AGORA (pós-merge #29): node-tar zerado; exit-1 restante = **backlog OS
+  Debian bookworm**. `continue-on-error` mantido até T075 virar decisão
+  (Phase C2 ou aceite formal). **CI verde ≠ imagem totalmente segura.**
+- NÃO recomendado agora: migração Node 24 em produção (sem evidência de
+  compatibilidade), distroless (só hipótese futura), `npm@latest` solto.

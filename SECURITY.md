@@ -2015,28 +2015,28 @@ Don't. Read `tests/password-reset.test.ts` â€” it asserts `used=false` then `use
 
 ## REG-012: Auto Trader S16-S22 Final Security Audit (2026-08-27)
 
-**Date:** 2026-08-27 — Final audit of all 6 sprints S16-S22.
+**Date:** 2026-08-27 ï¿½ Final audit of all 6 sprints S16-S22.
 
 **Test coverage:**
 - 8 test files, **53 vitest tests** all passing
-- 	ests/totp.test.ts (6) — TOTP RFC 6238
-- 	ests/auth.test.ts (8) — RBAC + RLS matrix
-- 	ests/password-reset.test.ts (2) — single-use token
-- 	ests/rag.test.ts (6) — embeddings + cosine + buildGraph
-- 	ests/etl.test.ts (5) — crypto ETL (CoinGecko + DexScreener + GoPlus + Etherscan)
-- 	ests/position-rls.test.ts (5) — Position NOT NULL + assertOwner + IDOR
-- 	ests/billing.test.ts (12) — Stripe HMAC (timingSafeEqual) + plans (Free/Pro/Elite)
-- 	ests/live-trader.test.ts (9) — CCXT testnet + Uniswap V3 0.3% fee
+- 	ests/totp.test.ts (6) ï¿½ TOTP RFC 6238
+- 	ests/auth.test.ts (8) ï¿½ RBAC + RLS matrix
+- 	ests/password-reset.test.ts (2) ï¿½ single-use token
+- 	ests/rag.test.ts (6) ï¿½ embeddings + cosine + buildGraph
+- 	ests/etl.test.ts (5) ï¿½ crypto ETL (CoinGecko + DexScreener + GoPlus + Etherscan)
+- 	ests/position-rls.test.ts (5) ï¿½ Position NOT NULL + assertOwner + IDOR
+- 	ests/billing.test.ts (12) ï¿½ Stripe HMAC (timingSafeEqual) + plans (Free/Pro/Elite)
+- 	ests/live-trader.test.ts (9) ï¿½ CCXT testnet + Uniswap V3 0.3% fee
 
 **Security guarantees (REG-012):**
-1. **Authentication** — bcryptjs cost 12 (S02); TOTP 32 chars base32 + window 1 (S04); single-use PasswordReset 15m (S05).
-2. **Authorization** — 4 roles x 24 permissions matrix (S02); hasPermission guard before every protected route; IDOR blocked by ssertOwner (equireAdmin test verified).
-3. **RLS** — Position.ownerId NOT NULL (S05); lsWhere injects {ownerId: userId} except super_admin; super_admin bypass verified.
-4. **Transport** — HSTS max-age=63072000; includeSubDomains; preload (S01 next.config.ts:8); CSP + X-Frame-Options DENY; Stripe webhook HMAC SHA-256 + 	imingSafeEqual + 5min tolerance.
-5. **Rate limiting** — 100/10s default + 5/60s auth + Redis INCR/EXPIRE branch (S06); test verifies 6+ requests return 429.
-6. **Observability** — Sentry DSN production wiring verified (4/4 S18 test); captureError scrubs ENCRYPTION_KEY/SESSION_SECRET; OTEL/Prometheus ready (S05).
-7. **Data sourcing** — crypto-only ETL CoinGecko + DexScreener + GoPlus + Etherscan (S13b corrected from football scope).
-8. **Performance** — 1000 VUs at 168k RPS p95=3.35ms (S21); well under 500ms target.
+1. **Authentication** ï¿½ bcryptjs cost 12 (S02); TOTP 32 chars base32 + window 1 (S04); single-use PasswordReset 15m (S05).
+2. **Authorization** ï¿½ 4 roles x 24 permissions matrix (S02); hasPermission guard before every protected route; IDOR blocked by ssertOwner (equireAdmin test verified).
+3. **RLS** ï¿½ Position.ownerId NOT NULL (S05); lsWhere injects {ownerId: userId} except super_admin; super_admin bypass verified.
+4. **Transport** ï¿½ HSTS max-age=63072000; includeSubDomains; preload (S01 next.config.ts:8); CSP + X-Frame-Options DENY; Stripe webhook HMAC SHA-256 + 	imingSafeEqual + 5min tolerance.
+5. **Rate limiting** ï¿½ 100/10s default + 5/60s auth + Redis INCR/EXPIRE branch (S06); test verifies 6+ requests return 429.
+6. **Observability** ï¿½ Sentry DSN production wiring verified (4/4 S18 test); captureError scrubs ENCRYPTION_KEY/SESSION_SECRET; OTEL/Prometheus ready (S05).
+7. **Data sourcing** ï¿½ crypto-only ETL CoinGecko + DexScreener + GoPlus + Etherscan (S13b corrected from football scope).
+8. **Performance** ï¿½ 1000 VUs at 168k RPS p95=3.35ms (S21); well under 500ms target.
 
 **Football/Almanaque contamination check:** 0 football references in src/ or 	ests/ (all remaining matches are in PLANO_MESTRE.md:27 and SPRINT.md as explicit negations + changelogs).
 
@@ -2047,6 +2047,8 @@ px vitest run ? 53 passed, 0 failed.
 px next build ? OK (static ? /login ? /admin/users ? /sitemap.xml).
 
 **CI gate:** git push origin main triggers .github/workflows/ci.yml (lint+typecheck+test:ci 637+vitest 53+CodeQL+Trivy).
+
+**Trivy non-blocking semantics (pÃ³s-Phase C, T075):** node-tar HIGH/CRITICAL mitigado (tar 7.5.22, zero ocorrÃªncias). O exit-1 restante do step Trivy reflete backlog **OS Debian bookworm** (65 achados triados no plano S34 Â§12), NÃƒO exceÃ§Ã£o node-tar. `continue-on-error` mantido atÃ© remediaÃ§Ã£o (Phase C2) ou aceitaÃ§Ã£o formal de risco. CI verde â‰  imagem totalmente segura.
 
 **Production deploy** (docs/DEPLOY.md from S11): ly secrets set SENTRY_DSN=... NEXT_PUBLIC_SENTRY_DSN=... STRIPE_SECRET_KEY=... STRIPE_WEBHOOK_SECRET=... DATABASE_URL=... REDIS_URL=... ENCRYPTION_KEY=... SESSION_SECRET=....
 
@@ -2059,7 +2061,7 @@ px tsx scripts/test-position-alerts.ts and S26 vitest.
 
 **Rule:** unSurveillance() in src/lib/trading/position-surveillance.ts MUST create a PositionAlert row in the Prisma positionAlert table when a surveillance detector flags a position. The route POST /api/surveillance with ction=scan_now already triggers this via unSurveillance(openPositions). Each detector writes a row with positionId, 	ype (e.g. goplus_critical_flag, liquidity_drain, price_dump_velocity, holder_concentration, 	ax_spike, 	imeout_approaching, price_anomaly), severity (info/warning/critical), message, context (JSON).
 
-**Why this is a regression entry:** Without the trigger, the surveillance table stays empty, the dashboard badge lerts=0 always, and operators lose visibility into emerging risk. A future maintainer might "optimize" unSurveillance() to skip writing alerts (e.g., returning only the count) — that would silently break the UX. This entry documents that every detector result MUST be persisted.
+**Why this is a regression entry:** Without the trigger, the surveillance table stays empty, the dashboard badge lerts=0 always, and operators lose visibility into emerging risk. A future maintainer might "optimize" unSurveillance() to skip writing alerts (e.g., returning only the count) ï¿½ that would silently break the UX. This entry documents that every detector result MUST be persisted.
 
 **The correct structure (do not simplify):**
 `	s
@@ -2082,7 +2084,7 @@ Removing this db.positionAlert.create call means no UI alert is shown.
 
 ## REG-014: Sentry + Ollama + BullMQ stubs (S28)
 
-**Date:** 2026-08-30 (S28 — observability stack stubs)
+**Date:** 2026-08-30 (S28 ï¿½ observability stack stubs)
 
 **Test:** 	ests/bullmq-sentry-ollama.test.ts (7/7 PASS).
 
@@ -2094,7 +2096,7 @@ pm install @sentry/nextjs + ly secrets set SENTRY_DSN=.... The eforeSend scrub
 **Rule 3 (BullMQ stub):** src/lib/queue/bullmq-stub.ts is the in-process implementation used in dev/test. To switch to real BullMQ in production, replace the file body with export { Queue, Worker } from "bullmq". The stub maintains the same API surface (add/process/pollIntervalMs/attempts) so the swap is transparent.
 
 **Test pin (vitest):**
-1. initSentry is idempotent — second call does not throw.
+1. initSentry is idempotent ï¿½ second call does not throw.
 2. captureSentryException does not crash when @sentry/nextjs is not installed.
 3. generateEmbeddingOllama("BTC") returns 1536-dim non-zero vector even with no ollama server.
 4. Queue.add+process runs 3 jobs sequentially in declared order.
