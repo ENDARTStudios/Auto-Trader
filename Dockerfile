@@ -40,4 +40,7 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 EXPOSE 3000
-CMD ["npm", "start"]
+# T074: start via node (runtime already validated) instead of `npm start`,
+# whose script requires `bun`, absent from this image (pre-existing entrypoint
+# bug: `sh: 1: bun: not found`). Docker-scoped only; package.json untouched.
+CMD ["node", ".next/standalone/server.js"]

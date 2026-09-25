@@ -189,13 +189,17 @@ alcance de `overrides`/lockfile do app.
 - Runtime: `/api/health` → **200** via `node .next/standalone/server.js`.
 - Lockfile do repo **intocado** (`git status` limpo para package*.json).
 
-### 11.3 Achado adicional (pré-existente, fora do escopo do fix)
+### 11.3 Entrypoint corrigido (T074) — era bug pré-existente, agora provado
 
-- `CMD ["npm","start"]` → script `start` invoca **`bun`**, ausente na imagem
-  (`sh: 1: bun: not found`). A imagem atual **nunca inicializa** por esse
-  entrypoint, com npm 10 ou 11. Requer follow-up próprio (trocar CMD para
-  `node`, com validação de staging) — NÃO corrigido aqui para manter o diff
-  mínimo e revisável.
+- `CMD ["npm","start"]` invocava script com **`bun` ausente** na imagem
+  (`sh: 1: bun: not found`) — a imagem nunca inicializava, com npm 10 ou 11.
+- Fix (só Dockerfile, sem `package.json`): `CMD ["node",
+  ".next/standalone/server.js"]` — runtime oficial suportado do standalone
+  (docs escolhem bun como ideal, mas node é o fallback validado; sem bun
+  pinado para não ampliar supply chain sem necessidade).
+- Prova via CMD real (sem `--entrypoint`): rebuild verde; `docker run` sobe;
+  logs `✓ Ready`; `/api/health` → **200** em banco efêmero sqlite.
+  Container/imagem de teste removidos após evidência.
 
 ### 11.4 Trivy — veredicto CONFIRMADO no CI do PR (run `36065096390`)
 
