@@ -292,3 +292,22 @@ cat docs/s34-remediation-plan.md | grep -E 'CVE|Major|Staging|Rollback'
   (hardening) + T081 (aceite formal com Operador).
 - Runtime/UI/static provados localmente antes do PR; lockfile intocado;
   digest pinado; sem Node 22/24/distroless.
+
+## 14. T082 — Merge PR #30 e fechamento da Phase C2 (2026-09-25)
+
+> D040 registrada (DECISOES.md #42). Squash merge `77b5e7e`; main pós-merge
+> run `36156480225` success (ci 7m40s / e2e 4m14s / codeql 1m51s).
+
+- **Auditoria pré-merge**: `gh pr diff 30 --name-only` = apenas `Dockerfile`,
+  `docs/s34-remediation-plan.md`, `logs/episodes.jsonl` (sem package*.json,
+  src/, e2e/, workflows, auth/RBAC/chain/signer/audit/wallet-crypto ou schema
+  Prisma).
+- **Prova imagem vs runner efêmero**: o diff mostra o `apt-get install`
+  dentro do **stage runner do Dockerfile** (`FROM node:20-slim@sha256:2cf067…
+  AS runner`) e o digest pin nas 3 stages — remediação da imagem distribuída,
+  não step temporário de CI. Branch deletada após merge.
+- **Estado pós-Phase C2**: node-tar **mitigado** (tar 7.5.22); 9 CVEs OS
+  tratáveis **zerados** (Trivy 65→56); **52 achados OS bookworm permanecem
+  abertos sem fix upstream** (T080 hardening → T081 aceite formal).
+- `continue-on-error` do Trivy **mantido**; CI verde **≠** imagem totalmente
+  segura; sem Node 22/24/distroless nesta cadeia.

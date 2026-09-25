@@ -180,3 +180,11 @@
 **Risco aberto (NÃO resolvido):** OS Debian bookworm (65 achados, T075); docs bun vs Node (T078); visual (T058 sem URL); S14 (chaves + aprovação); T067 backlog; vitest majors.
 **Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `PENDENCIAS_OPERADOR.md`, `docs/s34-remediation-plan.md`, `logs/episodes.jsonl` (docs/logs + merge já aplicado).
 **Próximo:** T078 (docs bun) + T075 (OS triage) → T058 (URL/ambiente) → decisão staging/S14.
+
+### Decisão #42: D040 — Aprovar T079, ordenar merge PR #30 via T082 antes de hardening
+**Data:** 2026-09-25
+**Problema:** T079 executou a Phase C2 de S34 e zerou os 9 CVEs OS bookworm remediáveis (Trivy 65→56), mas "upgrade direcionado no runner" exigia prova cirúrgica de que a remediação estava na imagem e não em step efêmero de CI antes do merge.
+**Solução:** R059 = APPROVED com condição de verificação. T082 auditou `gh pr diff 30 --name-only` (apenas `Dockerfile`, `docs/s34-remediation-plan.md`, `logs/episodes.jsonl`) e confirmou no diff que `apt-get install libcap2 libgnutls30 libpcre2-8-0` está no **stage runner do Dockerfile** (imagem final) e o digest pin `sha256:2cf067` nas 3 stages. Squash merge `77b5e7e` (branch `chore/s34-phase-c2-base-update` deletada); main pós-merge `36156480225` success (ci/e2e/codeql). Ordem fixada: **T080** (hardening compensatório = próximo caminho crítico) → **T078** (docs bun vs Node, posterior para evitar conflito documental) → **T081** (aceite formal com Operador, só após T080). Manter `continue-on-error` do Trivy; não declarar imagem totalmente segura; sem Node 24/distroless/majors breaking nesta cadeia.
+**Risco aberto (NÃO resolvido):** OS Debian bookworm: **52 achados sem fix upstream** (T080 + T081); container rodando como root sem hardening validado (T080); `continue-on-error` mantido até decisão formal; visual (T058 sem URL); S14 (chaves + aprovação); T067 backlog; vitest majors.
+**Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `PENDENCIAS_OPERADOR.md`, `docs/s34-remediation-plan.md`, `SECURITY.md`, `logs/episodes.jsonl` (docs/logs + merge já aplicado).
+**Próximo:** T080 (branch isolada `chore/s34-docker-hardening` + PR draft) → T078 (docs) → T081 (aceite formal com Operador).

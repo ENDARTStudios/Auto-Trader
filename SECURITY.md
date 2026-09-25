@@ -2048,7 +2048,7 @@ px next build ? OK (static ? /login ? /admin/users ? /sitemap.xml).
 
 **CI gate:** git push origin main triggers .github/workflows/ci.yml (lint+typecheck+test:ci 637+vitest 53+CodeQL+Trivy).
 
-**Trivy non-blocking semantics (pós-Phase C, T075):** node-tar HIGH/CRITICAL mitigado (tar 7.5.22, zero ocorrências). O exit-1 restante do step Trivy reflete backlog **OS Debian bookworm** (65 achados triados no plano S34 §12), NÃO exceção node-tar. `continue-on-error` mantido até remediação (Phase C2) ou aceitação formal de risco. CI verde ≠ imagem totalmente segura.
+**Trivy non-blocking semantics (pós-Phase C2, T082):** node-tar HIGH/CRITICAL mitigado (tar 7.5.22, zero ocorrências). Phase C2 (PR #30, merge `77b5e7e`) zerou os 9 CVEs OS bookworm remediáveis (libcap2/libgnutls30/libpcre2-8-0) via digest pin `sha256:2cf067` + `apt-get` no stage runner do Dockerfile — Trivy caiu de **65 → 56**. Os **52 achados restantes sem fix upstream permanecem risco aberto** (backlog OS bookworm, plano S34 §12–§14), NÃO exceção node-tar. `continue-on-error` mantido até hardening validado (T080) + aceitação formal de risco (T081). CI verde ≠ imagem totalmente segura.
 
 **Production deploy** (docs/DEPLOY.md from S11): ly secrets set SENTRY_DSN=... NEXT_PUBLIC_SENTRY_DSN=... STRIPE_SECRET_KEY=... STRIPE_WEBHOOK_SECRET=... DATABASE_URL=... REDIS_URL=... ENCRYPTION_KEY=... SESSION_SECRET=....
 

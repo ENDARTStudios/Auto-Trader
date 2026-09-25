@@ -355,6 +355,14 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
+## F11-s34-C2 — Phase C2 integrada via T082 merge PR #30 (2026-09-25) ✅
+
+- [x] T079 Phase C2 — evidência: digest pin `sha256:2cf067` (3 stages) + `apt-get install libcap2 libgnutls30 libpcre2-8-0` no **stage runner do Dockerfile (imagem, não runner efêmero)**; commits `54f0a9f`/`6c2453d`; runs `36089136711`/`36089749844` success; Trivy **65 → 56** (9 alvos zerados, 52 sem fix); build local + health/login/static/robots 200 via CMD; lockfile intocado; REVIEW R059 = APPROVED.
+- [x] T082 merge + docs — evidência: `gh pr diff 30 --name-only` = apenas `Dockerfile`, `docs/s34-remediation-plan.md`, `logs/episodes.jsonl`; diff prova remediação no stage runner da imagem; squash merge `77b5e7e` (branch deletada); main pós-merge `36156480225` success (ci/e2e/codeql); D040 registrada (#42).
+- Restam **52 achados OS bookworm sem fix** = risco aberto (T080 hardening → T078 docs → T081 aceite formal com Operador). `continue-on-error` do Trivy mantido; imagem **NÃO** declarada totalmente segura.
+
+---
+
 ## Marcos de Lançamento (Definition of Done por marco)
 
 | Marco | Critério | Fases exigidas |

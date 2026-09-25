@@ -1,7 +1,7 @@
 # Pendências do Operador — Auto Trader (2026-09-25)
 
-> Estado da base: `main` verde (CI `36085026818` success — ci/e2e+axe/codeql/gitleaks).
-> node-tar HIGH/CRITICAL **mitigado** via PR #29 (npm pin 11.20.0, tar 7.5.22, entrypoint Node validado com UI/static).
+> Estado da base: `main` verde (CI `36156480225` success — ci/e2e/codeql pós-merge PR #30).
+> node-tar HIGH/CRITICAL **mitigado** (PR #29, tar 7.5.22) e Phase C2 **concluída** (PR #30, Trivy 65→56, 9 CVEs OS tratáveis zerados).
 > NÃO misturar T058 (validação visual) com S14 (live): são decisões separadas.
 
 ## 1. T058 — verificação visual/funcional (BLOQUEADA: URL inválida)
@@ -30,8 +30,9 @@ Requer, separadamente e só após T058:
 
 Sem chaves, `ORCAMENTO_ESTOURADO` mantém live desabilitado por design.
 
-## 3. S34 — node-tar mitigado; OS bookworm triado (T075); `continue-on-error` mantido
+## 3. S34 — Phase C2 concluída (T082/PR #30); 52 achados OS bookworm abertos
 
 - node-tar HIGH/CRITICAL: **mitigado** (PR #29 em main; tar 7.5.22; zero ocorrências).
-- OS Debian bookworm: **65 achados triados** (9 remediáveis via base update incl. 2 critical; 52 sem fix → aceite formal). Exit-1 do Trivy = backlog OS, NÃO exceção node-tar.
-- Pendentes sem bloquear T058: T075 (aguardando decisão Phase C2 vs aceite), T078 (docs bun vs Node), `continue-on-error` mantido até decisão formal.
+- Phase C2: **concluída** (PR #30, merge `77b5e7e`; D040) — 9 CVEs OS remediáveis zerados (Trivy 65→56); `continue-on-error` mantido.
+- OS Debian bookworm: **52 achados sem fix upstream permanecem abertos** — risco residual sem aceite. Exit-1 do Trivy = backlog OS, NÃO exceção node-tar. Imagem NÃO declarada totalmente segura.
+- Pendências internas (não do Operador, sem bloquear T058): T080 hardening compensatório (próximo caminho crítico), T078 docs bun vs Node (após T080), T081 aceite formal **somente após T080 + decisão explícita do Operador**.

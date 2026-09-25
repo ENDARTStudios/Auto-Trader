@@ -158,6 +158,10 @@
 
 > Tabela Trivy run `36065096390`: 65 achados (HIGH 59/CRITICAL 6) em 16 pacotes bookworm. 9 com fix (libcap2, libgnutls30×5, libpcre2×3) → Phase C2 (`apt-get upgrade` + rescan). 52 sem fix → aceite formal (non-root, read-only, no-new-privs, scan contínuo). Exit-1 do Trivy = backlog OS, NÃO node-tar. App não executa mount/perl/gzip; gap: root sem USER. T058/S14/T067 inalterados.
 
+## 22. T082 - Merge PR #30 + fechamento T079 Phase C2, D040 (2026-09-25)
+
+> R059 (T079) = APPROVED com auditoria de diff. `gh pr diff 30 --name-only` = apenas `Dockerfile`, `docs/s34-remediation-plan.md`, `logs/episodes.jsonl`; upgrade `libcap2/libgnutls30/libpcre2-8-0` codificado no **stage runner do Dockerfile** (imagem final), não em step efêmero de CI. Squash merge `77b5e7e` (branch `chore/s34-phase-c2-base-update` deletada); main pós-merge `36156480225` success (ci 7m40s / e2e 4m14s / codeql 1m51s). Trivy 65→56 (9 alvos zerados). D040: T080 = próximo caminho crítico (hardening); T078 posterior (evita conflito doc); T081 só após T080 + Operador. 52 achados OS bookworm **permanecem abertos**; `continue-on-error` mantido; imagem NÃO declarada segura.
+
 ## 12. Próximos (se `Prossiga`)
 
 - **S40** — cobertura 80% (expansão sistemática de tests p/ `src/lib/{trading,chain,auth}`)
