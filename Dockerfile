@@ -47,6 +47,16 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 EXPOSE 3000
+# T080 hardening compensatório: non-root por padrão (node, uid 1000 do base
+# image). Arquivos ficam root-owned e legíveis (least privilege — o app não
+# escreve em /app); escritas vão para tmpfs em runtime (--tmpfs /tmp).
+# Telemetria desativada: evita escrita em /home/node sob rootfs read-only.
+ENV NEXT_TELEMETRY_DISABLED=1
+# T080: sem isto, docker injeta HOSTNAME=<container-id> e o standalone do Next
+# binda só no IP do eth0 (healthcheck intra-container em localhost falha com
+# ECONNREFUSED). Bind padrão 0.0.0.0 = comportamento normal de container.
+ENV HOSTNAME=0.0.0.0
+USER node
 # T074: start via node (runtime already validated) instead of `npm start`,
 # whose script requires `bun`, absent from this image (pre-existing entrypoint
 # bug: `sh: 1: bun: not found`). Docker-scoped only; package.json untouched.

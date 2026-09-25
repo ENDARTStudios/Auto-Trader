@@ -311,3 +311,25 @@ cat docs/s34-remediation-plan.md | grep -E 'CVE|Major|Staging|Rollback'
   abertos sem fix upstream** (T080 hardening → T081 aceite formal).
 - `continue-on-error` do Trivy **mantido**; CI verde **≠** imagem totalmente
   segura; sem Node 22/24/distroless nesta cadeia.
+
+## 15. T080 — Hardening compensatório implementado e validado (2026-09-26)
+
+> Branch `chore/s34-docker-hardening`, PR draft (não mergear sem REVIEW).
+> Runbook completo: `docs/docker-hardening.md`.
+
+- **Build-time (imagem):** `USER node` (non-root padrão, uid 1000),
+  `NEXT_TELEMETRY_DISABLED=1`, `HOSTNAME=0.0.0.0` (corrige bind só-no-eth0
+  causado por `HOSTNAME=<container-id>` do Docker, que quebrava healthcheck
+  intra-container em localhost).
+- **Runtime/orquestração:** `--read-only` + `--tmpfs /tmp` +
+  `--security-opt no-new-privileges:true` + `--cap-drop ALL` + `--init`;
+  serviço `app` no compose (profile `app`, fluxo `up -d` original intacto)
+  com os mesmos controles + healthcheck.
+- **Validação:** `docker run` hardening → health/login/robots/css 200;
+  `next-server` `Uid 1000` / `CapEff 0` / `NoNewPrivs 1`; bind `0.0.0.0:3000`;
+  **zero** erros de escrita (EACCES/EROFS/EPERM/ENOENT) nos logs; compose
+  `app` `healthy` com flags inspecionados.
+- **O que NÃO muda:** 52 achados OS bookworm **permanecem abertos** (hardening
+  reduz explotabilidade, não corrige); `continue-on-error` mantido; imagem
+  não declarada segura; db/ollama do compose não endurecidos (escopo).
+- Próximo: T078 (docs) → T081 (aceite formal com Operador, só após T080 merge).
