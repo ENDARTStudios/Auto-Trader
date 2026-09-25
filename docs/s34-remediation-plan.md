@@ -279,3 +279,16 @@ cat docs/s34-remediation-plan.md | grep -E 'CVE|Major|Staging|Rollback'
   (Phase C2 ou aceite formal). **CI verde ≠ imagem totalmente segura.**
 - NÃO recomendado agora: migração Node 24 em produção (sem evidência de
   compatibilidade), distroless (só hipótese futura), `npm@latest` solto.
+
+## 13. T079 — Phase C2 resultado: 9 remediados, 52 restantes (2026-09-25)
+
+> Branch `chore/s34-phase-c2-base-update`, draft PR #30, run `36089136711` success.
+
+- **Antes/depois Trivy**: Total 65 (HIGH 59/CRITICAL 6) → **56 (HIGH 52/CRITICAL 4)**.
+- **Zerados os 9 alvos**: CVE-2026-4878, 33845, 33846, 3833, 42009, 42010
+  (gnutls+cap), 86145, 89157, 89161 (pcre2) — zero ocorrências, incluindo os
+  2 critical do gnutls.
+- **Restantes 52**: sem fix upstream (affected/deferred) — caminho é T080
+  (hardening) + T081 (aceite formal com Operador).
+- Runtime/UI/static provados localmente antes do PR; lockfile intocado;
+  digest pinado; sem Node 22/24/distroless.
