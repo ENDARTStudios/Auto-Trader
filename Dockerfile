@@ -1,6 +1,7 @@
 # Dockerfile — Auto Trader (multi-stage, prune dev deps) — Fase 9.1.4
 # Stage 1: deps
-FROM node:20-slim AS deps
+# T079 Phase C2: base pinned by digest (was floating node:20-slim).
+FROM node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS deps
 # T072 S34-Phase C diagnostic: node:20-slim ships npm 10 (tar 6.2.1, CVE
 # HIGH/CRITICAL, unfixable in 6.x). Pin npm 11.20.0 (tar 7.5.22). Node runtime
 # stays 20; no app dependency changes.
@@ -16,7 +17,7 @@ COPY scripts/install-git-hooks.mjs scripts/
 RUN npm ci
 
 # Stage 2: builder
-FROM node:20-slim AS builder
+FROM node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS builder
 # T072: same npm pin as deps stage (each FROM starts fresh).
 RUN npm install -g npm@11.20.0 --no-audit --no-fund
 WORKDIR /app
@@ -26,9 +27,15 @@ RUN npx prisma generate
 RUN npm run build
 
 # Stage 3: runner (pruned, production)
-FROM node:20-slim AS runner
+FROM node:20-slim@sha256:2cf067cfed83d5ea958367df9f966191a942351a2df77d6f0193e162b5febfc0 AS runner
 # T072: same npm pin (runner uses npm prune + npm start).
 RUN npm install -g npm@11.20.0 --no-audit --no-fund
+# T079 Phase C2: remediate 9 fixable OS CVEs (libcap2×1, libgnutls30×5,
+# libpcre2-8-0×3) via targeted base update. Scoped to fixable set only —
+# no broad upgrade, no runtime change.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends libcap2 libgnutls30 libpcre2-8-0 \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production
 COPY --from=builder /app/package*.json ./
