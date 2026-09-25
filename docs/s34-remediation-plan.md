@@ -1,4 +1,4 @@
-# S34 — Dependency Remediation Plan (T051, 2026-09-24)
+﻿# S34 — Dependency Remediation Plan (T051, 2026-09-24)
 
 > **Status:** PLAN ONLY — nenhum upgrade aplicado nesta tarefa. Nenhum `package.json`,
 > `package-lock.json` ou workflow foi alterado. Execução só em branch/staging isolada
@@ -166,6 +166,70 @@ alcance de `overrides`/lockfile do app.
 4. Rejeitado: `overrides tar@7` no app (tar nem está na árvore; override
    fantasma não remove o tar do npm embarcado), patch 6.x (inexistente),
    major npm em main sem staging.
+
+## 11. Phase C — diagnóstico hipótese (a): npm@11.20.0 pinado (T072)
+
+> Branch `feature/s34-tar7-toolchain`. Status: diagnóstico local VERDE;
+> veredicto Trivy delegado ao CI do PR (sem Trivy local).
+
+### 11.1 Implementação (mínima, pinada)
+
+- `Dockerfile`: `RUN npm install -g npm@11.20.0 --no-audit --no-fund` nas 3
+  stages que usam npm (deps/builder/runner). Node runtime permanece 20.
+  **NÃO** usado `npm@latest` solto; versão exata pinada.
+- `.dockerignore` criado (não existia): contexto caiu de **~1.8GB para build
+  de 66s**. Exclui node_modules/.next/.git/*.db/secrets/logs — também fecha
+  vazamento de segredos/DB para o contexto de build.
+
+### 11.2 Evidência local (docker 29.8.0, base `node:20-slim` digest `2cf067`)
+
+- Imagem `autotrader-phasec` (2.43GB): `npm -v` → 11.20.0,
+  `tar` embarcado → **7.5.22** (linha corrigida), `node -v` → v20.20.2.
+- `npm ci` + `prisma generate` + `next build` + `npm prune` verdes no build.
+- Runtime: `/api/health` → **200** via `node .next/standalone/server.js`.
+- Lockfile do repo **intocado** (`git status` limpo para package*.json).
+
+### 11.3 Entrypoint corrigido (T074) — era bug pré-existente, agora provado
+
+- `CMD ["npm","start"]` invocava script com **`bun` ausente** na imagem
+  (`sh: 1: bun: not found`) — a imagem nunca inicializava, com npm 10 ou 11.
+- Fix (só Dockerfile, sem `package.json`): `CMD ["node",
+  ".next/standalone/server.js"]` — runtime oficial suportado do standalone
+  (docs escolhem bun como ideal, mas node é o fallback validado; sem bun
+  pinado para não ampliar supply chain sem necessidade).
+- Prova via CMD real (sem `--entrypoint`): rebuild verde; `docker run` sobe;
+  logs `✓ Ready`; `/api/health` → **200** em banco efêmero sqlite.
+  Container/imagem de teste removidos após evidência.
+
+### 11.4 Trivy — veredicto CONFIRMADO no CI do PR (run `36065096390`)
+
+Hipótese (a) **confirmada end-to-end**: zero ocorrências dos 7 CVEs node-tar
+rastreados (`CVE-2026-31802/59874/73566/24842/26960/59873/23745`) e zero linhas
+de pacote `node-tar` na tabela Trivy da imagem do branch. Jobs ci/e2e/codeql/
+gitleaks verdes no mesmo run.
+- Restam 65 achados (HIGH 59 / CRITICAL 6) em pacotes **OS Debian bookworm**
+  (util-linux, gzip, libacl, libblkid, libcap2…) — backlog distinto (patch de
+  SO via `apt upgrade` ou base atualizada), fora do escopo node-tar.
+- Recomendação: merge da Phase C + follow-up para OS patching + entrypoint
+  `bun` (achado §11.3), com staging/smoke antes de qualquer `continue-on-error`
+  do Trivy ser revisto.
+
+
+### 11.5 T076 — container serve UI/estáticos/public (prova via CMD real)
+
+Auditoria prévia: runner copia `.next` (inclui `standalone/` + `static/` via
+build script), `public`, `prisma`, `.prisma`/`@prisma`; `.dockerignore` NÃO
+exclui nenhum deles. `public/` existe (logo.svg, manifest.json, og-image.png,
+robots.txt).
+Script reutilizável: `scripts/validate-docker-static-t076.mjs`
+(`--base-url`, stdlib, timeouts curtos, sem segredos).
+Evidência (rebuild + `docker run` via CMD, sqlite efêmero, depois removidos):
+- `health-200` PASS (status=200); `login-html` PASS (19KB, Next);
+- `static-asset` PASS (`/_next/static/chunks/*.css`, 200, `text/css`);
+- `public-asset` PASS (`/robots.txt`, 200).
+- Logs: sem `ENOENT`/`MODULE_NOT_FOUND`/missing static. Observação benigna:
+  aviso Prisma sugerindo OpenSSL, mas queries executam (`db.reachable=true`).
+Nenhuma correção Dockerfile/.dockerignore necessária — cópias já corretas.
 
 ## 8. Verificação desta tarefa (planejamento)
 
