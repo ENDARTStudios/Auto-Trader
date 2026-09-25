@@ -2050,6 +2050,8 @@ px next build ? OK (static ? /login ? /admin/users ? /sitemap.xml).
 
 **Trivy non-blocking semantics (pós-Phase C2, T082):** node-tar HIGH/CRITICAL mitigado (tar 7.5.22, zero ocorrências). Phase C2 (PR #30, merge `77b5e7e`) zerou os 9 CVEs OS bookworm remediáveis (libcap2/libgnutls30/libpcre2-8-0) via digest pin `sha256:2cf067` + `apt-get` no stage runner do Dockerfile — Trivy caiu de **65 → 56**. Os **52 achados restantes sem fix upstream permanecem risco aberto** (backlog OS bookworm, plano S34 §12–§14), NÃO exceção node-tar. `continue-on-error` mantido até hardening validado (T080) + aceitação formal de risco (T081). CI verde ≠ imagem totalmente segura.
 
+**Container hardening (T080, compensatório para os 52 achados):** validado em runtime — `USER node` no build (uid 1000), `read-only` rootfs + `tmpfs /tmp`, `no-new-privileges`, `cap_drop ALL` (`CapEff=0`), `--init`, bind `0.0.0.0:3000` via `HOSTNAME` explícito; health/login/static/robots 200 sob hardening, zero erros de escrita nos logs; serviço `app` no compose sob `profiles: ["app"]` com os mesmos controles. Runbook e limitações: `docs/docker-hardening.md`. **Estes controles reduzem explotabilidade, não corrigem os 52 achados** — persistem como risco aberto até T081. Serviços de terceiros (db/ollama) não endurecidos (fora de escopo).
+
 **Production deploy** (docs/DEPLOY.md from S11): ly secrets set SENTRY_DSN=... NEXT_PUBLIC_SENTRY_DSN=... STRIPE_SECRET_KEY=... STRIPE_WEBHOOK_SECRET=... DATABASE_URL=... REDIS_URL=... ENCRYPTION_KEY=... SESSION_SECRET=....
 
 ---
