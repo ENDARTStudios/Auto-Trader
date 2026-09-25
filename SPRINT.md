@@ -150,6 +150,10 @@
 
 > R051 (T069 outcome B) = APPROVED. PR #28 verificado docs-only (plano §10 + episodes BLOCKED) e mergeado (`13de992`); main pós-merge `36060538217` success (ci/e2e/codeql/gitleaks). T070 audit confirmou base. D033: Phase B encerrada sem fix (tar no toolchain da imagem); T072 autorizada (diagnóstico isolado tar7); T058 segue sem URL válida (DEPLOYMENT_NOT_FOUND); S14 chaves + aprovação; T067 backlog; node-tar aberto.
 
+## 20. T077 — Merge #29 + Phase C DONE, D037 (2026-09-25)
+
+> R056 (T076) = APPROVED. PR #29 diff verificado (Dockerfile, .dockerignore, validate script, plano, episodes) e mergeado (`63cb975`); main pós-merge `36085026818` success (ci/e2e/codeql/gitleaks). T072/T074/T076 fechadas; node-tar HIGH/CRITICAL **mitigado** (tar 7.5.22, zero ocorrências). D037: T075 (OS bookworm) e T078 (docs bun) seguem; T058 sem URL; S14 chaves + aprovação; T067 backlog; `continue-on-error` mantido.
+
 ## 12. Próximos (se `Prossiga`)
 
 - **S40** — cobertura 80% (expansão sistemática de tests p/ `src/lib/{trading,chain,auth}`)

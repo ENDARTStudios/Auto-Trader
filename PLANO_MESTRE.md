@@ -338,6 +338,16 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
+## F11-s34-C — Phase C node-tar mitigado + UI container (T077, 2026-09-25) ✅
+
+- [x] T072 toolchain — evidência: PR #29 draft; npm pin `11.20.0` (tar `7.5.22`); build local verde; zero CVEs node-tar no Trivy do PR (`36065096390`); `.dockerignore` novo; REVIEW R054 = APPROVED_WITH_CONDITIONS (faltava prova UI).
+- [x] T074 entrypoint — evidência: `CMD ["node", ".next/standalone/server.js"]` (bun ausente era bug pré-existente); run via CMD + `/api/health` 200; REVIEW R055 parcial (faltava prova static/UI).
+- [x] T076 static/UI — evidência: `/login` 200 + chunk CSS 200 + `/robots.txt` 200 + logs sem ENOENT; script `validate-docker-static-t076.mjs`; REVIEW R056 = APPROVED.
+- [x] T077 merge + docs — evidência: PR #29 diff verificado (5 arquivos esperados), merge `63cb975`; main pós-merge `36085026818` success; D037 registrada (#41).
+- node-tar HIGH/CRITICAL: **mitigado** (não mais "aberto sem dono"). Restam: OS bookworm (T075), docs bun (T078), T058 sem URL, S14 chaves + aprovação, T067 backlog. `continue-on-error` do Trivy mantido.
+
+---
+
 ## Marcos de Lançamento (Definition of Done por marco)
 
 | Marco | Critério | Fases exigidas |

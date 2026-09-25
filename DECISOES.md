@@ -172,3 +172,11 @@
 **Risco aberto (NÃO resolvido):** node-tar HIGH/CRITICAL até Phase C ou aceite formal; T058 sem URL válida (DEPLOYMENT_NOT_FOUND); S14 chaves + aprovação; T067 backlog.
 **Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `PENDENCIAS_OPERADOR.md`, `logs/episodes.jsonl` (só docs/logs).
 **Próximo:** T072 (branch isolada + PR draft) + T073 (paralela) → decisão Phase C/staging → T058 quando Operador responder.
+
+### Decisão #41: D037 — Aprovar merge PR #29 e fechar mitigação node-tar
+**Data:** 2026-09-25
+**Problema:** Phase C diagnosticada mas não integrada: node-tar mitigado só em branch; entrypoint e UI container provados em T074/T076 mas fora de main.
+**Solução:** R056 = APPROVED. PR #29 diff verificado (5 arquivos esperados, sem lockfile/src/workflows) e mergeado (`63cb975`); main pós-merge `36085026818` success. T072/T074/T076 fechadas. node-tar HIGH/CRITICAL: **mitigado** (npm pin 11.20.0, tar 7.5.22, zero ocorrências no Trivy do PR). NÃO declarado "imagem segura": restam OS bookworm (T075), docs bun (T078). `continue-on-error` mantido.
+**Risco aberto (NÃO resolvido):** OS Debian bookworm (65 achados, T075); docs bun vs Node (T078); visual (T058 sem URL); S14 (chaves + aprovação); T067 backlog; vitest majors.
+**Arquivos afetados:** `PLANO_MESTRE.md`, `SPRINT.md`, `DECISOES.md`, `PENDENCIAS_OPERADOR.md`, `docs/s34-remediation-plan.md`, `logs/episodes.jsonl` (docs/logs + merge já aplicado).
+**Próximo:** T078 (docs bun) + T075 (OS triage) → T058 (URL/ambiente) → decisão staging/S14.

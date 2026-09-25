@@ -1,7 +1,7 @@
 # Pendências do Operador — Auto Trader (2026-09-25)
 
-> Estado da base: `main` verde (CI `36060538217` success — ci/e2e+axe/codeql/gitleaks).
-> T069 outcome B registrado (node-tar no toolchain da imagem; Phase C proposta).
+> Estado da base: `main` verde (CI `36085026818` success — ci/e2e+axe/codeql/gitleaks).
+> node-tar HIGH/CRITICAL **mitigado** via PR #29 (npm pin 11.20.0, tar 7.5.22, entrypoint Node validado com UI/static).
 > NÃO misturar T058 (validação visual) com S14 (live): são decisões separadas.
 
 ## 1. T058 — verificação visual/funcional (BLOQUEADA: URL inválida)
@@ -30,10 +30,7 @@ Requer, separadamente e só após T058:
 
 Sem chaves, `ORCAMENTO_ESTOURADO` mantém live desabilitado por design.
 
-## 3. S34 fases B/C/D — Phase C proposta (aguardando decisão Thinker/Operador)
+## 3. S34 fases B/C/D — Phase C mergeada; restam OS + docs (NÃO urgente para demo)
 
-- Phase B encerrada outcome B: `node-tar` HIGH/CRITICAL mora no npm embarcado
-  de `node:20-slim`, sem fix não-breaking (ver plano §10).
-- PROPOSTA: branch `feature/s34-tar7-toolchain`, opção (a) `npm@latest` no
-  build, staging + rollback; só então decidir `continue-on-error` do Trivy.
-- Majors npm seguem proibidos em `main` sem staging. T073 prepara harness T058.
+- node-tar HIGH/CRITICAL: **mitigado** (PR #29 em main; tar 7.5.22; zero ocorrências).
+- Pendentes sem bloquear T058: T075 (65 achados OS bookworm), T078 (docs bun vs Node), `continue-on-error` mantido até decisão formal.
