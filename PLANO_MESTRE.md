@@ -363,6 +363,14 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
+## F11-s34-Hardening — T083 merge PR #31 + fechamento T080 (2026-09-26) ✅
+
+- [x] T080 hardening compensatório — evidência: R061 = APPROVED; build-time `USER node` (uid 1000) + `NEXT_TELEMETRY_DISABLED=1` + `HOSTNAME=0.0.0.0` (fix bind só-no-eth0 por `HOSTNAME=<container-id>` do Docker); runtime `--read-only` + `--tmpfs /tmp` + `no-new-privileges` + `cap-drop ALL` + `--init`; validação docker run/compose: health/login/robots/css 200, `/proc` `Uid=1000`/`CapEff=0`/`NoNewPrivs=1`, bind `0.0.0.0:3000`, write_errors=0, compose `app` (profile `app`) `healthy`; gates tsc 0 / eslint 0/0 / test:ci PASS; runs PR `36193907834`/`36194770200` success (ci/codeql/e2e/gitleaks). Runbook: `docs/docker-hardening.md`.
+- [x] T083 merge + docs — evidência: `gh pr diff 31 --name-only` = apenas `Dockerfile`, `docker-compose.yml`, `docs/docker-hardening.md`, `docs/s34-remediation-plan.md`, `SECURITY.md`, `logs/episodes.jsonl`; squash merge `efb07fa` (branch `chore/s34-docker-hardening` deletada); main pós-merge `36195981127` success (ci 7m32s / e2e 4m3s / codeql 1m45s); D042 registrada (#43).
+- Restam **52 achados OS bookworm sem fix** = risco mitigado por controles validados, **não corrigido** (→ T078 docs → T081 aceite formal com Operador). `continue-on-error` do Trivy mantido; imagem **NÃO** declarada totalmente segura.
+
+---
+
 ## Marcos de Lançamento (Definition of Done por marco)
 
 | Marco | Critério | Fases exigidas |

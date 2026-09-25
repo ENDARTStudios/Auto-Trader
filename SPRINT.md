@@ -171,3 +171,7 @@
 - **B-fim real** — colar saída do manifest ou `setup.py`+`agents/*.py` do `TradingAgentsX` → trava keys MÉDIAS, remove TODOs
 
 **Fórmula:** continuar priorizando fáceis com menor risco + `git push` cada sprint. Beta pronta (Fases 0-9 `[x]` + skill v1.6 + Fases TA 1→5 + 20 sistemas mapeados, `vitest 160`, `tsc 0`, `next build 46 rotas`, `graft 2744 nodes`).
+
+## 23. T083 - Merge PR #31 + fechamento T080 hardening, D042 (2026-09-26)
+
+> R061 (T080) = APPROVED. `gh pr diff 31 --name-only` = apenas `Dockerfile`, `docker-compose.yml`, `docs/docker-hardening.md`, `docs/s34-remediation-plan.md`, `SECURITY.md`, `logs/episodes.jsonl` (sem package*/src/e2e/workflows). Squash merge `efb07fa` (branch `chore/s34-docker-hardening` deletada); main pos-merge `36195981127` success (ci 7m32s / e2e 4m3s / codeql 1m45s). Hardening em main: non-root (`USER node`), `HOSTNAME=0.0.0.0` (fix bind), runtime read-only/tmpfs/no-new-privs/cap_drop/init, compose `app` em `profiles: ["app"]`. Evidencia /proc: `Uid=1000`/`CapEff=0`/`NoNewPrivs=1`; endpoints 200 sob hardening; write_errors=0. D042: T078 (docs) em seguida; T081 (aceite formal) condicionada a T078. 52 achados OS bookworm **seguem abertos com risco mitigado**; `continue-on-error` mantido; imagem nao declarada segura.

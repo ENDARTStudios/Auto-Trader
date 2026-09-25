@@ -30,9 +30,10 @@ Requer, separadamente e só após T058:
 
 Sem chaves, `ORCAMENTO_ESTOURADO` mantém live desabilitado por design.
 
-## 3. S34 — Phase C2 concluída (T082/PR #30); 52 achados OS bookworm abertos
+## 3. S34 — Hardening T080 mergeado (PR #31); 52 achados OS bookworm abertos com risco mitigado
 
 - node-tar HIGH/CRITICAL: **mitigado** (PR #29 em main; tar 7.5.22; zero ocorrências).
 - Phase C2: **concluída** (PR #30, merge `77b5e7e`; D040) — 9 CVEs OS remediáveis zerados (Trivy 65→56); `continue-on-error` mantido.
-- OS Debian bookworm: **52 achados sem fix upstream permanecem abertos** — risco residual sem aceite. Exit-1 do Trivy = backlog OS, NÃO exceção node-tar. Imagem NÃO declarada totalmente segura.
-- Pendências internas (não do Operador, sem bloquear T058): T080 hardening compensatório (próximo caminho crítico), T078 docs bun vs Node (após T080), T081 aceite formal **somente após T080 + decisão explícita do Operador**.
+- Hardening: **validado e mergeado** (PR #31, merge `efb07fa`; R061 APPROVED; D042) — non-root, read-only/tmpfs/no-new-privileges/cap_drop/init, fix de bind `HOSTNAME`; `/proc` `Uid=1000`/`CapEff=0`/`NoNewPrivs=1`, endpoints 200, write_errors=0.
+- OS Debian bookworm: **52 achados sem fix upstream permanecem abertos** — risco **mitigado por controles validados, não corrigido**; aceite formal pendente. Exit-1 do Trivy = backlog OS, NÃO exceção node-tar. Imagem NÃO declarada totalmente segura.
+- Pendências internas (não do Operador, sem bloquear T058): T078 docs bun vs Node standalone + narrativa hardening (**próxima**), T081 aceite formal **somente após T078 + decisão explícita do Operador**.

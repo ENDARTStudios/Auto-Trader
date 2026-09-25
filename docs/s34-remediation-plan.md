@@ -333,3 +333,11 @@ cat docs/s34-remediation-plan.md | grep -E 'CVE|Major|Staging|Rollback'
   reduz explotabilidade, não corrige); `continue-on-error` mantido; imagem
   não declarada segura; db/ollama do compose não endurecidos (escopo).
 - Próximo: T078 (docs) → T081 (aceite formal com Operador, só após T080 merge).
+
+## 16. T083 - Merge PR #31 e fechamento do T080 (2026-09-26)
+
+- **Audit pre-merge:** `gh pr diff 31 --name-only` = apenas `Dockerfile`, `docker-compose.yml`, `docs/docker-hardening.md`, `docs/s34-remediation-plan.md`, `SECURITY.md`, `logs/episodes.jsonl` (sem `package*`/`src/`/`e2e/`/workflows). Hunk audit: Dockerfile apenas `ENV NEXT_TELEMETRY_DISABLED=1`, `ENV HOSTNAME=0.0.0.0`, `USER node`; SECURITY.md apenas paragrafo T080 (quebra de linha do `continue-on-error` mantida).
+- **Merge:** squash `efb07fa` (`ci(docker): hardening compensatory controls (t080) (#31)`); branch `chore/s34-docker-hardening` deletada; `origin/main` = `efb07fa`.
+- **CI main pos-merge:** run `36195981127` success - ci 7m32s (lint/typecheck/gitleaks/audit/tests 637/coverage/build/arch/knip/docker build/trivy) / e2e 4m3s / codeql 1m45s / deploy-staging skipped.
+- **Estado:** hardening em main; 52 achados OS bookworm **permanecem abertos, com risco mitigado** (nao corrigidos); `continue-on-error` mantido; imagem nao declarada totalmente segura.
+- **Decisao:** D042 (`DECISOES.md` #43) - T078 (docs) imediatamente apos; T081 (aceite formal) condicionada a T078.
