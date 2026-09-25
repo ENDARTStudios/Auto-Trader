@@ -1,4 +1,4 @@
-# S34 — Dependency Remediation Plan (T051, 2026-09-24)
+﻿# S34 — Dependency Remediation Plan (T051, 2026-09-24)
 
 > **Status:** PLAN ONLY — nenhum upgrade aplicado nesta tarefa. Nenhum `package.json`,
 > `package-lock.json` ou workflow foi alterado. Execução só em branch/staging isolada
@@ -213,6 +213,23 @@ gitleaks verdes no mesmo run.
 - Recomendação: merge da Phase C + follow-up para OS patching + entrypoint
   `bun` (achado §11.3), com staging/smoke antes de qualquer `continue-on-error`
   do Trivy ser revisto.
+
+
+### 11.5 T076 — container serve UI/estáticos/public (prova via CMD real)
+
+Auditoria prévia: runner copia `.next` (inclui `standalone/` + `static/` via
+build script), `public`, `prisma`, `.prisma`/`@prisma`; `.dockerignore` NÃO
+exclui nenhum deles. `public/` existe (logo.svg, manifest.json, og-image.png,
+robots.txt).
+Script reutilizável: `scripts/validate-docker-static-t076.mjs`
+(`--base-url`, stdlib, timeouts curtos, sem segredos).
+Evidência (rebuild + `docker run` via CMD, sqlite efêmero, depois removidos):
+- `health-200` PASS (status=200); `login-html` PASS (19KB, Next);
+- `static-asset` PASS (`/_next/static/chunks/*.css`, 200, `text/css`);
+- `public-asset` PASS (`/robots.txt`, 200).
+- Logs: sem `ENOENT`/`MODULE_NOT_FOUND`/missing static. Observação benigna:
+  aviso Prisma sugerindo OpenSSL, mas queries executam (`db.reachable=true`).
+Nenhuma correção Dockerfile/.dockerignore necessária — cópias já corretas.
 
 ## 8. Verificação desta tarefa (planejamento)
 
