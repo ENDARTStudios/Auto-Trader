@@ -356,3 +356,11 @@ Issues: `.github/ISSUE_TEMPLATE/*` (bug/feature/security/chore) + `.github/ISSUE
 ## Licença
 
 MIT. Use por sua conta e risco. Sem garantias.
+
+## Runtime / Deploy (T078 — 2026-09-27, liberado após T085/D044)
+
+- **Node standalone** (`npm 11.20.0`, `tar 7.5.22`, Phase C2 `77b5e7e`): `CMD ["node", ".next/standalone/server.js"]`; bun **não** usado em runtime (bug pré-existente corrigido, não remediado por bun).
+- **Hardening (T080 `efb07fa`)**: `USER node` (uid 1000), `HOSTNAME=0.0.0.0` (fix bind só-eth0), runtime `--read-only` + `--tmpfs /tmp` + `no-new-privileges` + `--cap-drop ALL` + `--init`; compose `app` em `profiles: ["app"]`; `/proc` `Uid=1000`/`CapEff=0`/`NoNewPrivs=1`; endpoints 200; write_errors=0.
+- **Risco residual OS bookworm**: **52 achados sem fix upstream** (mitigados por hardening, **não corrigidos**); `continue-on-error` Trivy mantido até decisão formal (T081, após T078 + Operador). Imagem **NÃO** declarada totalmente segura.
+- **T058 (visual/funcional)**: bloqueada — `https://auto-trader-snowy.vercel.app/` `DEPLOYMENT_NOT_FOUND`; requer URL válida + credenciais descartáveis + papel + MFA/dataset do Operador.
+- **S14 (live)**: bloqueado — chaves `BINANCE_TESTNET`/`ALCHEMY`/`ETH_SEPOLIA_PRIVATE_KEY` + aprovação explícita do Operador.
