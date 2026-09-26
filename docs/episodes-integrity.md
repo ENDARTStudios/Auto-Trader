@@ -1,7 +1,9 @@
 # Integridade de `logs/episodes.jsonl`
 
 > Trilha de eventos do protocolo Thinker/Doer (append-only). Documento de
-> governança criado na **T084** (branch `chore/episodes-jsonl-integrity`, D043).
+> governança criado na **T084** (branch `chore/episodes-jsonl-integrity`, D043),
+> reparo aprovado em **R063** e mergeado na **T085** (PR #32, merge `4caf78b`,
+> D044 em `DECISOES.md` #45).
 
 ## 1. Política
 
@@ -53,6 +55,11 @@ Provas do reparo (script de reparo com asserts + verificação exata pós-ediç�
 - Todos os campos semânticos (`evento`, `status`, `tarefa_id`, `fase`,
   `commit`, `pr`, `emitido_em_utc`) extraídos do original e do reparado são iguais.
 
+> **Contagem pós-T085:** o reparo em si manteve 36→36. O único aumento
+> legítimo veio do **evento de merge T085 anexado ao final** (append-only,
+> 1 linha nova) — total atual **37/37 parseável**. Nenhuma linha do reparo
+> foi removida, reordenada ou duplicada.
+
 | Linha | Defeito (antes, sanitizado) | Reparo (depois, sanitizado) | Classe |
 |------|------------------------------|------------------------------|--------|
 | 1 | `\uFEFF{"sync":...,"duracao_minutos":270}}}` — BOM + 1 `}` faltando | BOM removido; `...270}}}}` | sintático (serialização) |
@@ -80,17 +87,18 @@ vetar a escolha na review. Cross-check externo: `gh run view` confirma os
 - As 6 linhas nasceram inválidas no histórico Git; o reparo altera o conteúdo
   do arquivo em main (novos blobs), **não** os SHAs históricos. O histórico
   antigo continua contendo as versões malformadas — rastreabilidade preservada.
-- Hoje nenhum job de CI valida o arquivo; o validator é local. Se a T084 for
-  mergeada, considerar adicionar o validator ao workflow `ci` (futura decisão
-  do Thinker — fora do escopo desta tarefa).
+- Nenhum job de CI valida o arquivo; o validator é local (uso manual, §2).
+  A D044 (#45) **não autorizou** integrá-lo ao CI/pre-push — isso seria
+  mudança de workflow/hook e fica como backlog opcional futuro (**T086**),
+  sujeito a autorização explícita do Thinker em tarefa isolada.
 - A remoção do BOM na linha 1 é a única alteração "de bytes não-JSON" (o BOM
   nunca foi dado do evento; é artefato de encoding).
 
 ## 5. Relatório do validador
 
 <!-- episodes-validator-report -->
-- Gerado por `scripts/validate-episodes.mjs` em `2026-09-26T02:45:04Z` (nao editar manualmente).
+- Gerado por `scripts/validate-episodes.mjs` em `2026-09-26T18:27:04Z` (nao editar manualmente).
 - Arquivo: `D:\PROJETOS\Auto Trader\Auto Trader\logs\episodes.jsonl`
-- Linhas totais: **36** | validas: **36** | invalidas: **0**
+- Linhas totais: **37** | validas: **37** | invalidas: **0**
 - Resultado: **PASS** (exit 0)
 <!-- /episodes-validator-report -->

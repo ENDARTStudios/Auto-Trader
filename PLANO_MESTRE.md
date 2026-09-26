@@ -371,6 +371,14 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ---
 
+## F11-s34-Episodes — T084/T085 integridade do episodes.jsonl (2026-09-27) ✅
+
+- [x] T084 saneamento JSONL — evidência: R063 = APPROVED (restrição L8/L14); 6/36 linhas malformadas pré-existentes reparadas com cirurgia sintática lossless (L1 BOM+`}`, L4 `1_preexistente` entre aspas+`}`, L5 `}`, L8/L14 `{ }`, L13 `-}`); 36→36 linhas; 30/30 não listadas byte-idênticas ao HEAD; ordem `tarefa_id` 36/36; campos semânticos iguais; `scripts/validate-episodes.mjs` exit 0; `docs/episodes-integrity.md` (política append-only + exceção reparo controlado + antes/depois + limitações); nenhum SHA histórico alterado.
+- [x] T085 merge + docs — evidência: `gh pr diff 32 --name-only` = apenas `DECISOES.md`, `SPRINT.md`, `docs/episodes-integrity.md`, `logs/episodes.jsonl`, `scripts/validate-episodes.mjs`; hunk audit = 6 pares de linha; squash merge `4caf78b` (branch `chore/episodes-jsonl-integrity` deletada); main pós-merge `36261942375` success (ci 7m48s / e2e 3m47s / codeql 2m0s); D044 registrada (#45).
+- Política de integridade: `logs/episodes.jsonl` parseável 36/36 com **ressalva estrutural L8/L14 documentada** (exceção controlada, não normalização semântica). Validator é local — integração ao CI/pre-push = backlog opcional T086 (D044: não autorizada agora). `continue-on-error` do Trivy mantido; **52 achados OS bookworm seguem abertos** (→ T078 docs → T081 aceite formal); imagem **NÃO** declarada totalmente segura.
+
+---
+
 ## Marcos de Lançamento (Definition of Done por marco)
 
 | Marco | Critério | Fases exigidas |
