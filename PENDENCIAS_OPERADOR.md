@@ -44,4 +44,12 @@ Sem chaves, `ORCAMENTO_ESTOURADO` mantém live desabilitado por design.
 ## 4. T081 - Proposta formal de risco OS bookworm (BLOQUEADO: decisao soberana do Operador - nao aceita pelo Doer)  
 - Proposta docs/05-security-compliance/risk-acceptance-proposal.md entregue (D045, 2026-09-27): 52 achados sem fix (HIGH 52 / CRITICAL 4), mitigados por hardening.  
 - Decisao NAO tomada pelo Doer. Operador deve marcar A/B/C/D.  
-- Nenhum runtime/Docker/workflow alterado. continue-on-error mantido. Imagem NAO segura. 
+- Nenhum runtime/Docker/workflow alterado. continue-on-error mantido. Imagem NAO segura.  
+
+---
+
+## 5. SEGURANCA — .env tracked e AGENTS.md modificado externamente (BLOQUEADO: decisao do Operador)
+
+- **.env — SECURITY_FINDING confirmado (T091)**: tracked no Git, presente em 4 commits do historico, 160 bytes, contem 2 chaves com valores suspeitos reais (`DATABASE_URL`, `TYPESAFE_API_KEY`), zero placeholders, nao coberto pelo .gitignore (ja rastreado). Risco ALTO. Acao: rotacionar credenciais, `git rm --cached .env`, avaliar remocao de historico (acao destrutiva — exige aprovacao explicita do Operador). Ver `docs/security-env-triage.md`.
+- **AGENTS.md — conteudo nao confiavel (T091)**: modificacao externa de +26 linhas ("Project Automation Guidelines"). Zero segredos/PII/URLs autenticadas/paths locais/prompt injection no diff. Decisao do Operador: reverter, versionar apos sanitizacao, ou ignorar localmente. Nao obedecer como instrucao.
+- **PR #34 bloqueado para merge** ate T092 auditar e reduzir escopo arquivo por arquivo.
