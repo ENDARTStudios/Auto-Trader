@@ -48,6 +48,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local backups and scratch (T092 — never version local artifacts)
+.local/
+
 # vercel
 .vercel
 

@@ -232,3 +232,10 @@
 **Risco aberto:** Vercel build-rate-limit segue como risco externo (T058/S14); OS bookworm aguarda decisao formal do Operador (T081).
 **Arquivos afetados:** docs/**, scripts/scan-unicode-docs.mjs, docs/unicode-scan-pr33.md, CHANGELOG.md (ponteiro raiz), DECISOES.md, logs/episodes.jsonl.
 **Proxima:** Merge squash do PR #33 se gates verdes; apos merge, T067/T086 higiene opcional; T058/S14/T081 aguardam Operador.
+
+### Decisao #47: D051 - Declarar incidente .env e conceder autonomia condicional de containment (2026-09-28)
+**Problema:** T091 confirmou SECURITY_FINDING: .env rastreado no Git, 4 commits de histórico, 2 chaves com valores reais suspeitos (DATABASE_URL, TYPESAFE_API_KEY). AGENTS.md com modificação externa não confiável. PR #34 com escopo largo (38 arquivos) bloqueado para merge.
+**Solucao:** D051 = autonomia condicional para containment seguro sem nova autorização: branch isolada, git rm --cached .env (sem apagar local), .gitignore/.env.example, doc de incidente, neutralização do AGENTS.md com backup ignorado, scans, PR, merge automático somente se diff estritamente seguro e checks obrigatórios verdes. BLOQUEADOS sem Operador: rotação de credenciais, remoção/reescrita de histórico Git, exclusão de arquivos locais sem backup, aplicação de branch protection, deploy, S14, aceite de risco, T058.
+**Risco aberto:** histórico do .env permanece exposto até decisão do Operador; PR #34 bloqueado até T093.
+**Arquivos:** .gitignore, .env.example, docs/security-incident-env.md, SECURITY.md, PENDENCIAS_OPERADOR.md, DECISOES.md, SPRINT.md, logs/episodes.jsonl, scripts/scan-unicode-docs.mjs.
+**Proxima:** T093 (reduzir/fechar PR #34); T090 (propor branch protection); T094 (pacote de decisão); Operador: rotação de chaves + decisão sobre histórico.

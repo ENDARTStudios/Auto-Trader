@@ -187,3 +187,7 @@
 ## 26. T081 — Proposta formal de aceite de risco OS bookworm (2026-09-27)
 
 > D045 = APPROVED (não aceita pelo Doer; decisão soberana do Operador). `docs/05-security-compliance/risk-acceptance-proposal.md`: inventário reconciliado 65→56 (52 residuais HIGH 52 / CRITICAL 4); controles validados; limitações; monitoramento/expiry 90 dias; Operator Decision Box A/B/C/D; separação absoluta T058/S14. Nenhum runtime/workflow/dependência alterado.
+
+## 27. T092 — Containment emergencial do .env + neutralização AGENTS.md (2026-09-28)
+
+> D051 = autonomia condicional de containment. Branch security/env-containment-t092 a partir de main; git rm --cached .env (arquivo local preservado); .gitignore (.env*, !.env.example, .local/) + .env.example sanitizado; docs/security-incident-env.md com linha do tempo sanitizada; SEC-ENV aberto em SECURITY.md; AGENTS.md externo neutralizado (backup ignorado + restore HEAD); PENDENCIAS_OPERADOR.md com bloco objetivo (rotação + decisão sobre histórico). Scans segredo/Unicode antes do merge; merge automático somente se diff estritamente seguro.

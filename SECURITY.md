@@ -2107,3 +2107,9 @@ pm install @sentry/nextjs + ly secrets set SENTRY_DSN=.... The eforeSend scrub
 7. Worker ticks at 10ms poll interval and exits cleanly via close().
 
 **Why these are regressions:** A future maintainer might remove the Sentry init guard (causing double-init in dev with HMR), might remove the Ollama fallback (causing dev tests to fail when ollama is not running), or might remove the BullMQ retry logic (causing silent job loss on transient errors). This entry documents the invariants.
+
+---
+
+## SEC-ENV — Incidente .env rastreado (ABERTO, T092 — 2026-09-28)
+
+**Status:** INCIDENTE ABERTO. .env estava rastreado com 4 commits de histórico e 2 chaves com valores reais suspeitos (DATABASE_URL, TYPESAFE_API_KEY). Containment do tree executado (T092): git rm --cached .env + .gitignore + .env.example. **Histórico permanece exposto** — rotação de chaves e decisão sobre purge/rewrite são ações do Operador. Detalhes: docs/security-incident-env.md.
