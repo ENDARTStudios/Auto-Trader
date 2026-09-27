@@ -1,7 +1,7 @@
 # Unicode Scan — PR docs/tree-reorg-finalizacao
 
-- Base: origin/main | Head: chore/t067-terminal-header-dead-code
-- Arquivos verificados: 2
+- Base: origin/main | Head: origin/chore/t067-terminal-header-dead-code
+- Arquivos verificados: 3
 - Arquivos com caracteres suspeitos: 0
 - Total de ocorrencias: 0
 
