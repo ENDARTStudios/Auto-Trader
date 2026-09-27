@@ -90,6 +90,7 @@
 ## 6. Referências cruzadas (raiz do repo)
 
 - `AGENT_GUIDE.md` — padrão de trabalho Issues→PRs→CI (leitura obrigatória).
+- `AGENT_AUTONOMO_DOER.md` — prompt de execução autônoma do Doer (modo sem Thinker): bootstrap forense obrigatório (§3), política de auto-merge (§7), frozen base (§8) e relatório final (§15). Hierarquia: Operador > `PROTOCOLO_MESTRE.md` > `PROMPT_MESTRE_AUTONOMO.md` > `PROMPT_SIMBIOSE_THINKER_DOER.md` > docs > prompt.
 - `SPRINT.md` — sprint corrente e histórico S01–S32.
 - `PLANO_MESTRE.md` — plano mestre de fases.
 - `DECISOES.md` — log de decisões operacionais (fonte do [ADR.md](./ADR.md)).

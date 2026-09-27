@@ -183,3 +183,7 @@
 ## 25. T085 - Merge PR #32 + fechamento T084, D044 (2026-09-27)
 
 > R063 (T084) = APPROVED (protocol_integrity `pass_com_restricao`). Auditoria pre-merge: `gh pr diff 32 --name-only` = apenas `DECISOES.md`, `SPRINT.md`, `docs/episodes-integrity.md`, `logs/episodes.jsonl`, `scripts/validate-episodes.mjs` (sem package*/src/e2e/workflows/Dockerfile); hunk audit do episodes = exatamente 6 pares de linha (hunks L1, L4-5, L8, L13-14); validator 36/36 exit 0 pre e pos-merge. Squash merge `4caf78b` (branch `chore/episodes-jsonl-integrity` deletada); main pos-merge `36261942375` success (ci 7m48s / e2e 3m47s / codeql 2m0s). Ressalva estrutural L8/L14 preservada como excecao controlada (nao normalizacao semantica). D044: validator **NAO** integrado ao CI/pre-push (backlog opcional T086, exige autorizacao futura); `continue-on-error` mantido; 52 achados OS bookworm seguem abertos com risco mitigado. T078 **liberada**; T081 apos T078; T058/S14 com o Operador.
+
+## 26. T081 — Proposta formal de aceite de risco OS bookworm (2026-09-27)
+
+> D045 = APPROVED (não aceita pelo Doer; decisão soberana do Operador). `docs/risk-acceptance-proposal.md`: inventário reconciliado 65→56 (52 residuais HIGH 52 / CRITICAL 4); controles validados; limitações; monitoramento/expiry 90 dias; Operator Decision Box A/B/C/D; separação absoluta T058/S14. Nenhum runtime/workflow/dependência alterado.

@@ -202,7 +202,14 @@
 **Solucao:** T084 em branch isolada `chore/episodes-jsonl-integrity` (PR draft, R062 condicionou T078 apos T084): reparo sintatico lossless no working tree - L1 BOM removido + 1 `}` anexado; L4 token `1_preexistente` envolvido em aspas (caracteres preservados) + 1 `}`; L5 +1 `}`; L8/L14 `{ }` inseridos em objetos malformados `"key":"value":"x"` (unica reparo 100% lossless; alternativas deletariam conteudo ou inventariam chave - registrada ressalva estrutural revisavel no PR); L13 -1 `}` extra. Provas: 36->36 linhas, 30/30 nao-listadas byte-identicas ao HEAD, ordem de `tarefa_id` 36/36, campos semanticos iguais, `scripts/validate-episodes.mjs` (exit 0) + `docs/episodes-integrity.md` (politica + antes/depois + limitacoes). Nenhum SHA historico alterado; sem --no-verify/force push.
 **Risco aberto (NAO resolvido):** escolha estrutural L8/L14 sujeita a veto na review; OS Debian bookworm: 52 achados sem fix (hardening mitigado, T081 pendente); Trivy continue-on-error ate decisao formal; validator e local (adicionar ao CI = futura decisao); visual (T058 sem URL); S14 (chaves + aprovacao); T067 backlog; vitest majors.
 **Arquivos afetados:** `logs/episodes.jsonl`, `scripts/validate-episodes.mjs`, `docs/episodes-integrity.md`, `DECISOES.md`, `SPRINT.md` (PR draft).
-**Proximo:** T078 (docs runtime/hardening) somente apos T084 merged -> T081 (aceite formal com Operador) -> T058/S14 aguardam Operador.
+**Proximo:** T078 (docs) liberada -> T081 (proposta formal de aceite/rejeição de risco OS bookworm, não aceita pelo Doer, aguarda decisao do Operador) -> T058/S14 aguardam Operador.
+
+### Decisao #45: D045 - Autorizar T081 e proibir parada antes de backlog autonomo (2026-09-27)
+**Problema:** T085/T078 concluídas; risco OS bookworm residual (52 achados sem fix, mitigados) precisa de dossiê formal para decisão soberana do Operador; T067 e varredura final de backlog devem prosseguir sem aguardar autorização adicional.
+**Solucao:** T081 = proposta formal `docs/risk-acceptance-proposal.md` (não aceita pelo Doer; opções A/B/C/D para Operador; invenção reconciliada 65→56 com 52 residuais HIGH 52/CRITICAL 4; controles validados listados; limitações honestas; monitoramento/expiry 90 dias; separação absoluta de T058/S14). Nenhum código/dependência/Docker/workflow alterado; `continue-on-error` mantido; imagem não declarada segura. T067 (deadline code) segue após T081; varredura final de backlog segue; relatório autônomo segue.
+**Risco aberto:** 52 achados permanecem; aceitação só pelo Operador; T058 bloqueado por URL/credenciais; S14 por chaves/aprovação.
+**Arquivos:** `docs/risk-acceptance-proposal.md`, `DECISOES.md` (esta), `PENDENCIAS_OPERADOR.md` (atualizado), `SPRINT.md` (§26).
+**Proximo:** T081 aguarda decisão do Operador; T067/varredura final após T081.
 
 ### Decisao #45: D044 - Aprovar T084 e autorizar merge PR #32 (T085)
 **Data:** 2026-09-27
