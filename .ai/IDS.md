@@ -14,7 +14,7 @@ ponteiro para o arquivo onde o ID é definido. Perite responder
 rapidamente:
 
 - "Onde está o ADR-0002?" → `decisions/ADR-0002.md`
-- "Quais REG-NNN existem?" → listados abaixo + detalhe em `SECURITY.md`
+- "Quais REG-NNN existem?" → listados abaixo + detalhe em `docs/05-security-compliance/SECURITY.md`
 - "Quais MOD-IDs têm status FROZEN?" → marcados com ✅ na tabela MOD
 - "Há colisão de IDs?" — não deve haver; este arquivo é a fonte para verificação
 
@@ -35,7 +35,7 @@ renomeados. Documentos supercedidos mantêm seu ID original com nota
 | `TD-`    | Débitos técnicos                              | `memory/technical-debt.md`                       |
 | `KP-`    | Problemas conhecidos                          | `memory/known-problems.md`                       |
 | `STD-`   | Padrões de engenharia                         | `standards/*.md`                                 |
-| `REG-`   | Regressões de segurança (testes adversariais) | `SECURITY.md` (raiz do projeto)                  |
+| `REG-`   | Regressões de segurança (testes adversariais) | `docs/05-security-compliance/SECURITY.md` (raiz do projeto)                  |
 | `FI-`    | Ideias futuras                                | `memory/future-ideas.md`                         |
 
 ---
@@ -186,8 +186,8 @@ renomeados. Documentos supercedidos mantêm seu ID original com nota
 
 ## REG — Regressões de segurança (testes adversariais)
 
-> Fonte canônica: `SECURITY.md` (raiz do projeto, ~98KB).
-> Esta tabela é espelho para navegação; detalhes em SECURITY.md.
+> Fonte canônica: `docs/05-security-compliance/SECURITY.md` (raiz do projeto, ~98KB).
+> Esta tabela é espelho para navegação; detalhes em docs/05-security-compliance/SECURITY.md.
 
 | ID        | Título                                                                 | Fase     |
 | --------- | ---------------------------------------------------------------------- | -------- |
@@ -211,7 +211,7 @@ renomeados. Documentos supercedidos mantêm seu ID original com nota
 | `REG-018` | Reconnect não reanima lease stale                                      | M4       |
 
 > Próximo REG usará `REG-019`. Detalhes (descrição, código, ataque
-> defendido) ficam em `SECURITY.md`. REG-001 a REG-009 são
+> defendido) ficam em `docs/05-security-compliance/SECURITY.md`. REG-001 a REG-009 são
 > operacionais; REG-010 a REG-018 são adversariais por módulo.
 
 ---
@@ -340,5 +340,5 @@ renomeados. Documentos supercedidos mantêm seu ID original com nota
 - `memory/known-problems.md` — definição canônica de KP-IDs.
 - `memory/future-ideas.md` — definição canônica de FI-IDs.
 - `standards/*.md` — definição canônica de STD-IDs.
-- `SECURITY.md` (raiz) — definição canônica de REG-IDs.
+- `docs/05-security-compliance/SECURITY.md` (raiz) — definição canônica de REG-IDs.
 - `decisions/ADR-0003.md` — governança v2.2 (introduz este arquivo).

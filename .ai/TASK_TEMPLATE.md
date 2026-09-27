@@ -53,7 +53,7 @@ pontos de validação intermediários.>
 4. Rodar `tsc --noEmit` — espera-se 0 erros.
 5. Rodar `scripts/test-<modulo>.ts` — espera-se N/N pass.
 6. Atualizar `worklog.md` e (se aplicável) `PROJECT_STATE.md`,
-   `DECISION_LOG.md`, `SECURITY.md`.
+   `DECISION_LOG.md`, `docs/05-security-compliance/SECURITY.md`.
 
 ### Implementação
 
@@ -124,7 +124,7 @@ tarefa separada. Inclua "nada" se não houver.>
    - Adicionar entrada em `worklog.md` (raiz do projeto).
    - Atualizar `PROJECT_STATE.md` se o estado do projeto mudou.
    - Adicionar entrada em `DECISION_LOG.md` se houve decisão arquitetural.
-   - Adicionar REG-NNN em `SECURITY.md` se houve nova regressão de segurança.
+   - Adicionar REG-NNN em `docs/05-security-compliance/SECURITY.md` se houve nova regressão de segurança.
 
 6. **Formato de 7 seções** (`OUTPUT_RULES.md`). As seções "Objetivo",
    "Contexto", "Arquivos envolvidos", "Plano", "Implementação",

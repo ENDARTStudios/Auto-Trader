@@ -69,7 +69,7 @@ Use `.github/pull_request_template.md` (preenchido automaticamente).
 - [ ] Como testar — comandos concretos (não "funciona corretamente")
 - [ ] Evidências — saída de `test:ci`, `coverage`, screenshot se UI
 - [ ] Checklist de segurança preenchido (Zod, RBAC, RLS, rate limit, XSS)
-- [ ] Docs atualizados se mudou contrato (`docs/*.md`, `README.md`, `SECURITY.md`)
+- [ ] Docs atualizados se mudou contrato (`docs/*.md`, `README.md`, `docs/05-security-compliance/SECURITY.md`)
 - [ ] CI verde antes de pedir review
 
 **Tamanho:** PR deve tocar ≤12 arquivos e ter 1 objetivo. Se precisa mexer em mais, decomponha em múltiplas issues/PRs.
@@ -99,7 +99,7 @@ Use `.github/pull_request_template.md` (preenchido automaticamente).
 - `gitleaks` deve passar antes de qualquer push (pre-commit hook).
 - `npm audit --audit-level=high` deve passar em CI.
 
-### 5.2 Motion & UI (ver `docs/MOTION.md`)
+### 5.2 Motion & UI (ver `docs/02-architecture-design/MOTION.md`)
 
 - Todo panel/rota tem **skeleton** enquanto carrega (`<Skeleton />`).
 - Todo dado é **lazy-loaded** (`dynamic(() => import(...))` ou TanStack `suspense`).
@@ -107,24 +107,24 @@ Use `.github/pull_request_template.md` (preenchido automaticamente).
 - Todo progresso tem **indicador** (progress bar, spinner, shimmer) — nunca tela branca.
 - Variants centralizadas em `src/lib/ui/motion.ts` — não inline.
 
-### 5.3 Observabilidade (ver `docs/ERROR_REPORTING.md`, `docs/OBSERVABILITY.md`)
+### 5.3 Observabilidade (ver `docs/07-operations-marketing/ERROR_HANDLING.md`, `docs/07-operations-marketing/MONITORING.md`)
 
 - Todo erro de UI passa por `<ErrorBoundary label="...">` (isolado por panel).
 - Todo erro de API passa por `handleApiError(e, route)` (não vaza stack em prod).
 - Todo erro é capturado via `captureError(err, {label})` (Sentry se DSN setado, senão Pino/AppLog).
 - Logs via `logger.info/warn/error(source, msg, context)` — nunca `console.log` com dados sensíveis.
 
-### 5.4 Testes (ver `docs/TESTING.md`)
+### 5.4 Testes (ver `docs/03-development-process/TESTING.md`)
 
 - Novo service → teste unit Vitest em `src/lib/**/__tests__/*.test.ts` (≥80% coverage).
 - Nova rota → teste de integração em `tests/integration/*.test.ts` (happy + erro + auth).
 - Novo fluxo crítico → spec E2E em `e2e/*.spec.ts` (Playwright).
-- Bug fix → primeiro escreva teste que reproduz o bug (falha), depois corrija (passa) — ver `SECURITY.md` REG pattern.
+- Bug fix → primeiro escreva teste que reproduz o bug (falha), depois corrija (passa) — ver `docs/05-security-compliance/SECURITY.md` REG pattern.
 
 ### 5.5 Docs
 
-- Mudou contrato/prisma/rota? Atualize `docs/PRD.md`, `docs/UML.md`, `docs/ARCHITECTURE.md`.
-- Introduziu nova defesa? Adicione `REG-XXX` em `SECURITY.md`.
+- Mudou contrato/prisma/rota? Atualize `docs/01-product-discovery/PRD.md`, `docs/02-architecture-design/UML.md`, `docs/02-architecture-design/ARCHITECTURE.md`.
+- Introduziu nova defesa? Adicione `REG-XXX` em `docs/05-security-compliance/SECURITY.md`.
 - Mudou decisão arquitetural? Registre em `DECISOES.md`.
 
 ---
@@ -162,22 +162,22 @@ npx prisma migrate dev --name descricao
 
 | Quero... | Arquivo |
 |---|---|
-| Entender o produto | `docs/PRD.md` |
-| Ver classes/sequência | `docs/UML.md` |
-| Ver permissões | `docs/RBAC.md` |
-| Ver isolamento de linhas | `docs/RLS.md` |
-| Ver segredos/env | `docs/SECRETS.md` + `.env.example` |
-| Ver módulos/flags | `docs/ARCHITECTURE.md` |
-| Ver erro/sentry/otel | `docs/ERROR_REPORTING.md` |
-| Ver testes | `docs/TESTING.md` + `vitest.config.ts` + `playwright.config.ts` |
-| Ver gate de deploy | `docs/SECURITY_AUDIT.md` |
-| Ver WAF/rate limit | `docs/WAF_RATE_LIMIT.md` |
-| Ver TLS/HSTS | `docs/TLS_HSTS.md` |
-| Ver hardening | `HARDENING-ROADMAP.md` + `SECURITY.md` |
-| Ver motion/skeleton | `docs/MOTION.md` + `src/lib/ui/motion.ts` |
-| Ver observabilidade | `docs/OBSERVABILITY.md` |
-| Ver lint/qualidade | `docs/LINT.md` |
-| Ver SEO | `docs/SEO.md` |
+| Entender o produto | `docs/01-product-discovery/PRD.md` |
+| Ver classes/sequência | `docs/02-architecture-design/UML.md` |
+| Ver permissões | `docs/05-security-compliance/RBAC.md` |
+| Ver isolamento de linhas | `docs/05-security-compliance/RLS.md` |
+| Ver segredos/env | `docs/05-security-compliance/SECRETS.md` + `.env.example` |
+| Ver módulos/flags | `docs/02-architecture-design/ARCHITECTURE.md` |
+| Ver erro/sentry/otel | `docs/07-operations-marketing/ERROR_HANDLING.md` |
+| Ver testes | `docs/03-development-process/TESTING.md` + `vitest.config.ts` + `playwright.config.ts` |
+| Ver gate de deploy | `docs/05-security-compliance/SECURITY_REVIEW.md` |
+| Ver WAF/rate limit | `docs/05-security-compliance/WAF_RATE_LIMIT.md` |
+| Ver TLS/HSTS | `docs/05-security-compliance/TLS_HSTS.md` |
+| Ver hardening | `HARDENING-ROADMAP.md` + `docs/05-security-compliance/SECURITY.md` |
+| Ver motion/skeleton | `docs/02-architecture-design/MOTION.md` + `src/lib/ui/motion.ts` |
+| Ver observabilidade | `docs/07-operations-marketing/MONITORING.md` |
+| Ver lint/qualidade | `docs/03-development-process/LINT.md` |
+| Ver SEO | `docs/07-operations-marketing/SEO.md` |
 | Próxima sprint | `SPRINT.md` |
 | Decisões | `DECISOES.md` |
 | Protocolo | `PROTOCOLO_MESTRE.md` + `PLANO_MESTRE.md` |

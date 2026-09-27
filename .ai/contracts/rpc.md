@@ -230,6 +230,6 @@ HTTP. Ver `api-contracts.md` para detalhes.
 - `standards/security.md` STD-204 — signer isolation.
 - `DECISION_LOG.md` DEC-002 — signer isolado em processo próprio.
 - `decisions/ADR-0001.md` — arquitetura que justifica o protocolo IPC.
-- `docs/signer-isolation-design.md` (raiz do projeto) — design detalhado.
+- `docs/02-architecture-design/signer-isolation-design.md` (raiz do projeto) — design detalhado.
 - `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
 

@@ -158,9 +158,9 @@ Cada uma deve ser registrada como TD-NNN em `memory/technical-debt.md`:
 
 | Lacuna                                                            | INV afetado | Ação recomendada                                |
 | ----------------------------------------------------------------- | ----------- | ----------------------------------------------- |
-| `INV-008` (canary determinístico) sem REG-NNN adversarial         | `INV-008`   | Criar `REG-019` em SECURITY.md                  |
-| `INV-009` (shadow compartilha Pipeline) sem REG-NNN adversarial   | `INV-009`   | Criar `REG-020` em SECURITY.md                  |
-| `INV-010` (Registry singleton) sem REG-NNN adversarial            | `INV-010`   | Criar `REG-021` em SECURITY.md                  |
+| `INV-008` (canary determinístico) sem REG-NNN adversarial         | `INV-008`   | Criar `REG-019` em docs/05-security-compliance/SECURITY.md                  |
+| `INV-009` (shadow compartilha Pipeline) sem REG-NNN adversarial   | `INV-009`   | Criar `REG-020` em docs/05-security-compliance/SECURITY.md                  |
+| `INV-010` (Registry singleton) sem REG-NNN adversarial            | `INV-010`   | Criar `REG-021` em docs/05-security-compliance/SECURITY.md                  |
 | `MOD-H1.1` (RPC resilience) sem REG-NNN direto                    | `INV-001`   | Criar `REG-022` (RPC quorum under partition)    |
 | `MOD-M5.4` (Chaos) sem REG-NNN que valide resiliência             | (resiliência) | Criar `REG-023` (chaos injection survives)    |
 
@@ -188,7 +188,7 @@ Cada uma deve ser registrada como TD-NNN em `memory/technical-debt.md`:
    planejado (mesmo que ainda não exista — marque como "a adicionar").
 4. Criar ADR em `decisions/ADR-NNNN.md` justificando o novo INV.
 5. Criar entrada em `DECISION_LOG.md` (DEC-NNN) com resumo.
-6. Criar teste adversarial em `SECURITY.md` (REG-NNN).
+6. Criar teste adversarial em `docs/05-security-compliance/SECURITY.md` (REG-NNN).
 7. Criar script de teste em `scripts/test-*.ts`.
 8. Atualizar `tests.md` com o novo script.
 
@@ -229,6 +229,6 @@ Cada uma deve ser registrada como TD-NNN em `memory/technical-debt.md`:
 - `decisions/ADR-0001.md` — ADR fundacional (H0→M5).
 - `decisions/ADR-0002.md` — ADR da governança v2.1.
 - `decisions/ADR-0003.md` — ADR da governança v2.2 (introduz esta matriz).
-- `SECURITY.md` (raiz) — definição dos REG-NNN.
+- `docs/05-security-compliance/SECURITY.md` (raiz) — definição dos REG-NNN.
 - `memory/technical-debt.md` — lacunas de rastreabilidade viram TD-NNN.
 - `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.

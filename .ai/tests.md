@@ -225,11 +225,11 @@ npx tsx scripts/test-m5-long-duration.ts --duration=7d
 
 | Pendência                                                       | Ação                                            | TD-NNN      |
 | --------------------------------------------------------------- | ----------------------------------------------- | ----------- |
-| Criar `REG-019` para `INV-008` (canary determinístico)         | Escrever adversarial em SECURITY.md + script    | (a criar)   |
-| Criar `REG-020` para `INV-009` (shadow compartilha Pipeline)   | Escrever adversarial em SECURITY.md + script    | (a criar)   |
-| Criar `REG-021` para `INV-010` (Registry singleton)            | Escrever adversarial em SECURITY.md + script    | (a criar)   |
-| Criar `REG-022` para `MOD-H1.1` (RPC under partition)          | Escrever adversarial em SECURITY.md + script    | (a criar)   |
-| Criar `REG-023` para `MOD-M5.4` (chaos injection survives)     | Escrever adversarial em SECURITY.md + script    | (a criar)   |
+| Criar `REG-019` para `INV-008` (canary determinístico)         | Escrever adversarial em docs/05-security-compliance/SECURITY.md + script    | (a criar)   |
+| Criar `REG-020` para `INV-009` (shadow compartilha Pipeline)   | Escrever adversarial em docs/05-security-compliance/SECURITY.md + script    | (a criar)   |
+| Criar `REG-021` para `INV-010` (Registry singleton)            | Escrever adversarial em docs/05-security-compliance/SECURITY.md + script    | (a criar)   |
+| Criar `REG-022` para `MOD-H1.1` (RPC under partition)          | Escrever adversarial em docs/05-security-compliance/SECURITY.md + script    | (a criar)   |
+| Criar `REG-023` para `MOD-M5.4` (chaos injection survives)     | Escrever adversarial em docs/05-security-compliance/SECURITY.md + script    | (a criar)   |
 | Adicionar teste E2E de UI                                       | `TD-006` em `memory/technical-debt.md`          | `TD-006`    |
 | Adicionar teste de Vault/KMS integration (pré-M6)              | Estender `test-signer-vault-integration.ts`     | `TD-002`    |
 
@@ -257,7 +257,7 @@ npx tsx scripts/test-m5-long-duration.ts --duration=7d
 - `standards/testing.md` STD-101 a STD-108 — padrões de escrita.
 - `architecture/modules.md` — definição dos MOD-IDs cobertos.
 - `architecture/invariants.md` — definição dos INV-NNN defendidos.
-- `SECURITY.md` (raiz) — definição dos REG-NNN.
+- `docs/05-security-compliance/SECURITY.md` (raiz) — definição dos REG-NNN.
 - `memory/technical-debt.md` — pendências viram TD-NNN.
 - `decisions/ADR-0003.md` — governança v2.2 (introduz este catálogo).
 - `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.

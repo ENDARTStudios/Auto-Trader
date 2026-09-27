@@ -89,7 +89,7 @@
   domain separator).
 - **`src/signer/audit.ts`** — audit log interno (hash-chain
   separada).
-- **Design documentado em `docs/signer-isolation-design.md`.**
+- **Design documentado em `docs/02-architecture-design/signer-isolation-design.md`.**
 
 ## M3.3 — Broadcaster
 

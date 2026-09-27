@@ -118,7 +118,7 @@ na BSC mainnet, com ramp gradual de tráfego.
 3. **Cada fase produz ADR.** Decisões estruturais ficam registradas
    em `decisions/` para auditoria futura.
 4. **Cada fase produz testes adversariais.** REG-NNN em
-   `SECURITY.md` pina as propriedades de segurança validadas.
+   `docs/05-security-compliance/SECURITY.md` pina as propriedades de segurança validadas.
 5. **Nenhum rollback silencioso.** Toda reversão de fase é entrada
    em `DECISION_LOG.md` com justificativa estrutural.
 

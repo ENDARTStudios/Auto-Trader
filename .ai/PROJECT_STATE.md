@@ -170,7 +170,7 @@ Débitos técnicos (TD-NNN):
 → memory/technical-debt.md
 
 Regressões de segurança (REG-NNN):
-→ SECURITY.md (raiz do projeto)
+→ docs/05-security-compliance/SECURITY.md (raiz do projeto)
 
 Mapeamento de attack vectors:
 → HARDENING-ROADMAP.md (raiz do projeto)

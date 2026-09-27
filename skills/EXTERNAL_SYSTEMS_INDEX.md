@@ -37,7 +37,7 @@ perception (TA analysts, CCXT público, Lumibot SEC/FRED) · debate (TA, Lumibot
 | 13 | `agent-openviking-plugins.md` | openviking-plugins (17★) | Precedente mínimo recall/capture (menor) | Doutrina (menor) | SPEC (doutrina) | Apache-2.0 |
 | 14 | `agent-browser-use.md` | browser-use (114k★) | Coleta web read-only sandboxed | Perception (ETL futuro) | SPEC-ONLY | MIT |
 | 15 | `agent-harness-engineering.md` | awesome-harness-engineering (4.1k★) | Catálogo harness (loops/contexto/evals/HITL) | Doutrina harness | SPEC (doutrina) | **NOASSERTION** |
-| 16 | `agent-diagram-design.md` | diagram-design (38.5k★) | 39 diagramas editoriais p/ docs | Docs (`docs/ARCHITECTURE.md`, `UML.md`) | SPEC (convenção) | MIT |
+| 16 | `agent-diagram-design.md` | diagram-design (38.5k★) | 39 diagramas editoriais p/ docs | Docs (`docs/02-architecture-design/ARCHITECTURE.md`, `UML.md`) | SPEC (convenção) | MIT |
 | 17 | `agent-scientific-skills.md` | scientific-agent-skills (44.5k★) | Falsificação validada + FRED + TimesFM/PyMC | Evolução/perception | SPEC-ONLY | MIT |
 | 18 | `agent-agent-reach.md` | Agent-Reach (79.5k★) | Coleta social N/R/M (Twitter/Reddit/YT/Bili/Xiaohongshu) | Pilares N/R/M §2.2 | SPEC-ONLY | MIT |
 | 19 | `agent-strix.md` | Strix (61.9k★) | Red-team PoC-validado + CI gate | Risco/CI (Fase 8) | SPEC (doutrina) | Apache-2.0 |

@@ -11,12 +11,12 @@
 
 Toda implementação deve seguir, sem inverter, a sequência:
 
-1. **Ler contexto.** — arquivos diretamente afetados, dependências, `PROJECT_STATE.md`, `SECURITY.md`, `HARDENING-ROADMAP.md`, `worklog.md` recente.
+1. **Ler contexto.** — arquivos diretamente afetados, dependências, `PROJECT_STATE.md`, `docs/05-security-compliance/SECURITY.md`, `HARDENING-ROADMAP.md`, `worklog.md` recente.
 2. **Mapear dependências.** — quem usa os símbolos que serão tocados. Listar no plano.
 3. **Criar plano.** — escopo mínimo, arquivos afetados, validações necessárias, riscos.
 4. **Executar.** — implementar seguindo o plano. Sem invenções fora do plano.
 5. **Validar.** — rodar build, rodar testes do módulo, rodar testes adversariais relevantes, confirmar que nenhum dependente quebra.
-6. **Documentar.** — atualizar `worklog.md` (sempre), `PROJECT_STATE.md` (se o estado mudar), `DECISION_LOG.md` (se houver decisão arquitetural), `SECURITY.md` (se houver nova regressão REG-NNN).
+6. **Documentar.** — atualizar `worklog.md` (sempre), `PROJECT_STATE.md` (se o estado mudar), `DECISION_LOG.md` (se houver decisão arquitetural), `docs/05-security-compliance/SECURITY.md` (se houver nova regressão REG-NNN).
 
 **Nunca alterar esta ordem.** Em particular, nunca executar antes de mapear
 dependências e nunca finalizar antes de validar + documentar.
@@ -70,7 +70,7 @@ Toda alteração deve indicar explicitamente, no plano da tarefa:
 
 - **Testes necessários** — quais testes novos devem ser escritos, quais
   testes existentes devem ser atualizados, quais testes adversariais
-  (REG-NNN) devem ser adicionados em `SECURITY.md`.
+  (REG-NNN) devem ser adicionados em `docs/05-security-compliance/SECURITY.md`.
 - **Build necessário** — `npm run build`, `tsc --noEmit`, `eslint`, e
   qualquer script de validação do módulo (`scripts/test-*.ts`).
 - **Validações** — afirmar, antes de finalizar, que:
@@ -127,7 +127,7 @@ registro permanente do aprendizado em **um** destes locais
 - **`DECISION_LOG.md`** (e/ou `.ai/decisions/ADR-NNNN.md`) — para
   bugs que revelam falha de arquitetura e exigem mudança
   estrutural. Padrão DEC-NNN ou ADR-NNNN.
-- **`SECURITY.md`** — para bugs de segurança, com teste adversarial
+- **`docs/05-security-compliance/SECURITY.md`** — para bugs de segurança, com teste adversarial
   REG-NNN que pinne o invariant corrigido.
 
 ### Aplicação prática
@@ -145,7 +145,7 @@ produziu:
 1. **DEC-001** em `DECISION_LOG.md` — registro da decisão de usar
    replacer function recursivo.
 2. **KP-001** em `memory/known-problems.md` — causa, status, mitigação.
-3. **REG adversarial** em `SECURITY.md` — teste que tenta modificar
+3. **REG adversarial** em `docs/05-security-compliance/SECURITY.md` — teste que tenta modificar
    payload nested sem quebrar a cadeia.
 4. **Formalização do "princípio de teste adversarial"** em
    `ENGINEERING_RULES.md > Testes` (seção acima).

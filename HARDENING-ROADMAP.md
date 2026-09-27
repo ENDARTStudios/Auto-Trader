@@ -1,8 +1,8 @@
 # Hardening Roadmap — Defense-in-Depth Against 30 Attack Vectors
 
 This document maps the operator's "blindagem" mandate (30 attack vectors) to
-a phased hardening plan. It is the structural counterpart to `SECURITY.md`:
-where `SECURITY.md` inventories regression tests that pin already-fixed
+a phased hardening plan. It is the structural counterpart to `docs/05-security-compliance/SECURITY.md`:
+where `docs/05-security-compliance/SECURITY.md` inventories regression tests that pin already-fixed
 properties, this document inventories attack vectors that are not yet
 defended and proposes how to close each gap.
 
@@ -14,7 +14,7 @@ The discipline is the same one this thread consolidated:
 2. **Structural tests as acceptance criteria** — not best-effort. Each
    hardening phase has explicit test assertions that must pass before the
    phase is marked complete.
-3. **`SECURITY.md` for regressions** — once a defense lands, add a REG-NNN
+3. **`docs/05-security-compliance/SECURITY.md` for regressions** — once a defense lands, add a REG-NNN
    entry so a future maintainer cannot "simplify" it back into the
    vulnerable shape.
 4. **Real-mechanism tests** — live process, real socket, real RPC, not
@@ -229,7 +229,7 @@ MFA, short sessions) not to REPLACE them.
 - Finish signer isolation: M2.3 (move WalletVault) → M3 (sign RPC) → M4 (writer lease)
 - This fully closes Layer 0 (Operational Key Compromise, Hot Wallet Key Management, Cryptographic Implementation Errors via zeroize-on-disconnect)
 - **No new hardening work starts until H0 is done** — Layer 0 is the foundation that H1-H7 build on. Building MEV defenses on top of a non-isolated signer would be rework.
-- **STATUS**: H0.1 (KDF + derivation parameters audit), H0.2 (secret storage audit), H0.3 (audit log hash-chain), H0.4 (key rotation / versioning), H0.5 (cryptographic guarantees review) — all complete. CI gate: 9 files / 78 checks. Critical hash-chain bug (JSON.stringify replacer-array dropping payload keys) caught + fixed during H0.3 testing. docs/CRYPTO.md and SECURITY.md H0 section written.
+- **STATUS**: H0.1 (KDF + derivation parameters audit), H0.2 (secret storage audit), H0.3 (audit log hash-chain), H0.4 (key rotation / versioning), H0.5 (cryptographic guarantees review) — all complete. CI gate: 9 files / 78 checks. Critical hash-chain bug (JSON.stringify replacer-array dropping payload keys) caught + fixed during H0.3 testing. docs/05-security-compliance/CRYPTO.md and docs/05-security-compliance/SECURITY.md H0 section written.
 
 ### H1: Transaction lifecycle hardening (Layers 1+2+4) — ✓ COMPLETE (FROZEN)
 After H0 closed the foundational crypto base, H1 hardens the entire
@@ -865,7 +865,7 @@ iteration (all fixed, none in production code):
 Each phase produces:
 - Code (the defense)
 - Tests (structural, real-mechanism, with the 5-assertion pattern where applicable)
-- `SECURITY.md` REG-NNN entry (pinning the defense against future simplification)
+- `docs/05-security-compliance/SECURITY.md` REG-NNN entry (pinning the defense against future simplification)
 - `worklog.md` entry (following the established template)
 
 The full roadmap is ~8 phases over an extended period. Each phase is
@@ -1071,7 +1071,7 @@ produces security theater.
 
 ## Relationship to existing documents
 
-- **`SECURITY.md`** — regression inventory for already-fixed properties.
+- **`docs/05-security-compliance/SECURITY.md`** — regression inventory for already-fixed properties.
   Each hardening phase, once landed, adds a REG-NNN entry here.
   **STATUS: LOST in the filesystem regression — needs reconstruction
   before any hardening phase can land (each phase's REG entry references
@@ -1087,8 +1087,8 @@ produces security theater.
   filesystem regression, in this session).**
 
 The three documents form a closed loop: roadmap (what we will do) →
-worklog (what we did) → SECURITY.md (what we must not undo). **The loop
-is currently broken** — SECURITY.md and the signer-isolation worklog
+worklog (what we did) → docs/05-security-compliance/SECURITY.md (what we must not undo). **The loop
+is currently broken** — docs/05-security-compliance/SECURITY.md and the signer-isolation worklog
 entries are missing. The loop must be restored before hardening phases
 can begin.
 
@@ -1098,7 +1098,7 @@ can begin.
 
 The filesystem regressed to git commit `66edfd6` (enhancement-v11, Jul 13).
 All signer-isolation work (Phase 1, M1, M2.1, M2.2, the pre-push hook,
-the postinstall wiring, the readonly-container fix, SECURITY.md, the
+the postinstall wiring, the readonly-container fix, docs/05-security-compliance/SECURITY.md, the
 three test files, the signer process code, the wallet-crypto class) was
 working-tree-only and is LOST. The git history has no record of it.
 
@@ -1111,7 +1111,7 @@ isolation layer was lost).
 **Recovery options (awaiting operator direction):**
 - **(a)** Restore from container/volume backup (byte-identical recovery)
 - **(b)** Reconstruct from conversation context (structural reconstruction;
-  SECURITY.md content is in the conversation context; test structures are
+  docs/05-security-compliance/SECURITY.md content is in the conversation context; test structures are
   described; signer code would be rebuilt from the documented design intent)
 - **(c)** Reassess scope (re-do signer isolation from scratch with the
   benefit of the review thread's lessons learned)

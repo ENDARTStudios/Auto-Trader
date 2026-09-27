@@ -91,7 +91,7 @@ sensível).
 | -------- | ----------------------------------------------------------- |
 | `ADR`    | Architecture Decision Record (em `.ai/decisions/ADR-NNNN.md`)|
 | `DEC`    | Decisão arquitetural resumida (em `DECISION_LOG.md`, DEC-NNN)|
-| `REG`    | Regressão de segurança (em `SECURITY.md`, REG-NNN)         |
+| `REG`    | Regressão de segurança (em `docs/05-security-compliance/SECURITY.md`, REG-NNN)         |
 | `KP`     | Known Problem (em `memory/known-problems.md`, KP-NNN)      |
 | `TD`     | Technical Debt (em `memory/technical-debt.md`, TD-NNN)     |
 | `INV`    | Invariante arquitetural (em `architecture/invariants.md`, INV-NNN) |

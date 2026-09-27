@@ -81,7 +81,7 @@ CORE_RULES.md
   > DECISION_LOG.md
   > architecture/invariants.md
   > architecture/frozen-files.md
-  > SECURITY.md (REG-NNN)
+  > docs/05-security-compliance/SECURITY.md (REG-NNN)
   > HARDENING-ROADMAP.md
   > worklog.md
 ```
@@ -90,7 +90,7 @@ CORE_RULES.md
 
 ```
 README.md (raiz)              → visão geral do projeto
-SECURITY.md (raiz)            → REG-NNN adversariais
+docs/05-security-compliance/SECURITY.md (raiz)            → REG-NNN adversariais
 HARDENING-ROADMAP.md (raiz)   → mapeia 30 attack vectors
 worklog.md (raiz)             → log de trabalho contínuo
 prisma/schema.prisma          → schema canônico do banco

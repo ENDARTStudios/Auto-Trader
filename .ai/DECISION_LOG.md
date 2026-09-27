@@ -22,7 +22,7 @@
 - **Alternativas descartadas:** <lista, com motivo de descarte>
 - **Justificativa:** <por que esta foi escolhida>
 - **Impacto:** <o que muda no sistema — dependências, contratos, performance, segurança>
-- **REG-NNN associados:** <se aplicável, regressões em SECURITY.md>
+- **REG-NNN associados:** <se aplicável, regressões em docs/05-security-compliance/SECURITY.md>
 - **Status:** Ativa | Revertida por DEC-XXX | Depreciada
 ```
 
@@ -62,7 +62,7 @@
 - **Arquivos envolvidos:** `src/signer/main.ts`, `src/signer/wallet-methods.ts`,
   `src/signer/sign-methods.ts`, `src/signer/audit.ts`,
   `src/lib/chain/signer-adapter.ts`, `src/lib/signer-protocol.ts`,
-  `docs/signer-isolation-design.md`.
+  `docs/02-architecture-design/signer-isolation-design.md`.
 - **Alternativas descartadas:**
   - Signer in-process com sandbox `vm` — descartado: vm não é isolamento
     de segurança real.

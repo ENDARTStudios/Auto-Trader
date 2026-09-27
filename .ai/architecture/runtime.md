@@ -141,7 +141,7 @@ público (DEC-005).
    como indisponível, rejeita novos `submit()` com `SIGNER_UNAVAILABLE`.
    Restart automático é responsabilidade do operador (não do engine).
 
-**REG-NNN associados:** ver `SECURITY.md` (signer isolation tests).
+**REG-NNN associados:** ver `docs/05-security-compliance/SECURITY.md` (signer isolation tests).
 
 ---
 

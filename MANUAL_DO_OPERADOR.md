@@ -3,7 +3,7 @@
 > Last updated: 2026-09-03 (Fase 9.9 — S32 Etapa 3)
 > Público: Operador (você, dono da instância). Não requer conhecimento de código, mas exige terminal.
 > Pré-requisitos: `git`, `node 20`, `bun` (opcional), `docker` + `docker compose`, `flyctl` (se deploy externo), `.env` a partir de `.env.example:1`
-> Referências: `PLANO_MESTRE.md:1` Fases 0-9, `docs/DEPLOY.md:1`, `docs/ARCHITECTURE.md:1`, `docs/SECRETS.md:1`, `src/lib/env.ts:1` Zod
+> Referências: `PLANO_MESTRE.md:1` Fases 0-9, `docs/06-devops-deployment/PRODUCTION_DEPLOY.md:1`, `docs/02-architecture-design/ARCHITECTURE.md:1`, `docs/05-security-compliance/SECRETS.md:1`, `src/lib/env.ts:1` Zod
 
 ---
 
@@ -71,7 +71,7 @@ Scripts `S06`:
 ```bash
 bash scripts/backup-db.sh              # SQLite: cria db/backup-YYYY-MM-DD.sql.gz
 bash scripts/verify-backup.sh db/backup-YYYY-MM-DD.sql.gz
-# Postgres prod: pg_dump $DATABASE_URL | gzip > /tmp/db-$(date +%F).sql.gz  (docs/DEPLOY.md:6 retenção 30d)
+# Postgres prod: pg_dump $DATABASE_URL | gzip > /tmp/db-$(date +%F).sql.gz  (docs/06-devops-deployment/PRODUCTION_DEPLOY.md:6 retenção 30d)
 # Restore SQLite: bash scripts/restore-db.sh db/backup-YYYY-MM-DD.sql.gz
 # Restore Postgres: gunzip < /tmp/db-YYYY-MM-DD.sql.gz | psql $DATABASE_URL
 npx prisma migrate deploy
@@ -84,26 +84,26 @@ Agende cron diário (exemplo `0 3 * * * bash /path/scripts/backup-db.sh`).
 ## 5. Observabilidade
 
 - **Sentry**: `sentry.client.config.ts:1` + `sentry.server.config.ts:1` (`SENTRY_DSN`). `src/lib/observability/sentry.ts:1` `captureError`/`captureMessage`.
-- **OTEL**: `OTEL_EXPORTER_OTLP_ENDPOINT` → `src/lib/observability/otel.ts:1` + `exporter.ts:1` + `metrics.ts:1` (`/api/metrics` exige `system:read`, `docs/OBSERVABILITY.md:1`).
+- **OTEL**: `OTEL_EXPORTER_OTLP_ENDPOINT` → `src/lib/observability/otel.ts:1` + `exporter.ts:1` + `metrics.ts:1` (`/api/metrics` exige `system:read`, `docs/07-operations-marketing/MONITORING.md:1`).
 - **Crash logger**: `src/instrumentation.ts:1` registra `uncaughtException`/`unhandledRejection` em `logs/crash-*.log` + `logs/boot.log`. Em caso de "server morreu silenciosamente", rodar `bash scripts/diag-oom-check.sh` (dmesg/journalctl) + `bash scripts/smoke-test-production.sh` (`next build && next start`, não `next dev`).
-- **Alertas**: `docs/DEPLOY.md:7` — 5xx >1% 5min, auth >50/min, PositionAlert critical, latency p95 >500ms (k6 `scripts/load-test-k6.mjs:1`).
+- **Alertas**: `docs/06-devops-deployment/PRODUCTION_DEPLOY.md:7` — 5xx >1% 5min, auth >50/min, PositionAlert critical, latency p95 >500ms (k6 `scripts/load-test-k6.mjs:1`).
 
 ---
 
 ## 6. Segurança — o que nunca fazer
 
 - Nunca commitar `.env` (`.gitignore:48` `.env*` exceto `.env.example`). `.env.example:1` só placeholders `SUA_CHAVE_AQUI`.
-- Nunca expor `mfaSecret`, `privateKeyEncrypted`, `tokenHash` (`docs/RLS.md:1`, `src/lib/auth/rls.ts:1` sanitiza).
+- Nunca expor `mfaSecret`, `privateKeyEncrypted`, `tokenHash` (`docs/05-security-compliance/RLS.md:1`, `src/lib/auth/rls.ts:1` sanitiza).
 - Sempre `ENCRYPTION_KEY` base64 32 bytes + `SESSION_SECRET` ≥32 chars (`src/lib/env.ts:1` Zod).
 - Sempre `bcrypt` cost 12 (`src/lib/auth/password.ts:1`), AES-256-GCM KDF versioning (`src/lib/trading/wallet-crypto.ts:1`, `kdf.ts:1`).
 - Sempre HMAC Stripe webhook (`src/app/api/webhooks/stripe/route.ts:1`, `tests/billing-webhook.test.ts:1`).
-- Auditoria: `AuditLog` hash-chain (`src/lib/auth/audit.ts:1`, `SECURITY.md:1` REG-014).
+- Auditoria: `AuditLog` hash-chain (`src/lib/auth/audit.ts:1`, `docs/05-security-compliance/SECURITY.md:1` REG-014).
 
 ---
 
 ## 7. Deploy externo (Fly.io) — resumo
 
-Ver `docs/DEPLOY.md:3` completo. Resumo:
+Ver `docs/06-devops-deployment/PRODUCTION_DEPLOY.md:3` completo. Resumo:
 
 ```bash
 fly auth login
@@ -118,9 +118,9 @@ fly deploy
 curl -fsS https://your-domain.com/api/health/live
 ```
 
-Cloudflare WAF/HSTS: `docs/TLS_HSTS.md:1` + `docs/WAF_RATE_LIMIT.md:1` + `docs/DEPLOY.md:4`.
+Cloudflare WAF/HSTS: `docs/05-security-compliance/TLS_HSTS.md:1` + `docs/05-security-compliance/WAF_RATE_LIMIT.md:1` + `docs/06-devops-deployment/PRODUCTION_DEPLOY.md:4`.
 
-Rollback: `fly releases rollback --app auto-trader-prod` + restore pg_dump (`docs/DEPLOY.md:9`).
+Rollback: `fly releases rollback --app auto-trader-prod` + restore pg_dump (`docs/06-devops-deployment/PRODUCTION_DEPLOY.md:9`).
 
 ---
 
@@ -159,6 +159,6 @@ Rollback: `fly releases rollback --app auto-trader-prod` + restore pg_dump (`doc
 ## 11. Contatos
 
 - Código: `AGENT_GUIDE.md:1` (PROTOCOLO_MESTRE.md Seção 9)
-- Secrets: `docs/SECRETS.md:1`
-- Arquitetura: `docs/ARCHITECTURE.md:1` (DAG 35 rotas)
-- Incidentes: `docs/INCIDENT_RESPONSE.md:1`
+- Secrets: `docs/05-security-compliance/SECRETS.md:1`
+- Arquitetura: `docs/02-architecture-design/ARCHITECTURE.md:1` (DAG 35 rotas)
+- Incidentes: `docs/05-security-compliance/INCIDENT_RESPONSE.md:1`

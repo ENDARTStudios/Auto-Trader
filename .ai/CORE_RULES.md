@@ -43,7 +43,7 @@ Sempre ler o **máximo possível** do projeto antes de responder.
 Nunca assumir comportamento sem evidência.
 
 **Aplicação prática:** antes de propor qualquer mudança, ler
-`PROJECT_STATE.md`, `SECURITY.md`, `HARDENING-ROADMAP.md`, o `worklog.md`
+`PROJECT_STATE.md`, `docs/05-security-compliance/SECURITY.md`, `HARDENING-ROADMAP.md`, o `worklog.md`
 recente, e os arquivos diretamente afetados.
 
 ---
@@ -158,7 +158,7 @@ comportamento anterior era o bug que está sendo corrigido.
 
 **Aplicação prática:** quando corrigir um bug, registrar no plano qual era o
 comportamento antigo, qual é o novo, e por que o novo está correto. Adicionar
-teste de regressão (`SECURITY.md` REG-NNN) que pinne o novo comportamento.
+teste de regressão (`docs/05-security-compliance/SECURITY.md` REG-NNN) que pinne o novo comportamento.
 
 ---
 

@@ -676,13 +676,13 @@ Work Log:
   - Layer 6 (Address hygiene — GAP): 1 vector (Address Poisoning)
   - Layer 7 (Logic correctness — PARTIAL via risk-manager): 2 vectors (Reentrancy, Logic Errors)
   - Layer 8 (Operational/endpoint — OUT OF SCOPE for app code, documented boundary): 7 vectors (Fake Support, Airdrop Scams, Clipboard Hijackers, Infostealers, Deepfakes/Synthetic Audio, Hyper-personalized Phishing, Insider Threats/Contractors)
-- Produced /home/z/my-project/HARDENING-ROADMAP.md — structured counterpart to SECURITY.md:
+- Produced /home/z/my-project/HARDENING-ROADMAP.md — structured counterpart to docs/05-security-compliance/SECURITY.md:
   - Threat model: 30 vectors mapped to 8 layers, each with existing mitigation / gap / proposed defense.
   - Defense matrix: per-vector table with what exists vs what's missing.
   - Phased roadmap: H0 (foundational, parallel to M2.3/M3/M4) → H1 (MEV) → H2 (contract hardening) → H3 (signature) → H4 (infra) → H5 (privacy) → H6 (address) → H7 (logic) → H8 (operational support).
   - Each phase has explicit acceptance criteria in the structural-test pattern (real mechanism, 5-assertion pattern where applicable, not best-effort).
   - Explicit out-of-scope register for Layer 8 with the boundary documented: the app SUPPORTS (audit logs, MFA, hardware keys) but cannot DEFEND against deepfakes/clipboard hijackers/infostealers/etc. — those require operational policy + endpoint hardening outside this repo. Conflating the two would be security theater, the exact pattern this thread rejected ("documenting the intention is not the same as proving the code respects the intention").
-  - Relationship to existing documents: roadmap (what we will do) → worklog (what we did) → SECURITY.md (what we must not undo). Closed loop.
+  - Relationship to existing documents: roadmap (what we will do) → worklog (what we did) → docs/05-security-compliance/SECURITY.md (what we must not undo). Closed loop.
 - Sequencing recommendation: M2.3 first (already cleared, foundational for H0), then M3+M4 (completes H0), then H1+H2 in parallel (highest-risk gaps: on-chain adversarial + token fraud), then H3+H4+H5 in parallel (compromise vectors), then H6+H7 (hardening polish), H8 continuous. Each phase is self-contained and reviewable independently, matching the M1→M2.1→M2.2→M2.3→M3→M4 increment discipline.
 
 Stage Summary:
@@ -714,7 +714,7 @@ Work Log:
   - Layer 14 (AI-driven threats): PARTIALLY IN SCOPE — Prompt Injection (if z-ai-web-dev-sdk used for AI features), autonomous attacks (same defense as H9). Shadow AI, deepfakes = operational (Layer 8). 3 tests if AI features used.
   - Layer 15 (E-commerce fraud): OUT OF SCOPE — the app is not a marketplace. Triangulation, fake delivery QR, fake stores do not apply.
 - Updated the phased roadmap table (H0-H15) with combined vectors from both lists. Total: ~65 unique vectors; ~35 in scope; ~25 out of scope; ~5 partially in scope.
-- Documented the data loss as a BLOCKING ISSUE section at the end of HARDENING-ROADMAP.md, with the three recovery options (a/b/c) and the explicit statement that the roadmap→worklog→SECURITY.md loop is broken until SECURITY.md and the worklog entries are restored.
+- Documented the data loss as a BLOCKING ISSUE section at the end of HARDENING-ROADMAP.md, with the three recovery options (a/b/c) and the explicit statement that the roadmap→worklog→docs/05-security-compliance/SECURITY.md loop is broken until docs/05-security-compliance/SECURITY.md and the worklog entries are restored.
 - Did NOT write any hardening code. No H-phase implementation begins until: (1) the data loss is resolved, (2) the operator reviews and prioritizes the combined 16-phase roadmap.
 
 Stage Summary:
@@ -730,12 +730,12 @@ Agent: engineering (main session)
 Task: RECONSTRUCTED WORKLOG ENTRY — the original entries for the signer-isolation work (§7.3.7 closure, M1, M2.1, M2.2, phase1-m2-pre-corrections, phase1-m2-readonly-containers-fix) were lost during the filesystem regression (container rootfs reset to git commit 66edfd6). The code was recovered from the PolarFS snapshot at /tmp/my-project, but the worklog entries were not in the snapshot. This entry is reconstructed from the conversation summary, not from the original worklog content. It captures the key milestones and decisions but may not be byte-identical to the originals.
 
 Work Log (RECONSTRUCTED from conversation summary):
-- §7.3.7 CLOSURE: The operator's final sign-off closed §7.3.7 (the silent-exception-swallowing bug in request-peer-capture.ts). The fix introduced the `enteredHandler` sentinel pattern: a synchronous boolean that flips to true as the first line inside the AsyncLocalStorage.run() callback, distinguishing "our ALS setup failed" (callback not entered, recoverable) from "downstream handler failed" (callback entered, must re-throw). This was registered as REG-001 in SECURITY.md. Phase 1 was released with no reservations.
+- §7.3.7 CLOSURE: The operator's final sign-off closed §7.3.7 (the silent-exception-swallowing bug in request-peer-capture.ts). The fix introduced the `enteredHandler` sentinel pattern: a synchronous boolean that flips to true as the first line inside the AsyncLocalStorage.run() callback, distinguishing "our ALS setup failed" (callback not entered, recoverable) from "downstream handler failed" (callback entered, must re-throw). This was registered as REG-001 in docs/05-security-compliance/SECURITY.md. Phase 1 was released with no reservations.
 - M1 (signer process skeleton): Implemented the signer process as a separate Node.js child process communicating via Unix socket with JSON-RPC 2.0 framing. Files: src/signer/main.ts (process entry + RPC dispatcher), src/lib/crash-logger.ts (uncaughtException handler that writes crash-*.log files), src/lib/signer-protocol.ts (type definitions). 5 integration tests in scripts/test-signer-process.ts: health_check round-trip, allowlist rejection (-32601), parse error (-32700), parent disconnect → signer exits, socket cleanup. All 5 tests exercise the REAL mechanism (live process, real socket).
 - M2.1 (allowlist forward-declaration + M2 method schemas): Added TypeScript types for the M2 method contract (UnlockParams, UnlockResult, LockParams, LockResult, VaultStatusResult, ClearRateLimitParams, ClearRateLimitResult, GetRateLimitStatusParams, GetRateLimitStatusResult, MethodHandler, MethodHandlerResult) to signer-protocol.ts. The SIGNER_METHOD_ALLOWLIST was NOT expanded (still only health_check) — this is deliberate, to keep test 2 ("unlock returns -32601 Method not found") as a valid negative sentinel until M2.3 wires the handlers + expands the allowlist in one change. A 75-line NOTE in signer-protocol.ts documents this discipline.
 - M2.2 (dispatcher sentinel pattern application): Applied the operator's Note 1 (the LAYER 1 vs LAYER 2 discipline) to the RPC dispatcher in src/signer/main.ts as a 75-line comment block. LAYER 1 = allowlist check + method routing = our code = recoverable (returns { ok: false, code: -32601 }). LAYER 2 = handler invocation = downstream code = exceptions must propagate to crash-logger.ts via uncaughtException, NEVER wrapped in try/catch to convert to -32603. The allowlist/handler mismatch branch writes a warning to stderr. This discipline is load-bearing starting at M2.3 (when wallet handlers land and start touching the DB).
 - phase1-m2-pre-corrections (operator's M2.3 pre-release review): The operator approved proceeding to M2.3 with three corrections: (1) postinstall wiring — added "postinstall": "bash scripts/install-git-hooks.sh" to package.json so npm install automatically activates the pre-push hook, closing the "script exists but nobody runs it" loop; (2) skip banner visibility — replaced the single-line SIGNER_SKIP_PRE_PUSH_HOOK skip message with a 7-line boxed banner (╔═╗║╚═╝) to stderr, making it impossible to accidentally leave the variable set in a shell profile without noticing; (3) structural dispatcher test as EXPLICIT M2.3 acceptance criterion — registered (not yet implemented) the requirement that M2.3 must include a test structurally equivalent to Test 4 of test-request-peer-integration.ts, with 5 assertions (propagation, no-swallow, no-rerun, crash-log capture, real-mechanism). 29/29 tests passed after corrections 1+2.
-- phase1-m2-readonly-containers-fix (operator's final pre-M2.3 confirmation): The operator flagged that the postinstall hook now runs on every npm install, including in read-only containers and restricted CI runners where .git exists but .git/hooks/ is not writable. Demonstrated empirically (scripts/test-install-git-hooks-readonly.sh) that the install script FAILED with cp: Permission denied + exit 1 in this scenario — would break npm install for a reason unrelated to the code being installed. Fixed: added a directory-level write check ([ ! -w "$HOOKS_DST" ]) that treats "permission denied" exactly like ".git absent" — single-line notice to stderr, exit 0. Also added a per-hook read-only-existing-file check for the rarer case. Updated SECURITY.md REG-004 to document the read-only graceful no-op. 3/3 readonly tests pass, 29/29 test:ci still passes. M2.3 cleared with no reservations.
+- phase1-m2-readonly-containers-fix (operator's final pre-M2.3 confirmation): The operator flagged that the postinstall hook now runs on every npm install, including in read-only containers and restricted CI runners where .git exists but .git/hooks/ is not writable. Demonstrated empirically (scripts/test-install-git-hooks-readonly.sh) that the install script FAILED with cp: Permission denied + exit 1 in this scenario — would break npm install for a reason unrelated to the code being installed. Fixed: added a directory-level write check ([ ! -w "$HOOKS_DST" ]) that treats "permission denied" exactly like ".git absent" — single-line notice to stderr, exit 0. Also added a per-hook read-only-existing-file check for the rarer case. Updated docs/05-security-compliance/SECURITY.md REG-004 to document the read-only graceful no-op. 3/3 readonly tests pass, 29/29 test:ci still passes. M2.3 cleared with no reservations.
 
 Stage Summary (RECONSTRUCTED):
 - All code artifacts recovered from PolarFS snapshot and verified: 29/29 test:ci passing, 3/3 readonly-container test passing, skip banner confirmed visible.
@@ -751,7 +751,7 @@ Task: Operator directed recovery path (a)→(b)→(c): exhaust backup options fi
 Work Log:
 - Phase (a) — backup recovery: SUCCEEDED. Found a PolarFS persistent mount at /tmp/my-project (fuse.pfs, persistent across container restarts) that had synced copies of ALL signer-isolation source files. The container rootfs at /home/z/my-project (ephemeral) had regressed to git commit 66edfd6, but the PolarFS mount preserved the full working state.
   - Checked: Docker volumes (not available), /var/backups (empty), editor history (not present), /tmp caches. The PolarFS mount was the recovery source.
-  - Verified the snapshot had: SECURITY.md (20545 bytes), src/signer/main.ts (15860 bytes), src/lib/signer-protocol.ts (17544 bytes), src/lib/request-peer-capture.ts (14953 bytes), src/lib/crash-logger.ts (10517 bytes), src/lib/trading/wallet-crypto.ts (53443 bytes, ~1300 lines), src/lib/trading/proxy-trust.ts (10743 bytes), all 3 test files (test-vault.ts 52659 bytes, test-request-peer-integration.ts 22369 bytes, test-signer-process.ts 13401 bytes), scripts/install-git-hooks.sh (7128 bytes, with readonly fix), scripts/test-install-git-hooks-readonly.sh (5113 bytes), scripts/git-hooks/pre-push (4654 bytes, with banner), docs/signer-isolation-design.md (167695 bytes), plus 13 additional API routes, 3 dashboard components, 10 additional trading lib modules, and 15 additional scripts.
+  - Verified the snapshot had: docs/05-security-compliance/SECURITY.md (20545 bytes), src/signer/main.ts (15860 bytes), src/lib/signer-protocol.ts (17544 bytes), src/lib/request-peer-capture.ts (14953 bytes), src/lib/crash-logger.ts (10517 bytes), src/lib/trading/wallet-crypto.ts (53443 bytes, ~1300 lines), src/lib/trading/proxy-trust.ts (10743 bytes), all 3 test files (test-vault.ts 52659 bytes, test-request-peer-integration.ts 22369 bytes, test-signer-process.ts 13401 bytes), scripts/install-git-hooks.sh (7128 bytes, with readonly fix), scripts/test-install-git-hooks-readonly.sh (5113 bytes), scripts/git-hooks/pre-push (4654 bytes, with banner), docs/02-architecture-design/signer-isolation-design.md (167695 bytes), plus 13 additional API routes, 3 dashboard components, 10 additional trading lib modules, and 15 additional scripts.
   - The ONLY things NOT in the snapshot: (1) the worklog entries for signer isolation (§7.3.7, M1, M2.1, M2.2, pre-corrections, readonly-fix) — the worklog in the snapshot was identical to the truncated rootfs worklog, both jumping from enhancement-v11 to hardening-mandate-acknowledgment; (2) the package.json scripts (postinstall, test:ci, test:vault, test:peer-integration, test:signer) — the snapshot package.json was from Jul 13 02:13, before the scripts were added; (3) the Prisma schema models WalletConnection and ExchangeConnection — the snapshot schema was from an earlier state.
 - Phase (b) — guided reconstruction: PARTIALLY NEEDED for 3 items.
   - (1) Restored all 67 code files from PolarFS snapshot via cp -p (preserving permissions and timestamps). Verified with diff -rq that src/app, src/components, src/hooks, src/lib, prisma are now identical between snapshot and working dir (0 differences).
@@ -765,7 +765,7 @@ Work Log:
   - Pre-push skip banner: confirmed visible (7-line boxed banner to stderr).
   - Git status: clean (all changes committed).
 - Phase (d) — commit discipline policy:
-  - Established REG-005 in SECURITY.md: "commit discipline — no milestone stays working-tree-only." Documents the rule, the rationale (the Jul 14 incident), the correct discipline (5 rules), and the history.
+  - Established REG-005 in docs/05-security-compliance/SECURITY.md: "commit discipline — no milestone stays working-tree-only." Documents the rule, the rationale (the Jul 14 incident), the correct discipline (5 rules), and the history.
   - Rule 1: every approved milestone produces a commit, immediately after approval.
   - Rule 2: small intermediate commits preferred over large batch commits.
   - Rule 3: before large changes, create a dedicated branch.
@@ -777,7 +777,7 @@ Stage Summary:
 - FULL RECOVERY from the PolarFS snapshot. All signer-isolation code restored and verified: 29/29 test:ci passing, 3/3 readonly-container test passing, skip banner confirmed.
 - Two commits made: d4dc0c0 (code restoration, 67 files) + 2495049 (worklog reconstruction + REG-005 commit discipline policy).
 - The worklog entries for signer isolation are RECONSTRUCTED (not original) — marked as such in the worklog. The key milestones and decisions are captured, but the original level of detail may differ.
-- REG-005 (commit discipline) is established as a SECURITY.md regression entry. Future maintainers who see "commit later" or "commit when the phase is done" should read REG-005 and commit NOW.
+- REG-005 (commit discipline) is established as a docs/05-security-compliance/SECURITY.md regression entry. Future maintainers who see "commit later" or "commit when the phase is done" should read REG-005 and commit NOW.
 - The PolarFS mount at /tmp/my-project is the project's persistent storage. The container rootfs at /home/z/my-project is ephemeral and can regress on container restart. All work must be committed to git to survive.
 - M2.3 is UNBLOCKED. Two acceptance criteria remain: (1) structural dispatcher test with 5 assertions, (2) real integration test for unlock/lock/zeroize-on-disconnect against live process + real socket.
 - HARDENING-ROADMAP.md (combined threat model, 16 phases H0-H15) is committed and survives future regressions.
@@ -811,8 +811,8 @@ Work Log:
   11. deleteExchange removes the row
   Every test asserts that each reconstructed field round-trips (write → read back → value matches). If a field is missing from the schema, the Prisma client rejects the write and the test fails. This closes the coverage gap that allowed REG-006 to hide.
 - Added "test:wallet-crud" to package.json scripts. Updated "test:ci" to chain all 4 test suites: test-vault.ts (20) + test-request-peer-integration.ts (4) + test-signer-process.ts (5) + test-wallet-crud.ts (11) = 40/40 total.
-- Added REG-006 to SECURITY.md. The entry documents: the bug, the two-layer rule (schema reconstruction is NOT validated unless tests exercise the SAME code path as the application), the migration discipline (project MUST have prisma/migrations/ with migration_lock.toml; future changes go through `prisma migrate dev --name`), and the history (operator's review caught it, not the test suite).
-- Verification: npm run test:ci → 40/40 PASS (20 vault + 4 peer-integration + 5 signer + 11 wallet-crud). bash scripts/test-install-git-hooks-readonly.sh → 3/3 PASS (readonly-container fix survived). Git status before commit: 6 files modified/created (schema.prisma, package.json, SECURITY.md, worklog.md, scripts/test-wallet-crud.ts, prisma/migrations/20260714000001_wallet_exchange_recon_fix/migration.sql, prisma/migrations/migration_lock.toml).
+- Added REG-006 to docs/05-security-compliance/SECURITY.md. The entry documents: the bug, the two-layer rule (schema reconstruction is NOT validated unless tests exercise the SAME code path as the application), the migration discipline (project MUST have prisma/migrations/ with migration_lock.toml; future changes go through `prisma migrate dev --name`), and the history (operator's review caught it, not the test suite).
+- Verification: npm run test:ci → 40/40 PASS (20 vault + 4 peer-integration + 5 signer + 11 wallet-crud). bash scripts/test-install-git-hooks-readonly.sh → 3/3 PASS (readonly-container fix survived). Git status before commit: 6 files modified/created (schema.prisma, package.json, docs/05-security-compliance/SECURITY.md, worklog.md, scripts/test-wallet-crud.ts, prisma/migrations/20260714000001_wallet_exchange_recon_fix/migration.sql, prisma/migrations/migration_lock.toml).
 
 Stage Summary:
 - REG-006 bug FIXED before any runtime manifestation. The 8 missing fields are now in the schema, the Prisma client knows about them, the DB has the columns, and the CRUD layer is structurally tested.
@@ -859,7 +859,7 @@ Work Log:
   - Test 2 (COMPLEMENTARY): unlock with WRONG passphrase returns application error (-32000), signer stays alive, vault remains locked. Verifies LAYER 2 contract from the other side — application errors are RETURNED, not thrown.
   - Test 3 (COMPLEMENTARY): unlock on EMPTY vault returns application error (-32000, message includes "empty"), signer stays alive. Verifies the empty-vault guard.
 - Updated package.json: added test:signer-structural and test:signer-vault scripts. Updated test:ci to chain all 6 suites: test-vault.ts (20) + test-request-peer-integration.ts (4) + test-signer-process.ts (5) + test-wallet-crud.ts (11) + test-signer-dispatcher-structural.ts (2) + test-signer-vault-integration.ts (3) = 45/45 total.
-- Added REG-007 to SECURITY.md: "dispatcher LAYER 2 discipline — handler exceptions propagate, never swallowed". Documents the LAYER 1 vs LAYER 2 distinction (allowlist check = our code = recoverable; handler invocation = downstream = exceptions propagate to crash-logger), the test hook infrastructure (SIGNER_TEST_HOOKS=1, only for tests, never in production), and the 5-assertion structural test as the regression sentinel.
+- Added REG-007 to docs/05-security-compliance/SECURITY.md: "dispatcher LAYER 2 discipline — handler exceptions propagate, never swallowed". Documents the LAYER 1 vs LAYER 2 distinction (allowlist check = our code = recoverable; handler invocation = downstream = exceptions propagate to crash-logger), the test hook infrastructure (SIGNER_TEST_HOOKS=1, only for tests, never in production), and the 5-assertion structural test as the regression sentinel.
 
 Stage Summary:
 - M2.3 COMPLETE. Both acceptance criteria met:
@@ -880,7 +880,7 @@ Work Log:
 - Validated full test:ci: 45/45 PASS across 6 suites (20 vault + 4 peer-integration + 5 signer-process + 11 wallet-crud + 2 signer-structural + 3 signer-vault-integration).
 - Validated readonly-container test: 3/3 PASS (install-git-hooks.sh graceful no-op on read-only .git/hooks).
 - Validated git working tree: clean except db/custom.db (the SQLite dev DB, modified by test CRUD operations — expected, not a regression).
-- Verified all 7 REG entries are present in SECURITY.md:
+- Verified all 7 REG entries are present in docs/05-security-compliance/SECURITY.md:
   - REG-001: enteredHandler sentinel in request-peer-capture.ts (§7.3.7 closure).
   - REG-002: per-IP rate limiter fallback is req.socket.remoteAddress, never a fixed sentinel.
   - REG-003: test suite self-cleanup via hardCleanupBeforeSuite, not manual DB intervention.
@@ -905,7 +905,7 @@ Stage Summary:
   - M2.1: M2 method types forward-declared in signer-protocol.ts.
   - M2.2: LAYER 1/LAYER 2 discipline documented as 75-line comment block in dispatchRpc.
   - M2.3: wallet handlers wired, dispatcher async, zeroize-on-disconnect with audit log. 5-assertion structural test + real integration test both pass.
-- 7 REG entries in SECURITY.md guard against regression of the key disciplines.
+- 7 REG entries in docs/05-security-compliance/SECURITY.md guard against regression of the key disciplines.
 - 45/45 test:ci + 3/3 readonly-container test = 48/48 total passing.
 - Git history is clean: 4 substantive commits since the PolarFS recovery (d4dc0c0 restore, 2495049 worklog+REG-005, 5b382f5 recovery docs, cdfd58f REG-006 fix, 6f7eb6b M2.3).
 - The project is ready to begin H0 of the HARDENING-ROADMAP (foundational hardening: key management, encryption, parallel to M3/M4). H0 depends on the signer isolation that Phase 1 just completed — specifically, the wallet handlers from M2.3 are the integration point for H0's key-derivation review and the audit-log hash chain (M5, also part of H0).
@@ -934,7 +934,7 @@ Work Log:
   - git rm --cached db/custom.db (untracked without deleting the local dev copy).
   - Verified git check-ignore -v db/custom.db now returns the .gitignore rule.
   - Verified db/custom.db still exists locally for dev work.
-- Added REG-008 entry to SECURITY.md documenting the defect, fix, and acceptance criteria.
+- Added REG-008 entry to docs/05-security-compliance/SECURITY.md documenting the defect, fix, and acceptance criteria.
 - Ran the full test:ci suite (6 files, 45 checks) after the untrack to confirm nothing broke:
   - test-vault.ts: 20/20 pass.
   - test-request-peer-integration.ts: 4/4 pass.
@@ -1071,10 +1071,10 @@ Stage Summary:
 ---
 Task ID: h0.5
 Agent: main
-Task: H0.5 — Cryptographic guarantees review. Write docs/CRYPTO.md + update SECURITY.md with H0 section.
+Task: H0.5 — Cryptographic guarantees review. Write docs/05-security-compliance/CRYPTO.md + update docs/05-security-compliance/SECURITY.md with H0 section.
 
 Work Log:
-- Created docs/CRYPTO.md: a comprehensive cryptographic guarantees review document covering:
+- Created docs/05-security-compliance/CRYPTO.md: a comprehensive cryptographic guarantees review document covering:
   - Section 1: Cryptographic primitives in use (KDF parameters, encryption parameters, hash chain structure) with a table of values + justifications.
   - Section 2: Guarantees provided (confidentiality at rest/in-transit/in-memory, integrity at blob level + audit log level, KDF strength, forward migration path).
   - Section 3: Guarantees NOT provided — 7 explicit limitations:
@@ -1089,7 +1089,7 @@ Work Log:
   - Section 5: Test coverage summary (36 new assertions across 3 test files + integration test).
   - Section 6: Future work (argon2id migration, HSM integration, audit log mirroring, AppLog hash chain, constant-time audit).
   - Section 7: References (OWASP, NIST SP 800-132, NIST SP 800-38D, RFC 6234, JSON-RPC 2.0).
-- Updated SECURITY.md with a new "H0 — Foundational Hardening" section documenting:
+- Updated docs/05-security-compliance/SECURITY.md with a new "H0 — Foundational Hardening" section documenting:
   - H0.1–H0.5 scope + status.
   - Why H0 is a regression sentinel (what could go wrong without it).
   - Each subphase's key implementation details.
@@ -1112,7 +1112,7 @@ Stage Summary:
 - H0.2: Versioned encryption scheme + key buffer zeroization.
 - H0.3: Hash-chained tamper-evident audit log (caught a critical hash-computation bug via testing).
 - H0.4: Key rotation + versioning (passphrase rotation, KDF param upgrade, legacy blob migration).
-- H0.5: Cryptographic guarantees review (docs/CRYPTO.md + SECURITY.md H0 section).
+- H0.5: Cryptographic guarantees review (docs/05-security-compliance/CRYPTO.md + docs/05-security-compliance/SECURITY.md H0 section).
 - 4 commits made (h0.1-h0.2, h0.3, h0.4, h0.5 pending).
 - CI gate: 9 files / 78 checks (was 6 files / 48 checks at Phase 1 freeze).
 - The project is ready to proceed to H1/H2 (MEV defenses + contract interaction hardening) per the operator's directed sequence: H0 → H1/H2 → M3/M4.
@@ -1256,10 +1256,10 @@ Stage Summary:
 ---
 Task ID: h1.closeout
 Agent: main
-Task: H1 closeout — update SECURITY.md with H1 section, mark H1 complete in HARDENING-ROADMAP.md.
+Task: H1 closeout — update docs/05-security-compliance/SECURITY.md with H1 section, mark H1 complete in HARDENING-ROADMAP.md.
 
 Work Log:
-- Updated SECURITY.md with a new "H1 — Transaction lifecycle hardening" section covering:
+- Updated docs/05-security-compliance/SECURITY.md with a new "H1 — Transaction lifecycle hardening" section covering:
   - Scope (operator-directed collapse of original H1+H2+H4 into one pass).
   - Permanent principle quote (the rule added before H1 began).
   - Each subphase (H1.1-H1.4) with implementation details + key guarantees.
@@ -1447,10 +1447,10 @@ Stage Summary:
 ---
 Task ID: h2.closeout
 Agent: main
-Task: H2 closeout — update SECURITY.md with H2 section, mark H2 complete in HARDENING-ROADMAP.md.
+Task: H2 closeout — update docs/05-security-compliance/SECURITY.md with H2 section, mark H2 complete in HARDENING-ROADMAP.md.
 
 Work Log:
-- Updated SECURITY.md with a new "H2 — Contract interaction hardening" section covering:
+- Updated docs/05-security-compliance/SECURITY.md with a new "H2 — Contract interaction hardening" section covering:
   - Scope (operator-directed: harden the on-chain read path; no real broadcast/signing/Flashbots/MEV-Blocker/SUAVE/bundles/private-mempool — those belong to M3/M4).
   - The operator's load-bearing criterion: "nenhum contrato desconhecido entra no pipeline."
   - Each subphase (H2.1-H2.5) with implementation details + key guarantees + adversarial tests summary.
@@ -1497,7 +1497,7 @@ Task: H2.6 — Integration Gate (operator-directed): prove the H1+H2 primitives 
 
 Work Log:
 - Read worklog end (H2 closeout: 18 files / 458 checks, ready for H2.6 → M3).
-- Read HARDENING-ROADMAP.md and SECURITY.md to confirm the operator's mandated pipeline order: RPC → Simulation → Contract Verification → Liquidity Verification → Authority Verification → Sell Simulation → Approval Gate → MEV Gate → Signer.
+- Read HARDENING-ROADMAP.md and docs/05-security-compliance/SECURITY.md to confirm the operator's mandated pipeline order: RPC → Simulation → Contract Verification → Liquidity Verification → Authority Verification → Sell Simulation → Approval Gate → MEV Gate → Signer.
 - Explored all 8 gate modules in src/lib/chain/ + the H0.3 AuditLog to map the public API of each:
   - QuorumRpcClient.quorumRead / readWithFailover / broadcastRawTransaction
   - SimulationGate.simulateAndVerify(tx, expectedDiff) → GateResult
@@ -1591,7 +1591,7 @@ Work Log:
   - Added the "M3 Readiness Review" block with the full 7-point checklist + evidence + status per row.
   - Added the "Freeze declaration" subsection enumerating the 10 frozen files.
   - Added the "Architecture after freeze" ASCII diagram showing the three explicitly separated layers (Primitives / Composition / Execution).
-- Updated SECURITY.md:
+- Updated docs/05-security-compliance/SECURITY.md:
   - Added the "M3 Readiness Review" section with the 7-point table mirroring HARDENING-ROADMAP.md.
   - Added REG-009 ("H0/H1/H2/H2.6 freeze — M3 changes are regression-only") pinning the freeze as a regression guard. The rule: any commit modifying a frozen file during M3/M4 must (1) reference the original Hx.x stage in the commit message, (2) ship with a regression test demonstrating the bug + fix, (3) re-run the H2.6 adversarial suite (C.1–C.7) and confirm 119/119 still pass. Rationale: prevents the "simplify back" temptation that REG-001 through REG-008 already defend against for other invariants.
 
@@ -1604,7 +1604,7 @@ Stage Summary:
   5. Audit exactly-once on success/failure/exception — ✓ (single audit-write point per path; proven by H2.6 C.4 + 9 per-gate + happy path)
   6. Original reason preserved — ✓ (byte-identical per C.7; no-leakage per C.2)
   7. Deterministic for same input — ✓ PASS-WITH-CAVEAT (decisions are pure; only non-determinism is RPC circuit breaker state, by design; callers should pin minLockEndEpoch explicitly)
-- H0, H1, H2, H2.6 declared FROZEN. Any change to these layers during M3/M4 is regression correction, not functional evolution. The freeze is enforced via REG-009 in SECURITY.md.
+- H0, H1, H2, H2.6 declared FROZEN. Any change to these layers during M3/M4 is regression correction, not functional evolution. The freeze is enforced via REG-009 in docs/05-security-compliance/SECURITY.md.
 - Three-layer architecture now explicit:
   - Layer 1 — Primitives (H0/H1/H2) — FROZEN
   - Layer 2 — Composition (H2.6 Pipeline) — FROZEN
@@ -1678,7 +1678,7 @@ Work Log:
   - Sequencing Recommendation: expanded M3 entry to list M3.1 ✓ with summary.
   - Added new "M3 — Sign RPC (Layer 3 — Execution, in progress)" section after the M3 Readiness Review block, covering M3.1 (complete), M3.2 (next — signTransaction/signTypedData/signMessage handlers), M3.3 (Broadcaster).
   - M3.1 subsection includes: files, three responsibilities, "what the adapter does NOT do" list, adversarial test table (13 scenarios mapped to properties), bugs caught (zero), CI gate count.
-- Updated SECURITY.md:
+- Updated docs/05-security-compliance/SECURITY.md:
   - Added "M3.1 — SignerAdapter" section with Scope, Implementation, Test coverage, Bugs caught, History.
   - Added REG-010 ("Two-point protocol version validation") pinning the rule that protocol version MUST be validated at BOTH the adapter (pre-flight) AND the signer (per-request). Documents why both checks are load-bearing and what gap each one closes.
 
@@ -1785,7 +1785,7 @@ Work Log:
 - Read src/lib/chain/pipeline.ts (H2.6, FROZEN) to confirm: (1) the `SignerSink` interface (line 157) requires only `submit(req): Promise<SignerResult>`; (2) `SignerResult` (line 149) has only `{ ok, txHash?, error? }` — NO `rawSignedTx` field; (3) the pipeline's `succeed()` helper (line 340) records `signerResult.txHash` in the audit log; (4) the pipeline does NOT resolve nonce or gas — `req.tx` is passed verbatim to the signer.
 - Read src/lib/chain/signer-adapter.ts (M3.1) to confirm: (1) the adapter maps `SignerRequest → SignerWireRequest` with `operation: "signTransaction"` hardcoded (line 400); (2) the adapter parses the wire response but discards `rawSignedTx` when mapping to `SignerResult` (line 481 returns only `{ ok, txHash }`); (3) the adapter is NOT in the REG-009 frozen list — it can be extended.
 - Read src/lib/signer-protocol.ts to confirm the M3.1 two-point protocol validation is in place (adapter pre-flight + signer per-request).
-- Read SECURITY.md REG-011 (signer-side payload re-verification) + REG-012 (key-derived address verification) + REG-013 (writer lease hard precondition — M4 SEAM) to confirm the regression-entry pattern and identify the next REG number (REG-014).
+- Read docs/05-security-compliance/SECURITY.md REG-011 (signer-side payload re-verification) + REG-012 (key-derived address verification) + REG-013 (writer lease hard precondition — M4 SEAM) to confirm the regression-entry pattern and identify the next REG number (REG-014).
 - Validated the operator's Option A architectural decision:
   - Option A (sign after nonce/gas): signature covers exactly the bytes transmitted; no re-signing; eliminates simulation-vs-send divergence. CONSISTENT with the M3.2/M3.3 decoupling principle already in the roadmap ("a broadcast failure doesn't invalidate the signature, and a re-sign isn't forced on every retry").
   - Option B (sign before + re-sign): two signatures, more intermediate states, divergence risk between first and second signature. REJECTED — would violate the immutability property the operator is pinning as REG-014.
@@ -1797,11 +1797,11 @@ Work Log:
                                     ↓
                   hash(rawSignedTx) → broadcast → verify hash  [REG-014 guards: broadcaster recomputes keccak256]
 - Updated HARDENING-ROADMAP.md: replaced the brief M3.3 placeholder (lines 686-698) with the full closed-scope spec — Option A decision rationale, 6 responsibilities, 7 explicit exclusions, 8-category adversarial test matrix, structural immutability test diagram, planned files, frozen-base-respected declaration.
-- Updated SECURITY.md: added REG-014 (post-signature immutability) after REG-013. Pinned BEFORE implementation per the operator's directive. The entry documents: the rule (Broadcaster MUST compute hashBefore locally and verify against broadcast-returned hash), why it's load-bearing (signature must cover exactly the transmitted bytes), relationship to REG-011 (closed integrity loop), what it forbids (re-signing, mutating rawSignedTx, trusting RPC hash without local recomputation, patching signed tx for stale nonce), regression test references (M3.3 scenarios #4 and #8).
+- Updated docs/05-security-compliance/SECURITY.md: added REG-014 (post-signature immutability) after REG-013. Pinned BEFORE implementation per the operator's directive. The entry documents: the rule (Broadcaster MUST compute hashBefore locally and verify against broadcast-returned hash), why it's load-bearing (signature must cover exactly the transmitted bytes), relationship to REG-011 (closed integrity loop), what it forbids (re-signing, mutating rawSignedTx, trusting RPC hash without local recomputation, patching signed tx for stale nonce), regression test references (M3.3 scenarios #4 and #8).
 
 Stage Summary:
 - M3.3 architectural decision RECORDED. Option A (sign after filling nonce/gas) is confirmed as the chosen ordering, with technical justification aligned to the existing M3.2/M3.3 decoupling principle.
-- REG-014 (post-signature immutability) is PINNED in SECURITY.md before any M3.3 code is written — this is the same "pin the regression entry before implementation" discipline used for REG-011/012/013 in M3.2.
+- REG-014 (post-signature immutability) is PINNED in docs/05-security-compliance/SECURITY.md before any M3.3 code is written — this is the same "pin the regression entry before implementation" discipline used for REG-011/012/013 in M3.2.
 - The frozen base is documented as untouched: H0/H1/H2/H2.6 (10 files, REG-009), the H2.6 pipeline, the H1.1 rpc-resilience module, and the M3.2 sign-methods module all remain UNCHANGED. The M3.1 signer-adapter will receive a thin extension (one new method) — the existing `submit()` method stays unchanged.
 - The M3.2 signer already returns `rawSignedTx` in `SignHandlerResult` — M3.3 does NOT need to modify the signer. The seam is clean.
 - The H1.1 `broadcastRawTransaction` primitive is FROZEN and ready to consume — M3.3 will be its first caller.
@@ -1812,7 +1812,7 @@ Stage Summary:
     3. Extend `src/lib/chain/signer-adapter.ts` with `signAndReturnRaw()` (thin extension — expose rawSignedTx from the wire response; existing submit() unchanged).
     4. Wire the BroadcastingSignerSink (implements SignerSink) as the integration point the pipeline calls.
     5. Re-run the full CI suite (21 files / 716 checks today) + the new M3.3 tests. Confirm zero regressions in H0/H1/H2/H2.6/M3.1/M3.2.
-    6. Update HARDENING-ROADMAP.md M3.3 section with implementation results + bug count + CI gate count. Update SECURITY.md REG-014 with the realized test scenario numbers.
+    6. Update HARDENING-ROADMAP.md M3.3 section with implementation results + bug count + CI gate count. Update docs/05-security-compliance/SECURITY.md REG-014 with the realized test scenario numbers.
 
 ---
 Task ID: m3.3.implementation
@@ -1826,7 +1826,7 @@ Work Log:
   - H1.1 rpc-resilience.ts `broadcastRawTransaction` (line 332) has 0 callers — M3.3 will be its first consumer.
   - H2.6 pipeline.ts `SignerSink` interface (line 157) requires only `submit(req) → SignerResult{ok, txHash?, error?}` — the Broadcaster implements this.
   - M3.1 signer-adapter.ts `submit()` discards `rawSignedTx` when mapping to SignerResult — needs a thin extension to expose it.
-- Read SECURITY.md REG-011/012/013 to confirm the regression-entry pattern and identify REG-014 as the next number.
+- Read docs/05-security-compliance/SECURITY.md REG-011/012/013 to confirm the regression-entry pattern and identify REG-014 as the next number.
 - Step 1: Extended src/lib/chain/signer-adapter.ts:
   - Added `rawSignedTx?: string` field to `SignerWireResponse` interface.
   - Added `SignerResultWithRaw` type (extends SignerResult with optional rawSignedTx).
@@ -1867,7 +1867,7 @@ Work Log:
   - TOTAL: 763 pass, 0 fail. Zero regressions in frozen layers.
 - Step 7: Updated documentation:
   - HARDENING-ROADMAP.md: M3.3 marked ✓ COMPLETE. Added "Files (realized)" section with implementation details. Added "CI gate" (22 files / 763 checks). Added "Bugs caught" section (3 test-file issues, zero production bugs). Updated "Frozen base respected" section.
-  - SECURITY.md: REG-014 updated from "pinned before implementation" to "implemented Jul 15 2026". Added "Implemented" subsection documenting the broadcastSignedTransaction() method. Updated "Regression test" section with the 4 realized test scenarios (B.4, B.7, B.8, C.1). Added "M3.3 Test coverage" section (47 assertions, 14 scenarios).
+  - docs/05-security-compliance/SECURITY.md: REG-014 updated from "pinned before implementation" to "implemented Jul 15 2026". Added "Implemented" subsection documenting the broadcastSignedTransaction() method. Updated "Regression test" section with the 4 realized test scenarios (B.4, B.7, B.8, C.1). Added "M3.3 Test coverage" section (47 assertions, 14 scenarios).
 
 Stage Summary:
 - M3.3 is implemented + tested + ready to commit.
@@ -2440,7 +2440,7 @@ Work Log:
 - Escrito `.ai/memory/future-ideas.md` (~180 linhas): 13 ideias (FI-001 a FI-013) cobrindo Vault/KMS, WebSocket, replay rounds, anomaly detection, multi-sig, hardware wallet, backtesting on-chain, forense dashboard, rate limiting, TPS limiter, snapshot recovery, i18n, mobile. 3 descartadas (irrastreável, alavancagem, custodial).
 - Escrito `.ai/decisions/ADR-0001.md` (~190 linhas): ADR-0001 "Defense-in-Depth Architecture with Process-Isolated Signer and Fencing-Token Lease". Contexto, 8 alternativas consideradas (A1-A8) com motivo de descarte, escolha, motivação, impacto, arquivos, rollback, referências. Sugestões de ADR-0002 a ADR-0005.
 - Editado `.ai/README.md`: substituído completamente por versão Project OS com árvore completa, sequência obrigatória de leitura, regra de precedência atualizada (inclui ADR), regras adicionais, fontes oficiais.
-- Editado `.ai/CORE_RULES.md`: adicionada Regra 11 "Todo bug deve produzir aprendizado" com referência a known-problems.md / DECISION_LOG.md / SECURITY.md. Exemplo canônico: bug H0.3.
+- Editado `.ai/CORE_RULES.md`: adicionada Regra 11 "Todo bug deve produzir aprendizado" com referência a known-problems.md / DECISION_LOG.md / docs/05-security-compliance/SECURITY.md. Exemplo canônico: bug H0.3.
 - Editado `.ai/ENGINEERING_RULES.md`: adicionada seção "Toda alteração deve informar" com 6 itens obrigatórios (Arquivos, Dependências, Impacto, Risco, Como validar, Rollback).
 - Editado `.ai/TASK_TEMPLATE.md`: adicionado campo "Rollback" entre "Resultado" e "Pendências", com subcampos (Mecanismo, Arquivos a reverter, Validação pós-rollback, Janela de observação).
 - Editado `.ai/PROJECT_STATE.md`: append de entrada datada sobre expansão Project OS (append-only, sem sobrescrever histórico).
@@ -2540,7 +2540,7 @@ Task: Aplicar 7 refinamentos do operador ao Project OS (v2.1 → v2.2): (1) sepa
 
 Work Log:
 - Lido prompt do operador com 7 refinamentos para v2.2. Cada refinamento endereça uma lacuna de rastreabilidade identificada após um ciclo de uso operacional de v2.1.
-- Lidos arquivos-chave de .ai/ para entender estado atual: CORE_RULES.md (11 regras, incluindo Regra 11 operacional), ENGINEERING_RULES.md, architecture/modules.md (sem MOD-IDs), architecture/dependencies.md (sem diagrama top-level), architecture/invariants.md (INV-001 a INV-010), PROJECT_STATE.md (v2.1), INDEX.md, README.md, DECISION_LOG.md (DEC-001 a DEC-006), MANIFEST.md, ADR-0002.md (formato de ADR), known-problems.md (KP-001 a KP-011), technical-debt.md (TD-001 a TD-012), future-ideas.md (FI-001 a FI-013 + 3 descartadas), SECURITY.md (REG-001 a REG-018), frozen-files.md, standards/testing.md.
+- Lidos arquivos-chave de .ai/ para entender estado atual: CORE_RULES.md (11 regras, incluindo Regra 11 operacional), ENGINEERING_RULES.md, architecture/modules.md (sem MOD-IDs), architecture/dependencies.md (sem diagrama top-level), architecture/invariants.md (INV-001 a INV-010), PROJECT_STATE.md (v2.1), INDEX.md, README.md, DECISION_LOG.md (DEC-001 a DEC-006), MANIFEST.md, ADR-0002.md (formato de ADR), known-problems.md (KP-001 a KP-011), technical-debt.md (TD-001 a TD-012), future-ideas.md (FI-001 a FI-013 + 3 descartadas), docs/05-security-compliance/SECURITY.md (REG-001 a REG-018), frozen-files.md, standards/testing.md.
 - Listados scripts/ — identificados 24 scripts test-*.ts com contagem de asserts via grep (1.487 asserts total, 15.759 linhas).
 - Aplicado Refinement #2 (MOD-IDs): editado architecture/modules.md com coluna MOD-ID em todas as tabelas. Adicionada seção "MOD-ID Convention" explicando padrão. ~45 MOD-IDs emitidos: MOD-H0, MOD-H1.1-H1.4, MOD-H2.1-H2.4, MOD-H2.6, MOD-M3.1-M3.3, MOD-M4.1-M4.2, MOD-M5.0-M5.6, MOD-M5.5-{M,R,S,E}, MOD-TR-*, MOD-API-*, MOD-UI-*, MOD-M6/M7/M8 (placeholders).
 - Aplicado Refinement #1 (separação regras): editado CORE_RULES.md — removida Regra 11 ("todo bug deve produzir aprendizado") que era operacional; adicionado "Princípio de separação" no topo declarando o critério para regras permanentes; CORE_RULES.md agora tem 10 regras permanentes; marcado STATE: FROZEN. Adicionada seção "Cultura de aprendizado (pós-bug)" em ENGINEERING_RULES.md com o conteúdo da antiga Regra 11, declarada como operacional e refinável; marcado STATE: ACTIVE.

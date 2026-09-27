@@ -35,7 +35,7 @@ hardening da camada de chain estar completo.
 - **Operador** (usuário único no estágio atual): configura,
   monitora, e decide ramp de canary em produção.
 - **Auditores** (futuro): podem revisar ADRs, audit log, e
-  SECURITY.md para validar que as garantias de segurança são reais.
+  docs/05-security-compliance/SECURITY.md para validar que as garantias de segurança são reais.
 
 ## Stack
 
@@ -149,7 +149,7 @@ com canaryPct ramp), condicionado a:
 - **Padrões:** `.ai/standards/`
 - **Decisões:** `.ai/decisions/` (ADRs)
 - **Histórico:** `.ai/memory/implementation-history.md`
-- **Regressões de segurança:** `SECURITY.md` (raiz)
+- **Regressões de segurança:** `docs/05-security-compliance/SECURITY.md` (raiz)
 - **Roadmap canônico:** `HARDENING-ROADMAP.md` (raiz) +
   `.ai/architecture/roadmap.md`
 - **Log multi-agente:** `worklog.md` (raiz)

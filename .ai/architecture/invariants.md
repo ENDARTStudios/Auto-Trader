@@ -261,7 +261,7 @@ Shadow vs. no Long-Duration diretamente.
 ## Manutenção desta lista
 
 - Toda adição de invariante DEVE vir acompanhada de:
-  - Teste adversarial REG-NNN em `SECURITY.md`.
+  - Teste adversarial REG-NNN em `docs/05-security-compliance/SECURITY.md`.
   - Entrada em `DECISION_LOG.md` referenciando o novo INV-NNN.
 - Toda remoção/deprecação de invariante DEVE produzir ADR
   justificando a mudança estrutural.
@@ -278,7 +278,7 @@ Shadow vs. no Long-Duration diretamente.
 - `standards/testing.md` STD-102 — testes adversariais validam cada invariante.
 - `DECISION_LOG.md` DEC-001 a DEC-005 — decisões que estabeleceram invariantes.
 - `decisions/ADR-0001.md` — arquitetura cujos invariantes são garantidos por H0–M5.
-- `SECURITY.md` (raiz do projeto) — REG-NNN adversariais que testam os invariantes.
+- `docs/05-security-compliance/SECURITY.md` (raiz do projeto) — REG-NNN adversariais que testam os invariantes.
 - `memory/known-problems.md` KP-001 a KP-011 — bugs que expuseram invariantes.
 - `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.
 

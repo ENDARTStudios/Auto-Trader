@@ -33,7 +33,7 @@ docs/                          # Design docs (raiz do projeto)
 └── key-rotation.md            # (a criar em M6)
 
 README.md                      # Visão geral do projeto (raiz)
-SECURITY.md                    # Regressões REG-NNN (raiz)
+docs/05-security-compliance/SECURITY.md                    # Regressões REG-NNN (raiz)
 HARDENING-ROADMAP.md           # Roadmap canônico (raiz)
 worklog.md                     # Log multi-agente (raiz)
 ```

@@ -47,7 +47,7 @@ sincronizada com o estado real do projeto.
 6. **Precedência declarada.** Em caso de conflito, a precedência
    é (em ordem decrescente):
    `CORE_RULES > PROJECT_STATE > decisions/ADR-* > DECISION_LOG >
-   architecture/invariants > architecture/frozen-files > SECURITY.md
+   architecture/invariants > architecture/frozen-files > docs/05-security-compliance/SECURITY.md
    > HARDENING-ROADMAP.md > worklog.md`.
 
 7. **Versionamento do próprio Project OS.** Toda mudança
@@ -70,7 +70,7 @@ sincronizada com o estado real do projeto.
 | `TD-`    | Débitos técnicos                           | `memory/technical-debt.md`            |
 | `KP-`    | Problemas conhecidos                       | `memory/known-problems.md`            |
 | `STD-`   | Padrões de engenharia                      | `standards/*.md`                      |
-| `REG-`   | Regressões de segurança (testes adversariais) | `SECURITY.md` (raiz do projeto)    |
+| `REG-`   | Regressões de segurança (testes adversariais) | `docs/05-security-compliance/SECURITY.md` (raiz do projeto)    |
 | `FI-`    | Ideias futuras                             | `memory/future-ideas.md`              |
 
 IDs são **permanentes**: uma vez emitidos, não são reusados nem

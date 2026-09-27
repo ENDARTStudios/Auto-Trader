@@ -326,6 +326,6 @@ Default: **squash and merge** para features; **rebase** para fixes.
 - `ENGINEERING_RULES.md` — fluxo com campo Rollback que vai em PRs.
 - `TASK_TEMPLATE.md` — template de tarefa alinhado com PR template.
 - `DECISION_LOG.md` e `decisions/ADR-*.md` — referenciados em commit footers.
-- `SECURITY.md` (raiz do projeto) — REG-NNN referenciados em commits.
+- `docs/05-security-compliance/SECURITY.md` (raiz do projeto) — REG-NNN referenciados em commits.
 - `memory/known-problems.md` KP-NNN — registrados após reverts.
 - `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.

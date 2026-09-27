@@ -94,7 +94,7 @@ Sem estes itens, a tarefa NÃO está pronta para execução (ver
 [ ] npm run lint (eslint) — 0 novos warnings
 [ ] npm run build — sucesso
 [ ] Rodar scripts/test-<modulo>.ts relevantes — N/N pass
-[ ] Rodar testes adversariais relevantes (SECURITY.md REG-NNN)
+[ ] Rodar testes adversariais relevantes (docs/05-security-compliance/SECURITY.md REG-NNN)
 [ ] Confirmar que nenhum dependente listado na Fase 2 quebrou
 [ ] Verificação manual (curl / screenshot / snapshot) se aplicável
 [ ] Validar que invariantes INV-NNN continuam verdadeiros
@@ -111,7 +111,7 @@ Se qualquer item falhou, a tarefa NÃO está completa.
 [ ] Atualizar PROJECT_STATE.md se o estado mudou (nova fase, novo FROZEN, etc.)
 [ ] Adicionar DEC-NNN em DECISION_LOG.md se houve decisão arquitetural
 [ ] Criar ADR-NNNN em decisions/ se a decisão é estrutural (ver MANIFEST.md)
-[ ] Adicionar REG-NNN em SECURITY.md se houve nova regressão de segurança
+[ ] Adicionar REG-NNN em docs/05-security-compliance/SECURITY.md se houve nova regressão de segurança
 [ ] Adicionar KP-NNN em memory/known-problems.md se houve bug operacional
 [ ] Adicionar TD-NNN em memory/technical-debt.md se ficou débito
 [ ] Adicionar entrada em memory/implementation-history.md se estado mudou

@@ -275,7 +275,7 @@ gate aborta a tx com erro classificado.
 ### Toda correção de Sev-1/2 DEVE produzir
 
 - Entrada em `memory/known-problems.md` (KP-NNN).
-- Teste adversarial REG-NNN em `SECURITY.md` (raiz do projeto).
+- Teste adversarial REG-NNN em `docs/05-security-compliance/SECURITY.md` (raiz do projeto).
 - Postmortem em `memory/implementation-history.md` (entrada datada).
 - Se revelar falha de arquitetura: ADR em `decisions/`.
 
@@ -292,7 +292,7 @@ gate aborta a tx com erro classificado.
 - `contracts/rpc.md` — protocolo IPC do signer (FROZEN).
 - `DECISION_LOG.md` DEC-001 (audit), DEC-002 (signer isolation), DEC-003 (writer lease) — decisões de segurança.
 - `decisions/ADR-0001.md` — arquitetura defense-in-depth canônica.
-- `SECURITY.md` (raiz do projeto) — REG-NNN adversariais canônicos.
+- `docs/05-security-compliance/SECURITY.md` (raiz do projeto) — REG-NNN adversariais canônicos.
 - `HARDENING-ROADMAP.md` (raiz do projeto) — mapeamento de 30 attack vectors.
 - `memory/known-problems.md` KP-001 a KP-011 — incidentes passados.
 - `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.

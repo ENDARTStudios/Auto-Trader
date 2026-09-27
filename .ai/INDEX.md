@@ -31,7 +31,7 @@ supercedidos mantêm o ID original com nota
 | `TD-`    | Débitos técnicos                              | `memory/technical-debt.md`                         |
 | `KP-`    | Problemas conhecidos                          | `memory/known-problems.md`                         |
 | `STD-`   | Padrões de engenharia                         | `standards/*.md`                                   |
-| `REG-`   | Regressões de segurança (testes adversariais) | `SECURITY.md` (raiz do projeto)                    |
+| `REG-`   | Regressões de segurança (testes adversariais) | `docs/05-security-compliance/SECURITY.md` (raiz do projeto)                    |
 | `FI-`    | Ideias futuras                                | `memory/future-ideas.md`                           |
 
 > **Catálogo consolidado de IDs:** `IDS.md` lista todos os IDs
@@ -203,7 +203,7 @@ CORE_RULES.md
   > DECISION_LOG.md
   > architecture/invariants.md
   > architecture/frozen-files.md
-  > SECURITY.md (REG-NNN)
+  > docs/05-security-compliance/SECURITY.md (REG-NNN)
   > HARDENING-ROADMAP.md
   > worklog.md
 ```

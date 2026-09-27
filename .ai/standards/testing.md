@@ -272,6 +272,6 @@ describe('Pipeline integration com anvil (fork BSC)', () => {
 - `architecture/invariants.md` INV-001 a INV-010 — invariantes que devem ser testados adversarialmente.
 - `architecture/interfaces.md` — contratos públicos testados.
 - `DECISION_LOG.md` DEC-001 (hash-chain), DEC-005 (prefixos de erro) — decisões com testes adversariais.
-- `SECURITY.md` (raiz do projeto) — REG-NNN adversariais canônicos.
+- `docs/05-security-compliance/SECURITY.md` (raiz do projeto) — REG-NNN adversariais canônicos.
 - `memory/known-problems.md` KP-001 a KP-006 — bugs passados que geraram testes adversariais.
 - `MANIFEST.md` — princípios do Project OS e tabela de IDs canônicos.

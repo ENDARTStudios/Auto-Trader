@@ -127,7 +127,7 @@ scopes: audit, chain, signer, runtime, observability, trading, api, ui, docs, pr
 │   └── CRYPTO.md
 │
 ├── README.md                     # Visão geral do projeto
-├── SECURITY.md                   # Regressões REG-NNN
+├── docs/05-security-compliance/SECURITY.md                   # Regressões REG-NNN
 ├── HARDENING-ROADMAP.md          # Roadmap canônico
 ├── worklog.md                    # Log multi-agente
 ├── package.json

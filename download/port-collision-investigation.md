@@ -37,7 +37,7 @@ Searched `/home/z/my-project/` for `EADDRINUSE`, `address already in use`, `alre
 ### 2.2 `address already in use` matches (port-related)
 
 **NONE found.** The two `already in use` matches in the project are unrelated:
-- `docs/signer-isolation-design.md:616-617` — "`ethers` (for transaction signing) — already in use, pinned" / "`@prisma/client` (for DB access) — already in use, pinned". Not port-related.
+- `docs/02-architecture-design/signer-isolation-design.md:616-617` — "`ethers` (for transaction signing) — already in use, pinned" / "`@prisma/client` (for DB access) — already in use, pinned". Not port-related.
 
 ### 2.3 Indirect structural evidence (worklog references to port hygiene + orphaned processes)
 
