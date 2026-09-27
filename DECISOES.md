@@ -246,3 +246,10 @@
 **Risco aberto:** SEC-ENV histórico (P0); T081 (P1); T058 (P1); branch protection (P1); S14 (P2); T067/T086 (opcional).
 **Arquivos:** docs/branch-protection-policy.md, docs/operator-decision-package.md, docs/final-autonomous-report.md, SECURITY.md, PENDENCIAS_OPERADOR.md, DECISOES.md, SPRINT.md, logs/episodes.jsonl.
 **Proxima:** T094 (pacote decisão + relatório final); Operador: SEC-ENV P0, T081, T058, S14, branch protection.
+
+### Decisao #49: D055 - Aprovar T067 e condicionar merge do PR #39 a auditoria live (T095, 2026-09-28)
+**Problema:** T067 removeu terminal-header.tsx (dead code confirmado) em branch isolada com PR draft #39; remoção de código UI exige auditoria live antes do merge.
+**Solucao:** D055 = T067 aprovada como tarefa; merge do PR #39 condicionado a T095 (auditoria live: diff, grep amplo, checks obrigatórios, e2e, gates, scans, validator). T095 executada: diff = 3 arquivos esperados; grep zero referências runtime; hunk audit = somente deleção; label e2e adicionada + reopen; ci SUCCESS (8m30s), codeql SUCCESS (1m4s), e2e SUCCESS (3m44s); gates locais tsc 0 / eslint 0/0 / test:ci 0 / build 0; Unicode CLEAN; segredo CLEAN; validator 45/45; site 404 (T058 bloqueada). Merge squash autorizado e executado.
+**Risco aberto:** SEC-ENV (P0, histórico); T081 (P1); T058 (P1); branch protection (P1); S14 (P2); T086 bloqueada.
+**Arquivos:** src/components/dashboard/terminal-header.tsx (deletado), docs/t067-unicode-scan.md, DECISOES.md, SPRINT.md, PENDENCIAS_OPERADOR.md, logs/episodes.jsonl.
+**Proxima:** CI main pós-merge; T086 segue bloqueada; aguarda E005 do Operador.
