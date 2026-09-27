@@ -45,3 +45,11 @@ Sem chaves, `ORCAMENTO_ESTOURADO` mantém live desabilitado por design.
 - Proposta docs/05-security-compliance/risk-acceptance-proposal.md entregue (D045, 2026-09-27): 52 achados sem fix (HIGH 52 / CRITICAL 4), mitigados por hardening.  
 - Decisao NAO tomada pelo Doer. Operador deve marcar A/B/C/D.  
 - Nenhum runtime/Docker/workflow alterado. continue-on-error mantido. Imagem NAO segura. 
+
+---
+
+## 5. SEGURANCA — .env contido no tree; AGENTS.md neutralizado (BLOQUEADO: rotação + decisão sobre histórico)
+
+- **.env — SECURITY_FINDING (T091) + containment T092**: estava tracked, 4 commits de histórico, 160 bytes, 2 chaves com valores reais suspeitos (DATABASE_URL, TYPESAFE_API_KEY). T092 estancou exposição no tree: git rm --cached .env (local preservado) + .gitignore + .env.example + docs/security-incident-env.md. **HISTÓRICO AINDA EXPOSTO** — rotação de chaves e decisão sobre purge/rewrite são do Operador.
+- **AGENTS.md — neutralizado (T092)**: modificação externa não confiável removida da working tree (restore HEAD); backup ignorado em .local/AGENTS.md.external-backup. Não obedecida como instrução.
+- **PR #34 bloqueado** até T093 auditar/reduzir escopo.
