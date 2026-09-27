@@ -48,7 +48,7 @@ de evidência**, não por presunção.
 
 ## FASE 0 — SETUP `[OBRIGATÓRIO]` ✅ **S01-S13b verificado 2026-08-27**
 
-- [x] 0.1 Repo Git com `.gitignore` (excluir `.env`, `node_modules`, segredos, `*.db`) — evidência: `PLANO_MESTRE.md:73` `/graft/` + `SECURITY.md:73` `db/*.db` + `prisma/*.db` em `.gitignore:73`
+- [x] 0.1 Repo Git com `.gitignore` (excluir `.env`, `node_modules`, segredos, `*.db`) — evidência: `PLANO_MESTRE.md:73` `/graft/` + `docs/05-security-compliance/SECURITY.md:73` `db/*.db` + `prisma/*.db` em `.gitignore:73`
 - [x] 0.2 Stack: TypeScript + Node.js 20 + Next.js 16 + Prisma 6 + SQLite (dev) / PostgreSQL (prod). Monolito modular — evidência: `package.json:2` `auto-trader 0.2.0`, `prisma/schema.prisma:8` `provider sqlite`, `docker-compose.yml` (pendente, ver 0.4)
 - [x] 0.3 `package.json` raiz (workspaces `app/` + `lib/` + `tests/`) — evidência: `package.json:1` presente, `bun.lock` + `package-lock.json` travados
 - [x] 0.4 `docker-compose.yml` com `postgres:16-alpine` + `ollama/ollama:latest` — evidência: `docker-compose.yml:1` `pgvector/pgvector:pg16` + `ollama/ollama:latest` + `Dockerfile:1`
@@ -56,7 +56,7 @@ de evidência**, não por presunção.
 - [x] 0.6 Dependências fixadas por `package-lock.json` (`npm ci` em CI) — evidência: `package-lock.json` + `bun.lock` + `.github/workflows/ci.yml:30` `npm ci`
 - [x] 0.7 ESLint + Prettier + `eslint-plugin-security` + `eslint-plugin-node` — evidência: `eslint.config.mjs:1` + `knip.json:1` + `commitlint.config.cjs:1` + `.dependency-cruiser.cjs:1`
 - [x] 0.8 Dependabot ou Renovate ativo no repositório (configuração `.github/dependabot.yml`) — evidência: `.github/dependabot.yml:1` `version:2` semanal `America/Sao_Paulo`
-- [x] 0.9 `SECURITY.md` com política de divulgação responsável de vulnerabilidades — evidência: `SECURITY.md:1` `REG-001`..`REG-011` + `graft` graph
+- [x] 0.9 `docs/05-security-compliance/SECURITY.md` com política de divulgação responsável de vulnerabilidades — evidência: `docs/05-security-compliance/SECURITY.md:1` `REG-001`..`REG-011` + `graft` graph
 
 **Verificação (evidência exigida):**
 - `npm ci` roda sem alterar o lockfile — evidência: `package-lock.json` travado, `npm ci` em `ci.yml:30`
@@ -73,7 +73,7 @@ de evidência**, não por presunção.
 - [x] 1.4 Logger Pino estruturado. `redact` para campos sensíveis (senha, token, email, `ENCRYPTION_KEY`) — evidência: `src/lib/observability/*` + `src/lib/env.ts:1` redact, `src/lib/crash-logger.ts:1` sync file
 - [x] 1.5 Validação Zod em TODOS os endpoints de escrita. Rejeitar payload não validado — evidência: `src/lib/env.ts:1` Zod + `src/app/api/*/route.ts` `zod` em 30+ rotas
 - [x] 1.6 CORS restrito. Dev: `localhost`. Prod: origem do domínio oficial — evidência: `next.config.ts` CORS + `src/lib/trading/proxy-trust.ts:1` trust proxy
-- [x] 1.7 Sanitização de saída: nunca expor campos internos (id interno, hash, `mfaSecret`, `privateKeyEncrypted`) sem necessidade — evidência: `src/lib/auth/rls.ts:1` + `docs/RLS.md:1` `sanitizeUser`
+- [x] 1.7 Sanitização de saída: nunca expor campos internos (id interno, hash, `mfaSecret`, `privateKeyEncrypted`) sem necessidade — evidência: `src/lib/auth/rls.ts:1` + `docs/05-security-compliance/RLS.md:1` `sanitizeUser`
 - [x] 1.8 `GET /api/health` (sem detalhes internos) e `GET /api/metrics` (proteger com token administrativo `system:read`) — evidência: `src/app/api/health/route.ts:1` + `src/app/api/metrics/route.ts:1` `system:read`
 - [x] 1.9 Handler global de erros: nunca vazar stack trace em produção; resposta genérica para 5xx (`handleApiError`) — evidência: `src/lib/auth/errors.ts:1` + `src/components/error-boundary.tsx:1` `handleApiError`
 
@@ -92,7 +92,7 @@ de evidência**, não por presunção.
 - [x] 2.4 Tabelas de auth: `User`, `Session`, `AuditLog` (S02 auth) — evidência: `prisma/schema.prisma:15` `User/Session/AuditLog` + `src/lib/auth/session.ts:1`
 - [x] 2.5 Tabelas de billing: `Subscription`, `Plan` (Free/Pro/Elite), `Invoice`, `PaymentEvent` (S06) — evidência: `prisma/schema.prisma:45` `Subscription/Plan` + `src/lib/billing/plans.ts:1` Free/Pro/Elite
 - [x] 2.6 Tabelas de auditoria: `AuditLog` (imutável, append-only, com hash de cadeia) — evidência: `src/lib/auth/audit.ts:1` `appendAuditLog` hash-chain + `tests/rbac-matrix.test.ts:1`
-- [x] 2.7 Tabelas de governança: `FeatureFlag`, `Position.ownerId` (RLS), `KnowledgeGraph` (crypto entities → token, chain, scamScore) — evidência: `prisma/schema.prisma:60` `FeatureFlag` + `Position.ownerId` `docs/RLS.md:1`
+- [x] 2.7 Tabelas de governança: `FeatureFlag`, `Position.ownerId` (RLS), `KnowledgeGraph` (crypto entities → token, chain, scamScore) — evidência: `prisma/schema.prisma:60` `FeatureFlag` + `Position.ownerId` `docs/05-security-compliance/RLS.md:1`
 - [x] 2.8 Senha/token sempre hash com bcrypt cost ≥12. Private key sempre AES-256-GCM (KDF versioning). Nunca em texto plano — evidência: `src/lib/auth/password.ts:1` `bcrypt 12` + `src/lib/trading/wallet-crypto.ts:1` `AES-256-GCM`
 - [x] 2.9 Soft delete em entidades críticas (`deleted_at` em `Position` se necessário) — evidência: `prisma/schema.prisma` `deletedAt` em `Position` (adiado, RLS já protege)
 - [x] 2.10 Criptografia a nível de coluna para `privateKeyEncrypted`, `mfaSecret` (envelope encryption com chave mestra do deploy) — evidência: `src/lib/auth/totp.ts:1` `mfaSecret` enc + `wallet-crypto.ts:1`
@@ -119,7 +119,7 @@ de evidência**, não por presunção.
 - [x] 3.7 Audit logging para auth (`AuditLog` hash-chain S02 `appendAuditLog` `auth:login`) — evidência: `src/lib/auth/audit.ts:1` + `prisma/schema.prisma: AuditLog.seq`
 - [x] 3.8 Rate limiting específico para `/api/auth/*` (`checkRateLimit` auth bucket 5/60s S01+S02) — evidência: `src/lib/rate-limit.ts:1` bucket auth
 - [x] 3.9 Testes de integração — evidência: `tests/rbac-matrix.test.ts:1` + `tests/totp.test.ts:1` + `tests/password-reset.test.ts:1` 91/91
-- [x] 3.10 Documentação API Auth (`docs/RBAC.md` S02 já) — evidência: `docs/RBAC.md:1` 4×24
+- [x] 3.10 Documentação API Auth (`docs/05-security-compliance/RBAC.md` S02 já) — evidência: `docs/05-security-compliance/RBAC.md:1` 4×24
 
 **Verificação:**
 - curl `POST /api/auth/login` com credenciais válidas → 200 + `Set-Cookie: session=... HttpOnly` + `{user: {id, email, role}}`
@@ -133,7 +133,7 @@ de evidência**, não por presunção.
 
 REST versionado `/api`. Cada módulo em `src/lib/trading/` e `src/app/api/<route>/` com `route.ts` + `lib/*` + tests isolados.
 
-- [x] 4.1 CRUD `Position` (já parcial no MVP — re-verificar) — evidência: `src/app/api/positions/route.ts:1` + `src/lib/trading/position-*.ts` + `Position.ownerId` RLS `docs/RLS.md:1`
+- [x] 4.1 CRUD `Position` (já parcial no MVP — re-verificar) — evidência: `src/app/api/positions/route.ts:1` + `src/lib/trading/position-*.ts` + `Position.ownerId` RLS `docs/05-security-compliance/RLS.md:1`
 - [x] 4.2 CRUD `ScamReport` (análise de tokens) — evidência: `src/app/api/scam-reports/route.ts:1` + `src/lib/etl/goplus.ts:1` scamScore
 - [x] 4.3 CRUD `MarketSnapshot` (RSI/MACD/EMA/Bollinger + Fear&Greed) — evidência: `src/app/api/market-snapshots/route.ts:1` + `src/lib/trading/*`
 - [x] 4.4 CRUD `BacktestResult` (histórico — versionados, imutáveis após publicação) — evidência: `src/app/api/backtest/route.ts:1` `BacktestResult`
@@ -186,7 +186,7 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [x] 6.1.1 Validação de tipo MIME real (magic bytes, não só extensão) — evidência: `src/app/api/upload/route.ts:7` `MAGIC_ALLOW` PNG/JPEG/PDF `checkMagic`
 - [x] 6.1.2 Tamanho máximo configurável por tipo de upload — evidência: `src/app/api/upload/route.ts:14` `MAX_BYTES` 1/5/10 MiB per mime
 - [x] 6.1.3 Antivírus: ClamAV rodando em container separado (gratuito) — evidência: `src/app/api/upload/route.ts:1` stub documenta `ClamAV container (future)` + `docker-compose.yml:1` pronto para `clamav/clamav` service (adiado sem uso)
-- [x] 6.1.4 Armazenamento em S3-compatível (MinIO local em dev, Cloudflare R2 em prod — gratuito até 10GB) — evidência: `src/app/api/upload/route.ts:1` stub `S3 MinIO local / R2 prod (future)` + `docs/DEPLOY.md:1` S3 já previsto
+- [x] 6.1.4 Armazenamento em S3-compatível (MinIO local em dev, Cloudflare R2 em prod — gratuito até 10GB) — evidência: `src/app/api/upload/route.ts:1` stub `S3 MinIO local / R2 prod (future)` + `docs/06-devops-deployment/PRODUCTION_DEPLOY.md:1` S3 já previsto
 - [x] 6.1.5 Nomes de arquivo aleatórios (UUID) — nunca nome do usuário — evidência: `src/app/api/upload/route.ts:1` stub `UUID filename (future)` + `checkMagic`/`MAX_BYTES` já validam antes de gerar nome
 - [x] 6.2 **Fila assíncrona** `[OBRIGATÓRIO]`: BullMQ + Redis para ETL, envio de emails, reprocessamento de snapshots de mercado — evidência: `src/lib/queue/bullmq-stub.ts:1` stub Queue/Worker/Jobs + `src/lib/etl/run.ts:1` async, `docker-compose.yml:1` `db` ready p/ `BullMQ` prod
 - [x] 6.3 **Cache Redis** `[OBRIGATÓRIO]`: read-through em consultas frequentes (lista de tokens, top scam reports). Invalidação por evento (write-through em updates) — evidência: `src/lib/rate-limit.ts:1` `REDIS_URL` + `src/lib/trading/price-feed.ts:1` cache, `docker-compose.yml:1` esperando `REDIS_URL`
@@ -213,7 +213,7 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ## FASE 7 — HARDENING `[VAULT e DNSSEC CONDICIONAIS]` ✅ **S01/S02/S07 verificado 2026-08-27**
 
-- [x] 7.1 CSP restritiva + SRI para scripts externos — evidência: `next.config.ts:12` CSP + `docs/TLS_HSTS.md:1` + `next.config.ts` SRI pendente CDN (sem externo)
+- [x] 7.1 CSP restritiva + SRI para scripts externos — evidência: `next.config.ts:12` CSP + `docs/05-security-compliance/TLS_HSTS.md:1` + `next.config.ts` SRI pendente CDN (sem externo)
 - [x] 7.2 `X-Frame-Options: DENY` (só SAMEORIGIN onde houver embed legítimo) — evidência: `next.config.ts:12` `DENY`
 - [x] 7.3 Rate limiting avançado por usuário + IP + rota, com detecção de anomalias (janela deslizante) — evidência: `src/lib/rate-limit.ts:1` sliding window + `middleware.ts:1` IP+rota, `tests/csrf-middleware.test.ts:1`
 - [x] 7.4 `npm audit --audit-level=high` quebra o build em CI — evidência: `.github/workflows/ci.yml:60` `npm audit --audit-level=high`
@@ -221,8 +221,8 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [x] 7.6 Desabilitar métodos HTTP não utilizados (TRACE sempre; OPTIONS só onde necessário) — evidência: `next.config.ts:1` + `middleware.ts:1` só GET/POST/PUT/DELETE
 - [x] 7.7 Limite de payload: body 1 MiB padrão, 50 MiB para endpoints de upload — evidência: `next.config.ts:1` `experimental.serverActions.bodySizeLimit` + `src/app/api/*/route.ts` Zod `max`
 - [x] 7.8 Rotação automática de segredos de sessão a cada 90 dias — evidência: `src/lib/trading/key-rotation.ts:1` + `src/lib/trading/kdf.ts:1` KDF versioning
-- [x] 7.9 **(CONDICIONAL)** Vault/Infisical para segredos em produção — se a plataforma de deploy já tiver secret manager nativo e gratuito (Fly.io, Railway, Vercel), usar o nativo — evidência: `docs/SECRETS.md:1` + `.env.example:1` placeholders, `src/signer/*` isolado `AGENT_GUIDE.md:1`
-- [x] 7.10 **(CONDICIONAL: PENDENCIAS_OPERADOR.md item 1)** DNSSEC + CAA + HSTS preload — só quando o domínio próprio for registrado — evidência: `docs/TLS_HSTS.md:7` seção 7 DNSSEC/CAA/HSTS preload (Cloudflare DNSSEC Enable + `dig DS`/`dig CAA` + `hstspreload.org`), domínio Beta `localhost:3000`/`*.fly.dev` já com TLS via `next.config.ts:12`
+- [x] 7.9 **(CONDICIONAL)** Vault/Infisical para segredos em produção — se a plataforma de deploy já tiver secret manager nativo e gratuito (Fly.io, Railway, Vercel), usar o nativo — evidência: `docs/05-security-compliance/SECRETS.md:1` + `.env.example:1` placeholders, `src/signer/*` isolado `AGENT_GUIDE.md:1`
+- [x] 7.10 **(CONDICIONAL: PENDENCIAS_OPERADOR.md item 1)** DNSSEC + CAA + HSTS preload — só quando o domínio próprio for registrado — evidência: `docs/05-security-compliance/TLS_HSTS.md:7` seção 7 DNSSEC/CAA/HSTS preload (Cloudflare DNSSEC Enable + `dig DS`/`dig CAA` + `hstspreload.org`), domínio Beta `localhost:3000`/`*.fly.dev` já com TLS via `next.config.ts:12`
 
 **Verificação:**
 - `npm audit` passa sem vulnerabilidades high/critical.
@@ -236,11 +236,11 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [x] 8.1 Testes unitários (Vitest) para services com mocks. Cobertura ≥ 80% em `src/lib/trading/**` e `src/lib/chain/**` — evidência: `vitest.config.ts:1` + `tests/live-trader.test.ts:1` 9 tests + `billing.test.ts:1` 12 tests + `91/91` `0b13f14`
 - [x] 8.2 Testes de integração (Vitest + Prisma SQLite) para endpoints com auth (S02) — evidência: `tests/rbac-matrix.test.ts:1` 10 tests + `password-reset.test.ts:1` + `position-rls.test.ts:1`
 - [x] 8.3 Testes E2E (Playwright) para fluxos críticos: login, trading, kill-switch, MFA setup, password reset — evidência: `playwright.config.ts:1` + `e2e/auth.spec.ts:1` + `e2e/mfa.spec.ts:1` + `e2e/s27.spec.ts:1`
-- [x] 8.4 SAST: CodeQL no GitHub Actions (gratuito para repositórios públicos) — evidência: `.github/workflows/ci.yml:45` CodeQL `actions` + `docs/SECURITY_AUDIT.md:1`
+- [x] 8.4 SAST: CodeQL no GitHub Actions (gratuito para repositórios públicos) — evidência: `.github/workflows/ci.yml:45` CodeQL `actions` + `docs/05-security-compliance/SECURITY_REVIEW.md:1`
 - [x] 8.5 `npm audit` + `pnpm audit` no CI. Quebra build se high/critical — evidência: `.github/workflows/ci.yml:60` `npm audit --audit-level=high`
-- [x] 8.6 DAST: scan periódico com OWASP ZAP em staging. Cron semanal — evidência: `.github/workflows/zap.yml:1` `schedule cron 0 3 * * 1` `zaproxy/action-baseline@v0.12.0` `target: https://your-domain.com` `continue-on-error:true` (stub até staging `SECRETS.STAGING_URL`), `docs/DEPLOY.md:5` verificado
+- [x] 8.6 DAST: scan periódico com OWASP ZAP em staging. Cron semanal — evidência: `.github/workflows/zap.yml:1` `schedule cron 0 3 * * 1` `zaproxy/action-baseline@v0.12.0` `target: https://your-domain.com` `continue-on-error:true` (stub até staging `SECRETS.STAGING_URL`), `docs/06-devops-deployment/PRODUCTION_DEPLOY.md:5` verificado
 - [x] 8.7 Testes de carga (k6 — gratuito) simulando 1.000 usuários concorrentes — evidência: `scripts/load-test-k6.mjs:1` + `scripts/load-test.mts:1` k6 `p95 <500ms`
-- [x] 8.8 Testes de regressão de segurança: headers, injeção SQL (Prisma já protege — testar anyway), XSS, CSRF — evidência: `SECURITY.md:1` REG-001..014 + `tests/csrf-middleware.test.ts:1` + `tests/rbac-matrix.test.ts:1`
+- [x] 8.8 Testes de regressão de segurança: headers, injeção SQL (Prisma já protege — testar anyway), XSS, CSRF — evidência: `docs/05-security-compliance/SECURITY.md:1` REG-001..014 + `tests/csrf-middleware.test.ts:1` + `tests/rbac-matrix.test.ts:1`
 - [x] 8.9 Testes do pipeline de IA: verificar que respostas têm citações e que citações correspondem a dados reais — evidência: `tests/rag.test.ts:1` + `tests/etl.test.ts:1` 5 tests + `src/lib/rag/pipeline.ts:1` citações
 
 **Verificação:**
@@ -258,18 +258,18 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [x] 9.1.3 SAST (CodeQL) + dependency scan — evidência: `.github/workflows/ci.yml:45` `github/codeql-action` + `npm audit`
 - [x] 9.1.4 Build Docker multi-stage com `prune` de dev deps — evidência: `Dockerfile:1` `node:20-slim` multi-stage + `docker-compose.yml:1` `db`/`ollama`
 - [x] 9.1.5 Scan de imagem com Trivy (gratuito) — evidência: `Dockerfile:6` multi-stage `deps→builder→runner` `npm prune --omit=dev` + `.github/workflows/ci.yml:75` `docker build -t autotrader:ci --target runner` + `aquasecurity/trivy-action@0.24.0` `HIGH,CRITICAL` `continue-on-error:true`
-- [x] 9.1.6 Deploy automático em staging após merge em `main` — evidência: `.github/workflows/ci.yml:103` job `deploy-staging` `needs: [ci]` `environment: staging` `vars.STAGING_ENABLED==true` + `FLY_API_TOKEN`/`STAGING_URL`, manual `fly deploy --app auto-trader-staging` `docs/DEPLOY.md:3`
-- [x] 9.2 Secrets no CI: variáveis protegidas do GitHub (never in code) — evidência: `.github/workflows/ci.yml:1` `secrets` + `docs/SECRETS.md:1` + `.env.example:1` placeholders
-- [x] 9.3 Deploy em produção: blue-green ou rolling update (zero downtime) — evidência: `docs/DEPLOY.md:9` `fly releases rollback` + `MANUAL_DO_OPERADOR.md:7` blue-green via `fly deploy --strategy rolling` (zero downtime Fly.io), `docs/INCIDENT_RESPONSE.md:5` contain rollback
-- [x] 9.4 Plataforma de deploy: Fly.io ou Railway (free tier compatível com PostgreSQL + Redis). Decisão em `DECISOES.md` — evidência: `docs/DEPLOY.md:1` Fly.io `pgvector` + `Redis` + `Sentry` + Cloudflare, `DECISOES.md:60` Fly.io preferido (free tier 1GB Postgres $0), `docker-compose.yml:1` local pgvector+ollama espelha prod
+- [x] 9.1.6 Deploy automático em staging após merge em `main` — evidência: `.github/workflows/ci.yml:103` job `deploy-staging` `needs: [ci]` `environment: staging` `vars.STAGING_ENABLED==true` + `FLY_API_TOKEN`/`STAGING_URL`, manual `fly deploy --app auto-trader-staging` `docs/06-devops-deployment/PRODUCTION_DEPLOY.md:3`
+- [x] 9.2 Secrets no CI: variáveis protegidas do GitHub (never in code) — evidência: `.github/workflows/ci.yml:1` `secrets` + `docs/05-security-compliance/SECRETS.md:1` + `.env.example:1` placeholders
+- [x] 9.3 Deploy em produção: blue-green ou rolling update (zero downtime) — evidência: `docs/06-devops-deployment/PRODUCTION_DEPLOY.md:9` `fly releases rollback` + `MANUAL_DO_OPERADOR.md:7` blue-green via `fly deploy --strategy rolling` (zero downtime Fly.io), `docs/05-security-compliance/INCIDENT_RESPONSE.md:5` contain rollback
+- [x] 9.4 Plataforma de deploy: Fly.io ou Railway (free tier compatível com PostgreSQL + Redis). Decisão em `DECISOES.md` — evidência: `docs/06-devops-deployment/PRODUCTION_DEPLOY.md:1` Fly.io `pgvector` + `Redis` + `Sentry` + Cloudflare, `DECISOES.md:60` Fly.io preferido (free tier 1GB Postgres $0), `docker-compose.yml:1` local pgvector+ollama espelha prod
 - [x] 9.5 Observabilidade (S05 já `src/lib/observability/{sentry,otel}.ts`):
 - [x] 9.5.1 Logs centralizados: Loki (gratuito) ou logs nativos do Fly.io — evidência: `src/lib/observability/*` `exporter.ts` + `registry.ts` + `src/lib/crash-logger.ts:1` file
 - [x] 9.5.2 Métricas: Prometheus + Grafana (gratuito) ou Better Stack free tier — evidência: `src/lib/observability/metrics.ts:1` + `src/app/api/metrics/route.ts:1` `system:read`
-- [x] 9.5.3 Alertas: erros 5xx > 1% em 5 min, falhas de auth > 50 em 1 min — evidência: `docs/OBSERVABILITY.md:1` + `src/lib/observability/sentry.ts:1` `Sentry` thresholds
-- [x] 9.5.4 Uptime check externo (UptimeRobot free) — evidência: `src/app/api/health/route.ts:1` + `docs/DEPLOY.md:1` uptime
+- [x] 9.5.3 Alertas: erros 5xx > 1% em 5 min, falhas de auth > 50 em 1 min — evidência: `docs/07-operations-marketing/MONITORING.md:1` + `src/lib/observability/sentry.ts:1` `Sentry` thresholds
+- [x] 9.5.4 Uptime check externo (UptimeRobot free) — evidência: `src/app/api/health/route.ts:1` + `docs/06-devops-deployment/PRODUCTION_DEPLOY.md:1` uptime
 - [x] 9.6 Healthcheck HTTP no deploy (`/api/health`) — evidência: `src/app/api/health/route.ts:1` 200 sem detalhes internos
 - [x] 9.7 Backup automático do PostgreSQL (diário, retenção 30 dias) — S06 já `scripts/backup-db.sh` (SQLite) + `verify-backup.sh` — evidência: `scripts/backup-db.sh:1` + `docker-compose.yml:1` `pgdata` volume
-- [x] 9.8 Plano de resposta a incidentes documentado em `docs/INCIDENT_RESPONSE.md` — evidência: `docs/INCIDENT_RESPONSE.md:1` SEV1-4, Runbooks 4.1-4.5 (secrets/RLS/kill-switch/DB/Stripe), fluxo 6 fases, postmortem 24h + `SECURITY.md:1` REG
+- [x] 9.8 Plano de resposta a incidentes documentado em `docs/05-security-compliance/INCIDENT_RESPONSE.md` — evidência: `docs/05-security-compliance/INCIDENT_RESPONSE.md:1` SEV1-4, Runbooks 4.1-4.5 (secrets/RLS/kill-switch/DB/Stripe), fluxo 6 fases, postmortem 24h + `docs/05-security-compliance/SECURITY.md:1` REG
 - [x] 9.9 `MANUAL_DO_OPERADOR.md` entregue (PROTOCOLO_MESTRE.md Seção 9) — evidência: `MANUAL_DO_OPERADOR.md:1` instalação 5min, operação diária, backup/restore, observabilidade Sentry/OTEL/crash-logger, kill-switch/graduação live, troubleshooting, checklist DoD
 
 **Verificação:**
@@ -294,7 +294,7 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 ## F10-s41 + F11-s34plan — Fechamento T052/T051 (T060, 2026-09-24) ✅
 
 - [x] T052 S41 a11y/security — evidência: TDD `tests/s41-security.test.ts` 18/18 (9 falhas iniciais convertidas); suíte 35 files, 408 passed / 1 skipped; tsc 0; eslint 0 errors / **0 warnings** (warning pricing eliminado via `router.push`); commits `fd35fec` + `65f6134`; runs `35932052281` e `35932769421` success (ci 23/23, e2e `s41-validation.spec.ts`, codeql, gitleaks); REVIEW R041 = APPROVED. Fixes: strip dangerous-tags + `MAX_FEED_BYTES` 512KB em `news.ts`, `getAvailableActionIds` RBAC testável, mass-assignment neutralizado (zod strip + ownership `session.userId`). Axe automatizado ficou como dívida explícita → T062.
-- [x] T051 plano S34 — evidência: `docs/s34-remediation-plan.md` (plan-only, **zero upgrades**); `npm audit` 3 moderates dev-only (cadeia vitest→major 5.x), 0 high/critical; CVEs node-tar HIGH/CRITICAL documentados como abertos; fases A–D, matriz de 8 Actions pins, branch/staging/rollback, frozen preservada; REVIEW R042 = APPROVED. Execução autorizada só Phase A (T061, higiene CI não-breaking).
+- [x] T051 plano S34 — evidência: `docs/05-security-compliance/s34-remediation-plan.md` (plan-only, **zero upgrades**); `npm audit` 3 moderates dev-only (cadeia vitest→major 5.x), 0 high/critical; CVEs node-tar HIGH/CRITICAL documentados como abertos; fases A–D, matriz de 8 Actions pins, branch/staging/rollback, frozen preservada; REVIEW R042 = APPROVED. Execução autorizada só Phase A (T061, higiene CI não-breaking).
 - ⚠️ Riscos preservados (NÃO resolvidos): node-tar HIGH/CRITICAL (S34); a11y axe pendente (T062); visual/funcional pendente de URL/ambiente (T058); S14 live (chaves + aprovação); higiene Node20/ubuntu (T061).
 - Nota de reconciliação: escopo legado "Almanaque dos Clubes" foi expurgado do plano em S32 (produto = Auto Trader crypto-only); histórico preservado, sem reescrita. T056 (gitleaks fix) ≠ T058 (visual check) — renumeração do Thinker respeitada.
 - Próximo: T060 fecha docs → T061 + T062 em paralelo → T058/S14 dependem do Operador.
@@ -313,7 +313,7 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ## F12-a11y-remediation — Fechamento T064 via PR #26 (T065, 2026-09-24) ✅
 
-- [x] T064 dashboard backlog — evidência: PR #26 squash `61fe9af`; TDD red (`35946550038`) → green (`35947361113`); 9 violações corrigidas (button ×5, progressbar ×1, scroll ×3); color-contrast ×17 como exceção provisória de backdrop (NÃO provada); `docs/a11y-remediation-log.md`; REVIEW R047 = APPROVED.
+- [x] T064 dashboard backlog — evidência: PR #26 squash `61fe9af`; TDD red (`35946550038`) → green (`35947361113`); 9 violações corrigidas (button ×5, progressbar ×1, scroll ×3); color-contrast ×17 como exceção provisória de backdrop (NÃO provada); `docs/07-operations-marketing/a11y-remediation-log.md`; REVIEW R047 = APPROVED.
 - [x] T065 merge + docs — evidência: merge #26 limpo; main pós-merge `36004898568` success; D029 registrada (#38).
 - ⚠️ Exceção provisória: color-contrast/modal-background-inert — T066 OBRIGATÓRIA antes de T058/demo. T067 (terminal-header dead code) backlog baixa prioridade.
 - Riscos preservados: node-tar HIGH/CRITICAL (S34 B-D); visual (T058); S14 (chaves + aprovação).
@@ -332,7 +332,7 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 ## F11-s34-B — Phase B outcome B + T070 audit (T071, 2026-09-25) ✅
 
 - [x] T069 Phase B — evidência: outcome (B) provado; `npm audit` high/critical só moderates vitest-major (proibido); `npm ls tar` vazio; `node:20-slim` embarca npm 10.8.2 + `tar@6.2.1` (docker reproduzível); maintainer recusa backport, fix exige major+Dockerfile; PR #28 draft diagnóstico (`3184b30`, CI `36056280921` success); REVIEW R051 = APPROVED. Zero mudanças em main por T069.
-- [x] T070 live audit — evidência: `origin/main e1a93eb`, 5 runs success, `docs/current-state-audit.md`, commit `dcc1cc7` (CI `36057835839` success); site `DEPLOYMENT_NOT_FOUND`; PLANO live sem divergência; REVIEW R052 = APPROVED.
+- [x] T070 live audit — evidência: `origin/main e1a93eb`, 5 runs success, `docs/08-knowledge-management/current-state-audit.md`, commit `dcc1cc7` (CI `36057835839` success); site `DEPLOYMENT_NOT_FOUND`; PLANO live sem divergência; REVIEW R052 = APPROVED.
 - [x] T071 merge + docs — evidência: PR #28 docs-only verificado (`s34-plan.md` + `episodes`), merge `13de992`; main pós-merge `36060538217` success; D033 registrada (#40).
 - Riscos preservados: node-tar HIGH/CRITICAL até Phase C/aceite (T072 autorizada, branch isolada + PR draft); T058 sem URL válida; S14 chaves + aprovação; T067 backlog.
 
@@ -350,7 +350,7 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ## F11-s34-OS — Triagem OS bookworm + reclassificação Trivy (T075, 2026-09-25) ✅
 
-- [x] T075 triagem — evidência: tabela Trivy run `36065096390` (61 CVE-2026 + 4 outros anos = 65); 9 remediáveis via base update (libcap2×1, libgnutls30×5 incl. 2 critical, libpcre2×3); 52 sem fix (affected/deferred); aplicabilidade runtime baixa (app não executa mount/perl/gzip; gap: container roda como root); exit-1 reclassificado como backlog OS (NÃO node-tar); `docs/s34-remediation-plan.md` §12.
+- [x] T075 triagem — evidência: tabela Trivy run `36065096390` (61 CVE-2026 + 4 outros anos = 65); 9 remediáveis via base update (libcap2×1, libgnutls30×5 incl. 2 critical, libpcre2×3); 52 sem fix (affected/deferred); aplicabilidade runtime baixa (app não executa mount/perl/gzip; gap: container roda como root); exit-1 reclassificado como backlog OS (NÃO node-tar); `docs/05-security-compliance/s34-remediation-plan.md` §12.
 - Recomendação: Phase C2 (`apt-get upgrade` + rescan + staging) para os 9; aceite formal com controles (non-root, read-only FS, no-new-privs, scan contínuo) para os 52; sem Node 24/distroless agora.
 
 ---
@@ -358,23 +358,23 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 ## F11-s34-C2 — Phase C2 integrada via T082 merge PR #30 (2026-09-25) ✅
 
 - [x] T079 Phase C2 — evidência: digest pin `sha256:2cf067` (3 stages) + `apt-get install libcap2 libgnutls30 libpcre2-8-0` no **stage runner do Dockerfile (imagem, não runner efêmero)**; commits `54f0a9f`/`6c2453d`; runs `36089136711`/`36089749844` success; Trivy **65 → 56** (9 alvos zerados, 52 sem fix); build local + health/login/static/robots 200 via CMD; lockfile intocado; REVIEW R059 = APPROVED.
-- [x] T082 merge + docs — evidência: `gh pr diff 30 --name-only` = apenas `Dockerfile`, `docs/s34-remediation-plan.md`, `logs/episodes.jsonl`; diff prova remediação no stage runner da imagem; squash merge `77b5e7e` (branch deletada); main pós-merge `36156480225` success (ci/e2e/codeql); D040 registrada (#42).
+- [x] T082 merge + docs — evidência: `gh pr diff 30 --name-only` = apenas `Dockerfile`, `docs/05-security-compliance/s34-remediation-plan.md`, `logs/episodes.jsonl`; diff prova remediação no stage runner da imagem; squash merge `77b5e7e` (branch deletada); main pós-merge `36156480225` success (ci/e2e/codeql); D040 registrada (#42).
 - Restam **52 achados OS bookworm sem fix** = risco aberto (T080 hardening → T078 docs → T081 aceite formal com Operador). `continue-on-error` do Trivy mantido; imagem **NÃO** declarada totalmente segura.
 
 ---
 
 ## F11-s34-Hardening — T083 merge PR #31 + fechamento T080 (2026-09-26) ✅
 
-- [x] T080 hardening compensatório — evidência: R061 = APPROVED; build-time `USER node` (uid 1000) + `NEXT_TELEMETRY_DISABLED=1` + `HOSTNAME=0.0.0.0` (fix bind só-no-eth0 por `HOSTNAME=<container-id>` do Docker); runtime `--read-only` + `--tmpfs /tmp` + `no-new-privileges` + `cap-drop ALL` + `--init`; validação docker run/compose: health/login/robots/css 200, `/proc` `Uid=1000`/`CapEff=0`/`NoNewPrivs=1`, bind `0.0.0.0:3000`, write_errors=0, compose `app` (profile `app`) `healthy`; gates tsc 0 / eslint 0/0 / test:ci PASS; runs PR `36193907834`/`36194770200` success (ci/codeql/e2e/gitleaks). Runbook: `docs/docker-hardening.md`.
-- [x] T083 merge + docs — evidência: `gh pr diff 31 --name-only` = apenas `Dockerfile`, `docker-compose.yml`, `docs/docker-hardening.md`, `docs/s34-remediation-plan.md`, `SECURITY.md`, `logs/episodes.jsonl`; squash merge `efb07fa` (branch `chore/s34-docker-hardening` deletada); main pós-merge `36195981127` success (ci 7m32s / e2e 4m3s / codeql 1m45s); D042 registrada (#43).
+- [x] T080 hardening compensatório — evidência: R061 = APPROVED; build-time `USER node` (uid 1000) + `NEXT_TELEMETRY_DISABLED=1` + `HOSTNAME=0.0.0.0` (fix bind só-no-eth0 por `HOSTNAME=<container-id>` do Docker); runtime `--read-only` + `--tmpfs /tmp` + `no-new-privileges` + `cap-drop ALL` + `--init`; validação docker run/compose: health/login/robots/css 200, `/proc` `Uid=1000`/`CapEff=0`/`NoNewPrivs=1`, bind `0.0.0.0:3000`, write_errors=0, compose `app` (profile `app`) `healthy`; gates tsc 0 / eslint 0/0 / test:ci PASS; runs PR `36193907834`/`36194770200` success (ci/codeql/e2e/gitleaks). Runbook: `docs/06-devops-deployment/docker-hardening.md`.
+- [x] T083 merge + docs — evidência: `gh pr diff 31 --name-only` = apenas `Dockerfile`, `docker-compose.yml`, `docs/06-devops-deployment/docker-hardening.md`, `docs/05-security-compliance/s34-remediation-plan.md`, `docs/05-security-compliance/SECURITY.md`, `logs/episodes.jsonl`; squash merge `efb07fa` (branch `chore/s34-docker-hardening` deletada); main pós-merge `36195981127` success (ci 7m32s / e2e 4m3s / codeql 1m45s); D042 registrada (#43).
 - Restam **52 achados OS bookworm sem fix** = risco mitigado por controles validados, **não corrigido** (→ T078 docs → T081 aceite formal com Operador). `continue-on-error` do Trivy mantido; imagem **NÃO** declarada totalmente segura.
 
 ---
 
 ## F11-s34-Episodes — T084/T085 integridade do episodes.jsonl (2026-09-27) ✅
 
-- [x] T084 saneamento JSONL — evidência: R063 = APPROVED (restrição L8/L14); 6/36 linhas malformadas pré-existentes reparadas com cirurgia sintática lossless (L1 BOM+`}`, L4 `1_preexistente` entre aspas+`}`, L5 `}`, L8/L14 `{ }`, L13 `-}`); 36→36 linhas; 30/30 não listadas byte-idênticas ao HEAD; ordem `tarefa_id` 36/36; campos semânticos iguais; `scripts/validate-episodes.mjs` exit 0; `docs/episodes-integrity.md` (política append-only + exceção reparo controlado + antes/depois + limitações); nenhum SHA histórico alterado.
-- [x] T085 merge + docs — evidência: `gh pr diff 32 --name-only` = apenas `DECISOES.md`, `SPRINT.md`, `docs/episodes-integrity.md`, `logs/episodes.jsonl`, `scripts/validate-episodes.mjs`; hunk audit = 6 pares de linha; squash merge `4caf78b` (branch `chore/episodes-jsonl-integrity` deletada); main pós-merge `36261942375` success (ci 7m48s / e2e 3m47s / codeql 2m0s); D044 registrada (#45).
+- [x] T084 saneamento JSONL — evidência: R063 = APPROVED (restrição L8/L14); 6/36 linhas malformadas pré-existentes reparadas com cirurgia sintática lossless (L1 BOM+`}`, L4 `1_preexistente` entre aspas+`}`, L5 `}`, L8/L14 `{ }`, L13 `-}`); 36→36 linhas; 30/30 não listadas byte-idênticas ao HEAD; ordem `tarefa_id` 36/36; campos semânticos iguais; `scripts/validate-episodes.mjs` exit 0; `docs/03-development-process/episodes-integrity.md` (política append-only + exceção reparo controlado + antes/depois + limitações); nenhum SHA histórico alterado.
+- [x] T085 merge + docs — evidência: `gh pr diff 32 --name-only` = apenas `DECISOES.md`, `SPRINT.md`, `docs/03-development-process/episodes-integrity.md`, `logs/episodes.jsonl`, `scripts/validate-episodes.mjs`; hunk audit = 6 pares de linha; squash merge `4caf78b` (branch `chore/episodes-jsonl-integrity` deletada); main pós-merge `36261942375` success (ci 7m48s / e2e 3m47s / codeql 2m0s); D044 registrada (#45).
 - Política de integridade: `logs/episodes.jsonl` parseável 36/36 com **ressalva estrutural L8/L14 documentada** (exceção controlada, não normalização semântica). Validator é local — integração ao CI/pre-push = backlog opcional T086 (D044: não autorizada agora). `continue-on-error` do Trivy mantido; **52 achados OS bookworm seguem abertos** (→ T078 docs → T081 aceite formal); imagem **NÃO** declarada totalmente segura.
 
 ---
