@@ -195,3 +195,7 @@
 ## 28. T090 + T094 — Proposta branch protection + pacote decisão Operador (2026-09-28)
 
 > D053 = APPROVED. T090: docs/branch-protection-policy.md mergeada (PR #37, 44afd1) — main segue sem proteção (HTTP 404 evidenciado); aplicação é decisão do Operador. T094: docs/operator-decision-package.md (dossiê único: SEC-ENV P0, T081 P1, T058 P1, S14 P2, governança P1, higiene opcional) + docs/final-autonomous-report.md (estado live: main b44afd1, CI 36345136736 success, site 404, episodes 42/42). SEC-ENV ABERTO (histórico). Projeto NÃO PRONTO.
+
+## 29. T095 — Merge PR #39 + fechamento T067, D055 (2026-09-28)
+
+> D055 = APPROVED. Auditoria live completa do PR #39: diff = 3 arquivos esperados (terminal-header.tsx -257, unicode-scan +8, episodes +1); grep amplo zero referências runtime; hunk audit = somente deleção; label e2e + reopen; ci SUCCESS (8m30s) / codeql SUCCESS (1m4s) / e2e SUCCESS (3m44s); gates locais tsc 0 / eslint 0/0 / test:ci 0 / build 0; Unicode CLEAN; segredo CLEAN; validator 45/45; site 404 (T058 bloqueada). Merge squash + branch deletada. T067/T095 fechadas.
