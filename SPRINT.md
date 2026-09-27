@@ -191,3 +191,7 @@
 ## 27. T092 — Containment emergencial do .env + neutralização AGENTS.md (2026-09-28)
 
 > D051 = autonomia condicional de containment. Branch security/env-containment-t092 a partir de main; git rm --cached .env (arquivo local preservado); .gitignore (.env*, !.env.example, .local/) + .env.example sanitizado; docs/security-incident-env.md com linha do tempo sanitizada; SEC-ENV aberto em SECURITY.md; AGENTS.md externo neutralizado (backup ignorado + restore HEAD); PENDENCIAS_OPERADOR.md com bloco objetivo (rotação + decisão sobre histórico). Scans segredo/Unicode antes do merge; merge automático somente se diff estritamente seguro.
+
+## 28. T090 + T094 — Proposta branch protection + pacote decisão Operador (2026-09-28)
+
+> D053 = APPROVED. T090: docs/branch-protection-policy.md mergeada (PR #37, 44afd1) — main segue sem proteção (HTTP 404 evidenciado); aplicação é decisão do Operador. T094: docs/operator-decision-package.md (dossiê único: SEC-ENV P0, T081 P1, T058 P1, S14 P2, governança P1, higiene opcional) + docs/final-autonomous-report.md (estado live: main b44afd1, CI 36345136736 success, site 404, episodes 42/42). SEC-ENV ABERTO (histórico). Projeto NÃO PRONTO.

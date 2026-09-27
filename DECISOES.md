@@ -239,3 +239,10 @@
 **Risco aberto:** histórico do .env permanece exposto até decisão do Operador; PR #34 bloqueado até T093.
 **Arquivos:** .gitignore, .env.example, docs/security-incident-env.md, SECURITY.md, PENDENCIAS_OPERADOR.md, DECISOES.md, SPRINT.md, logs/episodes.jsonl, scripts/scan-unicode-docs.mjs.
 **Proxima:** T093 (reduzir/fechar PR #34); T090 (propor branch protection); T094 (pacote de decisão); Operador: rotação de chaves + decisão sobre histórico.
+
+### Decisao #48: D053 - Aprovar T093 e liberar sequencia autonoma T090-T094 (2026-09-28)
+**Problema:** T093 fechou corretamente o PR #34 contaminado e mergeou o PR #36 limpo. Main verde, working tree limpa, .env fora do tree, AGENTS.md em HEAD. SEC-ENV segue aberto por histórico. Ausência de branch protection e pendências do Operador (T081/T058/S14) continuam como débitos de governança.
+**Solucao:** D053 = aprovar T093; declarar SEC-ENV aberto; exigir do Operador rotação imediata de DATABASE_URL/TYPESAFE_API_KEY + decisão sobre purge/reescrita de histórico; autorizar sequência autonoma T090→T094 sem nova permissão, respeitando limites (sem reescrita de histórico, sem rotação automática, sem deploy, sem S14, sem aplicação de branch protection, sem commit de .env/AGENTS.md não confiável, sem merge com check obrigatório vermelho). PR #34 só mergeável se auditoria provar segurança total; caso contrário fechar e substituir por PR limpo.
+**Risco aberto:** SEC-ENV histórico (P0); T081 (P1); T058 (P1); branch protection (P1); S14 (P2); T067/T086 (opcional).
+**Arquivos:** docs/branch-protection-policy.md, docs/operator-decision-package.md, docs/final-autonomous-report.md, SECURITY.md, PENDENCIAS_OPERADOR.md, DECISOES.md, SPRINT.md, logs/episodes.jsonl.
+**Proxima:** T094 (pacote decisão + relatório final); Operador: SEC-ENV P0, T081, T058, S14, branch protection.
