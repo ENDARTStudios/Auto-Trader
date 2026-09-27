@@ -1,16 +1,28 @@
-﻿# FinOps
+# FinOps: custos e orcamento
 
-> Esqueleto criado na reorganizacao de docs (2026-09-27).
+> Esqueleto criado na reorganizacao F16 (2026-09-28) e validado com metadata minima (T088).
 
-## Visao Geral
+## Objetivo
 
-_A preencher._
+Visao de custos: Vercel (rate limit), APIs externas (free tiers), infraestrutura e otimizacoes.
 
-## Detalhes
+## Escopo
 
-_A preencher._
+Esqueletizado na reorganizacao F16 (2026-09-28). Build rate limit do Vercel ja observado (T088).
+
+## Status
+
+Esqueleto validado T088; inventario pendente
+
+## Owner/Responsavel
+
+Operador + FinOps
+
+## Proximas Acoes
+
+Inventariar custos mensais por servico; definir alertas de gasto; avaliar impacto do build rate limit.
 
 ## Referencias
 
-- README.md (indice)
-
+- `docs/06-devops-deployment/CI_CD_PIPELINE.md`
+- `docs/01-product-discovery/PRICING_MONETIZATION.md`

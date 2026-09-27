@@ -1,16 +1,28 @@
-﻿# Threat Modeling
+# Modelagem de ameacas (STRIDE)
 
-> Esqueleto criado na reorganizacao de docs (2026-09-27).
+> Esqueleto criado na reorganizacao F16 (2026-09-28) e validado com metadata minima (T088).
 
-## Visao Geral
+## Objetivo
 
-_A preencher._
+Aplicar STRIDE ao Auto Trader: spoofing, tampering, repudiation, info disclosure, DoS, elevation.
 
-## Detalhes
+## Escopo
 
-_A preencher._
+Esqueletizado na reorganizacao F16 (2026-09-28). Mapeamento inicial em SECURITY.md (REGs); STRIDE formal pendente.
+
+## Status
+
+Esqueleto validado T088; sessao STRIDE pendente
+
+## Owner/Responsavel
+
+Doer
+
+## Proximas Acoes
+
+Rodar sessao STRIDE por componente (frontend, API, engine, signer); registrar mitigacoes existentes e lacunas.
 
 ## Referencias
 
-- README.md (indice)
-
+- `docs/05-security-compliance/SECURITY.md`
+- `docs/02-architecture-design/ARCHITECTURE.md`

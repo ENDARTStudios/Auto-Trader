@@ -1,4 +1,4 @@
-﻿
+
 
 ---
 
@@ -228,7 +228,7 @@ curl -H "Authorization: Bearer $METRICS_TOKEN" http://localhost:3000/api/metrics
 
 | # | Sinal | Fonte | Ruim quando |
 |---|---|---|---|
-| 1 | **Estado global** | `state/mode.json` | â‰  `ok` (`lang_degraded`, `unknown_regime`, `crisis_lock`, `frozen_autonomy`) â€” checar `history[]` para o trigger |
+| 1 | **Estado global** | `state/mode.json` | â‰  `ok` (`lang_degraded`, `unknown_regime`, `crisis_lock`, `frozen_autonomy`) â€” checar `history[]` para o trigger |
 | 2 | **Kill switches** | `config/risk_config.json` (estado aplicado no engine) | Disparado sem aÃ§Ã£o correspondente em posiÃ§Ãµes |
 | 3 | **Feed health** | `SourceHealth` + `MarketSnapshot` | Fonte stale/degradada (`feed_stale_switch` â†’ close_neutralize) |
 | 4 | **Erros** | Sentry + `AppLog` + `logs/crash.log*` | 5xx recorrentes, exceÃ§Ãµes novas |
@@ -249,7 +249,7 @@ curl -H "Authorization: Bearer $METRICS_TOKEN" http://localhost:3000/api/metrics
 
 | Rotina | FrequÃªncia | O que olhar |
 |---|---|---|
-| Glance no dashboard | diÃ¡rio | Estado â‰  ok, erros no painel de logs, posiÃ§Ãµes anÃ´malas |
+| Glance no dashboard | diÃ¡rio | Estado â‰  ok, erros no painel de logs, posiÃ§Ãµes anÃ´malas |
 | RevisÃ£o de episÃ³dios | semanal | `logs/episodes.jsonl` â€” decisÃµes com P esquisita? ([MEMORY.md](./MEMORY.md) Â§4) |
 | Quarentena de edges | T_sla 30d | `dag_edges_quarantine.json` â€” promote/rejeitar ([ITERATION.md](./ITERATION.md)) |
 | Health das fontes | semanal | `SourceHealth` â€” fontes degradando cronicamente |

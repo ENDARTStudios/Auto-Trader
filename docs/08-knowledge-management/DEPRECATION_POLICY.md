@@ -1,16 +1,28 @@
-﻿# Deprecation Policy
+# Politica de deprecacao
 
-> Esqueleto criado na reorganizacao de docs (2026-09-27).
+> Esqueleto criado na reorganizacao F16 (2026-09-28) e validado com metadata minima (T088).
 
-## Visao Geral
+## Objetivo
 
-_A preencher._
+Como deprecar features/APIs: aviso, periodo de carencia, comunicacao e remocao.
 
-## Detalhes
+## Escopo
 
-_A preencher._
+Esqueletizado na reorganizacao F16 (2026-09-28). Sem politica formal de deprecacao.
+
+## Status
+
+Esqueleto validado T088; politica pendente
+
+## Owner/Responsavel
+
+Doer + Operador
+
+## Proximas Acoes
+
+Definir janela minima de deprecacao; header/flag de deprecado; processo de comunicacao e remocao.
 
 ## Referencias
 
-- README.md (indice)
-
+- `docs/04-api-integrations/API.md`
+- `docs/02-architecture-design/ARCHITECTURE.md`

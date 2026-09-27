@@ -225,3 +225,10 @@
 **Risco aberto:** DOC_TREE_REORG_SCOPE_OVERFLOW mitigado por staging seletivo + PR; links quebrados mitigados por varredura mecanica (zero referencias ao layout antigo); T081 segue aguardando decisao formal do Operador.
 **Arquivos afetados:** docs/**, README.md, PLANO_MESTRE.md, SPRINT.md, DECISOES.md, PENDENCIAS_OPERADOR.md, CHANGELOG.md (docs/08-knowledge-management/), logs/episodes.jsonl.
 **Proximo:** REVIEW (R066) do PR; apos merge, T067/T086 seguem como higiene opcional; T058/S14 aguardam Operador.
+
+### Decisao #47: D048 - Condicionar merge do PR #33 a checks obrigatorios e sanitizacao Unicode (2026-09-28)
+**Problema:** O PR #33 (reorganizacao documental, 88 arquivos) apresentava falha de deployment Vercel por build-rate-limit e aviso de Unicode oculto/bidirecional; merge nao podia ser liberado so com gates locais.
+**Solucao:** Auditoria: (1) gh pr checks 33 — ci pass, codeql pass, CodeQL pass, e2e/deploy-stagging skipped, Vercel FAIL (rate limit, retry 24h); (2) branch main NAO tem protecao (HTTP 404) — nenhum check e obrigatorio via GitHub; mergeable=MERGEABLE; Vercel e StatusContext externo (mesma classe do bloqueio T058 ja conhecido), nao falha de codigo; (3) scan Unicode (scripts/scan-unicode-docs.mjs) encontrou 12x U+00A0 NBSP em SECURITY_REVIEW.md e MONITORING.md (herdados dos merges) — sanitizados para espaco regular, scan re-executado CLEAN; (4) 15 skeletons validados e corrigidos com metadata minima (objetivo/escopo/status/owner/proximas acoes/referencias); (5) CHANGELOG.md movido para docs/08 — ponteiro curto criado na raiz por convencao. Merge autorizado somente com todas as condicoes atendidas.
+**Risco aberto:** Vercel build-rate-limit segue como risco externo (T058/S14); OS bookworm aguarda decisao formal do Operador (T081).
+**Arquivos afetados:** docs/**, scripts/scan-unicode-docs.mjs, docs/unicode-scan-pr33.md, CHANGELOG.md (ponteiro raiz), DECISOES.md, logs/episodes.jsonl.
+**Proxima:** Merge squash do PR #33 se gates verdes; apos merge, T067/T086 higiene opcional; T058/S14/T081 aguardam Operador.

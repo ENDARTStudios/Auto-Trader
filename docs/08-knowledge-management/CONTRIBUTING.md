@@ -1,16 +1,29 @@
-﻿# Contributing
+# Como contribuir
 
-> Esqueleto criado na reorganizacao de docs (2026-09-27).
+> Esqueleto criado na reorganizacao F16 (2026-09-28) e validado com metadata minima (T088).
 
-## Visao Geral
+## Objetivo
 
-_A preencher._
+Guia de contribuicao: branch, PR, mensagem conventional, gates exigidos e checklist.
 
-## Detalhes
+## Escopo
 
-_A preencher._
+Esqueletizado na reorganizacao F16 (2026-09-28). Convencoes ja existentes em AGENT_GUIDE/AGENT_AUTONOMO_DOER.
+
+## Status
+
+Esqueleto validado T088; consolidacao pendente
+
+## Owner/Responsavel
+
+Doer
+
+## Proximas Acoes
+
+Consolidar convencoes de commit (feat/fix/docs/security/test/chore); checklist de PR com gates; linkar para AGENT_GUIDE.
 
 ## Referencias
 
-- README.md (indice)
-
+- `AGENT_GUIDE.md`
+- `AGENT_AUTONOMO_DOER.md`
+- `.github/pull_request_template.md`

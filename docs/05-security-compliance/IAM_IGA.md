@@ -1,16 +1,28 @@
-﻿# IAM / IGA
+# IAM / IGA (Identity & Access Management)
 
-> Esqueleto criado na reorganizacao de docs (2026-09-27).
+> Esqueleto criado na reorganizacao F16 (2026-09-28) e validado com metadata minima (T088).
 
-## Visao Geral
+## Objetivo
 
-_A preencher._
+Gestao de identidades e governanca de acessos: integracao com NextAuth, lifecycle de contas e auditoria.
 
-## Detalhes
+## Escopo
 
-_A preencher._
+Esqueletizado na reorganizacao F16 (2026-09-28). NextAuth previsto no roadmap de producao.
+
+## Status
+
+Esqueleto validado T088; implementacao futura
+
+## Owner/Responsavel
+
+Doer + Operador
+
+## Proximas Acoes
+
+Definir fluxo de provisioning/deprovisioning; integrar com RBAC existente; documentar revisoes periodicas de acesso (IGA).
 
 ## Referencias
 
-- README.md (indice)
-
+- `docs/05-security-compliance/RBAC.md`
+- `docs/01-product-discovery/ROADMAP.md`

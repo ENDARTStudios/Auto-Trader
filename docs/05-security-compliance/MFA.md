@@ -1,16 +1,28 @@
-﻿# MFA
+# Autenticacao multifator (MFA)
 
-> Esqueleto criado na reorganizacao de docs (2026-09-27).
+> Esqueleto criado na reorganizacao F16 (2026-09-28) e validado com metadata minima (T088).
 
-## Visao Geral
+## Objetivo
 
-_A preencher._
+Definir politica de MFA para contas admin/trader; implementacao via TOTP.
 
-## Detalhes
+## Escopo
 
-_A preencher._
+Esqueletizado na reorganizacao F16 (2026-09-28). Sem autenticacao implementada no MVP.
+
+## Status
+
+Esqueleto validado T088; implementacao futura
+
+## Owner/Responsavel
+
+Doer + Operador
+
+## Proximas Acoes
+
+Definir quais roles exigem MFA; escolher provedor TOTP; implementar fluxo de enrollment e recovery.
 
 ## Referencias
 
-- README.md (indice)
-
+- `docs/05-security-compliance/RBAC.md`
+- `docs/01-product-discovery/ROADMAP.md`

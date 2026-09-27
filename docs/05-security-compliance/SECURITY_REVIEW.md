@@ -1,4 +1,4 @@
-﻿
+
 
 ---
 
@@ -76,23 +76,23 @@
 |---|---|---|---|---|
 | 1 | **AutenticaÃ§Ã£o** | `src/lib/auth/*`, `/api/auth/*` | Weak hash, sem lockout, sem MFA, token em localStorage | ðŸ”´ CrÃ­tico |
 | 2 | **AutorizaÃ§Ã£o / RBAC** | `docs/RBAC.md`, `src/lib/auth/rbac.ts` | Rota sem `requirePermission`, IDOR, privilege escalation | ðŸ”´ CrÃ­tico |
-| 3 | **Rotas** | `src/app/api/**` | Rota sem validaÃ§Ã£o Zod, sem rate limit, expÃµe internals | ðŸŸ  Alto |
-| 4 | **Banco** | `prisma/schema.prisma` | Sem RLS, sem Ã­ndice, query sem limite, cascade perigosa | ðŸŸ  Alto |
+| 3 | **Rotas** | `src/app/api/**` | Rota sem validaÃ§Ã£o Zod, sem rate limit, expÃµe internals | ðŸŸ  Alto |
+| 4 | **Banco** | `prisma/schema.prisma` | Sem RLS, sem Ã­ndice, query sem limite, cascade perigosa | ðŸŸ  Alto |
 | 5 | **Inputs** | Todas as rotas POST/PUT | Sem Zod, sem sanitize, XSS via `dangerouslySetInnerHTML` | ðŸ”´ CrÃ­tico |
 | 6 | **Secrets** | `src/**`, `.env`, logs | Hardcoded key, log com secret, `.env` commitado | ðŸ”´ CrÃ­tico |
-| 7 | **Uploads** | `/api/upload` (futuro) | Sem MIME check (magic bytes), sem tamanho, sem ClamAV | ðŸŸ  Alto |
-| 8 | **Webhooks** | `/api/webhooks/*` | Sem HMAC verify, sem idempotÃªncia, sem replay guard | ðŸŸ  Alto |
+| 7 | **Uploads** | `/api/upload` (futuro) | Sem MIME check (magic bytes), sem tamanho, sem ClamAV | ðŸŸ  Alto |
+| 8 | **Webhooks** | `/api/webhooks/*` | Sem HMAC verify, sem idempotÃªncia, sem replay guard | ðŸŸ  Alto |
 | 9 | **SQL Injection** | `src/lib/db.ts`, raw queries | String concat em SQL (Prisma jÃ¡ parametriza â€” verificar raw) | ðŸ”´ CrÃ­tico |
-| 10 | **XSS** | `src/components/**`, `src/app/**` | `dangerouslySetInnerHTML` sem DOMPurify, URL sem encode | ðŸŸ  Alto |
+| 10 | **XSS** | `src/components/**`, `src/app/**` | `dangerouslySetInnerHTML` sem DOMPurify, URL sem encode | ðŸŸ  Alto |
 | 11 | **SSRF** | `src/lib/trading/site-integrity.ts`, `price-feed.ts` | `fetch(userInputUrl)` sem allowlist, sem timeout | ðŸ”´ CrÃ­tico |
 | 12 | **APIs externas** | `token-selector`, `price-feed`, `goplus` | Sem timeout, sem retry com backoff, sem circuit breaker | ðŸŸ¡ MÃ©dio |
 | 13 | **Criptografia** | `wallet-crypto.ts`, `kdf.ts`, `audit-log.ts` | Hardcoded KDF iters, sem zeroize, hash sem salt | ðŸ”´ CrÃ­tico |
-| 14 | **SessÃ£o** | `src/lib/auth/session.ts` | Cookie sem `httpOnly`/`Secure`/`SameSite`, TTL longo | ðŸŸ  Alto |
-| 15 | **IA Agent** | `src/lib/trading/ai-agent.ts` | Prompt injection (user input vira instruÃ§Ã£o LLM), tool excessivo | ðŸŸ  Alto |
+| 14 | **SessÃ£o** | `src/lib/auth/session.ts` | Cookie sem `httpOnly`/`Secure`/`SameSite`, TTL longo | ðŸŸ  Alto |
+| 15 | **IA Agent** | `src/lib/trading/ai-agent.ts` | Prompt injection (user input vira instruÃ§Ã£o LLM), tool excessivo | ðŸŸ  Alto |
 | 16 | **SAST/IaC** | `Dockerfile`, `Caddyfile`, `docker-compose.yml` | `chmod 777`, `FROM` sem pin, secrets em ENV do Dockerfile | ðŸŸ¡ MÃ©dio |
-| 17 | **Race condition** | `portfolio.ts`, `engine.ts` (busy guard) | Double-spend, TOCTOU em rebalance, concurrent openPosition | ðŸŸ  Alto |
+| 17 | **Race condition** | `portfolio.ts`, `engine.ts` (busy guard) | Double-spend, TOCTOU em rebalance, concurrent openPosition | ðŸŸ  Alto |
 | 18 | **ConfiguraÃ§Ãµes perigosas** | `next.config.ts`, `eslint.config.mjs` | `ignoreBuildErrors:true`, `reactStrictMode:false` sem justificativa | ðŸŸ¡ MÃ©dio |
-| 19 | **DependÃªncias** | `package.json`, `bun.lock` | `npm audit` high, dep sem lock, postinstall sem review | ðŸŸ  Alto |
+| 19 | **DependÃªncias** | `package.json`, `bun.lock` | `npm audit` high, dep sem lock, postinstall sem review | ðŸŸ  Alto |
 | 20 | **CODEOWNERS** | `.github/CODEOWNERS` | Sem owner para `src/lib/chain/**`, `src/signer/**`, `prisma/**` | ðŸŸ¡ MÃ©dio |
 
 ---
@@ -225,7 +225,7 @@ Para PR que toca **auth, APIs pÃºblicas, signer/vault, config de risco, webhoo
 ## 3. Fluxo de triagem de achado (CVE/vuln)
 
 1. **Classificar:** explorÃ¡vel aqui? (ex.: CVE de tar em build vs CVE em rota autenticada).
-2. **Contexto:** o CI registra causa raiz (ex.: T054 â€” "falhas" do Trivy eram `continue-on-error` com CVEs node-tar; documentar â‰  ignorar).
+2. **Contexto:** o CI registra causa raiz (ex.: T054 â€” "falhas" do Trivy eram `continue-on-error` com CVEs node-tar; documentar â‰  ignorar).
 3. **Corrigir ou mitigar:** bump de dependÃªncia > patch > mitigaÃ§Ã£o documentada com prazo.
 4. **Registrar:** em `SECURITY.md` (REG) ou `DECISOES.md`;CVE nÃ£o-explorÃ¡vel fica com justificativa visÃ­vel â€” nunca silenciado por flag de CI.
 
