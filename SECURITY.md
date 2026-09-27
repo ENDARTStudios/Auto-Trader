@@ -2113,3 +2113,9 @@ pm install @sentry/nextjs + ly secrets set SENTRY_DSN=.... The eforeSend scrub
 ## SEC-ENV — Incidente .env rastreado (ABERTO, T092 — 2026-09-28)
 
 **Status:** INCIDENTE ABERTO. .env estava rastreado com 4 commits de histórico e 2 chaves com valores reais suspeitos (DATABASE_URL, TYPESAFE_API_KEY). Containment do tree executado (T092): git rm --cached .env + .gitignore + .env.example. **Histórico permanece exposto** — rotação de chaves e decisão sobre purge/rewrite são ações do Operador. Detalhes: docs/security-incident-env.md.
+
+---
+
+## GOV-001 — Proposta de Branch Protection (T090, NÃO APLICADA)
+
+**Status:** proposta documental em docs/branch-protection-policy.md; main segue SEM proteção formal (evidência: gh api .../branches/main/protection = HTTP 404). Regra mínima proposta: PR obrigatório; ci/codeql/gitleaks verdes obrigatórios; proibição de force push e deleção de main; e2e condicional (obrigatório em mudanças de runtime/UI, skipped aceitável para docs-only documentado); Vercel monitorado não bloqueante para docs-only; Trivy non-blocking até T081; anti-regressão: .env/segredos nunca rastreados; escalonamento ao Operador para PRs que toquem segredos/auth/workflows/Docker/dependências. **Aplicação é decisão soberana do Operador.**

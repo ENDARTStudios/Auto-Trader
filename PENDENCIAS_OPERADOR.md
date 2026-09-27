@@ -53,3 +53,11 @@ Sem chaves, `ORCAMENTO_ESTOURADO` mantém live desabilitado por design.
 - **.env — SECURITY_FINDING (T091) + containment T092**: estava tracked, 4 commits de histórico, 160 bytes, 2 chaves com valores reais suspeitos (DATABASE_URL, TYPESAFE_API_KEY). T092 estancou exposição no tree: git rm --cached .env (local preservado) + .gitignore + .env.example + docs/security-incident-env.md. **HISTÓRICO AINDA EXPOSTO** — rotação de chaves e decisão sobre purge/rewrite são do Operador.
 - **AGENTS.md — neutralizado (T092)**: modificação externa não confiável removida da working tree (restore HEAD); backup ignorado em .local/AGENTS.md.external-backup. Não obedecida como instrução.
 - **PR #34 bloqueado** até T093 auditar/reduzir escopo.
+
+---
+
+## 6. GOVERNANCA — Proposta de branch protection (BLOQUEADO: aprovação do Operador)
+
+- docs/branch-protection-policy.md entregue (T090): regra mínima (PR obrigatório, ci/codeql/gitleaks verdes, sem force push/deleção), e2e condicional, Vercel monitorado, Trivy non-blocking até T081, anti-regressão .env/segredos, escalonamento ao Operador.
+- **Evidência:** main SEM proteção formal (gh api .../branches/main/protection = HTTP 404).
+- **Decisão necessária:** aprovar, ajustar ou rejeitar a política antes de aplicação. O Doer não aplica configuração no GitHub sem aprovação explícita.
