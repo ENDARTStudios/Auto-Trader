@@ -18,7 +18,7 @@
 | `src/lib/etl/wikipedia.ts` | "Wikipedia connector (mock)", summaries com Flamengo, Palmeiras, Copa do Brasil | DELETADO |
 | `src/lib/etl/run.ts` | `runETL` que importava rsssf/fbref/wikipedia e indexava clubs/players | DELETADO e REESCRITO com crypto-only |
 | `tests/etl.test.ts` | "ETL" tests com `fetchRSSSF` 20 clubs, `fetchFBref` 20 players, etc. | REESCRITO com "Crypto ETL" tests com `fetchCoinGecko` 10 tokens, `fetchDexScreener` 10 pairs, `fetchGoPlus` 5 audits, `fetchEtherscan` 5 contracts |
-| `docs/PRD.md`, `docs/RBAC.md`, `docs/ARCHITECTURE.md`, `docs/ERROR_REPORTING.md`, `docs/SECURITY_AUDIT.md`, `docs/OBSERVABILITY.md`, `docs/TESTING.md`, `docs/LINT.md`, `docs/SEO.md`, `docs/MOTION.md`, `docs/WAF_RATE_LIMIT.md`, `docs/TLS_HSTS.md`, `docs/UML.md`, `docs/CRYPTO.md`, `docs/SECRETS.md`, `docs/RLS.md` | Todos escopo Auto Trader (verificados, zero refs ao Almanaque) | OK |
+| `docs/01-product-discovery/PRD.md`, `docs/05-security-compliance/RBAC.md`, `docs/02-architecture-design/ARCHITECTURE.md`, `docs/07-operations-marketing/ERROR_HANDLING.md`, `docs/05-security-compliance/SECURITY_REVIEW.md`, `docs/07-operations-marketing/MONITORING.md`, `docs/03-development-process/TESTING.md`, `docs/03-development-process/LINT.md`, `docs/07-operations-marketing/SEO.md`, `docs/02-architecture-design/MOTION.md`, `docs/05-security-compliance/WAF_RATE_LIMIT.md`, `docs/05-security-compliance/TLS_HSTS.md`, `docs/02-architecture-design/UML.md`, `docs/05-security-compliance/CRYPTO.md`, `docs/05-security-compliance/SECRETS.md`, `docs/05-security-compliance/RLS.md` | Todos escopo Auto Trader (verificados, zero refs ao Almanaque) | OK |
 
 ---
 
@@ -58,10 +58,10 @@
 |-------|--------|-------|------|
 | 1 | `c76b702` | eslint 57→0 (`eslint.config.mjs` ignore .claude/scripts/graft + page.tsx hooks antes guard + 3 set-state-in-effect disables) | `npx eslint .` 0 |
 | 2 | `27877b7` | npm audit 29→9 (`sharp 0.34.5→0.35.4` CVE high, residual 9 via prisma/mdxeditor breaking) | `npm audit` 9, `next build` 44 rotas |
-| 3 | `2c47d2e` | `docs/INCIDENT_RESPONSE.md:1` SEV1-4 + `MANUAL_DO_OPERADOR.md:1` 5min install, PLANO 9.8/9.9 `[x]` | `next build` 44 |
+| 3 | `2c47d2e` | `docs/05-security-compliance/INCIDENT_RESPONSE.md:1` SEV1-4 + `MANUAL_DO_OPERADOR.md:1` 5min install, PLANO 9.8/9.9 `[x]` | `next build` 44 |
 | 4 | `64cc42e` | `Dockerfile:6` 3-stage `prune --omit=dev` + `ci.yml:75` Trivy `HIGH,CRITICAL` | PLANO 9.1.5 `[x]` |
 | 5 | `970e637` | `src/lib/sanitize.ts:1` DOMPurify fallback, `src/lib/idempotency.ts:1` TTL 24h, `docs/openapi.json:1` 3.1.0 8 paths, `public/manifest.json:1` PWA | PLANO 4.11/4.12/5.8/5.12 `[x]` |
-| 6 | `6f3dc8b` | `src/app/api/upload/route.ts:1` 501 6.1.1-6.1.5 magic+MAX_BYTES, `.github/workflows/zap.yml:1` DAST weekly, `docs/TLS_HSTS.md:7` DNSSEC/CAA | PLANO 6.1/7.10/8.6 `[x]` |
+| 6 | `6f3dc8b` | `src/app/api/upload/route.ts:1` 501 6.1.1-6.1.5 magic+MAX_BYTES, `.github/workflows/zap.yml:1` DAST weekly, `docs/05-security-compliance/TLS_HSTS.md:7` DNSSEC/CAA | PLANO 6.1/7.10/8.6 `[x]` |
 | 7 | `bb405a5` | PLANO 3.3/9.1.6/9.3/9.4 `[x]` (Session 7d, deploy-staging `environment:staging` `FLY_API_TOKEN`, blue-green `fly releases rollback`, Fly.io `DECISOES 60`) | PLANO 0 `[ ]` reais (só template 307) |
 
 **Gaps finais:** 0 pendências reais. Template `PLANO_MESTRE.md:307` `[ ]` é instrução, não tarefa.
@@ -132,7 +132,7 @@
 
 ## 15. T060 — Fechamento T052/T051, D025 registrada (2026-09-24)
 
-> REVIEW R041 (T052) = APPROVED e R042 (T051) = APPROVED. T052: TDD 18/18, suíte 35 files 408 passed/1 skip, eslint 0/0, commits `fd35fec`+`65f6134`, runs `35932052281` e `35932769421` success. T051: `docs/s34-remediation-plan.md` plan-only, zero upgrades. D025 aprova ambas e define próximo ciclo: **T061** (Phase A higiene CI, branch isolada) + **T062** (axe a11y, devDependency revisada) em paralelo; **T058** visual e **S14** live seguem com o Operador. CVEs node-tar HIGH/CRITICAL abertos; CI verde ≠ dependências seguras.
+> REVIEW R041 (T052) = APPROVED e R042 (T051) = APPROVED. T052: TDD 18/18, suíte 35 files 408 passed/1 skip, eslint 0/0, commits `fd35fec`+`65f6134`, runs `35932052281` e `35932769421` success. T051: `docs/05-security-compliance/s34-remediation-plan.md` plan-only, zero upgrades. D025 aprova ambas e define próximo ciclo: **T061** (Phase A higiene CI, branch isolada) + **T062** (axe a11y, devDependency revisada) em paralelo; **T058** visual e **S14** live seguem com o Operador. CVEs node-tar HIGH/CRITICAL abertos; CI verde ≠ dependências seguras.
 
 ## 16. T063 — Merges #24/#25 + T061/T062 DONE (2026-09-24)
 
@@ -160,7 +160,7 @@
 
 ## 22. T082 - Merge PR #30 + fechamento T079 Phase C2, D040 (2026-09-25)
 
-> R059 (T079) = APPROVED com auditoria de diff. `gh pr diff 30 --name-only` = apenas `Dockerfile`, `docs/s34-remediation-plan.md`, `logs/episodes.jsonl`; upgrade `libcap2/libgnutls30/libpcre2-8-0` codificado no **stage runner do Dockerfile** (imagem final), não em step efêmero de CI. Squash merge `77b5e7e` (branch `chore/s34-phase-c2-base-update` deletada); main pós-merge `36156480225` success (ci 7m40s / e2e 4m14s / codeql 1m51s). Trivy 65→56 (9 alvos zerados). D040: T080 = próximo caminho crítico (hardening); T078 posterior (evita conflito doc); T081 só após T080 + Operador. 52 achados OS bookworm **permanecem abertos**; `continue-on-error` mantido; imagem NÃO declarada segura.
+> R059 (T079) = APPROVED com auditoria de diff. `gh pr diff 30 --name-only` = apenas `Dockerfile`, `docs/05-security-compliance/s34-remediation-plan.md`, `logs/episodes.jsonl`; upgrade `libcap2/libgnutls30/libpcre2-8-0` codificado no **stage runner do Dockerfile** (imagem final), não em step efêmero de CI. Squash merge `77b5e7e` (branch `chore/s34-phase-c2-base-update` deletada); main pós-merge `36156480225` success (ci 7m40s / e2e 4m14s / codeql 1m51s). Trivy 65→56 (9 alvos zerados). D040: T080 = próximo caminho crítico (hardening); T078 posterior (evita conflito doc); T081 só após T080 + Operador. 52 achados OS bookworm **permanecem abertos**; `continue-on-error` mantido; imagem NÃO declarada segura.
 
 ## 12. Próximos (se `Prossiga`)
 
@@ -174,16 +174,16 @@
 
 ## 23. T083 - Merge PR #31 + fechamento T080 hardening, D042 (2026-09-26)
 
-> R061 (T080) = APPROVED. `gh pr diff 31 --name-only` = apenas `Dockerfile`, `docker-compose.yml`, `docs/docker-hardening.md`, `docs/s34-remediation-plan.md`, `SECURITY.md`, `logs/episodes.jsonl` (sem package*/src/e2e/workflows). Squash merge `efb07fa` (branch `chore/s34-docker-hardening` deletada); main pos-merge `36195981127` success (ci 7m32s / e2e 4m3s / codeql 1m45s). Hardening em main: non-root (`USER node`), `HOSTNAME=0.0.0.0` (fix bind), runtime read-only/tmpfs/no-new-privs/cap_drop/init, compose `app` em `profiles: ["app"]`. Evidencia /proc: `Uid=1000`/`CapEff=0`/`NoNewPrivs=1`; endpoints 200 sob hardening; write_errors=0. D042: T078 (docs) em seguida; T081 (aceite formal) condicionada a T078. 52 achados OS bookworm **seguem abertos com risco mitigado**; `continue-on-error` mantido; imagem nao declarada segura.
+> R061 (T080) = APPROVED. `gh pr diff 31 --name-only` = apenas `Dockerfile`, `docker-compose.yml`, `docs/06-devops-deployment/docker-hardening.md`, `docs/05-security-compliance/s34-remediation-plan.md`, `docs/05-security-compliance/SECURITY.md`, `logs/episodes.jsonl` (sem package*/src/e2e/workflows). Squash merge `efb07fa` (branch `chore/s34-docker-hardening` deletada); main pos-merge `36195981127` success (ci 7m32s / e2e 4m3s / codeql 1m45s). Hardening em main: non-root (`USER node`), `HOSTNAME=0.0.0.0` (fix bind), runtime read-only/tmpfs/no-new-privs/cap_drop/init, compose `app` em `profiles: ["app"]`. Evidencia /proc: `Uid=1000`/`CapEff=0`/`NoNewPrivs=1`; endpoints 200 sob hardening; write_errors=0. D042: T078 (docs) em seguida; T081 (aceite formal) condicionada a T078. 52 achados OS bookworm **seguem abertos com risco mitigado**; `continue-on-error` mantido; imagem nao declarada segura.
 
 ## 24. T084 - Saneamento JSONL do episodes + validator (2026-09-26)
 
-> R062 (T083) = APPROVED e criou T084: 6/36 linhas malformadas pre-existentes em `logs/episodes.jsonl` (D043). Reparo sintatico lossless em branch `chore/episodes-jsonl-integrity` (PR draft): L1 BOM+`}`; L4 `1_preexistente` entre aspas+`}`; L5 `}`; L8/L14 `{ }` em objetos malformados (ressalva estrutural revisavel); L13 `-}`. Provas: 36->36, 30/30 byte-identicas ao HEAD, ordem `tarefa_id` 36/36, campos semanticos iguais; `scripts/validate-episodes.mjs` exit 0; `docs/episodes-integrity.md` com politica/antes-depois/limitacoes. Sem reescrita de historico Git. T078 so apos T084 merged; T081 so apos T078.
+> R062 (T083) = APPROVED e criou T084: 6/36 linhas malformadas pre-existentes em `logs/episodes.jsonl` (D043). Reparo sintatico lossless em branch `chore/episodes-jsonl-integrity` (PR draft): L1 BOM+`}`; L4 `1_preexistente` entre aspas+`}`; L5 `}`; L8/L14 `{ }` em objetos malformados (ressalva estrutural revisavel); L13 `-}`. Provas: 36->36, 30/30 byte-identicas ao HEAD, ordem `tarefa_id` 36/36, campos semanticos iguais; `scripts/validate-episodes.mjs` exit 0; `docs/03-development-process/episodes-integrity.md` com politica/antes-depois/limitacoes. Sem reescrita de historico Git. T078 so apos T084 merged; T081 so apos T078.
 
 ## 25. T085 - Merge PR #32 + fechamento T084, D044 (2026-09-27)
 
-> R063 (T084) = APPROVED (protocol_integrity `pass_com_restricao`). Auditoria pre-merge: `gh pr diff 32 --name-only` = apenas `DECISOES.md`, `SPRINT.md`, `docs/episodes-integrity.md`, `logs/episodes.jsonl`, `scripts/validate-episodes.mjs` (sem package*/src/e2e/workflows/Dockerfile); hunk audit do episodes = exatamente 6 pares de linha (hunks L1, L4-5, L8, L13-14); validator 36/36 exit 0 pre e pos-merge. Squash merge `4caf78b` (branch `chore/episodes-jsonl-integrity` deletada); main pos-merge `36261942375` success (ci 7m48s / e2e 3m47s / codeql 2m0s). Ressalva estrutural L8/L14 preservada como excecao controlada (nao normalizacao semantica). D044: validator **NAO** integrado ao CI/pre-push (backlog opcional T086, exige autorizacao futura); `continue-on-error` mantido; 52 achados OS bookworm seguem abertos com risco mitigado. T078 **liberada**; T081 apos T078; T058/S14 com o Operador.
+> R063 (T084) = APPROVED (protocol_integrity `pass_com_restricao`). Auditoria pre-merge: `gh pr diff 32 --name-only` = apenas `DECISOES.md`, `SPRINT.md`, `docs/03-development-process/episodes-integrity.md`, `logs/episodes.jsonl`, `scripts/validate-episodes.mjs` (sem package*/src/e2e/workflows/Dockerfile); hunk audit do episodes = exatamente 6 pares de linha (hunks L1, L4-5, L8, L13-14); validator 36/36 exit 0 pre e pos-merge. Squash merge `4caf78b` (branch `chore/episodes-jsonl-integrity` deletada); main pos-merge `36261942375` success (ci 7m48s / e2e 3m47s / codeql 2m0s). Ressalva estrutural L8/L14 preservada como excecao controlada (nao normalizacao semantica). D044: validator **NAO** integrado ao CI/pre-push (backlog opcional T086, exige autorizacao futura); `continue-on-error` mantido; 52 achados OS bookworm seguem abertos com risco mitigado. T078 **liberada**; T081 apos T078; T058/S14 com o Operador.
 
 ## 26. T081 — Proposta formal de aceite de risco OS bookworm (2026-09-27)
 
-> D045 = APPROVED (não aceita pelo Doer; decisão soberana do Operador). `docs/risk-acceptance-proposal.md`: inventário reconciliado 65→56 (52 residuais HIGH 52 / CRITICAL 4); controles validados; limitações; monitoramento/expiry 90 dias; Operator Decision Box A/B/C/D; separação absoluta T058/S14. Nenhum runtime/workflow/dependência alterado.
+> D045 = APPROVED (não aceita pelo Doer; decisão soberana do Operador). `docs/05-security-compliance/risk-acceptance-proposal.md`: inventário reconciliado 65→56 (52 residuais HIGH 52 / CRITICAL 4); controles validados; limitações; monitoramento/expiry 90 dias; Operator Decision Box A/B/C/D; separação absoluta T058/S14. Nenhum runtime/workflow/dependência alterado.

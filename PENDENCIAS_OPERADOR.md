@@ -36,12 +36,12 @@ Sem chaves, `ORCAMENTO_ESTOURADO` mantém live desabilitado por design.
 - node-tar HIGH/CRITICAL: **mitigado** (PR #29 em main; tar 7.5.22; zero ocorrências).
 - Phase C2: **concluída** (PR #30, merge `77b5e7e`; D040) — 9 CVEs OS remediáveis zerados (Trivy 65→56); `continue-on-error` mantido.
 - Hardening: **validado e mergeado** (PR #31, merge `efb07fa`; R061 APPROVED; D042) — non-root, read-only/tmpfs/no-new-privileges/cap_drop/init, fix de bind `HOSTNAME`; `/proc` `Uid=1000`/`CapEff=0`/`NoNewPrivs=1`, endpoints 200, write_errors=0.
-- Episodes: **saneado e mergeado** (PR #32, merge `4caf78b`; R063 APPROVED; D043/D044) — trilha 36/36 parseável, ressalva estrutural L8/L14 documentada em `docs/episodes-integrity.md`; validator local (não em CI — backlog T086).
+- Episodes: **saneado e mergeado** (PR #32, merge `4caf78b`; R063 APPROVED; D043/D044) — trilha 36/36 parseável, ressalva estrutural L8/L14 documentada em `docs/03-development-process/episodes-integrity.md`; validator local (não em CI — backlog T086).
 - OS Debian bookworm: **52 achados sem fix upstream permanecem abertos** — risco **mitigado por controles validados, não corrigido**; aceite formal pendente. Exit-1 do Trivy = backlog OS, NÃO exceção node-tar. Imagem NÃO declarada totalmente segura.
 - Pendências internas (não do Operador, sem bloquear T058): T078 docs bun vs Node standalone + narrativa hardening + risco residual (**liberada — T085 merged**), T081 aceite formal **somente após T078 + decisão explícita do Operador**.
   
 ---  
 ## 4. T081 - Proposta formal de risco OS bookworm (BLOQUEADO: decisao soberana do Operador - nao aceita pelo Doer)  
-- Proposta docs/risk-acceptance-proposal.md entregue (D045, 2026-09-27): 52 achados sem fix (HIGH 52 / CRITICAL 4), mitigados por hardening.  
+- Proposta docs/05-security-compliance/risk-acceptance-proposal.md entregue (D045, 2026-09-27): 52 achados sem fix (HIGH 52 / CRITICAL 4), mitigados por hardening.  
 - Decisao NAO tomada pelo Doer. Operador deve marcar A/B/C/D.  
 - Nenhum runtime/Docker/workflow alterado. continue-on-error mantido. Imagem NAO segura. 
