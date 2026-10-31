@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
   security-events: write
+  # Gitleaks PR-mode comenta no PR (Resource not accessible by integration sem isso)
+  pull-requests: write
+  # CodeQL analyze consulta o workflow run (Get a workflow run precisa de actions:read)
+  actions: read
 
 jobs:
   ci:
