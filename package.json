@@ -134,6 +134,7 @@
       "deepmerge-ts": "^8.0.0",
       "effect": "^3.20.0"
     },
-    "eslint-plugin-react-hooks": "7.1.1"
+    "eslint-plugin-react-hooks": "7.1.1",
+    "undici": "^8.12.3"
   }
 }
