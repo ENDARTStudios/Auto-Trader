@@ -171,6 +171,18 @@ export const EXTERNAL_SYSTEMS: ExternalSystem[] = [
     advisoryOnly: true,
   },
   {
+    id: 'day-trader-skill',
+    skillFile: 'skills/ext-day-trader.md',
+    repo: 'https://github.com/Jakeschincariol/day-trader-skill',
+    category: 'trading',
+    role: 'Pipeline day-trading risk-first: exit antes do entry, gate PASS/BLOCK, MC 10k + replay de setups (MIT)',
+    layers: ['perception', 'backtest', 'risk', 'operation'],
+    license: 'MIT',
+    licenseClass: 'permissive',
+    status: 'spec-only',
+    advisoryOnly: true,
+  },
+  {
     id: 'codebase-memory-mcp',
     skillFile: 'skills/agent-codebase-memory-mcp.md',
     repo: 'https://github.com/DeusData/codebase-memory-mcp',

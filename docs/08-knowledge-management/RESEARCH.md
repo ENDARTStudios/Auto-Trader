@@ -5,11 +5,11 @@
 
 ---
 
-## 1. Sistemas externos analisados (21 repos)
+## 1. Sistemas externos analisados (22 repos)
 
-Índice completo com evidências: `skills/EXTERNAL_SYSTEMS_INDEX.md` (Partes 1-3; inclui OpenStock e a rejeição do REA). Plano de implementação faseada por sistema: [EXTERNAL_SYSTEMS_ROADMAP.md](../04-api-integrations/EXTERNAL_SYSTEMS_ROADMAP.md).
+Índice completo com evidências: `skills/EXTERNAL_SYSTEMS_INDEX.md` (Partes 1-3; inclui OpenStock, Day Trader Skill e a rejeição do REA). Plano de implementação faseada por sistema: [EXTERNAL_SYSTEMS_ROADMAP.md](../04-api-integrations/EXTERNAL_SYSTEMS_ROADMAP.md).
 
-- **10 de trading:** TradingAgents/Tauric (wired), CCXT (dependência), Backtrader, NautilusTrader, Freqtrade, VectorBT, Lumibot, Hummingbot, FinRL, OpenStock (referência UI).
+- **11 de trading:** TradingAgents/Tauric (wired), CCXT (dependência), Backtrader, NautilusTrader, Freqtrade, VectorBT, Lumibot, Hummingbot, FinRL, OpenStock (referência UI), Day Trader Skill (disciplina risk-first).
 - **11 de agent-infra:** memória, harness, coleta, diagramas, red-team, enxame.
 - **Política:** copyleft/fair-code/unverified = **SPEC-ONLY** (lemos a ideia, não copiamos código). Execução real só em S14, com envelope humano.
 

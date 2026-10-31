@@ -51,7 +51,16 @@ Cada item nasce de Issue → sprint ([TASK_BREAKING_DOWN](../03-development-proc
 - Fair-code (Commons Clause): proibido revenda baseada — spec de grade paramétrica (10k configs vetorizadas) e walk-forward split portados para TS puro em `mc-posterior.ts`/`backtest.ts`.
 - **Pronto quando:** grid sweep rodando sobre episodes/BacktestResult com forward OOS obrigatório (nunca in-sample).
 
-### II.4 FinRL → disciplina DRL (evolução, linha de pesquisa)
+### II.4 Day Trader Skill → disciplina de ticket risk-first (risk/backtest)
+- MIT, mas spec-only por doutrina. Port de **4 conceitos**:
+  1. **Ticket com exit obrigatório**: gerador (§9) rejeita tese-sem-stop+alvo pré-definidos — o `exit-planner.ts` valida antes do EXECUTE.
+  2. **Gate PASS/BLOCK pré-ordem**: checklist objetivo (max-loss, perda diária, trades/sessão, R:R mínimo, capital) como subconjunto objetivo dos kill switches no `risk-manager.ts`.
+  3. **Replay histórico de setup**: no `mc-posterior.ts`/`backtest.ts` — dada uma tese-snapshot, listar episódios passados similares + desfechos (forward OOS, nunca in-sample).
+  4. **Sizing expresso em max-loss**: episódios (`logs/episodes.jsonl`) sempre com "max loss $X = risco/unidade Y × N".
+- Domínio divergente (ações US ≠ crypto 24/7): setups ORB/flags viram padrões de tese no token-selector — não portar literal.
+- **Pronto quando:** checklist PASS/BLOCK com teste dedicado + replay documentado.
+
+### II.5 FinRL → disciplina DRL (evolução, linha de pesquisa)
 - MIT. Port do **protocolo**, não do código: train→test→trade separado, turbulence index → `unknown_regime`, ensemble calibrado.
 - Caminho realista: exportar features de `logs/episodes.jsonl` → treinar offline (Python, sandbox) → inferência via ONNX em TS como **challenger M_param** — só promove com Brier melhor que champion (§5.4).
 - **Pronto quando:** experimento documentado em RESEARCH.md com resultado (provável: dados insuficientes no paper inicial — registrar e adiar, isso é resultado válido).

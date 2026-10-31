@@ -11,12 +11,12 @@ const VALID_LICENSES = new Set<string>(['permissive', 'copyleft', 'fair-code', '
 const VALID_STATUS = new Set<string>(['wired', 'dependency', 'spec-only']);
 const VALID_CATEGORIES = new Set<string>(['trading', 'agent-infra']);
 
-describe('External systems registry (21 skills, advisory-only)', () => {
-  it('registry tem 21 sistemas (10 trading + 11 agent-infra), ids únicos', () => {
-    expect(EXTERNAL_SYSTEMS.length).toBe(21);
+describe('External systems registry (22 skills, advisory-only)', () => {
+  it('registry tem 22 sistemas (11 trading + 11 agent-infra), ids únicos', () => {
+    expect(EXTERNAL_SYSTEMS.length).toBe(22);
     const ids = EXTERNAL_SYSTEMS.map((s) => s.id);
-    expect(new Set(ids).size).toBe(21);
-    expect(byCategory('trading').length).toBe(10);
+    expect(new Set(ids).size).toBe(22);
+    expect(byCategory('trading').length).toBe(11);
     expect(byCategory('agent-infra').length).toBe(11);
   });
 

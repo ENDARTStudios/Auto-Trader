@@ -54,6 +54,7 @@ perception (TA analysts, CCXT público, Lumibot SEC/FRED) · debate (TA, Lumibot
 | # | Skill | Sistema (verificado em) | Função em uma frase | Camada v1.6 | Status | Licença |
 |---|-------|-------------------------|---------------------|-------------|--------|---------|
 | 21 | `ext-openstock.md` | OpenStock (2026-10-31) | Referência UI/UX de dashboard de mercado (heatmap/watchlist/sentimento) — zero código | Docs (UI) | SPEC-ONLY | **AGPL-3.0** |
+| 22 | `ext-day-trader.md` | Day Trader Skill (2026-10-31) | Pipeline day-trading risk-first (11 skills): exit antes do entry, gate PASS/BLOCK, Monte-Carlo 10k + replay de setups — espelho metodológico do §3/§9 | Perception/backtest/risk/op | SPEC-ONLY | MIT |
 | — | — | REA `morluto/rea` (2026-10-31) | Toolkit de engenharia reversa (MCP/CLI) — **avaliado e rejeitado**: os 10 repos-alvo são open source (leitura direta basta); REA não é mecanismo de aquisição/cópia e seu uso em software de terceiros viola a própria política dele | nenhuma | **REJEITADO** | MIT (irrelevante ao caso) |
 
 Plano de implementação faseada: [docs/04-api-integrations/EXTERNAL_SYSTEMS_ROADMAP.md](../docs/04-api-integrations/EXTERNAL_SYSTEMS_ROADMAP.md).
