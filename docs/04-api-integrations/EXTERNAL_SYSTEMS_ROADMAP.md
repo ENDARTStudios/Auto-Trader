@@ -60,12 +60,25 @@ Cada item nasce de Issue → sprint ([TASK_BREAKING_DOWN](../03-development-proc
 - Domínio divergente (ações US ≠ crypto 24/7): setups ORB/flags viram padrões de tese no token-selector — não portar literal.
 - **Pronto quando:** checklist PASS/BLOCK com teste dedicado + replay documentado.
 
-### II.5 FinRL → disciplina DRL (evolução, linha de pesquisa)
+### II.5 iFixAi → gate de auditoria comportamental do agente (risco/operação)
+- Apache-2.0, spec-only. O Doer autônomo tem bash + merge + escrita — as inspeções B01 (limite de papel), B08 (autorização de ação destrutiva) e P01 (injeção) mapeiam 1:1 os incidentes reais do repo (T092 `.env`, `git add -A` engolindo trabalho alheio).
+- Adoção: rodar o audit contra endpoint efêmero do agente/squad (paper, `test.db`, sanitizado) → nota A-F como evidência em `episodes.jsonl`; D em mínimo obrigatório = ESCALATED. Futuro: job de CI com `--min-score`.
+- **Pronto quando:** 1 audit executado com relatório anexado + critério de bloqueio documentado.
+
+### II.6 Hindsight → observations + mental models no pgvector (evolução)
+- MIT, spec-only. Evolução da memória do learner sobre o stack atual (Postgres+pgvector): `Observation` (crença consolidada com **proof counts e citação de episódios, refinada — nunca sobrescrita**) e `MentalModel` (resposta de pé reescrita em background — leitura vira lookup), derivadas de `episodes.jsonl` (que permanece append-only).
+- Recall 4-vias (semântica/BM25/grafo/temporal + RRF) sobre o RAG existente — converge com o skill `agent-agentmemory` (#12).
+- **Pronto quando:** schema + worker de consolidação com teste dedicado; debate (§5) consumindo mental models.
+
+### II.7 Paperclip → execution locks + budget por tarefa (operação)
+- MIT, spec-only. Para as sessões paralelas do Doer: **lock atômico por tarefa** (issue assignee = lock — elimina a colisão T085/T093 na origem), **hard stop de custo** por tarefa (`BUDGET_OVERFLOW` com enforcement real), template de aprovação formal (governança) em `PENDENCIAS_OPERADOR.md`.
+- **Pronto quando:** AGENT_GUIDE documentar o lock + 1 tarefa executada sob lock sem colisão.
+### II.8 FinRL → disciplina DRL (evolução, linha de pesquisa)
 - MIT. Port do **protocolo**, não do código: train→test→trade separado, turbulence index → `unknown_regime`, ensemble calibrado.
 - Caminho realista: exportar features de `logs/episodes.jsonl` → treinar offline (Python, sandbox) → inferência via ONNX em TS como **challenger M_param** — só promove com Brier melhor que champion (§5.4).
 - **Pronto quando:** experimento documentado em RESEARCH.md com resultado (provável: dados insuficientes no paper inicial — registrar e adiar, isso é resultado válido).
 
-### II.5 Hummingbot + Nautilus → reservados a S14
+### II.9 Hummingbot + Nautilus → reservados a S14
 - Execução real (S14-gated, frozen `live-trader.ts`/`chain/*`). Hummingbot: taxonomia de ordens/triple-barrier; Nautilus: traces versionados/shadow — a doutrina de autoridade §0/§8c JÁ foi absorvida (camada `doctrine`).
 - **Não tocar antes do gate S14** (aprovado pelo Operador).
 

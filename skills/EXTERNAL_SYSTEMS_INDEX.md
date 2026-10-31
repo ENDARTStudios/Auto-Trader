@@ -55,6 +55,13 @@ perception (TA analysts, CCXT público, Lumibot SEC/FRED) · debate (TA, Lumibot
 |---|-------|-------------------------|---------------------|-------------|--------|---------|
 | 21 | `ext-openstock.md` | OpenStock (2026-10-31) | Referência UI/UX de dashboard de mercado (heatmap/watchlist/sentimento) — zero código | Docs (UI) | SPEC-ONLY | **AGPL-3.0** |
 | 22 | `ext-day-trader.md` | Day Trader Skill (2026-10-31) | Pipeline day-trading risk-first (11 skills): exit antes do entry, gate PASS/BLOCK, Monte-Carlo 10k + replay de setups — espelho metodológico do §3/§9 | Perception/backtest/risk/op | SPEC-ONLY | MIT |
+| 23 | `agent-ifixai.md` | iFixAi (2026-10-31) | Auditoria comportamental independente de agentes: juiz cross-provider, 61 inspeções (escalação/destruição/injeção/isolamento), nota A-F, gate `--min-score` — complemento comportamental do Strix | Risco/operação | SPEC-ONLY | Apache-2.0 |
+| 24 | `agent-orca.md` | Orca (2026-10-31) | Doutrina de orquestração: um worktree isolado por agente, fan-out + merge do vencedor — resolve a classe de colisão de sessões paralelas deste repo | Doutrina (harness) | SPEC-ONLY | MIT |
+| 25 | `agent-hindsight.md` | Hindsight (2026-10-31) | Memória que aprende: observations com proof counts (refinadas, nunca sobrescritas), mental models, recall 4-vias RRF sobre pgvector — espelho do self_evolution_feedback_core | Doutrina/evolução | SPEC-ONLY | MIT |
+| 26 | `agent-magpie.md` | Magpie (2026-10-31) | Gateway local de LLM para agentes: failover de quota, privacy masking in-memory, tradução de protocolos — ferramenta do Operador (não aceita PRs) | Doutrina | SPEC-ONLY | MIT |
+| 27 | `agent-paperclip.md` | Paperclip (2026-10-31) | Orquestração de times de agentes: atomic task checkout (execution locks — destrava colisão de sessões paralelas), budgets com hard stop, governança/aprovações | Doutrina/operação | SPEC-ONLY | MIT |
 | — | — | REA `morluto/rea` (2026-10-31) | Toolkit de engenharia reversa (MCP/CLI) — **avaliado e rejeitado**: os 10 repos-alvo são open source (leitura direta basta); REA não é mecanismo de aquisição/cópia e seu uso em software de terceiros viola a própria política dele | nenhuma | **REJEITADO** | MIT (irrelevante ao caso) |
+
+> Nota: MiroFish (#20 na Parte 2, fork ES) teve o upstream `666ghj/MiroFish` (~83k★, AGPL-3.0, motor OASIS) revalidado em 2026-10-31 — registro atualizado para o upstream; classificação SPEC-ONLY mantida.
 
 Plano de implementação faseada: [docs/04-api-integrations/EXTERNAL_SYSTEMS_ROADMAP.md](../docs/04-api-integrations/EXTERNAL_SYSTEMS_ROADMAP.md).
