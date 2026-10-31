@@ -1,7 +1,7 @@
 // scripts/test-position-rls-direct.ts — S17: Position RLS test using direct Prisma access (no dev server)
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '@/lib/db';
 
-const db = new PrismaClient();
+const db = createPrismaClient();
 
 interface TestResult {
   name: string;

@@ -32,8 +32,9 @@
 // Output: prints inserted/skipped counts and exits 0 on success. Idempotent.
 
 const { PrismaClient } = require("@prisma/client");
+const { PrismaBetterSqlite3 } = require("@prisma/adapter-better-sqlite3");
 
-const db = new PrismaClient();
+const db = new PrismaClient({ adapter: (function () { const u = process.env.DATABASE_URL ?? 'file:./db/custom.db'; const p = u.startsWith('file:') ? u.slice(5) : u; mkdirSync(require('node:path').dirname(p), { recursive: true }); return new PrismaBetterSqlite3({ url: u }); })() });
 
 async function main() {
   console.log("→ Step 1: Reading completed Rounds with non-null roundPnlUsd…");

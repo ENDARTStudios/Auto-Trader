@@ -1,9 +1,9 @@
 // scripts/test-position-rls.ts — E2E RLS for Position with 2 traders (S07)
 // Usage: npx tsx scripts/test-position-rls.ts
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '@/lib/db';
 import { rlsWhere } from '../src/lib/auth/rls';
 
-const db = new PrismaClient();
+const db = createPrismaClient();
 
 async function main() {
   console.log('=== POSITION RLS 2 TRADERS ===');

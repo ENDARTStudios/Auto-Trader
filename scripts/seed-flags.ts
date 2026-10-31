@@ -1,7 +1,7 @@
 // scripts/seed-flags.ts — Seed FeatureFlag table with 9 flags from docs/ARCHITECTURE.md §4.2
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '@/lib/db';
 
-const db = new PrismaClient();
+const db = createPrismaClient();
 
 const FLAGS: Array<{ key: string; enabled: boolean; rolloutPct: number; description: string }> = [
   { key: 'enable_live_trading', enabled: false, rolloutPct: 100, description: 'Libera live mode (além da graduação) — kill switch duplo' },

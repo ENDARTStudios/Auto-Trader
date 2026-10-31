@@ -16,7 +16,7 @@
 
 const { PrismaClient } = require("@prisma/client");
 
-const db = new PrismaClient();
+const db = createPrismaClient();
 
 async function main() {
   console.log("→ Reading TradingBalance singleton…");

@@ -1,9 +1,9 @@
 // scripts/test-mfa.ts — MFA setup/verify + login with totp (DB direct, no HTTP)
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '@/lib/db';
 import { generateSecret, totp, verify } from '../src/lib/auth/totp';
 import { hashPasswordSync } from '../src/lib/auth/password';
 
-const db = new PrismaClient();
+const db = createPrismaClient();
 
 async function main() {
   console.log('=== MFA TESTS ===');

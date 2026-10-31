@@ -1134,8 +1134,8 @@ test("v19.3.2 XFF forgery rejected: without proxy secret, forged XFF is ignored 
 // ---------------------------------------------------------------------------
 async function main() {
   // Dynamic imports inside main() — avoids top-level await.
-  const { PrismaClient } = await import("@prisma/client");
-  db = new PrismaClient();
+  const { createPrismaClient } = { createPrismaClient: (await import("@/lib/db")).createPrismaClient };
+  db = createPrismaClient();
   const mod = await import("../src/lib/trading/wallet-crypto");
   walletVault = mod.walletVault;
   encryptSecret = mod.encryptSecret;
