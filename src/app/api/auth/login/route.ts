@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { zAccountEmail } from '@/lib/auth/email';
 import { verifyPassword } from '@/lib/auth/password';
 import { generateToken, hashToken, createSessionCookie } from '@/lib/auth/session';
 import { checkRateLimit } from '@/lib/rate-limit';
@@ -8,7 +9,7 @@ import { handleApiError } from '@/lib/api/error-handler';
 import { appendAuditLog } from '@/lib/auth/audit';
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: zAccountEmail,
   password: z.string().min(1),
   totp: z.string().regex(/^\d{6}$/).optional(),
 });

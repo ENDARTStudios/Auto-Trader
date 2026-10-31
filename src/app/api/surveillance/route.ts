@@ -1,44 +1,78 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 import { db } from "@/lib/db";
 import { listRecentAlerts, runSurveillance, resolveAlertsForPosition } from "@/lib/trading/position-surveillance";
 import { logger } from "@/lib/trading/logger";
+import { requireSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/rbac";
+import { ForbiddenError } from "@/lib/auth/errors";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { handleApiError } from "@/lib/api/error-handler";
+
+function getClientIp(req: Request): string {
+  const xff = (req.headers as unknown as Headers).get?.("x-forwarded-for");
+  if (xff) return xff.split(",")[0].trim();
+  return "unknown";
+}
+
+const postSchema = z.object({
+  action: z.enum(["scan_now", "resolve"]),
+  positionId: z.string().optional(),
+  resolution: z.string().optional(),
+});
 
 // GET /api/surveillance?limit=50
 // Returns recent position surveillance alerts (newest first)
 export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const limit = parseInt(url.searchParams.get("limit") ?? "50", 10);
-  const onlyOpen = url.searchParams.get("open") === "1";
+  try {
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(ip, "/api/surveillance");
+    if (!rl.allowed) {
+      return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } });
+    }
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "logs:read")) throw new ForbiddenError("logs:read");
 
-  let alerts = await listRecentAlerts(Math.min(limit, 200));
+    const url = new URL(req.url);
+    const limit = parseInt(url.searchParams.get("limit") ?? "50", 10);
+    const onlyOpen = url.searchParams.get("open") === "1";
 
-  if (onlyOpen) {
-    alerts = alerts.filter((a) => a.resolvedAt === null);
+    let alerts = await listRecentAlerts(Math.min(limit, 200));
+
+    if (onlyOpen) {
+      alerts = alerts.filter((a) => a.resolvedAt === null);
+    }
+
+    const counts = {
+      critical: alerts.filter((a) => a.severity === "critical" && !a.resolvedAt).length,
+      warning: alerts.filter((a) => a.severity === "warning" && !a.resolvedAt).length,
+      info: alerts.filter((a) => a.severity === "info" && !a.resolvedAt).length,
+      total: alerts.filter((a) => !a.resolvedAt).length,
+    };
+
+    return NextResponse.json({ alerts, counts });
+  } catch (err) {
+    return handleApiError(err, "GET /api/surveillance");
   }
-
-  // Also return counts by severity for dashboard badge
-  const counts = {
-    critical: alerts.filter((a) => a.severity === "critical" && !a.resolvedAt).length,
-    warning: alerts.filter((a) => a.severity === "warning" && !a.resolvedAt).length,
-    info: alerts.filter((a) => a.severity === "info" && !a.resolvedAt).length,
-    total: alerts.filter((a) => !a.resolvedAt).length,
-  };
-
-  return NextResponse.json({ alerts, counts });
 }
 
 // POST /api/surveillance
 // Body: { action: "scan_now" | "resolve", positionId?, resolution? }
-//   - scan_now: triggers an immediate surveillance pass on all open positions
-//     (bypassing the 5-min throttle)
-//   - resolve: manually resolves all alerts for a given positionId
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as {
-      action: "scan_now" | "resolve";
-      positionId?: string;
-      resolution?: string;
-    };
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(ip, "/api/surveillance");
+    if (!rl.allowed) {
+      return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(rl.retryAfter ?? 60) } });
+    }
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "logs:read")) throw new ForbiddenError("logs:read");
+
+    const parsed = postSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "validation_error", details: parsed.error.flatten() }, { status: 400 });
+    }
+    const body = parsed.data;
 
     if (body.action === "scan_now") {
       const openPositions = await db.position.findMany({
@@ -94,10 +128,6 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   } catch (err) {
-    logger.error("api", `Erro /api/surveillance POST: ${String(err)}`);
-    return NextResponse.json(
-      { ok: false, error: String(err) },
-      { status: 500 }
-    );
+    return handleApiError(err, "POST /api/surveillance");
   }
 }

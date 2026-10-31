@@ -348,7 +348,7 @@ function RoadmapPanel() {
               <div className="text-xs text-muted-foreground">Avg completion</div>
             </div>
           </div>
-          <Progress value={stats.avgCompletion} className="mt-4" />
+          <Progress value={stats.avgCompletion} className="mt-4" aria-label="Average capability completion" />
         </CardContent>
       </Card>
 
@@ -477,7 +477,7 @@ function CapabilityRow({ cap }: { cap: StrategicCapability }) {
           </Button>
         </div>
       )}
-      <Progress value={cap.completionPct} className="h-1.5" />
+      <Progress value={cap.completionPct} className="h-1.5" aria-label={`Capability ${cap.title} completion`} />
     </div>
   );
 }
@@ -879,7 +879,7 @@ function DiversificationPanel() {
               <span className="text-muted-foreground">Diversity score</span>
               <span className={`font-bold ${diversityColor}`}>{s.diversityScore.toFixed(0)}/100</span>
             </div>
-            <Progress value={s.diversityScore} className="h-2" />
+            <Progress value={s.diversityScore} className="h-2" aria-label="Diversity score" />
           </div>
         </CardContent>
       </Card>

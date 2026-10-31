@@ -9,10 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { fadeInUp } from "@/lib/ui/motion";
 import { Shield, Users } from "lucide-react";
+import { useTranslation } from "@/lib/i18n/hooks";
 
 interface UserRow {
   id: string;
@@ -24,6 +26,7 @@ interface UserRow {
 }
 
 export default function AdminUsersPage() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { data, isLoading } = useQuery<{ users: UserRow[] }>({
     queryKey: ["admin-users"],
@@ -37,14 +40,16 @@ export default function AdminUsersPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("viewer");
+  const [acceptTerms, setAcceptTerms] = useState(false);
 
   const create = useMutation({
     mutationFn: async () => {
+      if (!acceptTerms) throw new Error(t("register.mustAccept"));
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({ email, password, role, acceptTerms }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create user");
@@ -54,6 +59,21 @@ export default function AdminUsersPage() {
       toast.success("Usuário criado");
       setEmail("");
       setPassword("");
+      setAcceptTerms(false);
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const del = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/users/${id}`, { method: "DELETE", credentials: "include" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error || "Failed to delete");
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Usuário removido");
       qc.invalidateQueries({ queryKey: ["admin-users"] });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -72,9 +92,9 @@ export default function AdminUsersPage() {
     <motion.div variants={fadeInUp} initial="hidden" animate="visible" className="container mx-auto p-6 space-y-6">
       <div className="flex items-center gap-2">
         <Users className="size-5 text-primary" />
-        <h1 className="text-xl font-semibold">Admin — Users</h1>
+        <h1 className="text-xl font-semibold">{t("admin.users.title")}</h1>
         <Badge variant="outline" className="ml-2">
-          super_admin only
+          {t("admin.users.superAdminOnly")}
         </Badge>
       </div>
 
@@ -82,7 +102,7 @@ export default function AdminUsersPage() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Shield className="size-4" />
-            Criar usuário
+            {t("admin.users.create")}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -94,15 +114,15 @@ export default function AdminUsersPage() {
             className="grid grid-cols-1 md:grid-cols-4 gap-3"
           >
             <div className="space-y-1">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t("admin.users.email")}</Label>
               <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="new@local" required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="password">Senha (≥8)</Label>
+              <Label htmlFor="password">{t("admin.users.password")}</Label>
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required />
             </div>
             <div className="space-y-1">
-              <Label>Role</Label>
+              <Label>{t("admin.users.role")}</Label>
               <Select value={role} onValueChange={setRole}>
                 <SelectTrigger>
                   <SelectValue />
@@ -116,17 +136,32 @@ export default function AdminUsersPage() {
               </Select>
             </div>
             <div className="flex items-end">
-              <Button type="submit" disabled={create.isPending} className="w-full">
-                {create.isPending ? "Criando…" : "Criar"}
+              <Button type="submit" disabled={create.isPending || !acceptTerms} className="w-full">
+                {create.isPending ? "..." : t("admin.users.create")}
               </Button>
             </div>
           </form>
+          <div className="flex items-center gap-2 mt-3">
+            <Checkbox id="acceptTerms" checked={acceptTerms} onCheckedChange={(v) => setAcceptTerms(!!v)} />
+            <label htmlFor="acceptTerms" className="text-xs text-muted-foreground">
+              {t("register.acceptLabel")}{" "}
+              <a href="/terms" target="_blank" className="underline hover:text-foreground">
+                {t("footer.terms")}
+              </a>{" "}
+              {t("register.acceptLabelEnd")}{" "}
+              <a href="/privacy" target="_blank" className="underline hover:text-foreground">
+                {t("footer.privacy")}
+              </a>
+              <span className="text-destructive"> *</span>
+            </label>
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">* Aceite obrigatório para o cadastro (LGPD art. 7º, I). O aceite é registrado com data/hora e IP em AuditLog.</p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Usuários ({data?.users.length ?? 0})</CardTitle>
+          <CardTitle className="text-base">{t("admin.users.list", { count: data?.users.length ?? 0 })}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -138,6 +173,7 @@ export default function AdminUsersPage() {
                   <th>Active</th>
                   <th>Last login</th>
                   <th>Created</th>
+                  <th className="text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -150,6 +186,19 @@ export default function AdminUsersPage() {
                     <td>{u.isActive ? "✅" : "❌"}</td>
                     <td className="text-xs text-muted-foreground">{u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString("pt-BR") : "—"}</td>
                     <td className="text-xs text-muted-foreground">{new Date(u.createdAt).toLocaleDateString("pt-BR")}</td>
+                    <td className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs text-destructive hover:text-destructive"
+                        onClick={() => {
+                          if (confirm(t("admin.users.confirmRemove", { email: u.email }))) del.mutate(u.id);
+                        }}
+                        disabled={del.isPending}
+                      >
+                        {t("admin.users.remove")}
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

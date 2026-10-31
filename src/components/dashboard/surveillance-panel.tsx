@@ -122,19 +122,19 @@ export function SurveillancePanel({ alerts, counts, isLoading }: Props) {
       </Alert>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card>
+        <Card className={counts.critical > 0 ? "animate-pulse border-red-500/30" : ""}>
           <CardContent className="pt-4 pb-3">
             <div className="text-xs text-muted-foreground">Críticos</div>
             <div className="text-2xl font-bold text-red-500">{counts.critical}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={counts.warning > 0 ? "border-yellow-500/30" : ""}>
           <CardContent className="pt-4 pb-3">
             <div className="text-xs text-muted-foreground">Avisos</div>
             <div className="text-2xl font-bold text-yellow-500">{counts.warning}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className={counts.info > 0 ? "border-blue-500/30" : ""}>
           <CardContent className="pt-4 pb-3">
             <div className="text-xs text-muted-foreground">Informativos</div>
             <div className="text-2xl font-bold text-blue-500">{counts.info}</div>

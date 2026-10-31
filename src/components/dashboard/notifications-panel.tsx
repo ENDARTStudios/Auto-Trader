@@ -549,7 +549,6 @@ function ChannelDialog({
   }
 
   // When opening, sync form
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const _ = open; // re-render trigger
   if (open && saving === false && name === "" && editing !== null) {
     // first render with editing — initialize once

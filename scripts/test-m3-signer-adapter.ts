@@ -34,7 +34,12 @@
  *         request. This is the real-mechanism test for property A.2.
  *
  * Run: npx tsx scripts/test-m3-signer-adapter.ts
+ *
+ * PLATFORM: A–C run everywhere (mock transport). D.1/D.2 need spawn +
+ * AF_UNIX — skipped on Windows (EACCES); Linux/CI runs the full suite.
  */
+
+const IS_WIN = process.platform === "win32";
 
 import { spawn, type ChildProcess } from "node:child_process";
 import net from "node:net";
@@ -716,6 +721,10 @@ console.log("\nC.3 — adapter does not fallback (no retry, no version fallback)
 // D. INTEGRATION TEST — real signer process
 // =========================================================================
 
+if (IS_WIN) {
+  console.log("\n  SKIP D.1/D.2 on Windows: spawn + AF_UNIX (EACCES on win32); src/signer frozen Unix-only. Linux CI runs full suite.");
+} else {
+
 console.log("\nD.1 — real signer + adapter with wrong expectedProtocolVersion → SIGNER_PROTOCOL_MISMATCH");
 
 {
@@ -797,6 +806,8 @@ console.log("\nD.2 — real signer + adapter with correct expectedProtocolVersio
     if (handle) await stopSigner(handle);
   }
 }
+
+} // end !IS_WIN (D.1/D.2 real-signer integration)
 
 // =========================================================================
 // Summary

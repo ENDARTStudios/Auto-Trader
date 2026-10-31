@@ -100,8 +100,9 @@ function computeEntryHash(entry: Omit<AuditEntry, "hash">): string {
  */
 function serializeEntry(entry: AuditEntry): string {
   const sorted: Record<string, unknown> = {};
+  const record = entry as unknown as Record<string, unknown>;
   for (const key of Object.keys(entry).sort()) {
-    sorted[key] = (entry as Record<string, unknown>)[key];
+    sorted[key] = record[key];
   }
   return JSON.stringify(sorted);
 }

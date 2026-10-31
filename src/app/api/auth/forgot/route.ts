@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
+import { zAccountEmail } from '@/lib/auth/email';
 import { generateToken, hashToken } from '@/lib/auth/session';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { handleApiError } from '@/lib/api/error-handler';
 
-const schema = z.object({ email: z.string().email() });
+const schema = z.object({ email: zAccountEmail });
 
 function getClientIp(req: Request): string {
   const xff = (req.headers as unknown as Headers).get?.('x-forwarded-for');

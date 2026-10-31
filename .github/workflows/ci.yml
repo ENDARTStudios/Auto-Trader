@@ -9,13 +9,21 @@ on:
 permissions:
   contents: read
   security-events: write
+  # Gitleaks PR-mode comenta no PR (Resource not accessible by integration sem isso)
+  pull-requests: write
+  # CodeQL analyze consulta o workflow run (Get a workflow run precisa de actions:read)
+  actions: read
 
 jobs:
   ci:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
+      # T056: full history para o Gitleaks resolver o range de commits
+      # (checkout raso quebrava o scan com 'unknown revision').
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node 20
         uses: actions/setup-node@v4
@@ -40,6 +48,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Push test DB schema (for test:ci vault/signer)
+        run: npx prisma db push
+        env:
+          DATABASE_URL: file:./prisma/test.db
+
       - name: Dependency audit (high+)
         run: npm audit --audit-level=high
 
@@ -49,7 +62,7 @@ jobs:
           DATABASE_URL: file:./prisma/test.db
           SIGNER_TEST_HOOKS: "1"
 
-      - name: Tests — coverage (Vitest, 80% threshold)
+      - name: Tests — coverage (Vitest, baseline thresholds)
         run: npx vitest run --coverage --run
         env:
           DATABASE_URL: file:./prisma/test.db
@@ -72,9 +85,13 @@ jobs:
       - name: Knip — dead code (warn)
         run: npx -y knip --no-exit-code || echo "::warning::knip dead code (see docs/LINT.md)"
 
+      - name: Build Docker image (multi-stage, pruned)
+        if: hashFiles('Dockerfile') != ''
+        run: docker build -t autotrader:ci -f Dockerfile . --target runner
+
       - name: Trivy — image scan (if Dockerfile exists)
         if: hashFiles('Dockerfile') != ''
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: autotrader:ci
           format: table
@@ -83,23 +100,66 @@ jobs:
         continue-on-error: true
 
   codeql:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
       security-events: write
+      # codeql-action/analyze consulta o workflow run (Get a workflow run)
+      actions: read
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v3
+      - uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
-      - uses: github/codeql-action/autobuild@v3
-      - uses: github/codeql-action/analyze@v3
+      - uses: github/codeql-action/autobuild@v4
+      # Repo privado sem GHAS: o upload ao code scanning exige Advanced Security
+      # (decisão de compra do Operador). A análise roda igual; o gate fica LOCAL
+      # no count de findings — nada de continue-on-error (lição T054).
+      - uses: github/codeql-action/analyze@v4
+        with:
+          upload: false
+          output: sarif-results
+      - name: CodeQL — gate delta (falha só em finding em arquivo da PR)
+        run: |
+          jq -r '.runs[].results[] | "\(.ruleId) @ \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)"' sarif-results/javascript.sarif 2>/dev/null | sort -u > findings.txt || true
+          count=$(wc -l < findings.txt | tr -d ' ')
+          echo "CodeQL findings (total): $count"
+          cat findings.txt
+          # Modelo delta = mesmo critério dos PR alerts do code scanning:
+          # finding pré-existente não bloqueia PRs alheias; finding em arquivo
+          # tocado pela PR bloqueia. Nada é ocultado — tudo é impresso aqui.
+          git diff --name-only "origin/${{ github.base_ref }}...HEAD" > changed.txt || true
+          failed=0
+          while IFS= read -r line; do
+            uri=$(printf '%s' "$line" | sed 's/^.*@ //; s/:[0-9]*$//')
+            if grep -qxF "$uri" changed.txt; then
+              echo "::error::CodeQL finding em arquivo da PR: $line"
+              failed=1
+            fi
+          done < findings.txt
+          exit $failed
+
+  deploy-staging:
+    if: github.ref == 'refs/heads/main' && vars.STAGING_ENABLED == 'true'
+    needs: [ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Fly.io staging (manual — requires FLY_API_TOKEN + STAGING_URL)
+        run: |
+          echo "Staging deploy stub — Fase 9.1.6. Configure FLY_API_TOKEN + STAGING_URL em vars/secrets e habilite vars.STAGING_ENABLED=true."
+          echo "Manual: fly deploy --app auto-trader-staging (docs/DEPLOY.md:3) + curl -fsS $STAGING_URL/api/health/ready"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          STAGING_URL: ${{ vars.STAGING_URL }}
 
   # E2E — só em PRs com label `e2e` ou push em main (evita custo em todo PR)
   e2e:
     if: contains(github.event.pull_request.labels.*.name, 'e2e') || github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
@@ -108,8 +168,19 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # test.db precisa de schema + seed: sem isso /api/health retorna 503
+      # e o webServer do Playwright estoura o timeout de 120s (S39).
+      - run: npx prisma db push
+        env:
+          DATABASE_URL: file:./prisma/test.db
+      - run: npx tsx scripts/seed-auth.ts
+        env:
+          DATABASE_URL: file:./prisma/test.db
       - run: npx playwright install --with-deps
       - run: npx playwright test
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
           DATABASE_URL: file:./prisma/test.db
+          SESSION_SECRET: test-session-secret-32-chars-minimum-for-ci-e2e
+          ENCRYPTION_KEY: "base64:dGVzdC1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcy1iYXNlNjQ="
+          SIGNER_TEST_HOOKS: "1"

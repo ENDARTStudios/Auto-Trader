@@ -1,0 +1,10 @@
+{
+  "_comment": "0.5e — mapeamento aresta DAG → features M_param. Humano. Sem mapa, 0.5d = no-op declarado, nunca re-weight cego.",
+  "map": {
+    "Rate_Hike -> WACC_Up": ["yields_10y", "real_rate", "curve_10y2y"],
+    "WACC_Up -> Valuation_Down": ["pe_ratio", "ev_ebitda", "wacc"],
+    "Liquidity_Drain -> Crypto_Correlation_100pct": ["dxy", "liquidity_global", "btc_nasdaq_corr_30d"],
+    "Retail_FOMO -> Options_Call_Buying": ["retail_inflow", "call_skew", "google_trends"],
+    "Credit_Spread_Widen -> RiskOff_Flow": ["hy_spread", "ig_spread", "vix"]
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "$schema": "./mode.schema.json",
+  "_meta": { "owner": "system_runtime", "learner_writable": false, "note": "Escrito pelo runtime/cron, NAO pelo learner. §8c precedencia monotonica." },
+  "state": "ok",
+  "reason": null,
+  "timestamp": "2026-09-05T12:00:00Z",
+  "history": [
+    { "from": "ok", "to": "ok", "trigger": "init", "timestamp": "2026-09-05T12:00:00Z" }
+  ]
+}

@@ -2,8 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Type errors fail the build (tsc --noEmit is green; keep it that way).
+  // Do NOT re-add ignoreBuildErrors — it masked 231 errors incl. runtime
+  // crashes (missing Prisma models). See SPRINT S37.
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   reactStrictMode: false,
   async headers() {

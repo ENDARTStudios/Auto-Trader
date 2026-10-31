@@ -9,7 +9,8 @@ test('login without totp when mfa enabled returns mfaRequired', async ({ request
   // This test uses a temp user with MFA enabled via DB direct
   // For now, just check that login without MFA still works for non-MFA user
   const res = await request.post('/api/auth/login', {
-    data: { email: 'admin@local', password: 'Admin123!' },
+    data: JSON.stringify({ email: 'admin@local', password: 'Admin123!' }),
+    headers: { 'Content-Type': 'application/json' },
   });
   // admin@local has mfa disabled (reset by test-mfa.ts)
   expect(res.status()).toBe(200);

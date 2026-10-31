@@ -25,8 +25,10 @@ export function ConfigEditor({ config, isLoading }: Props) {
   const [cexSymbolsText, setCexSymbolsText] = useState("");
   const [dexChainsText, setDexChainsText] = useState("");
 
+  // Sync form when config loads — setState in effect is intentional (form hydration)
   useEffect(() => {
     if (config) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm(config);
       setCexSymbolsText(config.cexSymbols.join(", "));
       setDexChainsText(config.dexChains.join(", "));
@@ -126,9 +128,10 @@ export function ConfigEditor({ config, isLoading }: Props) {
         {/* Mode */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Modo de operação</Label>
+            <Label htmlFor="cfg-mode">Modo de operação</Label>
             <div className="flex items-center gap-3">
               <Switch
+                id="cfg-mode"
                 checked={form.mode === "live"}
                 onCheckedChange={(checked) =>
                   set("mode", checked ? "live" : "paper")
@@ -370,9 +373,10 @@ export function ConfigEditor({ config, isLoading }: Props) {
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Scan CEX (majors)</Label>
+              <Label htmlFor="cfg-scan-cex">Scan CEX (majors)</Label>
               <div className="flex items-center gap-2">
                 <Switch
+                  id="cfg-scan-cex"
                   checked={form.scanCex ?? false}
                   onCheckedChange={(v) => set("scanCex", v)}
                 />
@@ -380,9 +384,10 @@ export function ConfigEditor({ config, isLoading }: Props) {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Scan DEX (memecoins)</Label>
+              <Label htmlFor="cfg-scan-dex">Scan DEX (memecoins)</Label>
               <div className="flex items-center gap-2">
                 <Switch
+                  id="cfg-scan-dex"
                   checked={form.scanDex ?? false}
                   onCheckedChange={(v) => set("scanDex", v)}
                 />

@@ -108,7 +108,16 @@ import {
   type SignerRequest,
   type SignerResult,
 } from "../src/lib/chain/pipeline";
-import { type SignerTransport, type RpcResponse, type SignerWireRequest, SIGNER_PROTOCOL_VERSION } from "../src/lib/signer-protocol";
+import { type SignerTransport, type RpcResponse } from "../src/lib/chain/signer-adapter";
+import { SIGNER_PROTOCOL_VERSION } from "../src/lib/signer-protocol";
+
+// Minimal shape of the legacy wire envelope this mock inspects.
+// (SignerWireRequest no longer exists in signer-protocol.ts.)
+interface LegacyWireRequest {
+  requestId: string;
+  payloadHash: string;
+  payload: { tx: unknown };
+}
 import {
   buildRuntime,
   CanaryBroadcaster,
@@ -247,7 +256,10 @@ class HappyTradeSimulator implements TradeSimulator {
   }
 }
 
-class HappySimulator implements Simulator {
+// NOTE: holds a simulate() method but is NOT the Simulator itself —
+// callers adapt it as `(tx) => simulator.simulate(tx)` because Simulator
+// is a function type (see simulation-gate.ts).
+class HappySimulator {
   async simulate(tx: { from: string; to: string; value: string; data: string }): Promise<SimulationResult> {
     // Return the expected transfer so the simulation gate matches the expectedDiff.
     return {
@@ -334,7 +346,7 @@ class MockSignerTransport implements SignerTransport {
       return { ok: true, result: { status: "ok", pid: 12345, version: SIGNER_PROTOCOL_VERSION, uptimeMs: 1000 } };
     }
     if (method === "signTransaction") {
-      const wireReq = params as SignerWireRequest;
+      const wireReq = params as LegacyWireRequest;
       const payload = wireReq.payload;
       const tx = payload.tx as Record<string, unknown>;
       const ethersTx: Record<string, unknown> = {

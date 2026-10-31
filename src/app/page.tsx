@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
@@ -39,6 +39,8 @@ import {
   usePlatforms,
   useSystemInfo,
   useSourceHealth,
+  useNews,
+  usePreferences,
 } from "@/hooks/use-trading-data";
 import { HistoryTable } from "@/components/dashboard/history-table";
 import { LogsFeed } from "@/components/dashboard/logs-feed";
@@ -62,6 +64,10 @@ import {
   type Health,
 } from "@/components/dashboard/workspace-header";
 import { WatchlistScreener, type ScreenerRow } from "@/components/dashboard/watchlist-screener";
+import { CommandPalette, type ExplorerTab } from "@/components/dashboard/command-palette";
+import { isShortcutEvent, isEditableTarget } from "@/components/dashboard/command-palette-utils";
+import { NewsPanel } from "@/components/dashboard/news-panel";
+import { OnboardingWizard } from "@/components/onboarding/wizard";
 import { AIDecisionPanel, type GateStatus } from "@/components/dashboard/ai-decision-panel";
 import {
   SystemHealthPanel,
@@ -116,18 +122,7 @@ export default function Home() {
   const router = useRouter();
   const { user: authUser, isLoading: authLoading } = useAuth();
   const logout = useLogout();
-  // Auth guard — redirect to /login if not authenticated
-  if (!authLoading && !authUser) {
-    if (typeof window !== "undefined") router.push("/login");
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center space-y-2">
-          <div className="size-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto" />
-          <p className="text-sm text-muted-foreground">Redirecionando para login…</p>
-        </div>
-      </div>
-    );
-  }
+  // Hooks must be unconditional — keep all hooks above auth guard (react-hooks/rules-of-hooks)
   const status = useEngineStatus();
   const positions = useOpenPositions();
   const history = useHistory(50);
@@ -143,8 +138,49 @@ export default function Home() {
   const platforms = usePlatforms();
   const systemInfo = useSystemInfo();
   const sourceHealth = useSourceHealth();
+  const news = useNews(12);
+  const preferences = usePreferences();
 
   const [reserveWithdrawAmount, setReserveWithdrawAmount] = useState("");
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<ExplorerTab>("history");
+  const [wizardClosed, setWizardClosed] = useState(false);
+
+  const paletteOpenRef = useRef(paletteOpen);
+  useEffect(() => {
+    // Espelha o estado no ref após o render (react-hooks/refs, plugin 7.1:
+    // proibido escrever ref durante o render). O handler de keydown lê o valor
+    // pós-commit — sem mudança de comportamento.
+    paletteOpenRef.current = paletteOpen;
+  }, [paletteOpen]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!isShortcutEvent(e)) return;
+      // Block opening while typing; always allow toggle when open (close from palette input)
+      if (isEditableTarget(e.target) && !paletteOpenRef.current) return;
+      e.preventDefault();
+      setPaletteOpen((o) => !o);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const wizardOpen =
+    Boolean(preferences.data && !preferences.data.onboarded && !wizardClosed);
+
+  // Auth guard — redirect to /login if not authenticated (effect, not render)
+  if (!authLoading && !authUser) {
+    if (typeof window !== "undefined") router.push("/login");
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-2">
+          <div className="size-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Redirecionando para login…</p>
+        </div>
+      </div>
+    );
+  }
 
   /* ----- mutations ----- */
   const startEngine = useMutation({
@@ -583,6 +619,21 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground relative z-10">
       <AlertsToast />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        activeTab={activeTab}
+        onNavigate={setActiveTab}
+        role={authUser?.role ?? null}
+        onStart={() => startEngine.mutate()}
+        onStop={() => stopEngine.mutate()}
+        onKill={() => activateKill.mutate()}
+        onLogout={() => logout.mutate()}
+      />
+      <OnboardingWizard
+        open={wizardOpen}
+        onClose={() => setWizardClosed(true)}
+      />
       {authUser && (
         <div className="container mx-auto px-4 lg:px-6 pt-2 flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
@@ -625,6 +676,7 @@ export default function Home() {
         onNotificationsClick={() => {
           /* could scroll-to / open tab */
         }}
+        onOpenPalette={() => setPaletteOpen(true)}
       />
 
       {/* Kill-switch deactivation banner */}
@@ -751,13 +803,16 @@ export default function Home() {
           </ErrorBoundary>
         </section>
 
-        {/* ---------- ROW 5: 2-col — Market + AI Insights (full panels) ---------- */}
-        <section className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+        {/* ---------- ROW 5: 3-col — Market + AI Insights + News ---------- */}
+        <section className="grid grid-cols-1 xl:grid-cols-3 gap-3">
           <ErrorBoundary label="MarketPanel">
             <MarketPanel data={market.data} isLoading={market.isLoading} />
           </ErrorBoundary>
           <ErrorBoundary label="AIInsightsPanel">
             <AIInsightsPanel insights={aiInsights.data ?? []} isLoading={aiInsights.isLoading} />
+          </ErrorBoundary>
+          <ErrorBoundary label="NewsPanel">
+            <NewsPanel />
           </ErrorBoundary>
         </section>
 
@@ -767,7 +822,11 @@ export default function Home() {
             <span className="section-bar-title">EXPLORER · SECONDARY PANELS</span>
             <span className="section-bar-sub">analytics · audit · system · backtest</span>
           </div>
-          <Tabs defaultValue="history" className="space-y-3">
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as ExplorerTab)}
+            className="space-y-3"
+          >
             <div className="flex items-center gap-2 flex-wrap">
               <TabsList className="ws-panel rounded-md p-1 h-auto flex flex-wrap gap-0.5 justify-start">
                 <TabsTrigger value="history" className="gap-1.5 h-7 px-2.5 text-[11px]">

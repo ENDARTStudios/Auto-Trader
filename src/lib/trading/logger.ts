@@ -27,7 +27,14 @@ export type LogSource =
   | "backtest"
   | "notifier"
   | "schedule"
-  | "system";
+  | "system"
+  | "vault"
+  | "wallet"
+  | "queue"
+  | "obs"
+  | "fee"
+  | "diversification"
+  | "roadmap";
 
 const MAX_LOG_ROWS = 500;
 

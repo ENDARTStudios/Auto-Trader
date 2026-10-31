@@ -4,21 +4,24 @@ test('redirect to /login when no cookie', async ({ page }) => {
   await page.goto('/');
   // middleware or client guard should redirect to /login
   await expect(page).toHaveURL(/\/login/, { timeout: 5000 });
-  await expect(page.locator('text=Auto Trader — Login')).toBeVisible();
+  // i18n-agnostic: login page always has #email + submit (text varies por locale)
+  await expect(page.locator('#email')).toBeVisible();
+  await expect(page.locator('button[type=submit]')).toBeVisible();
 });
 
 test('viewer cannot POST kill-switch (RBAC)', async ({ request }) => {
-  // Login as viewer to get cookie
+  // Login as viewer to get cookie — use `json` to guarantee Content-Type: application/json
   const loginRes = await request.post('/api/auth/login', {
-    data: { email: 'viewer@local', password: 'Viewer123!' },
+    data: JSON.stringify({ email: 'viewer@local', password: 'Viewer123!' }),
+    headers: { 'Content-Type': 'application/json' },
   });
   expect(loginRes.status()).toBe(200);
   const cookies = await loginRes.headersArray().filter((h) => h.name.toLowerCase() === 'set-cookie');
   const sessionCookie = cookies.map((c) => c.value.split(';')[0]).join('; ');
 
   const killRes = await request.post('/api/kill-switch', {
-    headers: { Cookie: sessionCookie },
-    data: { active: true, reason: 'test' },
+    headers: { Cookie: sessionCookie, 'Content-Type': 'application/json' },
+    data: JSON.stringify({ active: true, reason: 'test' }),
   });
   expect(killRes.status()).toBe(403);
 });

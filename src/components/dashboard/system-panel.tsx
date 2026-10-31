@@ -130,8 +130,9 @@ function SchedulePanel() {
   const { data, isLoading } = useSchedule();
   const [form, setForm] = useState<Partial<TradingScheduleData>>({});
 
-  // Sync form when data loads
+  // Sync form when data loads — setState in effect is intentional
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (data) setForm(data.schedule);
   }, [data]);
 

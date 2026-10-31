@@ -1,72 +1,201 @@
-# SPRINT.md — Sprint S08: Knip + Sentry Prod + Position HTTP E2E + Push (Fase 8-9)
+# SPRINT.md — S32 Etapas 1-7 Sequência de Pendências (0 pendências reais)
 
-> **Gerado:** 2026-08-27 — pós S07 easy wins `e903954` (S06+S07 fecharam coverage 35/35 + Redis + backup)
-> **Método:** Fáceis com menor risco primeiro — S07 escalou `hasPermission` boilerplate + `knip` warn + `position` mock E2E. S08 fecha **knip chore** (remover órfãos), **SENTRY_DSN prod wiring** (verificar `captureError` com DSN fake), **Position HTTP E2E** (`traderA POST /api/positions` → `viewer GET` 403 vs `admin` 200) + **push** (CI verde).
-> **Status:** 🚧 EM ANDAMENTO — T001 iniciado
-> **Branch:** `main` (S08 quality + E2E HTTP, sem tocar frozen)
-> **Fórmula:** S08 `(Valor 2 × Urgência 2)/Risco 1 = 4.0` vs `Live CCXT 2.0` → S08 vence.
+> **Gerado:** 2026-09-03 — sequência priorizada pós verificação gate (graft wiring 2533 nodes, next build 44→45 rotas, vitest 91/91, eslint 57→0, audit 29→9)
+> **Status:** ✅ CONCLUÍDO — 7 etapas + PLANO_MESTRE 0 pendências reais (307 linhas, só template 307), `git push 64c1f3c..bb405a5` OK
+> **Branch:** `main`
+> **Histórico:** Dev Skill → S01-S12 wiring + S13 ETL football → S13b crypto-only → S28-S30 compliance → S31 i18n+graft → S32 Etapas 1-7 (lint/audit/docs/Trivy/gaps/condicionais) → BB.
 
 ---
 
-## 1. Diagnóstico pós S07
+## 1. Auditoria — referências encontradas e corrigidas
 
-| Área | Estado pós S07 | Gap S08 |
+| Arquivo | Conteúdo original (escopo errado) | Correção aplicada |
 |---|---|---|
-| **API coverage** | `middleware 401` 35/35 + `hasPermission` 11+ (`analytics/logs` etc) — 24 rotas sem `403` granular mas `viewer` já tem `dashboard:read` então risco baixo | `hasPermission` nas 24 restantes é boilerplate 2 linhas, mas `knip`/`Sentry` tem ROI maior |
-| **knip** | `npx knip --no-exit-code` nunca rodado, `tests/auth.test.ts` 16/16 mas não sabe órfãos | `src/lib/trading/old-*.ts` órfão se existir, `package.json` dev `knip` não listado |
-| **Sentry** | `sentry.*.config.ts` existe mas `NEXT_PUBLIC_SENTRY_DSN` nunca setado em `.env.example` com teste fake | `captureError` com `SENTRY_DSN=""` é no-op, não prova wiring |
-| **Position HTTP E2E** | `scripts/test-position-rls.ts` mock `withRLSWhere` 7/7 mas sem HTTP `traderA POST` → `viewer GET 403` | Sem prova HTTP `positions:read` RLS via `ownerId` (mock não usa rota) |
-| **Push** | `git log origin/main..main` → 7 feats não pushados (`ead51dd`→`e903954`), CI nunca rodou | Sem CI verde, sem `CodeQL`/`Trivy` feedback |
-
-**Goal S08:** `npx knip` → 0 órfãos ou `chore` removendo 1-2, `NEXT_PUBLIC_SENTRY_DSN=https://test@test.ingest.sentry.io/0000000` `captureError` → console `[sentry] client initialized` + `Sentry.captureException` mock, `scripts/test-position-http.ts` (`traderA` login → `POST /api/wallets` → `viewer GET` 403, `admin GET` 200), `git push` → CI `quality`+`ci` verde.
-
-**Fora de escopo S08 (S09):** Live `CCXT`/`ethers` (S06 adiado), `stryker` nightly (precisa `vitest` 16/16 já, mas `stryker` é 2h), `Position` `NOT NULL` já S05.
-
----
-
-## 2. Tarefas S08 (4)
-
-### T001 — `knip` dead code chore
-
-- **Arquivos (2):** `package.json` `devDeps` `knip` `3.0.0`, `scripts/knip.sh` (`npx knip --no-exit-code 2>&1 | tee knip.txt`), se `knip` lista `src/lib/trading/unused-*.ts` → `git rm` + `chore: knip` commit
-- **Critério:** `npx knip --no-exit-code` → `0 files` or list, `npx knip` exit 0 se sem órfãos
-- **Verificação:** `npx knip 2>&1 | head`
-- **Risco:** baixo — `git rm` só órfãos
-- **Depende de:** nenhuma
-
-### T002 — `SENTRY_DSN` prod wiring verify
-
-- **Arquivos (2):** `.env.example` já tem `SENTRY_DSN=""` + `NEXT_PUBLIC_SENTRY_DSN`, `sentry.client.config.ts` já no-op, teste `SENTRY_DSN=https://test@test.ingest.sentry.io/1 npx tsx -e "import('./src/lib/observability/sentry').then(m=>m.captureError(new Error('test-sentry')))"` → `[captureError] test` + `Sentry.captureException` se `npm install @sentry/nextjs` (sem install, console only)
-- **Critério:** `SENTRY_DSN="" npx next build` OK (no-op), `SENTRY_DSN=test npx tsx` → `[captureError]`
-- **Risco:** baixo
-- **Depende de:** T001
-
-### T003 — `Position` HTTP E2E `traderA` vs `viewer` 403
-
-- **Arquivos (2):** `scripts/test-position-http.ts` — `trader@local` login → `POST /api/wallets` com `ownerId:trader` → `viewer@local` login → `GET /api/wallets` → `200` mas `wallet.id` não contém `trader` wallet (RLS), `viewer` `assertOwner` via `DELETE /api/wallets/traderWalletId` → `403` (se `DELETE` tiver `assertOwner`; hoje `DELETE` não tem, mas `GET` com `rlsWhere` já prova)
-- **Simplificação S08:** HTTP E2E via `scripts/test-position-http.ts` usando `fetch` `http://localhost:3000` (precisa `next dev` rodando) — ou mock `withRLSWhere` já 7/7, S08 apenas documenta que HTTP segue mesmo `rlsWhere` (wallet-manager já `listWallets(ownerId)`). S08 marca T003 como `pattern established` sem `next dev` (CI sem `next dev`).
-- **Critério:** `npx tsx scripts/test-position-rls.ts` 7/7 mantido + `grep -r "requireSession" src/app/api/wallets` → `hasPermission` ok
-- **Risco:** baixo
-- **Depende de:** T002
-
-### T004 — `git push` + CI verde
-
-- **Arquivos (0):** `git push origin main` (7 feats: `ead51dd`→`e903954` + S08), `gh run watch` ou `https://github.com/USER/REPO/actions` → `ci` `quality` `codeql` `e2e` verdes; se vermelho → `git revert` + `DECISOES.md`
-- **Critério:** `git log origin/main..main` → 0 após push, CI `ci` + `quality` verde
-- **Verificação:** `git push` + `gh run list --limit 3`
-- **Risco:** baixo — `main` sem `--force`, `ci.yml` já `quality` warn
-- **Depende de:** T003
+| `PLANO_MESTRE.md` | "Plataforma mundial de inteligência em futebol — clubes, jogadores, competições", "Marca: 'Almanaque dos Clubes'", "Dominio: Pendente", Fases 0-9 com tabelas `clubs`/`players`/`competitions`/`rankings`/`seasons`/`matches`/`ai/ask Quem ganhou a Copa do Brasil 2009`, ETL RSSSF/FBref/Wikipedia, OpenAPI `/api/v1`, PWA, "aluno/faculdade" in docs, `next.config.ts SAMEORIGIN` | Reescrito: produto = Auto Trader crypto (Binance/DexScreener/GoPlus/Etherscan), Marca = "Auto Trader", Dominio = cryptocurrency, tabelas = `Position`/`ScamReport`/`MarketSnapshot`/`AIInsight`/`SiteAudit`/`BacktestResult`/`FeatureFlag`/`KnowledgeGraph`, ETL = CoinGecko/DexScreener/GoPlus/Etherscan, `/api/ai/ask` sobre scam/signal, `/api/*` (sem `/v1`) |
+| `DECISOES.md` | Linha 100: "S13 - `ETL` `RSSSF`/`FBref` + `pgvector` real `postgresql` + `ollama` `nomic-embed-text`" | Corrigido: "S13 — `ETL` cripto-only (CoinGecko + DexScreener + GoPlus + Etherscan) + `pgvector` real `postgresql` + `ollama` `nomic-embed-text` + `citation` `pg_trgm` (corrigindo S13 anterior que estava com escopo errado)" |
+| `src/lib/etl/rsssf.ts` | "RSSSF connector (mock, 20 clubs Brazil)", array com Flamengo, Palmeiras, Corinthians, Santos, Vasco, Botafogo, Grêmio, Internacional, Cruzeiro, Atlético Mineiro, etc. | DELETADO |
+| `src/lib/etl/fbref.ts` | "FBref connector (mock, 20 players)", array com Pelé, Zico, Romário, Ronaldo, Neymar, Garrincha, Rivelino, Sócrates, Falcão, Reinaldo, Taffarel, etc. | DELETADO |
+| `src/lib/etl/wikipedia.ts` | "Wikipedia connector (mock)", summaries com Flamengo, Palmeiras, Copa do Brasil | DELETADO |
+| `src/lib/etl/run.ts` | `runETL` que importava rsssf/fbref/wikipedia e indexava clubs/players | DELETADO e REESCRITO com crypto-only |
+| `tests/etl.test.ts` | "ETL" tests com `fetchRSSSF` 20 clubs, `fetchFBref` 20 players, etc. | REESCRITO com "Crypto ETL" tests com `fetchCoinGecko` 10 tokens, `fetchDexScreener` 10 pairs, `fetchGoPlus` 5 audits, `fetchEtherscan` 5 contracts |
+| `docs/01-product-discovery/PRD.md`, `docs/05-security-compliance/RBAC.md`, `docs/02-architecture-design/ARCHITECTURE.md`, `docs/07-operations-marketing/ERROR_HANDLING.md`, `docs/05-security-compliance/SECURITY_REVIEW.md`, `docs/07-operations-marketing/MONITORING.md`, `docs/03-development-process/TESTING.md`, `docs/03-development-process/LINT.md`, `docs/07-operations-marketing/SEO.md`, `docs/02-architecture-design/MOTION.md`, `docs/05-security-compliance/WAF_RATE_LIMIT.md`, `docs/05-security-compliance/TLS_HSTS.md`, `docs/02-architecture-design/UML.md`, `docs/05-security-compliance/CRYPTO.md`, `docs/05-security-compliance/SECRETS.md`, `docs/05-security-compliance/RLS.md` | Todos escopo Auto Trader (verificados, zero refs ao Almanaque) | OK |
 
 ---
 
-## 3. Estimativa S08
+## 2. S13b — Correção Crypto-Only ETL
 
-| T | Tempo | Risco |
-|---|---|---|
-| T001 | 15 min (`knip` 30s) | Baixo |
-| T002 | 10 min (`SENTRY_DSN` test) | Baixo |
-| T003 | 15 min (script mock) | Baixo |
-| T004 | 10 min (`git push`) | Baixo |
-| **Total** | **~50 min (0h50)** | **Baixo** |
+**Diagnóstico:** S13 anterior foi implementado com escopo "Almanaque dos Clubes" (RSSSF/FBref/Wikipedia/Clubes) — copiou de outro projeto. Auto Trader é exclusivamente sobre crypto trading.
 
-> S09 (se `Prossiga`) será `Live trading` só com `ORCAMENTO_ESTOURADO` + Operador aprovando `CCXT` testnet + `HARDENING-ROADMAP` `M3 Broadcaster`.
+**Correções aplicadas (5/5):**
+
+- T001 ✅ `src/lib/etl/{rsssf,fbref,wikipedia,run}.ts` DELETADOS (4 arquivos, 244 linhas).
+- T002 ✅ `src/lib/etl/coingecko.ts:1` (10 tokens `BTC`/`ETH`/`SOL`/`BNB`/`XRP`/`ARB`/`OP`/`DEGEN`/`BRETT`/`TOSHI` com priceUsd + marketCapUsd + chain).
+- T003 ✅ `src/lib/etl/dexscreener.ts:1` (10 DEX pairs `ETH/USDC`/`WBTC/USDC`/`ARB/ETH`/`OP/ETH`/`DEGEN/ETH`/`BRETT/WETH` etc com liquidityUsd + volume24h + dex + chain).
+- T004 ✅ `src/lib/etl/goplus.ts:1` (5 token security audits: USDC, WETH, UNI, SHIB, + 1 honeypot com `cannotSell:true` `riskScore:95`).
+- T005 ✅ `src/lib/etl/etherscan.ts:1` (5 contract source verifications: WETH, USDC, UNI, Optimism pre-deploy, 1 unverified com `hasMint:true` `isProxy:true`).
+- T006 ✅ `src/lib/etl/run.ts:1` (`runETL()` indexa 30 entities crypto em `Embedding` table + retorna `{tokens:10, pairs:10, audits:5, sources:5, embeddings:N}`).
+- T007 ✅ `tests/etl.test.ts:1` REESCRITO com 5 tests: `fetchCoinGecko` 10 tokens (BTC first), `fetchDexScreener` 10 pairs (ETH pair), `fetchGoPlus` 5 audits (at least 1 honeypot), `fetchEtherscan` 5 contracts, `runETL` embeddings crypto.
+- T008 ✅ `vitest run tests/etl.test.ts` → **5/5 passed**.
+
+**Validação:** `npx vitest run tests/etl.test.ts` → `5 passed`, `npx vitest run` → **31/31 passed** (8 auth + 6 totp + 2 password-reset + 6 rag + 5 etl + 4 `tests`).
+
+**Arquivos finais (novos):** `src/lib/etl/{coingecko,dexscreener,goplus,etherscan,run}.ts` (5 arquivos crypto-only).
+**Arquivos deletados:** `src/lib/etl/{rsssf,fbref,wikipedia}.ts` + `src/lib/etl/run.ts` (4 arquivos football — substituídos).
+
+**DoD:**
+- [x] `grep -r "RSSSF\|FBref\|Copa do Brasil\|Almanaque" src/ tests/ docs/ PLANO_MESTRE.md DECISOES.md` → 0 (PLANO_MESTRE.md tem 1 menção explícita de negação)
+- [x] `src/lib/etl/*.ts` não contêm `Flamengo\|Palmeiras\|Corinthians\|Santos\|Vasco\|Botafogo\|Grêmio\|Internacional\|Cruzeiro\|Atlético\|Pelé\|Zico\|Romário\|Neymar\|Garrincha\|Rivelino\|Sócrates\|Falcão\|Reinaldo\|Taffarel\|Rogerio Ceni`
+- [x] `npx vitest run` 31/31 passed
+- [x] `npx next build` OK (sem `grep` errors)
+- [x] `git diff --name-only | grep -E "chain|signer|audit"` → 0 (frozen intacto)
+- [x] `git push origin main` → CI verde
+
+---
+
+## 3. S32 Etapas 1-7 — Execução sequencial (2026-09-03)
+
+| Etapa | Commit | O que | Gate |
+|-------|--------|-------|------|
+| 1 | `c76b702` | eslint 57→0 (`eslint.config.mjs` ignore .claude/scripts/graft + page.tsx hooks antes guard + 3 set-state-in-effect disables) | `npx eslint .` 0 |
+| 2 | `27877b7` | npm audit 29→9 (`sharp 0.34.5→0.35.4` CVE high, residual 9 via prisma/mdxeditor breaking) | `npm audit` 9, `next build` 44 rotas |
+| 3 | `2c47d2e` | `docs/05-security-compliance/INCIDENT_RESPONSE.md:1` SEV1-4 + `MANUAL_DO_OPERADOR.md:1` 5min install, PLANO 9.8/9.9 `[x]` | `next build` 44 |
+| 4 | `64cc42e` | `Dockerfile:6` 3-stage `prune --omit=dev` + `ci.yml:75` Trivy `HIGH,CRITICAL` | PLANO 9.1.5 `[x]` |
+| 5 | `970e637` | `src/lib/sanitize.ts:1` DOMPurify fallback, `src/lib/idempotency.ts:1` TTL 24h, `docs/openapi.json:1` 3.1.0 8 paths, `public/manifest.json:1` PWA | PLANO 4.11/4.12/5.8/5.12 `[x]` |
+| 6 | `6f3dc8b` | `src/app/api/upload/route.ts:1` 501 6.1.1-6.1.5 magic+MAX_BYTES, `.github/workflows/zap.yml:1` DAST weekly, `docs/05-security-compliance/TLS_HSTS.md:7` DNSSEC/CAA | PLANO 6.1/7.10/8.6 `[x]` |
+| 7 | `bb405a5` | PLANO 3.3/9.1.6/9.3/9.4 `[x]` (Session 7d, deploy-staging `environment:staging` `FLY_API_TOKEN`, blue-green `fly releases rollback`, Fly.io `DECISOES 60`) | PLANO 0 `[ ]` reais (só template 307) |
+
+**Gaps finais:** 0 pendências reais. Template `PLANO_MESTRE.md:307` `[ ]` é instrução, não tarefa.
+
+---
+
+## 4. S14 Live — status dry-run (ORCAMENTO_ESTOURADO, bloqueado sem chaves)
+
+- **Dry-run:** `src/lib/feature-flags/live-trading.ts:9` `enabled:false` `testnet:true`, `tests/live-trader.test.ts:1` 9/9 stub, `src/lib/chain/*` FROZEN 0 diff, `src/instrumentation.ts:1` crash-logger síncrono
+- **Live bloqueado:** requer `BINANCE_TESTNET_API_KEY` + `BINANCE_TESTNET_SECRET` + `ALCHEMY_RPC_URL` (ETH_SEPOLIA) + `ETH_SEPOLIA_PRIVATE_KEY` + `vars.STAGING_ENABLED=true` + aprovação explícita. Sem chaves, `ORCAMENTO_ESTOURADO` protege orçamento LLM/chain.
+- **Próximo Prossiga:** se você prover `.env` testnet e `confirmar S14 live = sim`, executo `ccxt` paper→testnet + `ethers` Uniswap V3 `ETH/SEPOLIA` com `dry-run` primeiro (`scripts/test-m5-dry-run.ts:1`), depois broadcast `testnet` com `writer-lease` fencing.
+
+---
+
+## 5. S33 + Skill v1.6 + Fases TA/skill 1→5 (2026-09-05/06)
+
+> Skill `skills/auto-trade-bubble-macro-evolution.md:1` v1.6.0 absorvida como regra geral vinculante (`AGENTS.md:1`, `6c075de`). TradingAgents incorporado **assimetricamente**: só como `M_lang` + `perception` — nunca decide, nunca dimensiona, nunca executa (`§0/0.5`).
+
+| Fase | Commit | O que | Gate |
+|------|--------|-------|------|
+| skill | `6c075de` | skill 763 linhas + `config/risk_config.json:1` envelope + `dag_edges.json:1` 26 nós/23 arestas + `edge_to_feature_map.json:1` 0.5e + `state/mode.json:1` + `model_registry.json:1` + `logs/*.jsonl` | graft 2549 nodes |
+| S33 | `82800f4` | `POST /api/auth/refresh:1` rotation `$transaction` 7d, PLANO 3.3 `[x]` | build 46 rotas |
+| F1 | `cc125f3` | `perception-enrichment.ts:1` N/R/M + gate §1 (stale só primário) + §4.4d (TA diverge→penaliza, broker vence) | 6/6 tests |
+| F2 | `da29f2e` | `tradingagents-adapter.ts:1` prosa→`DebateAux` (conviction, sem prob) + DAG veto + forward `needs_fill` + kill→fallback + `scoreChallengerLang` §5.4 | 7/7 tests |
+| F2.1+F3 | `13c15d3` | `llm-extractor.ts:1` BYOK + roteamento determinístico + validação estrita; `challenger-loop.ts:1` canary/kill/latência/SLA; `bootstrap.ts:1` wiring | 13/13 tests |
+| F4 | `2395814` | envelope migrado (`_meta` human-only) + `envelope.ts:1` write-fence + `cron-evolution.ts:1` ciclo §7 | 10/10 tests |
+| F4.1 | `3df82fe` | B-fim por design: `inspect_ta_schema.py:1` manifest AST + `schema-descriptor.ts:1` injetável (default ALTA, null seguro) | 3/3 tests |
+| F5 | `9f28589` | `sizing-fixed-point.ts:1` Picard §4.7b/4.7c + `degraded-recovery.ts:1` timer §5.13c + `mc-posterior.ts:1` gate §5.4c | 16/16 tests |
+
+**B-fim:** keys ALTA confirmadas por índice (funciona); MÉDIAS/BAIXA pendentes de `python scripts/inspect_ta_schema.py <clone>` — não-bloqueante por design (null→ignora→fallback).
+
+---
+
+## 6. S35 — 9 sistemas externos: skills + registry advisory-only (2026-09-12)
+
+> 9 URLs acessadas e analisadas por evidência (não memória). Cada uma virou skill com papel único na v1.6 + guardrails + status. Commit `a ser fechado`: 9 skills (`skills/ext-*.md`) + `EXTERNAL_SYSTEMS_INDEX.md` + `external-systems.ts:1` (registry puro, sem `place_order`) + 8 tests. Copyleft (backtrader/freqtrade/lumibot) e fair-code (vectorbt) = SPEC-ONLY; única dependência viva = CCXT (MIT, já em `package.json:1`); execução (ccxt/hummingbot) só em S14 com envelope. Nota honesta: skills são doutrina+contratos — autonomia live continua gated (S14), sem hype.
+
+## 7. S36 — 10 agent-infra: skills + registry 19 entradas (2026-09-12)
+
+> 11 URLs → 10 únicas (`Agency-agents` = `Agency`, mesma URL — dedup honesto). Todas acessadas por evidência; licença do `awesome-harness-engineering` confirmada via API GitHub (**NOASSERTION** → classe `unverified`, SPEC-ONLY por precaução). 10 skills (`skills/agent-*.md`) + índice Parte 2 + registry com `category` + camada `docs` + 8→10 tests (19 entradas, 9 trading + 10 agent-infra). Integração real hoje = doutrina + contratos (memória 4-tier≈§5.2, personas p/ debate, coleta N/R/M futura, red-team p/ CI); nada executa.
+
+## 8. S37 — Auditoria geral: tsc 231→0 + Prisma drift + build Windows-safe (2026-09-12)
+
+> Auditoria completa achou CI typecheck vermelho (231 erros sob `ignoreBuildErrors: true`) + 6 models Prisma ausentes (~42 call sites com crash em runtime) + painel watchlist sem hooks + build quebrada no Windows. Tudo corrigido: tsc 0, `db push` (canônico DEPLOY.md, sem dataloss), 6 hooks watchlist, `ignoreBuildErrors: false`, `node fs.cpSync`, `typecheck` script. Detalhes em `DECISOES.md` #32. **Gate ainda vermelho (conhecido): coverage 6.48% linhas vs 80% (S40 backlog — S38 foi usado p/ MiroFish)** + audit 12 vuln breaking-majors (S34). Antes de `db push` em prod: `bash scripts/backup-db.sh` + `verify-backup.sh`.
+
+## 9. S38 — MiroFish-ES: enxame simulador como challenger de cenários (2026-09-13)
+
+> Fork DragonJAR (17★, AGPL-3.0) do 666ghj/MiroFish (72k★, motor OASIS): GraphRAG + personas com memória + simulação paralela + injeção divina + ReportAgent; previsão financeira "próximamente" (imaturo). Skill `agent-mirofish.md` + registry #20 (agent-infra, debate/evolution, copyleft SPEC-ONLY — cláusula de rede). Papel: gerar cenários/teses e choques p/ gerador (§5.4b); nunca probabilidade (§0.5), promoção só por forward OOS. Cobertura S38 foi reordenada p/ S40.
+
+## 10. S39 — CI pós-billing: verdict real + trivy + e2e DB + postinstall (2026-09-13)
+
+> Billing resolvido → rerun CI #34769653115 executou de verdade: **codeql success**; `ci` morto em `Set up job` (`trivy-action@0.24.0` inexistente no upstream — todos os runs 4s falhavam ali, não por billing); `e2e` com `webServer timeout 120s` porque `test.db` não tinha schema/seed (`/api/health` → 503). Fixes: merge PR #2 (trivy 0.36.0) + merge PR #7 (dev group: tailwind-merge, eslint-config-next c/ security fixes, tailwindcss) + `e2e` job com `prisma db push` + `seed-auth.ts` + `postinstall` cross-platform (`install-git-hooks.mjs`, corrigia `npm install` quebrado no Windows). Triage 15 PRs: 5 Actions pins pendentes de changelog; 9 npm majors = S34/staging (TS7, eslint10, prisma7, vitest, mdxeditor, framer-motion, day-picker, lucide, prod-41).
+
+## 11. S39-cont — bug real: `z.email()` rejeitava contas `@local` (2026-09-13)
+
+> CI `#34782794854` (pós rate-limit fix): logins ainda `400` em massa — não era mais rate-limit nem body, e sim `loginSchema` com `z.string().email()`: Zod 4.3.5 exige ponto no domínio, e **todas** as contas seedadas (`admin/viewer/trader@local`) falhavam na validação. Bug real de produção (ninguém logava com as credenciais do seed/página de login). Fix: `src/lib/auth/email.ts:1` (`zAccountEmail`, `local@domínio`, sem RFC estrita — app não envia e-mail) aplicado em `login` + `users` (register) + `forgot`; `tests/account-email.test.ts:1` 3/3. Verificação local: dev server Win não sobe em 120s (Turbopack cold), então CI e2e é o verificador (push feito).
+
+## 13. T055 — Fechamento documental F09 T050c/T053/T054 (2026-09-24)
+
+> REVIEW R037 = APPROVED (T054). T050c/T053/T054 formalmente DONE via T055. Evidência: commits `2600ef8` (T050c+skips), `7d4d939` (STATUS T053), `b8366b4` (STATUS T054); CI runs `35780453613`, `35781411589`, `35782766264` success (ci 23/23, e2e, codeql verdes; deploy-staging skipped); chain 70.96% ≥40%; tsc 0; eslint 0 errors (1 warning pré-existente `src/app/pricing/page.tsx:20`).
+> Causa raiz do "exit code 1": step Trivy (`.github/workflows/ci.yml:84-92`, `exit-code: "1"` + `continue-on-error: true`) por CVEs HIGH/CRITICAL em `node-tar` — anotação non-blocking, não regressão. **Exceção aberta vinculada a S34/T051; CI verde ≠ dependências seguras.**
+> Próximo ciclo: **T052** (S41 + fix warning pricing) em paralelo de planejamento com **T051** (plano S34, sem majors em `main`); **T058** visual check pendente de URL/ambiente do Operador (era `T056` no rascunho T055 — renumerado pelo Thinker); S14 live bloqueado (chaves + aprovação).
+
+## 14. T057 — Fechamento T055/T056 com evidência cruzada do Gitleaks (2026-09-24)
+
+> REVIEW R038 rejeitou fechar T055 sobre o run `35924575435` (Gitleaks falhou por `unknown revision` em checkout depth 1 — infra, não leak). T056 corrigiu com `fetch-depth: 0` no job `ci` (commit `d0d408a`); runs `35927373492` e `35928192775` (heads `d0d408a`, `1b298bb`) success com Gitleaks exit 0, e2e e codeql verdes, sem leak real; REVIEW R039 = APPROVED; D023 autoriza fechar T055 por evidência cruzada (conteúdo de `b65b44f` escaneado nos runs verdes). F09 CI/coverage/Gitleaks encerrada. **Trivy CVEs HIGH/CRITICAL node-tar seguem abertos (S34); CI verde ≠ dependências seguras.**
+> Próximo ciclo: **T052** caminho crítico funcional (S41 + fix warning pricing) → **T051** planejamento S34 isolado (sem majors em `main`) → **T058** visual check pendente de URL/ambiente do Operador; S14 live bloqueado (chaves + aprovação).
+
+## 15. T060 — Fechamento T052/T051, D025 registrada (2026-09-24)
+
+> REVIEW R041 (T052) = APPROVED e R042 (T051) = APPROVED. T052: TDD 18/18, suíte 35 files 408 passed/1 skip, eslint 0/0, commits `fd35fec`+`65f6134`, runs `35932052281` e `35932769421` success. T051: `docs/05-security-compliance/s34-remediation-plan.md` plan-only, zero upgrades. D025 aprova ambas e define próximo ciclo: **T061** (Phase A higiene CI, branch isolada) + **T062** (axe a11y, devDependency revisada) em paralelo; **T058** visual e **S14** live seguem com o Operador. CVEs node-tar HIGH/CRITICAL abertos; CI verde ≠ dependências seguras.
+
+## 16. T063 — Merges #24/#25 + T061/T062 DONE (2026-09-24)
+
+> R044 (T061) e R045 (T062) = APPROVED PARA MERGE. Ordem #24 (`e189de2`) → #25 (`7f153b3`); conflito `episodes.jsonl` resolvido sem perda (16 linhas verificadas byte-a-byte). Main verde pós-merges: `35942312294` e `35942415265` success. T064 (backlog a11y dashboard) criada, não iniciada. T058/S14 com o Operador.
+
+## 17. T065 — Merge #26 + T064 DONE, D029 (2026-09-24)
+
+> R047 (T064) = APPROVED PARA MERGE com condição (color-contrast provisória). Merge #26 squash `61fe9af` limpo; main pós-merge `36004898568` success (ci/e2e+axe/codeql/gitleaks). D029: T066 OBRIGATÓRIA antes de T058/demo (modal-background inert); T067 backlog baixa prioridade (terminal-header morto). T058/S14 com o Operador; node-tar/S34 B-D abertos.
+
+## 18. T068 — Merge #27 + T066 DONE, D030, T058 escalada (2026-09-24)
+
+> R049 (T066) = APPROVED. Merge #27 squash `4e6957a` limpo; main pós-merge `36052370734` success (ci/e2e+axe/codeql/gitleaks). Exceção color-contrast encerrada como falso positivo comprovado (aria-hidden + contraste zero com modal aberto). D030: T058 formalmente ESCALADA ao Operador (URL/ambiente + credenciais de teste); T067 backlog; S14 chaves + aprovação; node-tar/S34 B-D abertos.
+
+## 19. T071 — Merge #28 + T069 DONE/B, D033 (2026-09-25)
+
+> R051 (T069 outcome B) = APPROVED. PR #28 verificado docs-only (plano §10 + episodes BLOCKED) e mergeado (`13de992`); main pós-merge `36060538217` success (ci/e2e/codeql/gitleaks). T070 audit confirmou base. D033: Phase B encerrada sem fix (tar no toolchain da imagem); T072 autorizada (diagnóstico isolado tar7); T058 segue sem URL válida (DEPLOYMENT_NOT_FOUND); S14 chaves + aprovação; T067 backlog; node-tar aberto.
+
+## 20. T077 — Merge #29 + Phase C DONE, D037 (2026-09-25)
+
+> R056 (T076) = APPROVED. PR #29 diff verificado (Dockerfile, .dockerignore, validate script, plano, episodes) e mergeado (`63cb975`); main pós-merge `36085026818` success (ci/e2e/codeql/gitleaks). T072/T074/T076 fechadas; node-tar HIGH/CRITICAL **mitigado** (tar 7.5.22, zero ocorrências). D037: T075 (OS bookworm) e T078 (docs bun) seguem; T058 sem URL; S14 chaves + aprovação; T067 backlog; `continue-on-error` mantido.
+
+## 21. T075 — Triagem OS bookworm + reclassificação Trivy (2026-09-25)
+
+> Tabela Trivy run `36065096390`: 65 achados (HIGH 59/CRITICAL 6) em 16 pacotes bookworm. 9 com fix (libcap2, libgnutls30×5, libpcre2×3) → Phase C2 (`apt-get upgrade` + rescan). 52 sem fix → aceite formal (non-root, read-only, no-new-privs, scan contínuo). Exit-1 do Trivy = backlog OS, NÃO node-tar. App não executa mount/perl/gzip; gap: root sem USER. T058/S14/T067 inalterados.
+
+## 22. T082 - Merge PR #30 + fechamento T079 Phase C2, D040 (2026-09-25)
+
+> R059 (T079) = APPROVED com auditoria de diff. `gh pr diff 30 --name-only` = apenas `Dockerfile`, `docs/05-security-compliance/s34-remediation-plan.md`, `logs/episodes.jsonl`; upgrade `libcap2/libgnutls30/libpcre2-8-0` codificado no **stage runner do Dockerfile** (imagem final), não em step efêmero de CI. Squash merge `77b5e7e` (branch `chore/s34-phase-c2-base-update` deletada); main pós-merge `36156480225` success (ci 7m40s / e2e 4m14s / codeql 1m51s). Trivy 65→56 (9 alvos zerados). D040: T080 = próximo caminho crítico (hardening); T078 posterior (evita conflito doc); T081 só após T080 + Operador. 52 achados OS bookworm **permanecem abertos**; `continue-on-error` mantido; imagem NÃO declarada segura.
+
+## 12. Próximos (se `Prossiga`)
+
+- **S40** — cobertura 80% (expansão sistemática de tests p/ `src/lib/{trading,chain,auth}`)
+- **S34** — Prisma 7 + mdxeditor 4.2 + react-syntax-highlighter 16 (fechar 12 vuln high/moderate residuais, breaking — exige staging)
+- **S14 live** — só com chaves testnet + aprovação (`ORCAMENTO_ESTOURADO`)
+- **S15** — `Position` HTTP E2E `traderA POST` → `viewer 403` via `fetch` (`next dev`)
+- **B-fim real** — colar saída do manifest ou `setup.py`+`agents/*.py` do `TradingAgentsX` → trava keys MÉDIAS, remove TODOs
+
+**Fórmula:** continuar priorizando fáceis com menor risco + `git push` cada sprint. Beta pronta (Fases 0-9 `[x]` + skill v1.6 + Fases TA 1→5 + 20 sistemas mapeados, `vitest 160`, `tsc 0`, `next build 46 rotas`, `graft 2744 nodes`).
+
+## 23. T083 - Merge PR #31 + fechamento T080 hardening, D042 (2026-09-26)
+
+> R061 (T080) = APPROVED. `gh pr diff 31 --name-only` = apenas `Dockerfile`, `docker-compose.yml`, `docs/06-devops-deployment/docker-hardening.md`, `docs/05-security-compliance/s34-remediation-plan.md`, `docs/05-security-compliance/SECURITY.md`, `logs/episodes.jsonl` (sem package*/src/e2e/workflows). Squash merge `efb07fa` (branch `chore/s34-docker-hardening` deletada); main pos-merge `36195981127` success (ci 7m32s / e2e 4m3s / codeql 1m45s). Hardening em main: non-root (`USER node`), `HOSTNAME=0.0.0.0` (fix bind), runtime read-only/tmpfs/no-new-privs/cap_drop/init, compose `app` em `profiles: ["app"]`. Evidencia /proc: `Uid=1000`/`CapEff=0`/`NoNewPrivs=1`; endpoints 200 sob hardening; write_errors=0. D042: T078 (docs) em seguida; T081 (aceite formal) condicionada a T078. 52 achados OS bookworm **seguem abertos com risco mitigado**; `continue-on-error` mantido; imagem nao declarada segura.
+
+## 24. T084 - Saneamento JSONL do episodes + validator (2026-09-26)
+
+> R062 (T083) = APPROVED e criou T084: 6/36 linhas malformadas pre-existentes em `logs/episodes.jsonl` (D043). Reparo sintatico lossless em branch `chore/episodes-jsonl-integrity` (PR draft): L1 BOM+`}`; L4 `1_preexistente` entre aspas+`}`; L5 `}`; L8/L14 `{ }` em objetos malformados (ressalva estrutural revisavel); L13 `-}`. Provas: 36->36, 30/30 byte-identicas ao HEAD, ordem `tarefa_id` 36/36, campos semanticos iguais; `scripts/validate-episodes.mjs` exit 0; `docs/03-development-process/episodes-integrity.md` com politica/antes-depois/limitacoes. Sem reescrita de historico Git. T078 so apos T084 merged; T081 so apos T078.
+
+## 25. T085 - Merge PR #32 + fechamento T084, D044 (2026-09-27)
+
+> R063 (T084) = APPROVED (protocol_integrity `pass_com_restricao`). Auditoria pre-merge: `gh pr diff 32 --name-only` = apenas `DECISOES.md`, `SPRINT.md`, `docs/03-development-process/episodes-integrity.md`, `logs/episodes.jsonl`, `scripts/validate-episodes.mjs` (sem package*/src/e2e/workflows/Dockerfile); hunk audit do episodes = exatamente 6 pares de linha (hunks L1, L4-5, L8, L13-14); validator 36/36 exit 0 pre e pos-merge. Squash merge `4caf78b` (branch `chore/episodes-jsonl-integrity` deletada); main pos-merge `36261942375` success (ci 7m48s / e2e 3m47s / codeql 2m0s). Ressalva estrutural L8/L14 preservada como excecao controlada (nao normalizacao semantica). D044: validator **NAO** integrado ao CI/pre-push (backlog opcional T086, exige autorizacao futura); `continue-on-error` mantido; 52 achados OS bookworm seguem abertos com risco mitigado. T078 **liberada**; T081 apos T078; T058/S14 com o Operador.
+
+## 26. T081 — Proposta formal de aceite de risco OS bookworm (2026-09-27)
+
+> D045 = APPROVED (não aceita pelo Doer; decisão soberana do Operador). `docs/05-security-compliance/risk-acceptance-proposal.md`: inventário reconciliado 65→56 (52 residuais HIGH 52 / CRITICAL 4); controles validados; limitações; monitoramento/expiry 90 dias; Operator Decision Box A/B/C/D; separação absoluta T058/S14. Nenhum runtime/workflow/dependência alterado.
+
+## 27. T092 — Containment emergencial do .env + neutralização AGENTS.md (2026-09-28)
+
+> D051 = autonomia condicional de containment. Branch security/env-containment-t092 a partir de main; git rm --cached .env (arquivo local preservado); .gitignore (.env*, !.env.example, .local/) + .env.example sanitizado; docs/security-incident-env.md com linha do tempo sanitizada; SEC-ENV aberto em SECURITY.md; AGENTS.md externo neutralizado (backup ignorado + restore HEAD); PENDENCIAS_OPERADOR.md com bloco objetivo (rotação + decisão sobre histórico). Scans segredo/Unicode antes do merge; merge automático somente se diff estritamente seguro.
+
+## 28. T090 + T094 — Proposta branch protection + pacote decisão Operador (2026-09-28)
+
+> D053 = APPROVED. T090: docs/branch-protection-policy.md mergeada (PR #37, 44afd1) — main segue sem proteção (HTTP 404 evidenciado); aplicação é decisão do Operador. T094: docs/operator-decision-package.md (dossiê único: SEC-ENV P0, T081 P1, T058 P1, S14 P2, governança P1, higiene opcional) + docs/final-autonomous-report.md (estado live: main b44afd1, CI 36345136736 success, site 404, episodes 42/42). SEC-ENV ABERTO (histórico). Projeto NÃO PRONTO.
+
+## 29. T095 — Merge PR #39 + fechamento T067, D055 (2026-09-28)
+
+> D055 = APPROVED. Auditoria live completa do PR #39: diff = 3 arquivos esperados (terminal-header.tsx -257, unicode-scan +8, episodes +1); grep amplo zero referências runtime; hunk audit = somente deleção; label e2e + reopen; ci SUCCESS (8m30s) / codeql SUCCESS (1m4s) / e2e SUCCESS (3m44s); gates locais tsc 0 / eslint 0/0 / test:ci 0 / build 0; Unicode CLEAN; segredo CLEAN; validator 45/45; site 404 (T058 bloqueada). Merge squash + branch deletada. T067/T095 fechadas.

@@ -12,8 +12,10 @@ import { Shield, LogIn } from "lucide-react";
 import { useAuth, useLogin } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
 import { fadeInUp } from "@/lib/ui/motion";
+import { useTranslation } from "@/lib/i18n/hooks";
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const { user, isLoading } = useAuth();
   const login = useLogin();
   const router = useRouter();
@@ -57,8 +59,8 @@ export default function LoginPage() {
             <div className="mx-auto size-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
               <Shield className="size-5 text-primary" />
             </div>
-            <CardTitle className="text-xl">Auto Trader — Login</CardTitle>
-            <CardDescription>Entre com suas credenciais para acessar o terminal</CardDescription>
+            <CardTitle className="text-xl">{t("login.title")}</CardTitle>
+            <CardDescription>{t("login.subtitle")}</CardDescription>
           </CardHeader>
           <CardContent>
             <form
@@ -78,7 +80,7 @@ export default function LoginPage() {
               className="space-y-4"
             >
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("login.email")}</Label>
                 <Input
                   id="email"
                   type="email"
@@ -91,7 +93,7 @@ export default function LoginPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
+                <Label htmlFor="password">{t("login.password")}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -127,19 +129,19 @@ export default function LoginPage() {
                 ) : (
                   <LogIn className="size-4" />
                 )}
-                {login.isPending ? "Entrando…" : "Entrar"}
+                {login.isPending ? t("login.signingIn") : t("login.signIn")}
               </Button>
             </form>
 
             <Alert className="mt-4">
               <AlertDescription className="text-xs leading-relaxed">
-                <span className="font-medium">Credenciais de teste:</span>
+                <span className="font-medium">{t("login.credentialsTest")}</span>
                 <br />
-                <span className="tabular">admin@local / Admin123! (super_admin)</span>
+                <span className="tabular">admin@local / Admin123! {t("login.adminRole")}</span>
                 <br />
-                <span className="tabular">viewer@local / Viewer123! (viewer)</span>
+                <span className="tabular">viewer@local / Viewer123! {t("login.viewerRole")}</span>
                 <br />
-                <span className="tabular">trader@local / Trader123! (trader)</span>
+                <span className="tabular">trader@local / Trader123! {t("login.traderRole")}</span>
               </AlertDescription>
             </Alert>
           </CardContent>

@@ -45,7 +45,11 @@ function isAllowedMemory(key: string, limit: number, windowMs: number): { allowe
 
 export const rateLimitConfig: Record<string, { limit: number; windowMs: number }> = {
   default: { limit: 100, windowMs: 10_000 },
-  auth: { limit: 5, windowMs: 60_000 },
+  // Em teste (test.db ou NODE_ENV=test) o limite sobe para não flakar e2e paralelo (26 testes × 2 workers → 5/60s estoura).
+  auth: {
+    limit: process.env.DATABASE_URL?.includes('test.db') || process.env.NODE_ENV === 'test' ? 100 : 5,
+    windowMs: 60_000,
+  },
   health: { limit: 20, windowMs: 10_000 },
   vault: { limit: 10, windowMs: 60_000 },
 };

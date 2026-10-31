@@ -1,0 +1,34 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Auto Trader API",
+    "version": "0.3.1",
+    "description": "Crypto paper trading — 44 rotas, RBAC 4×24, RLS ownerId, Idempotency-Key, i18n. Ver docs/ARCHITECTURE.md:1 para DAG completo."
+  },
+  "servers": [{ "url": "http://localhost:3000", "description": "dev" }, { "url": "https://your-domain.com", "description": "prod" }],
+  "components": {
+    "securitySchemes": {
+      "cookieAuth": { "type": "apiKey", "in": "cookie", "name": "session" },
+      "csrf": { "type": "apiKey", "in": "header", "name": "x-csrf-token" }
+    },
+    "headers": {
+      "Idempotency-Key": { "description": "Fase 4.12 — replay seguro 24h", "schema": { "type": "string", "pattern": "^[a-zA-Z0-9-_]{8,64}$" } },
+      "X-Idempotent-Replayed": { "description": "true se resposta veio do cache idempotente", "schema": { "type": "string", "enum": ["true"] } }
+    }
+  },
+  "paths": {
+    "/api/health": { "get": { "summary": "Health live (sem DB)", "responses": { "200": { "description": "ok" } } } },
+    "/api/health/ready": { "get": { "summary": "Health ready (DB latency)", "responses": { "200": { "description": "ready" } } } },
+    "/api/auth/login": { "post": { "summary": "Login (rate-limit 5/60s)", "responses": { "200": { "description": "Set-Cookie session httpOnly" }, "401": { "description": "invalid" }, "429": { "description": "rate limited" } } } },
+    "/api/positions": {
+      "get": { "summary": "List positions (RLS, cursor pagination)", "parameters": [{ "name": "cursor", "in": "query", "schema": { "type": "string" } }], "responses": { "200": { "description": "positions" } } },
+      "post": { "summary": "Create position (Idempotency-Key)", "parameters": [{ "name": "Idempotency-Key", "in": "header", "schema": { "type": "string" } }], "responses": { "201": { "description": "created" } } }
+    },
+    "/api/scam-reports": { "get": { "summary": "List scam reports (GoPlus)", "responses": { "200": { "description": "reports" } } } },
+    "/api/billing/subscription": { "post": { "summary": "Upgrade/downgrade Free/Pro/Elite", "responses": { "200": { "description": "subscription updated" } } } },
+    "/api/webhooks/stripe": { "post": { "summary": "Stripe webhook HMAC", "responses": { "200": { "description": "ok" }, "400": { "description": "invalid_signature" } } } },
+    "/api/ai/ask": { "post": { "summary": "RAG ask (citations)", "responses": { "200": { "description": "answer + citations" } } } },
+    "/api/graph": { "get": { "summary": "Knowledge graph", "responses": { "200": { "description": "graph" } } } },
+    "/api/i18n/{locale}": { "get": { "summary": "Messages pt-BR/en-US/es-ES", "parameters": [{ "name": "locale", "in": "path", "required": true, "schema": { "type": "string", "enum": ["pt-BR", "en-US", "es-ES"] } }], "responses": { "200": { "description": "messages" } } } }
+  }
+}
