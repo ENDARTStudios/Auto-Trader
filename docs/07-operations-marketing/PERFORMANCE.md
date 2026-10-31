@@ -1,7 +1,7 @@
 # PERFORMANCE — Orçamentos e Otimizações
 
 > **Versão:** 1.0 — 2026-09-23
-> **Baselines atuais (CI/lint audit S32):** next build **45 rotas**, vitest suite verde, lint 0 erros.
+> **Baselines atuais (Next.js 16.4.2):** next build **80 rotas** (70 API + 10 páginas), vitest suite verde (419 passed), lint com 35 erros pré-existentes (`react-hooks/*`, `no-require-imports` em `src/components/ui/*`).
 
 ---
 
@@ -9,7 +9,7 @@
 
 | Dimensão | Orçamento | Como medir |
 |---|---|---|
-| Build | `next build` sem warnings novos; 45 rotas é a referência atual | CI (build job) |
+| Build | `next build` sem warnings novos; 80 rotas é a referência atual | CI (build job) |
 | Testes unitários | Suite `vitest run` < 60s local; coverage não regride | `npm run test:coverage` + Codecov |
 | E2E | Playwright timeout 30s/spec; suite < 15min em CI | `npm run test:e2e` |
 | API | Rotas críticas (`/api/status`, `/api/positions`) respondem < 300ms p95 em dev com SQLite | OTel metrics (`src/lib/observability/metrics.ts`) |

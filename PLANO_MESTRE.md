@@ -8,7 +8,7 @@
 ## 📋 PROGRESSO GERAL (atualizado 2026-08-27 — sprint S13b correção)
 
 - [x] **Fase 0** — Setup `[OBRIGATÓRIO]` ✅ (S01)
-- [x] **Fase 1** — Infra base `[OBRIGATÓRIO]` ✅ (S01 `next.config.ts:8` HSTS/CSP + S06 `middleware.ts` 401 + S06 `rate-limit.ts` Redis branch)
+- [x] **Fase 1** — Infra base `[OBRIGATÓRIO]` ✅ (S01 `next.config.ts:8` HSTS/CSP + S06 `src/proxy.ts` 401 + S06 `rate-limit.ts` Redis branch)
 - [x] **Fase 2** — Dados `[OBRIGATÓRIO + auth/billing/audit]` ✅ (S02 User/Session/AuditLog + S03+K Position/ScamReport/MarketSnapshot + S05 PasswordReset + S12 Embedding/KnowledgeGraph)
 - [x] **Fase 3** — Auth `[OBRIGATÓRIO, 2FA TOTP opcional]` ✅ (S02 bcryptjs + S03 `/login` UI + S04 TOTP `src/lib/auth/totp.ts` + `mfa/setup|verify`)
 - [x] **Fase 4** — APIs/CRUDs `[OBRIGATÓRIO + billing]` ✅ (S02 auth + S04 admin/users + S05 password-reset + S06 analytics+kb-coverage)
@@ -69,7 +69,7 @@ de evidência**, não por presunção.
 
 - [x] 1.1 Next.js 16 App Router com TypeScript estrito + logging Pino (sem dados sensíveis no log) — evidência: `next.config.ts:1` `headers()` + `src/instrumentation.ts:1` + `src/lib/observability/otel.ts:1`
 - [x] 1.2 `next.config.ts` `headers()` com CSP/HSTS/X-Frame-Options/X-Content-Type-Options. HSTS só em produção — evidência: `next.config.ts:12` `X-Frame-Options:DENY` + `Strict-Transport-Security` prod-only + `X-Content-Type-Options:nosniff`
-- [x] 1.3 `@upstash/ratelimit` (Redis prod) ou in-memory Map (dev) por IP e por rota. Store: Redis quando disponível, em memória em dev — evidência: `src/lib/rate-limit.ts:1` Map dev + Redis prod, `middleware.ts:1` + `src/lib/trading/proxy-trust.ts:1`
+- [x] 1.3 `@upstash/ratelimit` (Redis prod) ou in-memory Map (dev) por IP e por rota. Store: Redis quando disponível, em memória em dev — evidência: `src/lib/rate-limit.ts:1` Map dev + Redis prod, `src/proxy.ts:1` + `src/lib/trading/proxy-trust.ts:1`
 - [x] 1.4 Logger Pino estruturado. `redact` para campos sensíveis (senha, token, email, `ENCRYPTION_KEY`) — evidência: `src/lib/observability/*` + `src/lib/env.ts:1` redact, `src/lib/crash-logger.ts:1` sync file
 - [x] 1.5 Validação Zod em TODOS os endpoints de escrita. Rejeitar payload não validado — evidência: `src/lib/env.ts:1` Zod + `src/app/api/*/route.ts` `zod` em 30+ rotas
 - [x] 1.6 CORS restrito. Dev: `localhost`. Prod: origem do domínio oficial — evidência: `next.config.ts` CORS + `src/lib/trading/proxy-trust.ts:1` trust proxy
@@ -111,9 +111,9 @@ de evidência**, não por presunção.
 
 - [x] 3.0 Preflight Auth (deps + `src/lib/env.ts` com Zod + `.env.example` S01 já) — evidência: `src/lib/env.ts:1` + `.env.example:1`
 - [x] 3.1 Setup Cookie + tipos (S02 já: `src/lib/auth/session.ts` opaque 32B + `hashToken` SHA-256) — evidência: `src/lib/auth/session.ts:15` `hashToken`
-- [x] 3.2 Rotas Register / Login / Logout (`src/app/api/auth/{login,logout,me}/route.ts` S02+S03) — evidência: `src/app/api/auth/login/route.ts:1` + `logout` + `me` + `register` + `middleware.ts:1`
+- [x] 3.2 Rotas Register / Login / Logout (`src/app/api/auth/{login,logout,me}/route.ts` S02+S03) — evidência: `src/app/api/auth/login/route.ts:1` + `logout` + `me` + `register` + `src/proxy.ts:1`
 - [x] 3.3 Refresh token flow (S07+ — não bloqueia MVP) — evidência: `src/app/api/auth/refresh/route.ts:1` `POST /api/auth/refresh` rotaciona session 7d `generateToken`+`hashToken`+`$transaction` create/delete + `Set-Cookie`, `src/lib/auth/session.ts:15` 7d TTL, `vitest` refresh rotation validado
-- [x] 3.4 Middleware de Autenticação (`requireSession(req)` em `src/lib/auth/session.ts` S02) — evidência: `src/lib/auth/session.ts:40` + `middleware.ts:18` guard 401
+- [x] 3.4 Middleware de Autenticação (`requireSession(req)` em `src/lib/auth/session.ts` S02) — evidência: `src/lib/auth/session.ts:40` + `src/proxy.ts:71` guard 401
 - [x] 3.5 Middleware RBAC (`hasPermission(role, perm)` em `src/lib/auth/rbac.ts` S02, 4×24 matriz) — evidência: `src/lib/auth/rbac.ts:12` + `tests/rbac-matrix.test.ts:1` 10 tests
 - [x] 3.6 Reset de senha (token único, expira 15min) — `POST /api/auth/forgot` + `/reset` S05 + `PasswordReset` table — evidência: `src/app/api/auth/forgot/route.ts:1` + `tests/password-reset.test.ts:1` 2 tests
 - [x] 3.7 Audit logging para auth (`AuditLog` hash-chain S02 `appendAuditLog` `auth:login`) — evidência: `src/lib/auth/audit.ts:1` + `prisma/schema.prisma: AuditLog.seq`
@@ -163,13 +163,13 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 - [x] 5.1 Inicializar `app/` (Next.js App Router já existe) — evidência: `src/app/page.tsx:1` + `layout.tsx:1` + `providers.tsx:1`
 - [x] 5.2 Cliente HTTP com interceptor: anexa cookie de sessão, trata 401 (redirect para login), refresh transparente — evidência: `src/hooks/use-auth.ts:1` interceptor 401 → `/login`, `src/hooks/use-trading-data.ts:1` `credentials:include`
-- [x] 5.3 Proteção CSRF: cookie SameSite + header `X-CSRF-Token` sincronizado — evidência: `middleware.ts:1` `x-csrf-token` + `csrf` cookie `SameSite=Lax`, `tests/csrf-middleware.test.ts:1` 8 tests
+- [x] 5.3 Proteção CSRF: cookie SameSite + header `X-CSRF-Token` sincronizado — evidência: `src/proxy.ts:1` `x-csrf-token` + `csrf` cookie `SameSite=Lax`, `tests/csrf-middleware.test.ts:1` 8 tests
 - [x] 5.4 Páginas públicas: home, login, registro, reset de senha, planos, páginas de token/wallet/scam — evidência: `src/app/login/page.tsx:1` + `pricing` + `terms` + `privacy` + `src/app/page.tsx:1` dashboard
 - [x] 5.5 Páginas privadas: área do usuário, assinatura, histórico, favoritos — evidência: `src/app/admin/users/page.tsx:27` + `src/components/dashboard/*` 15 panels
-- [x] 5.6 `ProtectedRoute` que valida sessão + permissão no servidor (SSR) e no cliente — evidência: `middleware.ts:18` guard 401 + `src/lib/auth/rbac.ts:1` + `src/app/layout.tsx:1` `getServerTranslation`
+- [x] 5.6 `ProtectedRoute` que valida sessão + permissão no servidor (SSR) e no cliente — evidência: `src/proxy.ts:71` guard 401 + `src/lib/auth/rbac.ts:1` + `src/app/layout.tsx:1` `getServerTranslation`
 - [x] 5.7 CSP restritiva via `next.config.js` + headers HTTP — evidência: `next.config.ts:12` `Content-Security-Policy` + `X-Frame-Options:DENY` + `X-Content-Type-Options:nosniff` + HSTS prod-only
 - [x] 5.8 DOMPurify em qualquer HTML dinâmico renderizado (descrições de token, AI insights) — evidência: `src/lib/sanitize.ts:1` `sanitizeHtml`/`sanitizeInsightText` (isomorphic-dompurify + fallback escape), `src/app/layout.tsx:83` `jsonLd` único `dangerouslySetInnerHTML` (seguro), `AIInsight` plain text sanitizado por defesa em profundidade
-- [x] 5.9 Sem token em localStorage. Sessão exclusivamente via cookie httpOnly — evidência: `src/lib/auth/session.ts:15` `httpOnly` `sameSite:lax` `secure` prod, `middleware.ts:1` não lê localStorage
+- [x] 5.9 Sem token em localStorage. Sessão exclusivamente via cookie httpOnly — evidência: `src/lib/auth/session.ts:15` `httpOnly` `sameSite:lax` `secure` prod, `src/proxy.ts:1` não lê localStorage
 - [x] 5.10 Acessibilidade WCAG 2.1 AA (labels, ARIA, contraste, navegação por teclado) — evidência: `src/components/ui/*` radix-ui ARIA + `Label` `aria-*` + `shadcn` contraste dark
 - [x] 5.11 Responsivo mobile-first. Lighthouse > 90 em performance/acessibilidade/SEO — evidência: `tailwind.config.ts:1` mobile-first + `src/app/layout.tsx:79` `suppressHydrationWarning` + `next build` 44 rotas
 - [x] 5.12 PWA opcional (offline-first para páginas já visitadas) — evidência: `public/manifest.json:1` `name`/`short_name`/`start_url`/`display:standalone`/`icons` maskable, `src/app/layout.tsx:79` `lang` dinâmico; service worker adiado S14+ (manifest já cobre install prompt)
@@ -201,7 +201,7 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [x] 6.5.4 Cada resposta registra fontes citadas para auditoria — evidência: `src/lib/rag/pipeline.ts:1` citações `source` + `AppLog`
 - [x] 6.6 **Knowledge Graph** `[OBRIGATÓRIO]`: relações entre entidades (token→chain, token→platform, token→scamScore). Materializado em tabelas + exposto em endpoint `/api/graph` — evidência: `src/app/api/graph/route.ts:1` + `src/lib/rag/graph.ts:1` + `prisma/schema.prisma: KnowledgeGraph`
 - [x] 6.7 **Feature flags** `[OBRIGATÓRIO]`: sistema simples em tabela `feature_flags` (Redis-backed) — evidência: `src/lib/feature-flags/live-trading.ts:1` + `src/lib/trading/feature-flags.ts:1` + `prisma/schema.prisma: FeatureFlag`
-- [x] 6.8 **Exportação de dados**: com verificação de autorização e limite de volume (rate limit + paginação) — evidência: `src/lib/csv-export.ts:1` + `src/app/api/positions/route.ts:1` pagination + `middleware.ts:1` rateLimit
+- [x] 6.8 **Exportação de dados**: com verificação de autorização e limite de volume (rate limit + paginação) — evidência: `src/lib/csv-export.ts:1` + `src/app/api/positions/route.ts:1` pagination + `src/proxy.ts:1` rateLimit
 - [x] 6.9 **WebSocket** `[CONDICIONAL: tempo real necessário]`: só se Fase 9 identificar necessidade (ex.: preço ao vivo). Por ora, adiar — evidência: `examples/websocket/frontend.tsx:1` + `server.ts:1` demo, `src/app/api/stream/route.ts:1` SSE já cobre
 
 **Verificação:**
@@ -215,10 +215,10 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 - [x] 7.1 CSP restritiva + SRI para scripts externos — evidência: `next.config.ts:12` CSP + `docs/05-security-compliance/TLS_HSTS.md:1` + `next.config.ts` SRI pendente CDN (sem externo)
 - [x] 7.2 `X-Frame-Options: DENY` (só SAMEORIGIN onde houver embed legítimo) — evidência: `next.config.ts:12` `DENY`
-- [x] 7.3 Rate limiting avançado por usuário + IP + rota, com detecção de anomalias (janela deslizante) — evidência: `src/lib/rate-limit.ts:1` sliding window + `middleware.ts:1` IP+rota, `tests/csrf-middleware.test.ts:1`
+- [x] 7.3 Rate limiting avançado por usuário + IP + rota, com detecção de anomalias (janela deslizante) — evidência: `src/lib/rate-limit.ts:1` sliding window + `src/proxy.ts:1` IP+rota, `tests/csrf-middleware.test.ts:1`
 - [x] 7.4 `npm audit --audit-level=high` quebra o build em CI — evidência: `.github/workflows/ci.yml:60` `npm audit --audit-level=high`
 - [x] 7.5 Proteção contra força bruta distribuída: contador global no Redis por IP/usuário — evidência: `src/lib/rate-limit.ts:1` `auth` bucket 5/60s + `src/lib/auth/session.ts:1` lockout
-- [x] 7.6 Desabilitar métodos HTTP não utilizados (TRACE sempre; OPTIONS só onde necessário) — evidência: `next.config.ts:1` + `middleware.ts:1` só GET/POST/PUT/DELETE
+- [x] 7.6 Desabilitar métodos HTTP não utilizados (TRACE sempre; OPTIONS só onde necessário) — evidência: `next.config.ts:1` + `src/proxy.ts:1` só GET/POST/PUT/DELETE
 - [x] 7.7 Limite de payload: body 1 MiB padrão, 50 MiB para endpoints de upload — evidência: `next.config.ts:1` `experimental.serverActions.bodySizeLimit` + `src/app/api/*/route.ts` Zod `max`
 - [x] 7.8 Rotação automática de segredos de sessão a cada 90 dias — evidência: `src/lib/trading/key-rotation.ts:1` + `src/lib/trading/kdf.ts:1` KDF versioning
 - [x] 7.9 **(CONDICIONAL)** Vault/Infisical para segredos em produção — se a plataforma de deploy já tiver secret manager nativo e gratuito (Fly.io, Railway, Vercel), usar o nativo — evidência: `docs/05-security-compliance/SECRETS.md:1` + `.env.example:1` placeholders, `src/signer/*` isolado `AGENT_GUIDE.md:1`

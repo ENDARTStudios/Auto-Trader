@@ -152,4 +152,4 @@ com canaryPct ramp), condicionado a:
 - **Regressões de segurança:** `SECURITY.md` (raiz)
 - **Roadmap canônico:** `HARDENING-ROADMAP.md` (raiz) +
   `.ai/architecture/roadmap.md`
-- **Log multi-agente:** `worklog.md` (raiz)
+- **Log multi-agente:** `docs/08-knowledge-management/worklog.md`

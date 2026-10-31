@@ -44,3 +44,16 @@ perception (TA analysts, CCXT público, Lumibot SEC/FRED) · debate (TA, Lumibot
 | 20 | `agent-mirofish.md` | MiroFish-ES fork (17★; upstream 72k★) | Enxame: cenários/teses + choques p/ gerador | Debate/evolução | SPEC-ONLY | **AGPL-3.0** |
 
 **Cobertura agent-infra:** perception (browser-use, agent-reach, scientific FRED) · debate (agency personas, **mirofish cenários**) · risco/operação (strix) · evolução (scientific challengers, **mirofish choques p/ gerador**) · docs (diagram-design) · doutrina (codebase-memory, agentmemory, openviking, harness-catalog).
+
+---
+
+## Parte 3 — Adições posteriores
+
+> Levantamentos a pedido do Operador. Mesma regra-mãe: advisory-only.
+
+| # | Skill | Sistema (verificado em) | Função em uma frase | Camada v1.6 | Status | Licença |
+|---|-------|-------------------------|---------------------|-------------|--------|---------|
+| 21 | `ext-openstock.md` | OpenStock (2026-10-31) | Referência UI/UX de dashboard de mercado (heatmap/watchlist/sentimento) — zero código | Docs (UI) | SPEC-ONLY | **AGPL-3.0** |
+| — | — | REA `morluto/rea` (2026-10-31) | Toolkit de engenharia reversa (MCP/CLI) — **avaliado e rejeitado**: os 10 repos-alvo são open source (leitura direta basta); REA não é mecanismo de aquisição/cópia e seu uso em software de terceiros viola a própria política dele | nenhuma | **REJEITADO** | MIT (irrelevante ao caso) |
+
+Plano de implementação faseada: [docs/04-api-integrations/EXTERNAL_SYSTEMS_ROADMAP.md](../docs/04-api-integrations/EXTERNAL_SYSTEMS_ROADMAP.md).

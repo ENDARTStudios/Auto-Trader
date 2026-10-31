@@ -2032,7 +2032,7 @@ determination confirms: **CHECK 1 NEGATIVE** — the server survived the full
 > ainda de pé, ou uma recompilação no meio de uma request), e não um bug de
 > lógica no vault?"
 
-**Investigation findings (full report at `download/port-collision-investigation.md`):**
+**Investigation findings (full report at `docs/02-architecture-design/port-collision-investigation.md`):**
 
 | Evidence searched | Result |
 |-------------------|--------|

@@ -199,6 +199,6 @@ This script does NOT modify any production code. It is a pure operational hygien
 | Path | Purpose |
 |---|---|
 | `scripts/check-port-orphan.sh` (executable, 5027 bytes) | Pre-flight helper script. Run before any `next dev` / `next start` / stress-test invocation. Idempotent. |
-| `download/port-collision-investigation.md` (this file) | Findings report. Documents all evidence, current machine state, verdict, recommendation, next actions. |
+| `docs/02-architecture-design/port-collision-investigation.md` (this file) | Findings report. Documents all evidence, current machine state, verdict, recommendation, next actions. |
 
 No production code modified. No `next dev` or `next start` invoked by this investigation.

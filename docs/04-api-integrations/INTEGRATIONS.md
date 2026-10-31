@@ -1,7 +1,7 @@
 # INTEGRATIONS — Integrações Externas
 
-> **Versão:** 1.0 — 2026-09-23
-> **Regra:** APIs 100% gratuitas; externo é **advisory-only** (`src/lib/trading/external-systems.ts:1`). Evidências: `skills/EXTERNAL_SYSTEMS_INDEX.md`.
+> **Versão:** 1.1 — 2026-10-31 (v1.0 — 2026-09-23; v1.1 linka o roadmap de sistemas externos)
+> **Regra:** APIs 100% gratuitas; externo é **advisory-only** (`src/lib/trading/external-systems.ts:1`). Evidências: `skills/EXTERNAL_SYSTEMS_INDEX.md` — plano faseado: [EXTERNAL_SYSTEMS_ROADMAP.md](./EXTERNAL_SYSTEMS_ROADMAP.md).
 
 ---
 

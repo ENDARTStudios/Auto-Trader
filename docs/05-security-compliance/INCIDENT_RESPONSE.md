@@ -102,7 +102,7 @@ Detect → Triage (Sev) → Contain (kill-switch/rate-limit/secrets) → Eradica
 Checklist de contain (sempre):
 
 - [ ] Kill switch se envolve fundos/RLS: `curl -X POST https://your-domain.com/api/kill-switch -H "Content-Type: application/json" -d '{"active":true,"reason":"INC-YYYY-MM-DD"}' -H "Cookie: $ADMIN_COOKIE"`
-- [ ] Rate-limit se envolve brute-force: verificar `middleware.ts:1` + `proxy-trust.ts:1`
+- [ ] Rate-limit se envolve brute-force: verificar `src/proxy.ts:1` + `proxy-trust.ts:1`
 - [ ] Secrets se envolve vazamento: `fly secrets list` + rotação
 - [ ] Snapshot forense: `fly logs --app auto-trader-prod > logs/inc-YYYY-MM-DD.log` + `logs/crash-*.log`
 
@@ -125,7 +125,7 @@ Commit: `docs: postmortem INC-YYYY-MM-DD (SEV2 auth rate-limit)` + atualizar `PL
 | `npx eslint .` | `eslint.config.mjs:1` + `hooks/set-state-in-effect` | 0 errors (Etapa 1 `c76b702`) |
 | `npm audit --audit-level=high` | `package.json:1` sharp `0.35.4` (`27877b7`) | high/critical |
 | `npx vitest run` | `vitest.config.ts:1` 91/91 | <91 |
-| `npx next build` | 44 rotas | fail |
+| `npx next build` | 80 rotas | fail |
 | CodeQL | `.github/workflows/ci.yml:45` | high |
 | k6 p95 | `scripts/load-test-k6.mjs:1` | >500ms |
 | Trivy | `docs/06-devops-deployment/PRODUCTION_DEPLOY.md:9.1.5` Fase 9.1.5 | high/critical imagem |

@@ -13,7 +13,7 @@
 | Tipos | `npx tsc --noEmit` | Limpo |
 | Gate completo | `npm run test:ci` | **637 checks** verdes (vault, signer, H0/H1/H2, M3) |
 | Unit/coverage | `npm run test:coverage` | Verde + sem regressão de cobertura (chain T050c) |
-| Build | `npm run build` | 45 rotas, sem erro |
+| Build | `npm run build` | 80 rotas, sem erro |
 | Segurança | Gitleaks + `npm audit` + Trivy + ZAP | Verdes, sem CVE mascarada (lição T054) |
 | E2E | `npm run test:e2e` | auth/mfa/s27 verdes (chromium + mobile) |
 

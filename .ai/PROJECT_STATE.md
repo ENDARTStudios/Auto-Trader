@@ -176,7 +176,7 @@ Mapeamento de attack vectors:
 → HARDENING-ROADMAP.md (raiz do projeto)
 
 Log de trabalho contínuo:
-→ worklog.md (raiz do projeto)
+→ docs/08-knowledge-management/worklog.md
 ```
 
 ---

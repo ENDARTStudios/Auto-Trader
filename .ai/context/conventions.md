@@ -129,7 +129,7 @@ scopes: audit, chain, signer, runtime, observability, trading, api, ui, docs, pr
 ├── README.md                     # Visão geral do projeto
 ├── SECURITY.md                   # Regressões REG-NNN
 ├── HARDENING-ROADMAP.md          # Roadmap canônico
-├── worklog.md                    # Log multi-agente
+├── docs/08-knowledge-management/  # worklog.md, MEMORY, RESEARCH...
 ├── package.json
 ├── tsconfig.json
 ├── next.config.js

@@ -159,6 +159,18 @@ export const EXTERNAL_SYSTEMS: ExternalSystem[] = [
     advisoryOnly: true,
   },
   {
+    id: 'openstock',
+    skillFile: 'skills/ext-openstock.md',
+    repo: 'https://github.com/Open-Dev-Society/OpenStock',
+    category: 'trading',
+    role: 'Referência UI/UX de dashboard de mercado (heatmap/watchlist/sentimento) — zero código (AGPL)',
+    layers: ['docs'],
+    license: 'AGPL-3.0',
+    licenseClass: 'copyleft',
+    status: 'spec-only',
+    advisoryOnly: true,
+  },
+  {
     id: 'codebase-memory-mcp',
     skillFile: 'skills/agent-codebase-memory-mcp.md',
     repo: 'https://github.com/DeusData/codebase-memory-mcp',
