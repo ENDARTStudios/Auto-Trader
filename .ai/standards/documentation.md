@@ -35,7 +35,7 @@ docs/                          # Design docs (raiz do projeto)
 README.md                      # Visão geral do projeto (raiz)
 SECURITY.md                    # Regressões REG-NNN (raiz)
 HARDENING-ROADMAP.md           # Roadmap canônico (raiz)
-worklog.md                     # Log multi-agente (raiz)
+docs/08-knowledge-management/   # (worklog.md, CHANGELOG, etc.)
 ```
 
 ---
@@ -124,7 +124,7 @@ Forças em jogo. Restrições.>
 - **Proibido:** apagar entradas mesmo que obsoletas. Manter para
   histórico.
 
-### `worklog.md`
+### `docs/08-knowledge-management/worklog.md`
 
 Template multi-agente:
 
@@ -242,7 +242,7 @@ gerada a partir de commits (changelogs) segue o mesmo padrão.
 Toda PR que toca código DEVE incluir:
 
 - Atualização de docs relevantes (se mudança de contrato).
-- Entrada em `worklog.md` (sempre).
+- Entrada em `docs/08-knowledge-management/worklog.md` (sempre).
 - Entrada em `memory/implementation-history.md` se for mudança
   significativa.
 

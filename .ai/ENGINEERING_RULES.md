@@ -11,12 +11,12 @@
 
 Toda implementação deve seguir, sem inverter, a sequência:
 
-1. **Ler contexto.** — arquivos diretamente afetados, dependências, `PROJECT_STATE.md`, `SECURITY.md`, `HARDENING-ROADMAP.md`, `worklog.md` recente.
+1. **Ler contexto.** — arquivos diretamente afetados, dependências, `PROJECT_STATE.md`, `SECURITY.md`, `HARDENING-ROADMAP.md`, `docs/08-knowledge-management/worklog.md` recente.
 2. **Mapear dependências.** — quem usa os símbolos que serão tocados. Listar no plano.
 3. **Criar plano.** — escopo mínimo, arquivos afetados, validações necessárias, riscos.
 4. **Executar.** — implementar seguindo o plano. Sem invenções fora do plano.
 5. **Validar.** — rodar build, rodar testes do módulo, rodar testes adversariais relevantes, confirmar que nenhum dependente quebra.
-6. **Documentar.** — atualizar `worklog.md` (sempre), `PROJECT_STATE.md` (se o estado mudar), `DECISION_LOG.md` (se houver decisão arquitetural), `SECURITY.md` (se houver nova regressão REG-NNN).
+6. **Documentar.** — atualizar `docs/08-knowledge-management/worklog.md` (sempre), `PROJECT_STATE.md` (se o estado mudar), `DECISION_LOG.md` (se houver decisão arquitetural), `SECURITY.md` (se houver nova regressão REG-NNN).
 
 **Nunca alterar esta ordem.** Em particular, nunca executar antes de mapear
 dependências e nunca finalizar antes de validar + documentar.
@@ -79,7 +79,7 @@ Toda alteração deve indicar explicitamente, no plano da tarefa:
   - [ ] Todos os testes do módulo afetado passam.
   - [ ] Nenhum teste de regressão existente quebrou.
   - [ ] Nenhum dependente listado no passo 2 quebrou.
-  - [ ] `worklog.md` foi atualizado com a entrada da tarefa.
+  - [ ] `docs/08-knowledge-management/worklog.md` foi atualizado com a entrada da tarefa.
 
 ### Princípio de teste adversarial (herdado do `HARDENING-ROADMAP.md`)
 

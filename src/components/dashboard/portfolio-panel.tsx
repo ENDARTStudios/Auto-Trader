@@ -73,7 +73,7 @@ export function PortfolioPanel({
         <span className="label-mono text-[9px] text-muted-foreground">LIVE</span>
       </div>
 
-      <div className="flex-1 overflow-auto" style={{ maxHeight: maxHeight ?? 360 }}>
+      <div className="flex-1 overflow-auto" style={{ maxHeight: maxHeight ?? 360 }} role="region" aria-label="Open positions" tabIndex={0}>
         <table className="portfolio-table">
           <thead>
             <tr>

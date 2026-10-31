@@ -416,6 +416,6 @@
 - `memory/known-problems.md` KP-NNN — bugs registrados após cada fase.
 - `memory/technical-debt.md` TD-NNN — débitos identificados em cada fase.
 - `architecture/roadmap.md` — fases canônicas referenciadas.
-- `worklog.md` (raiz do projeto) — log operacional contínuo.
+- `docs/08-knowledge-management/worklog.md` — log operacional contínuo.
 - `MANIFEST.md` — princípios do Project OS (append-only, fonte única).
 

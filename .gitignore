@@ -48,6 +48,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# local backups and scratch (T092 — never version local artifacts)
+.local/
+
 # vercel
 .vercel
 
@@ -74,3 +77,12 @@ tool-results/
 /graft/
 # gemini cli local settings (regenerable, contains local paths)
 .gemini/
+
+# AI-agent local artifacts (never version — AGENT_AUTONOMO_DOER §17)
+.agents/
+skills-lock.json
+
+# tool/runtime residue (raiz-templo T105)
+/mnt/
+*.pid
+check-result.txt

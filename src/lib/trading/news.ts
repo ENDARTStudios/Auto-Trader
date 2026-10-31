@@ -42,6 +42,15 @@ function stripHtml(s: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
+    // T052: dangerous tags are never safe to keep, even as text, because
+    // downstream consumers may not escape like React does.
+    .replace(
+      /<\/?(?:script|style|iframe|frame|frameset|object|embed|applet|form|svg|math|link|meta|base|title|textarea|button|select|option|input|video|audio|source|track|canvas|noscript|template|slot)(?:\s[^>]*)?>/gi,
+      ""
+    )
+    // T052: unknown tags carrying attributes (event handlers, href/src with
+    // javascript:) are dropped; bare literals like <bar> are preserved.
+    .replace(/<[a-zA-Z][^>]*[=:][^>]*>/g, "")
     .replace(
       /<\/?(?:p|b|i|em|strong|br|div|span|a|h[1-6]|ul|ol|li|img|code|pre|article|section)(?:\s[^>]*)?>/gi,
       ""
@@ -86,14 +95,28 @@ export function parseRssItems(xml: string, source: NewsSource, max = 20): NewsIt
   return items;
 }
 
+// T052: bound a single feed body so a malicious/huge feed cannot exhaust
+// memory or hang parsing. Oversized feeds are skipped (degraded mode).
+export const MAX_FEED_BYTES = 512 * 1024;
+
 async function fetchFeed(url: string, source: NewsSource): Promise<NewsItem[]> {
   const res = await fetch(url, {
     headers: { Accept: "application/rss+xml, application/xml, text/xml" },
     signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) throw new Error(`feed HTTP ${res.status}`);
+  const declared = res.headers?.get?.("content-length");
+  if (declared !== null && declared !== undefined) {
+    const n = Number.parseInt(String(declared), 10);
+    if (Number.isFinite(n) && n > MAX_FEED_BYTES) {
+      throw new Error(`feed too large (${n} bytes)`);
+    }
+  }
   const text = await res.text();
-  return parseRssItems(text, source);
+  return parseRssItems(
+    text.length > MAX_FEED_BYTES ? text.slice(0, MAX_FEED_BYTES) : text,
+    source
+  );
 }
 
 function sourceNameFromUrl(url: string): NewsSource {

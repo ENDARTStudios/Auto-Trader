@@ -225,6 +225,7 @@ export function WorkspaceHeader({
               onClick={onStart}
               disabled={startDisabled || isStarting}
               className="gap-1.5 h-8 bg-emerald-500/90 hover:bg-emerald-500 text-emerald-950 font-semibold"
+              aria-label="Start engine"
             >
               <Play className="size-3.5" />
               <span className="hidden sm:inline label-mono text-[10px]">START</span>
@@ -247,6 +248,7 @@ export function WorkspaceHeader({
             onClick={onKill}
             disabled={killDisabled || isKilling}
             className="gap-1.5 h-8 border-red-500/40 text-red-400 hover:bg-red-500/10 hover:text-red-300 font-semibold"
+            aria-label="Kill switch"
           >
             <Ban className="size-3.5" />
             <span className="hidden sm:inline label-mono text-[10px]">KILL</span>
@@ -275,7 +277,7 @@ export function WorkspaceHeader({
 
       {/* ---------- Row 3: TECH STRIP (always visible status bar) ---------- */}
       <div className="border-t border-border/40 px-4 lg:px-6 py-1.5">
-        <div className="tech-strip">
+        <div className="tech-strip" role="region" aria-label="System status" tabIndex={0}>
           <span className="label-mono text-[9px] text-muted-foreground shrink-0 mr-1 tracking-[0.16em]">
             STATUS
           </span>

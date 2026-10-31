@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,11 +14,12 @@ import { useTranslation } from "@/lib/i18n/hooks";
 export default function PricingPage() {
   const { t } = useTranslation();
   const { user, isLoading } = useAuth();
+  const router = useRouter();
   const [submitting, setSubmitting] = useState<string | null>(null);
 
   async function handleSubscribe(planId: string) {
     if (!user) {
-      window.location.href = "/login";
+      router.push("/login");
       return;
     }
     setSubmitting(planId);
@@ -87,6 +89,7 @@ export default function PricingPage() {
                     disabled={submitting === plan.id || isLoading}
                     className="w-full"
                     variant={plan.id === "pro" ? "default" : "outline"}
+                    data-testid={`pricing-subscribe-${plan.id}`}
                   >
                     {submitting === plan.id ? "..." : plan.id === "free" ? t("pricing.downgrade") : `${t("pricing.subscribeTo")} ${plan.name}`}
                   </Button>
