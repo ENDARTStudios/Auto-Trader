@@ -132,18 +132,11 @@ export function AlertsToast() {
 
   const { readyState } = useEventStream({ onEvent, maxRecent: 50 });
 
-  // Auto-dismiss expired toasts
-  useEffect(() => {
-    if (toasts.length === 0) return;
-    const expired = toasts.some(
-      (t) => t.autoDismissAt !== null && t.autoDismissAt <= now
-    );
-    if (expired) {
-      setToasts((prev) =>
-        prev.filter((t) => t.autoDismissAt === null || t.autoDismissAt > now)
-      );
-    }
-  }, [now, toasts]);
+  // Auto-dismiss: derivado em render (react-hooks/set-state-in-effect, plugin 7.1) —
+  // expirados saem da UI no tick de 1s sem efeito de limpeza de estado.
+  const activeToasts = toasts.filter(
+    (t) => t.autoDismissAt === null || t.autoDismissAt > now
+  );
 
   const dismiss = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -181,19 +174,19 @@ export function AlertsToast() {
               : "OFFLINE"}
           </span>
         </div>
-        {toasts.length > 0 && (
+        {activeToasts.length > 0 && (
           <button
             onClick={clearAll}
             className="text-xs px-2 py-1 rounded bg-slate-900/80 backdrop-blur border border-slate-700 text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-colors"
             aria-label="Limpar todos os toasts"
           >
-            Limpar ({toasts.length})
+            Limpar ({activeToasts.length})
           </button>
         )}
       </div>
 
       {/* Toast stack */}
-      {toasts.map((t) => {
+      {activeToasts.map((t) => {
         const colors = toastColor(t.ev);
         const isSticky = t.autoDismissAt === null;
         const context = t.ev.context;
