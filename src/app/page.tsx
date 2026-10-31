@@ -147,7 +147,12 @@ export default function Home() {
   const [wizardClosed, setWizardClosed] = useState(false);
 
   const paletteOpenRef = useRef(paletteOpen);
-  paletteOpenRef.current = paletteOpen;
+  useEffect(() => {
+    // Espelha o estado no ref após o render (react-hooks/refs, plugin 7.1:
+    // proibido escrever ref durante o render). O handler de keydown lê o valor
+    // pós-commit — sem mudança de comportamento.
+    paletteOpenRef.current = paletteOpen;
+  }, [paletteOpen]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
