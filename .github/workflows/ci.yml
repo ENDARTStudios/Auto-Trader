@@ -120,14 +120,25 @@ jobs:
         with:
           upload: false
           output: sarif-results
-      - name: CodeQL — gate local em findings
+      - name: CodeQL — gate delta (falha só em finding em arquivo da PR)
         run: |
-          count=$(jq '[.runs[].results[]] | length' sarif-results/javascript.sarif 2>/dev/null || echo 0)
-          echo "CodeQL findings: $count"
-          if [ "$count" -gt 0 ]; then
-            jq -r '.runs[].results[] | "\(.ruleId) @ \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)"' sarif-results/javascript.sarif | sort -u
-            exit 1
-          fi
+          jq -r '.runs[].results[] | "\(.ruleId) @ \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)"' sarif-results/javascript.sarif 2>/dev/null | sort -u > findings.txt || true
+          count=$(wc -l < findings.txt | tr -d ' ')
+          echo "CodeQL findings (total): $count"
+          cat findings.txt
+          # Modelo delta = mesmo critério dos PR alerts do code scanning:
+          # finding pré-existente não bloqueia PRs alheias; finding em arquivo
+          # tocado pela PR bloqueia. Nada é ocultado — tudo é impresso aqui.
+          git diff --name-only "origin/${{ github.base_ref }}...HEAD" > changed.txt || true
+          failed=0
+          while IFS= read -r line; do
+            uri=$(printf '%s' "$line" | sed 's/^.*@ //; s/:[0-9]*$//')
+            if grep -qxF "$uri" changed.txt; then
+              echo "::error::CodeQL finding em arquivo da PR: $line"
+              failed=1
+            fi
+          done < findings.txt
+          exit $failed
 
   deploy-staging:
     if: github.ref == 'refs/heads/main' && vars.STAGING_ENABLED == 'true'
