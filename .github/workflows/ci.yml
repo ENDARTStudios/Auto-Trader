@@ -9,6 +9,10 @@ on:
 permissions:
   contents: read
   security-events: write
+  # Gitleaks PR-mode comenta no PR (Resource not accessible by integration sem isso)
+  pull-requests: write
+  # CodeQL analyze consulta o workflow run (Get a workflow run precisa de actions:read)
+  actions: read
 
 jobs:
   ci:
@@ -40,7 +44,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Gitleaks — secret scan
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -64,7 +68,7 @@ jobs:
           DATABASE_URL: file:./prisma/test.db
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage/lcov.info
           flags: unittests
@@ -101,13 +105,40 @@ jobs:
     permissions:
       contents: read
       security-events: write
+      # codeql-action/analyze consulta o workflow run (Get a workflow run)
+      actions: read
     steps:
       - uses: actions/checkout@v4
       - uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
       - uses: github/codeql-action/autobuild@v4
+      # Repo privado sem GHAS: o upload ao code scanning exige Advanced Security
+      # (decisão de compra do Operador). A análise roda igual; o gate fica LOCAL
+      # no count de findings — nada de continue-on-error (lição T054).
       - uses: github/codeql-action/analyze@v4
+        with:
+          upload: false
+          output: sarif-results
+      - name: CodeQL — gate delta (falha só em finding em arquivo da PR)
+        run: |
+          jq -r '.runs[].results[] | "\(.ruleId) @ \(.locations[0].physicalLocation.artifactLocation.uri):\(.locations[0].physicalLocation.region.startLine)"' sarif-results/javascript.sarif 2>/dev/null | sort -u > findings.txt || true
+          count=$(wc -l < findings.txt | tr -d ' ')
+          echo "CodeQL findings (total): $count"
+          cat findings.txt
+          # Modelo delta = mesmo critério dos PR alerts do code scanning:
+          # finding pré-existente não bloqueia PRs alheias; finding em arquivo
+          # tocado pela PR bloqueia. Nada é ocultado — tudo é impresso aqui.
+          git diff --name-only "origin/${{ github.base_ref }}...HEAD" > changed.txt || true
+          failed=0
+          while IFS= read -r line; do
+            uri=$(printf '%s' "$line" | sed 's/^.*@ //; s/:[0-9]*$//')
+            if grep -qxF "$uri" changed.txt; then
+              echo "::error::CodeQL finding em arquivo da PR: $line"
+              failed=1
+            fi
+          done < findings.txt
+          exit $failed
 
   deploy-staging:
     if: github.ref == 'refs/heads/main' && vars.STAGING_ENABLED == 'true'

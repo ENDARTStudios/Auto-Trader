@@ -52,7 +52,7 @@ pontos de validação intermediários.>
 3. Editar <arquivo Z> adicionando <mudança>.
 4. Rodar `tsc --noEmit` — espera-se 0 erros.
 5. Rodar `scripts/test-<modulo>.ts` — espera-se N/N pass.
-6. Atualizar `worklog.md` e (se aplicável) `PROJECT_STATE.md`,
+6. Atualizar `docs/08-knowledge-management/worklog.md` e (se aplicável) `PROJECT_STATE.md`,
    `DECISION_LOG.md`, `SECURITY.md`.
 
 ### Implementação
@@ -121,7 +121,7 @@ tarefa separada. Inclua "nada" se não houver.>
 
 5. **Documentar ao final** (Regra de fluxo de `ENGINEERING_RULES.md`).
    Toda tarefa concluída deve:
-   - Adicionar entrada em `worklog.md` (raiz do projeto).
+   - Adicionar entrada em `docs/08-knowledge-management/worklog.md` (raiz do projeto).
    - Atualizar `PROJECT_STATE.md` se o estado do projeto mudou.
    - Adicionar entrada em `DECISION_LOG.md` se houve decisão arquitetural.
    - Adicionar REG-NNN em `SECURITY.md` se houve nova regressão de segurança.
