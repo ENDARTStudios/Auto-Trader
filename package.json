@@ -96,7 +96,7 @@
     "next-themes": "^0.4.6",
     "prisma": "^6.11.1",
     "react": "^19.0.0",
-    "react-day-picker": "^9.8.0",
+    "react-day-picker": "^10.0.2",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.60.0",
     "react-markdown": "^10.1.0",
@@ -134,6 +134,7 @@
       "deepmerge-ts": "^8.0.0",
       "effect": "^3.20.0"
     },
-    "eslint-plugin-react-hooks": "7.1.1"
+    "eslint-plugin-react-hooks": "7.1.1",
+    "undici": "^8.12.3"
   }
 }
