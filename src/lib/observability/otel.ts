@@ -7,9 +7,9 @@ export async function initOTel(): Promise<void> {
   const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT;
   if (!endpoint) return;
   try {
-    const { NodeSDK } = await import('@opentelemetry/sdk-node');
-    const { getNodeAutoInstrumentations } = await import('@opentelemetry/auto-instrumentations-node');
-    const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http');
+    const { NodeSDK } = await import(/* webpackIgnore: true */ '@opentelemetry/sdk-node');
+    const { getNodeAutoInstrumentations } = await import(/* webpackIgnore: true */ '@opentelemetry/auto-instrumentations-node');
+    const { OTLPTraceExporter } = await import(/* webpackIgnore: true */ '@opentelemetry/exporter-trace-otlp-http');
     sdk = new NodeSDK({
       traceExporter: new OTLPTraceExporter({ url: `${endpoint}/v1/traces` }),
       instrumentations: [getNodeAutoInstrumentations()],
