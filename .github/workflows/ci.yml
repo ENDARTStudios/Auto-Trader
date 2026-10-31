@@ -37,6 +37,10 @@ jobs:
       - name: Install deps (frozen)
         run: npm ci
 
+      # Prisma 7: postinstall não gera mais o client — obrigatório antes de lint/tsc
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
       - name: Lint
         run: npm run lint --if-present
 
@@ -168,6 +172,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: npx prisma generate
       # test.db precisa de schema + seed: sem isso /api/health retorna 503
       # e o webServer do Playwright estoura o timeout de 120s (S39).
       - run: npx prisma db push
