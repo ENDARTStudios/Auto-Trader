@@ -15,7 +15,7 @@ Closes #<!-- número da issue, ex: #42 -->
 
 - [ ] `feat:` nova funcionalidade
 - [ ] `fix:` correção de bug
-- [ ] `security:` correção de segurança (atualizar SECURITY.md REG-XXX se aplicável)
+- [ ] `security:` correção de segurança (atualizar docs/05-security-compliance/SECURITY.md REG-XXX se aplicável)
 - [ ] `chore:` manutenção / refator / docs / deps
 - [ ] `docs:` apenas documentação
 
@@ -61,8 +61,8 @@ curl -X POST http://localhost:3000/api/watchlist -H "Content-Type: application/j
 - [ ] Lint + typecheck passam (`npm run lint`, `npx tsc --noEmit`)
 - [ ] Build passa (`npm run build`)
 - [ ] Docs atualizados (`docs/*.md`, `README.md`, `CHANGELOG.md` se aplicável)
-- [ ] `SECURITY.md` atualizado se introduziu novo REG
-- [ ] Feature flag adicionada se feature é opcional (ver `docs/ARCHITECTURE.md` §4)
+- [ ] `docs/05-security-compliance/SECURITY.md` atualizado se introduziu novo REG
+- [ ] Feature flag adicionada se feature é opcional (ver `docs/02-architecture-design/ARCHITECTURE.md` §4)
 
 ## Risco
 

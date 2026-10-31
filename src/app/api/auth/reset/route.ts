@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { hashToken } from '@/lib/auth/session';
 import { hashPassword } from '@/lib/auth/password';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { handleApiError } from '@/lib/api/error-handler';
 
 const schema = z.object({ token: z.string().min(1), newPassword: z.string().min(8) });
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   try {
     const ip = getClientIp(req);
     const rl = checkRateLimit(ip, '/api/auth/reset');
-    if (!rl.allowed) return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter ?? 60) } });
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: 'validation_error', details: parsed.error.flatten() }, { status: 400 });

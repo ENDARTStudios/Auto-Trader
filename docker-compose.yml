@@ -1,9 +1,12 @@
-# docker-compose.yml — S01 0.4 + S13 pgvector + S14 ollama
+# docker-compose.yml — S01 0.4 + S13 pgvector + S14 ollama + T080 app (hardened)
 # Uso:
 #   cp .env.example .env   # e ajuste DATABASE_URL para postgres em prod
-#   docker compose up -d   # sobe postgres (pgvector) + ollama
+#   docker compose up -d   # sobe postgres (pgvector) + ollama (comportamento original)
 #   npx prisma migrate deploy   # aplica migrations em postgres
 #   docker compose exec ollama ollama pull nomic-embed-text   # embeddings RAG
+# T080: serviço app está atrás de profile ["app"] para não alterar o fluxo
+#   original de `up -d` (db+ollama). Subir o app endurecido:
+#   docker compose --profile app up -d --build app
 services:
   db:
     image: pgvector/pgvector:pg16
@@ -41,6 +44,34 @@ services:
       timeout: 3s
       retries: 10
     networks: [autotrader]
+
+  # T080 — controles compensatórios de hardening (validados em runtime, T080).
+  # Mesmos flags do runbook docs/docker-hardening.md: non-root (user node),
+  # read-only rootfs + tmpfs /tmp, no-new-privileges, cap_drop ALL, init.
+  # Profile evita mudar o comportamento de `docker compose up -d` (db+ollama).
+  app:
+    profiles: ["app"]
+    build: .
+    image: autotrader:hardened
+    container_name: autotrader-app
+    restart: unless-stopped
+    init: true
+    user: node
+    read_only: true
+    tmpfs:
+      - /tmp:rw,size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "3100:3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 volumes:
   pgdata:

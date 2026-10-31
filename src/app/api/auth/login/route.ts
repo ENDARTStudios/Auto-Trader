@@ -4,7 +4,7 @@ import { db } from '@/lib/db';
 import { zAccountEmail } from '@/lib/auth/email';
 import { verifyPassword } from '@/lib/auth/password';
 import { generateToken, hashToken, createSessionCookie } from '@/lib/auth/session';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { handleApiError } from '@/lib/api/error-handler';
 import { appendAuditLog } from '@/lib/auth/audit';
 
@@ -28,12 +28,7 @@ export async function POST(req: Request) {
   try {
     const ip = getClientIp(req);
     const rl = checkRateLimit(ip, '/api/auth/login');
-    if (!rl.allowed) {
-      return NextResponse.json(
-        { error: 'rate_limited', retryAfter: rl.retryAfter },
-        { status: 429, headers: { 'Retry-After': String(rl.retryAfter ?? 60) } },
-      );
-    }
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
     const body = await req.json();
     const parsed = loginSchema.safeParse(body);
@@ -41,6 +36,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'validation_error', details: parsed.error.flatten() }, { status: 400 });
     }
     const { email, password, totp } = parsed.data;
+
+    // Limite por CONTA (acct:<email>): mitiga brute force distribuído que o limite por IP não pega.
+    const acctRl = checkRateLimit(`acct:${email.toLowerCase()}`, '/api/auth/login');
+    if (!acctRl.allowed) return rateLimitResponse(acctRl.retryAfter);
 
     const user = await db.user.findUnique({ where: { email } });
     if (!user || !user.isActive) {

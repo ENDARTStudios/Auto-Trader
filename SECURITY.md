@@ -1937,7 +1937,7 @@ export async function GET(req: Request) {
 The 3-layer defense is load-bearing: `checkRateLimit` (WAF), `requireSession` (auth), `hasPermission` (RBAC), `rlsWhere` (row-level). Removing any one reopens a gap. The permanent principle from HARDENING-ROADMAP applies: every new route must ship with at least one test that attempts to access it without auth and with wrong role.
 
 **If you are tempted to "simplify" by removing the guard from a route:**
-Don't. Read `tests/auth.test.ts` — it asserts `hasPermission('viewer','engine:kill')===false`. A route without the guard would allow viewer to kill. If you have a structural reason to make a route public, add it to the explicit public allowlist in `middleware.ts` and in the route's own comment, and update this REG entry.
+Don't. Read `tests/auth.test.ts` — it asserts `hasPermission('viewer','engine:kill')===false`. A route without the guard would allow viewer to kill. If you have a structural reason to make a route public, add it to the explicit public allowlist in `src/proxy.ts` and in the route's own comment, and update this REG entry.
 
 **History:** Aug 27 2026 — S02 implemented after S01 foundation wiring. Operator's directive: close OWASP A01/A07 (public routes) before adding new features. S01 had 5 routes with rate-limit only; S02 adds auth+RBAC to 5 critical routes + wallets RLS. The auth helpers are pure and tested via `tests/auth.test.ts` (8 tests) + `scripts/test-auth-rbac.ts` (11 checks). No frozen `chain`/`signer`/`audit` files were touched (verified via `git diff --name-only`).
 
@@ -2015,28 +2015,28 @@ Don't. Read `tests/password-reset.test.ts` — it asserts `used=false` then `use
 
 ## REG-012: Auto Trader S16-S22 Final Security Audit (2026-08-27)
 
-**Date:** 2026-08-27 � Final audit of all 6 sprints S16-S22.
+**Date:** 2026-08-27 � Final audit of all 6 sprints S16-S22.
 
 **Test coverage:**
 - 8 test files, **53 vitest tests** all passing
-- 	ests/totp.test.ts (6) � TOTP RFC 6238
-- 	ests/auth.test.ts (8) � RBAC + RLS matrix
-- 	ests/password-reset.test.ts (2) � single-use token
-- 	ests/rag.test.ts (6) � embeddings + cosine + buildGraph
-- 	ests/etl.test.ts (5) � crypto ETL (CoinGecko + DexScreener + GoPlus + Etherscan)
-- 	ests/position-rls.test.ts (5) � Position NOT NULL + assertOwner + IDOR
-- 	ests/billing.test.ts (12) � Stripe HMAC (timingSafeEqual) + plans (Free/Pro/Elite)
-- 	ests/live-trader.test.ts (9) � CCXT testnet + Uniswap V3 0.3% fee
+- 	ests/totp.test.ts (6) � TOTP RFC 6238
+- 	ests/auth.test.ts (8) � RBAC + RLS matrix
+- 	ests/password-reset.test.ts (2) � single-use token
+- 	ests/rag.test.ts (6) � embeddings + cosine + buildGraph
+- 	ests/etl.test.ts (5) � crypto ETL (CoinGecko + DexScreener + GoPlus + Etherscan)
+- 	ests/position-rls.test.ts (5) � Position NOT NULL + assertOwner + IDOR
+- 	ests/billing.test.ts (12) � Stripe HMAC (timingSafeEqual) + plans (Free/Pro/Elite)
+- 	ests/live-trader.test.ts (9) � CCXT testnet + Uniswap V3 0.3% fee
 
 **Security guarantees (REG-012):**
-1. **Authentication** � bcryptjs cost 12 (S02); TOTP 32 chars base32 + window 1 (S04); single-use PasswordReset 15m (S05).
-2. **Authorization** � 4 roles x 24 permissions matrix (S02); hasPermission guard before every protected route; IDOR blocked by ssertOwner (equireAdmin test verified).
-3. **RLS** � Position.ownerId NOT NULL (S05); lsWhere injects {ownerId: userId} except super_admin; super_admin bypass verified.
-4. **Transport** � HSTS max-age=63072000; includeSubDomains; preload (S01 next.config.ts:8); CSP + X-Frame-Options DENY; Stripe webhook HMAC SHA-256 + 	imingSafeEqual + 5min tolerance.
-5. **Rate limiting** � 100/10s default + 5/60s auth + Redis INCR/EXPIRE branch (S06); test verifies 6+ requests return 429.
-6. **Observability** � Sentry DSN production wiring verified (4/4 S18 test); captureError scrubs ENCRYPTION_KEY/SESSION_SECRET; OTEL/Prometheus ready (S05).
-7. **Data sourcing** � crypto-only ETL CoinGecko + DexScreener + GoPlus + Etherscan (S13b corrected from football scope).
-8. **Performance** � 1000 VUs at 168k RPS p95=3.35ms (S21); well under 500ms target.
+1. **Authentication** � bcryptjs cost 12 (S02); TOTP 32 chars base32 + window 1 (S04); single-use PasswordReset 15m (S05).
+2. **Authorization** � 4 roles x 24 permissions matrix (S02); hasPermission guard before every protected route; IDOR blocked by ssertOwner (equireAdmin test verified).
+3. **RLS** � Position.ownerId NOT NULL (S05); lsWhere injects {ownerId: userId} except super_admin; super_admin bypass verified.
+4. **Transport** � HSTS max-age=63072000; includeSubDomains; preload (S01 next.config.ts:8); CSP + X-Frame-Options DENY; Stripe webhook HMAC SHA-256 + 	imingSafeEqual + 5min tolerance.
+5. **Rate limiting** � 100/10s default + 5/60s auth + Redis INCR/EXPIRE branch (S06); test verifies 6+ requests return 429.
+6. **Observability** � Sentry DSN production wiring verified (4/4 S18 test); captureError scrubs ENCRYPTION_KEY/SESSION_SECRET; OTEL/Prometheus ready (S05).
+7. **Data sourcing** � crypto-only ETL CoinGecko + DexScreener + GoPlus + Etherscan (S13b corrected from football scope).
+8. **Performance** � 1000 VUs at 168k RPS p95=3.35ms (S21); well under 500ms target.
 
 **Football/Almanaque contamination check:** 0 football references in src/ or 	ests/ (all remaining matches are in PLANO_MESTRE.md:27 and SPRINT.md as explicit negations + changelogs).
 
@@ -2047,6 +2047,10 @@ px vitest run ? 53 passed, 0 failed.
 px next build ? OK (static ? /login ? /admin/users ? /sitemap.xml).
 
 **CI gate:** git push origin main triggers .github/workflows/ci.yml (lint+typecheck+test:ci 637+vitest 53+CodeQL+Trivy).
+
+**Trivy non-blocking semantics (pós-Phase C2, T082):** node-tar HIGH/CRITICAL mitigado (tar 7.5.22, zero ocorrências). Phase C2 (PR #30, merge `77b5e7e`) zerou os 9 CVEs OS bookworm remediáveis (libcap2/libgnutls30/libpcre2-8-0) via digest pin `sha256:2cf067` + `apt-get` no stage runner do Dockerfile — Trivy caiu de **65 → 56**. Os **52 achados restantes sem fix upstream permanecem risco aberto** (backlog OS bookworm, plano S34 §12–§14), NÃO exceção node-tar. `continue-on-error` mantido até hardening validado (T080) + aceitação formal de risco (T081). CI verde ≠ imagem totalmente segura.
+
+**Container hardening (T080, compensatório para os 52 achados):** validado em runtime — `USER node` no build (uid 1000), `read-only` rootfs + `tmpfs /tmp`, `no-new-privileges`, `cap_drop ALL` (`CapEff=0`), `--init`, bind `0.0.0.0:3000` via `HOSTNAME` explícito; health/login/static/robots 200 sob hardening, zero erros de escrita nos logs; serviço `app` no compose sob `profiles: ["app"]` com os mesmos controles. Runbook e limitações: `docs/docker-hardening.md`. **Estes controles reduzem explotabilidade, não corrigem os 52 achados** — persistem como risco aberto até T081. Serviços de terceiros (db/ollama) não endurecidos (fora de escopo). **Merge T083 (`efb07fa`, PR #31):** hardening em main; CI pós-merge `36195981127` success (ci/e2e/codeql).
 
 **Production deploy** (docs/DEPLOY.md from S11): ly secrets set SENTRY_DSN=... NEXT_PUBLIC_SENTRY_DSN=... STRIPE_SECRET_KEY=... STRIPE_WEBHOOK_SECRET=... DATABASE_URL=... REDIS_URL=... ENCRYPTION_KEY=... SESSION_SECRET=....
 
@@ -2059,7 +2063,7 @@ px tsx scripts/test-position-alerts.ts and S26 vitest.
 
 **Rule:** unSurveillance() in src/lib/trading/position-surveillance.ts MUST create a PositionAlert row in the Prisma positionAlert table when a surveillance detector flags a position. The route POST /api/surveillance with ction=scan_now already triggers this via unSurveillance(openPositions). Each detector writes a row with positionId, 	ype (e.g. goplus_critical_flag, liquidity_drain, price_dump_velocity, holder_concentration, 	ax_spike, 	imeout_approaching, price_anomaly), severity (info/warning/critical), message, context (JSON).
 
-**Why this is a regression entry:** Without the trigger, the surveillance table stays empty, the dashboard badge lerts=0 always, and operators lose visibility into emerging risk. A future maintainer might "optimize" unSurveillance() to skip writing alerts (e.g., returning only the count) � that would silently break the UX. This entry documents that every detector result MUST be persisted.
+**Why this is a regression entry:** Without the trigger, the surveillance table stays empty, the dashboard badge lerts=0 always, and operators lose visibility into emerging risk. A future maintainer might "optimize" unSurveillance() to skip writing alerts (e.g., returning only the count) � that would silently break the UX. This entry documents that every detector result MUST be persisted.
 
 **The correct structure (do not simplify):**
 `	s
@@ -2082,7 +2086,7 @@ Removing this db.positionAlert.create call means no UI alert is shown.
 
 ## REG-014: Sentry + Ollama + BullMQ stubs (S28)
 
-**Date:** 2026-08-30 (S28 � observability stack stubs)
+**Date:** 2026-08-30 (S28 � observability stack stubs)
 
 **Test:** 	ests/bullmq-sentry-ollama.test.ts (7/7 PASS).
 
@@ -2094,7 +2098,7 @@ pm install @sentry/nextjs + ly secrets set SENTRY_DSN=.... The eforeSend scrub
 **Rule 3 (BullMQ stub):** src/lib/queue/bullmq-stub.ts is the in-process implementation used in dev/test. To switch to real BullMQ in production, replace the file body with export { Queue, Worker } from "bullmq". The stub maintains the same API surface (add/process/pollIntervalMs/attempts) so the swap is transparent.
 
 **Test pin (vitest):**
-1. initSentry is idempotent � second call does not throw.
+1. initSentry is idempotent � second call does not throw.
 2. captureSentryException does not crash when @sentry/nextjs is not installed.
 3. generateEmbeddingOllama("BTC") returns 1536-dim non-zero vector even with no ollama server.
 4. Queue.add+process runs 3 jobs sequentially in declared order.
@@ -2103,3 +2107,15 @@ pm install @sentry/nextjs + ly secrets set SENTRY_DSN=.... The eforeSend scrub
 7. Worker ticks at 10ms poll interval and exits cleanly via close().
 
 **Why these are regressions:** A future maintainer might remove the Sentry init guard (causing double-init in dev with HMR), might remove the Ollama fallback (causing dev tests to fail when ollama is not running), or might remove the BullMQ retry logic (causing silent job loss on transient errors). This entry documents the invariants.
+
+---
+
+## SEC-ENV — Incidente .env rastreado (ABERTO, T092 — 2026-09-28)
+
+**Status:** INCIDENTE ABERTO. .env estava rastreado com 4 commits de histórico e 2 chaves com valores reais suspeitos (DATABASE_URL, TYPESAFE_API_KEY). Containment do tree executado (T092): git rm --cached .env + .gitignore + .env.example. **Histórico permanece exposto** — rotação de chaves e decisão sobre purge/rewrite são ações do Operador. Detalhes: docs/security-incident-env.md.
+
+---
+
+## GOV-001 — Proposta de Branch Protection (T090, NÃO APLICADA)
+
+**Status:** proposta documental em docs/branch-protection-policy.md; main segue SEM proteção formal (evidência: gh api .../branches/main/protection = HTTP 404). Regra mínima proposta: PR obrigatório; ci/codeql/gitleaks verdes obrigatórios; proibição de force push e deleção de main; e2e condicional (obrigatório em mudanças de runtime/UI, skipped aceitável para docs-only documentado); Vercel monitorado não bloqueante para docs-only; Trivy non-blocking até T081; anti-regressão: .env/segredos nunca rastreados; escalonamento ao Operador para PRs que toquem segredos/auth/workflows/Docker/dependências. **Aplicação é decisão soberana do Operador.**

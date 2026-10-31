@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { db } from '@/lib/db';
 import { zAccountEmail } from '@/lib/auth/email';
 import { generateToken, hashToken } from '@/lib/auth/session';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { handleApiError } from '@/lib/api/error-handler';
 
 const schema = z.object({ email: zAccountEmail });
@@ -20,10 +20,14 @@ export async function POST(req: Request) {
   try {
     const ip = getClientIp(req);
     const rl = checkRateLimit(ip, '/api/auth/forgot');
-    if (!rl.allowed) return NextResponse.json({ error: 'rate_limited' }, { status: 429, headers: { 'Retry-After': String(rl.retryAfter ?? 60) } });
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
     const body = await req.json();
     const parsed = schema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: 'validation_error', details: parsed.error.flatten() }, { status: 400 });
+
+    // Limite por CONTA (acct:<email>): mitiga flood distribuído de reset por conta.
+    const acctRl = checkRateLimit(`acct:${parsed.data.email.toLowerCase()}`, '/api/auth/forgot');
+    if (!acctRl.allowed) return rateLimitResponse(acctRl.retryAfter);
 
     const user = await db.user.findUnique({ where: { email: parsed.data.email } });
     // Always return ok to avoid email enumeration

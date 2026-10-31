@@ -69,7 +69,7 @@ export function SystemHealthPanel({ layers, className }: SystemHealthPanelProps)
         <span className="label-mono text-[9px] text-muted-foreground">LIVE</span>
       </div>
 
-      <div className="ws-panel-body grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 flex-1 overflow-y-auto" style={{ maxHeight: 360 }}>
+      <div className="ws-panel-body grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5 flex-1 overflow-y-auto" style={{ maxHeight: 360 }} role="region" aria-label="Hardening layers" tabIndex={0}>
         {layers.length === 0 ? (
           <div className="col-span-full text-center text-[11px] text-muted-foreground label-mono py-8">
             Sem dados de hardening.
