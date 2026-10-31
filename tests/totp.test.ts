@@ -24,7 +24,10 @@ describe('TOTP', () => {
 
   it('verify window', () => {
     const s = generateSecret();
-    const now = Date.now();
+    // Alinhado a +1s do início da janela de 30s: determinístico contra flakes
+    // de fronteira (se `now` cair no fim da janela, +31s aterrissa 2 janelas
+    // à frente e sai do ±1 — falha intermitente vista no CI em 2026-10-31).
+    const now = Math.floor(Date.now() / 30_000) * 30_000 + 1_000;
     const t = totp(s, now);
     // same time -> true
     expect(verify(t, s, 1, now)).toBe(true);
