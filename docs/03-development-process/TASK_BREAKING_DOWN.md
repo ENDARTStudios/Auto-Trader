@@ -26,7 +26,7 @@
 - T002 <ação> — depende T001 — validação: <comando>
 
 ## Critério de pronto da sprint
-- <gate global: lint 0, test:ci verde, build 45 rotas...>
+- <gate global: lint 0, test:ci verde, build 80 rotas...>
 
 ## Riscos
 - <o que pode quebrar; arquivos frozen afetados?>

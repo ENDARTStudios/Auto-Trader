@@ -172,7 +172,7 @@ Exemplos:
 - [ ] Testes adversariais relevantes passam (listar REG-NNN)
 - [ ] `npm run build` passa
 - [ ] Documentação atualizada (`.ai/` quando aplicável)
-- [ ] `worklog.md` atualizado
+- [ ] `docs/08-knowledge-management/worklog.md` atualizado
 
 ## Riscos
 

@@ -205,7 +205,7 @@ CORE_RULES.md
   > architecture/frozen-files.md
   > SECURITY.md (REG-NNN)
   > HARDENING-ROADMAP.md
-  > worklog.md
+  > docs/08-knowledge-management/worklog.md
 ```
 
 ---

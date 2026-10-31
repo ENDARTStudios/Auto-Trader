@@ -1,9 +1,10 @@
-// middleware.ts — Next.js middleware (edge/node)
+// proxy.ts — Next.js Proxy (Node.js runtime since v16; file convention renamed
+// from `middleware.ts`, which is deprecated and will be removed).
 // Docs: docs/WAF_RATE_LIMIT.md + docs/TLS_HSTS.md + docs/RBAC.md + docs/CSRF
 // Runs on every request matching `config.matcher`.
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { timingSafeEqual } from 'crypto';
 
 const CSRF_HEADER = 'x-csrf-token';
 const CSRF_COOKIE = 'csrf';
@@ -67,13 +68,18 @@ function verifyCsrf(req: NextRequest): { valid: boolean; reason?: string } {
   return { valid: true };
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   const method = req.method;
 
-  // 1. Auth guard for /api/* (edge-safe: only checks cookie presence, DB check is in handler)
-  // Allowlist: health and login are public; everything else 401 if no session cookie
-  const publicApi = pathname === '/api/health' || pathname === '/api/auth/login' || pathname.startsWith('/api/auth/login');
+  // 1. Auth guard for /api/* (cookie presence only; DB check is in handler)
+  // Allowlist: health, login e fluxo de recuperação de senha (forgot/reset) são públicos —
+  // usuário deslogado precisa deles; proteção = rate limit 5/60s + token single-use.
+  const publicApi =
+    pathname === '/api/health' ||
+    pathname.startsWith('/api/auth/login') ||
+    pathname === '/api/auth/forgot' ||
+    pathname === '/api/auth/reset';
   if (pathname.startsWith('/api/') && !publicApi) {
     const hasSession = req.cookies.get('session')?.value;
     if (!hasSession) {
@@ -130,16 +136,3 @@ export const config = {
   matcher: ['/api/:path*', '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)'],
 };
 
-// Utility: server-side helper to issue a CSRF token bound to the session.
-// Use in route handlers that need to set the csrf cookie for the client.
-//   const token = await issueCsrfToken(sessionId);
-//   res.cookies.set('csrf', token, { httpOnly: true, secure: true, sameSite: 'strict' });
-export async function issueCsrfToken(sessionId: string): Promise<string> {
-  const timestamp = Date.now();
-  const payload = `${sessionId}.${timestamp}`;
-  // HMAC over the payload using the SESSION_SECRET. The cookie only carries
-  // an opaque tag — the actual session binding happens in verifyCsrf.
-  const secret = process.env.SESSION_SECRET ?? 'csrf-fallback-secret-do-not-use-in-prod';
-  const mac = createHmac('sha256', secret).update(payload).digest('hex');
-  return `${mac}.${timestamp}`;
-}

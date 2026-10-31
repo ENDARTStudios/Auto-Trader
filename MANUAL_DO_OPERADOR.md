@@ -37,10 +37,10 @@ Abra http://localhost:3000 → Login `admin@local` / `Admin123!` (`src/app/login
 Verifique gates:
 
 ```bash
-npx eslint .                    # deve ser 0 errors (c76b702)
+npx eslint .                    # meta: 0 errors — baseline atual 35 pré-existentes (react-hooks/* + no-require-imports em src/components/ui)
 npm audit --audit-level=high    # 0 high (deepmerge-ts/effect via override prisma; mdxeditor/rsh removidos — mortos); 3 moderate vitest (S34)
 npx vitest run --coverage      # thresholds baseline 15/55/70 (ratchet com T050c; 80% aspiracional)
-npx next build                  # 44 rotas, proxy middleware
+npx next build                  # 80 rotas (70 API + 10 páginas), `ƒ Proxy (Middleware)`
 bunx graft check                # wiring 2533 nodes OK (graft/ é cache local, não commitar)
 ```
 
@@ -138,7 +138,7 @@ Rollback: `fly releases rollback --app auto-trader-prod` + restore pg_dump (`doc
 |---------|----------------|------|
 | `401` em `/api/users` | Cookie `session` expirou (7d) ou `SESSION_SECRET` mudou | Login novamente; verificar `src/lib/auth/session.ts:15` `hashToken` |
 | `429` em `/api/auth/login` | Bucket `auth:5/60s` excedido | Aguardar `Retry-After` ou `REDIS_URL` down (fallback Map) |
-| `X-CSRF-Token` missing | Cookie `csrf` não enviado | Verificar `middleware.ts:1` `csrf` `SameSite=Lax` + header `x-csrf-token` |
+| `X-CSRF-Token` missing | Cookie `csrf` não enviado | Verificar `src/proxy.ts:1` `csrf` `SameSite=Lax` + header `x-csrf-token` |
 | ETL sem dados | APIs CoinGecko/DexScreener/GoPlus/Etherscan sem `*_API_KEY` | `src/lib/etl/run.ts:1` roda com dados mock se chaves ausentes; `npm run job:etl:run` |
 | RAG sem citações | `pgvector` ou `ollama` down | `docker compose up db ollama` + `ollama pull nomic-embed-text` (`docker-compose.yml:1`) |
 | `graft check: STALE` | Código mudou sem `graft build` | `bunx graft build` (2533 nodes) |

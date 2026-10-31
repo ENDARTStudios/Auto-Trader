@@ -10,7 +10,7 @@
 
 - Sprints **S01–S32 concluídas** (0 pendências reais — audit S32).
 - CI hardening **T050–T054 concluído**: chain de coverage fechada, skip condicional Unix-socket no Windows, docker fixes, causa raiz Trivy documentada (CVEs node-tar, não regressão).
-- Gate atual: `test:ci` 637 checks, lint 0, typecheck limpo, next build 45 rotas.
+- Gate atual: `test:ci` 637 checks, lint 0, typecheck limpo, next build 80 rotas.
 
 ## Backlog priorizado
 
