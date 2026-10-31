@@ -5,12 +5,12 @@
 
 ---
 
-## 1. Sistemas externos analisados (20 repos)
+## 1. Sistemas externos analisados (27 repos)
 
-Índice completo com evidências: `skills/EXTERNAL_SYSTEMS_INDEX.md`.
+Índice completo com evidências: `skills/EXTERNAL_SYSTEMS_INDEX.md` (Partes 1-3; inclui OpenStock, Day Trader Skill, iFixAi, Orca, Hindsight, Magpie, Paperclip e a rejeição do REA; MiroFish revalidado no upstream). Plano de implementação faseada por sistema: [EXTERNAL_SYSTEMS_ROADMAP.md](../04-api-integrations/EXTERNAL_SYSTEMS_ROADMAP.md).
 
-- **9 de trading:** Technical Analysis, Backtrader, NautilusTrader, Freqtrade, CCXT, VectorBT, Lumibot, Hummingbot, FinRL.
-- **11 de agent-infra:** memória, harness, coleta, diagramas, red-team, enxame.
+- **11 de trading:** TradingAgents/Tauric (wired), CCXT (dependência), Backtrader, NautilusTrader, Freqtrade, VectorBT, Lumibot, Hummingbot, FinRL, OpenStock (referência UI), Day Trader Skill (disciplina risk-first).
+- **16 de agent-infra:** memória (agentmemory, Hindsight), harness/orquestração (Orca, Paperclip, harness-catalog), auditoria/red-team (Strix, iFixAi), coleta (browser-use, Agent-Reach), doutrina (codebase-memory, openviking, Magpie), diagramas, científico, enxame (MiroFish).
 - **Política:** copyleft/fair-code/unverified = **SPEC-ONLY** (lemos a ideia, não copiamos código). Execução real só em S14, com envelope humano.
 
 ## 2. Fontes de dados (100% gratuitas)

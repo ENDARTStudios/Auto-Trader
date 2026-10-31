@@ -62,10 +62,10 @@ export const logger = {
 };
 ```
 
-**CorrelaÃ§Ã£o:** todo log inclui `requestId` (gerado no middleware, propagado via `AsyncLocalStorage`) + `actorId` (session.userId) se autenticado.
+**CorrelaÃ§Ã£o:** todo log inclui `requestId` (gerado no proxy, propagado via `AsyncLocalStorage`) + `actorId` (session.userId) se autenticado.
 
 ```ts
-// src/middleware.ts
+// src/proxy.ts
 import { randomUUID } from 'crypto';
 const requestId = randomUUID();
 res.headers.set('X-Request-Id', requestId);

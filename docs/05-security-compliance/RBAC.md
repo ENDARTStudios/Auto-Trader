@@ -85,11 +85,11 @@
 
 ## 4. Enforcement — 3 Camadas
 
-### 4.1 Middleware Next.js (`src/middleware.ts`)
+### 4.1 Proxy Next.js (`src/proxy.ts`)
 
 ```ts
 // Pseudocódigo — SPRINT implementa
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const session = await getSession(req); // cookie httpOnly Secure SameSite
   if (!session && !isPublicRoute(req.nextUrl.pathname)) 
     return NextResponse.redirect('/login');

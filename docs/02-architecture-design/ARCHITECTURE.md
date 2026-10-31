@@ -15,7 +15,9 @@ src/
 │   ├── page.tsx                  # Dashboard (orquestra todos os panels)
 │   ├── layout.tsx                # Root layout + Providers + Toaster
 │   ├── providers.tsx             # TanStack Query + Theme + ErrorBoundary
-│   └── api/                      # 35 rotas REST (ver §2)
+│   └── api/                      # 70 rotas REST no build (catálogo em §2)
+│
+├── proxy.ts                      # Request boundary (runtime Node, ex-`middleware.ts`): auth guard 401, CSRF, security headers, X-Request-Id
 │
 ├── lib/
 │   ├── env.ts                    # Zod validation de .env (docs/05-security-compliance/SECRETS.md)

@@ -43,7 +43,7 @@ Sempre ler o **máximo possível** do projeto antes de responder.
 Nunca assumir comportamento sem evidência.
 
 **Aplicação prática:** antes de propor qualquer mudança, ler
-`PROJECT_STATE.md`, `SECURITY.md`, `HARDENING-ROADMAP.md`, o `worklog.md`
+`PROJECT_STATE.md`, `SECURITY.md`, `HARDENING-ROADMAP.md`, o `docs/08-knowledge-management/worklog.md`
 recente, e os arquivos diretamente afetados.
 
 ---
