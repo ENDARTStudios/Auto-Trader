@@ -57,6 +57,19 @@ export async function register(): Promise<void> {
   const { installRequestPeerCapture } = await import("@/lib/request-peer-capture");
   installRequestPeerCapture();
 
+  // Auto-init do banco em ambientes efêmeros (Vercel serverless): o SQLite
+  // nasce vazio (sem schema/seed) e o login dava 500 "table main.User does
+  // not exist". Aplica schema + seed idempotente uma vez por instância.
+  // Só para file: — o SQL gerado é dialeto SQLite (ver src/lib/db-init.ts).
+  if (process.env.DATABASE_URL?.startsWith("file:") || !process.env.DATABASE_URL) {
+    try {
+      const { ensureDatabaseReady } = await import("@/lib/db-init");
+      await ensureDatabaseReady();
+    } catch (e) {
+      console.error("[instrumentation] db-init falhou:", (e as Error).message);
+    }
+  }
+
   // S05: Observability — OTEL (no-op if OTEL_EXPORTER_OTLP_ENDPOINT empty)
   try {
     const { initOTel } = await import("@/lib/observability/otel");
