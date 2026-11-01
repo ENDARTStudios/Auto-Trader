@@ -1,0 +1,278 @@
+[
+ {
+  "command": "page.rename",
+  "params": {
+   "name": "Brand"
+  }
+ },
+ {
+  "command": "frame.create",
+  "params": {
+   "name": "logo-tile",
+   "x": 0,
+   "y": 0,
+   "width": 512,
+   "height": 512,
+   "props": {
+    "fill": "#0A0B0D",
+    "clip": true
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "rectangle",
+   "name": "tile",
+   "x": 64,
+   "y": 64,
+   "width": 384,
+   "height": 384,
+   "parent": 2,
+   "props": {
+    "fills": [
+     {
+      "type": "linearGradient",
+      "stops": [
+       "#5B6CFF",
+       "#35D6E8"
+      ],
+      "from": [
+       0,
+       0
+      ],
+      "to": [
+       1,
+       1
+      ]
+     }
+    ],
+    "cornerRadius": 96
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "vector",
+   "name": "path",
+   "x": 148,
+   "y": 176,
+   "width": 216,
+   "height": 160,
+   "parent": 2,
+   "path": "M0 120 L48 72 L86 96 L160 16",
+   "props": {
+    "stroke": "#FFFFFF",
+    "strokeWeight": 18
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "ellipse",
+   "name": "dot",
+   "x": 342,
+   "y": 176,
+   "width": 44,
+   "height": 44,
+   "parent": 2,
+   "props": {
+    "fill": "#FFFFFF"
+   }
+  }
+ },
+ {
+  "command": "frame.create",
+  "params": {
+   "name": "logo-mark",
+   "x": 600,
+   "y": 0,
+   "width": 512,
+   "height": 512,
+   "props": {
+    "fill": "#0A0B0D",
+    "clip": true
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "rectangle",
+   "name": "tile",
+   "x": 156,
+   "y": 156,
+   "width": 200,
+   "height": 200,
+   "parent": 6,
+   "props": {
+    "fills": [
+     {
+      "type": "linearGradient",
+      "stops": [
+       "#5B6CFF",
+       "#35D6E8"
+      ],
+      "from": [
+       0,
+       0
+      ],
+      "to": [
+       1,
+       1
+      ]
+     }
+    ],
+    "cornerRadius": 50
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "vector",
+   "name": "path",
+   "x": 200,
+   "y": 216,
+   "width": 112,
+   "height": 84,
+   "parent": 6,
+   "path": "M0 62 L25 38 L45 50 L84 8",
+   "props": {
+    "stroke": "#FFFFFF",
+    "strokeWeight": 9.5
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "ellipse",
+   "name": "circle",
+   "x": 300,
+   "y": 216,
+   "width": 23,
+   "height": 23,
+   "parent": 6,
+   "props": {
+    "fill": "#FFFFFF"
+   }
+  }
+ },
+ {
+  "command": "frame.create",
+  "params": {
+   "name": "logo-wordmark",
+   "x": 1200,
+   "y": 0,
+   "width": 640,
+   "height": 200,
+   "props": {
+    "fill": "#0A0B0D",
+    "clip": true
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "rectangle",
+   "name": "rect",
+   "x": 32,
+   "y": 56,
+   "width": 88,
+   "height": 88,
+   "parent": 10,
+   "props": {
+    "fills": [
+     {
+      "type": "linearGradient",
+      "stops": [
+       "#5B6CFF",
+       "#35D6E8"
+      ],
+      "from": [
+       0,
+       0
+      ],
+      "to": [
+       1,
+       1
+      ]
+     }
+    ],
+    "cornerRadius": 22
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "vector",
+   "name": "path",
+   "x": 51,
+   "y": 82,
+   "width": 50,
+   "height": 38,
+   "parent": 10,
+   "path": "M0 28 L11 17 L20 22 L37 3",
+   "props": {
+    "stroke": "#FFFFFF",
+    "strokeWeight": 4.2
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "ellipse",
+   "name": "circle",
+   "x": 94,
+   "y": 82,
+   "width": 10,
+   "height": 10,
+   "parent": 10,
+   "props": {
+    "fill": "#FFFFFF"
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "text",
+   "name": "Auto Trader",
+   "x": 140,
+   "y": 62,
+   "parent": 10,
+   "text": "Auto Trader",
+   "props": {
+    "fontFamily": "Inter",
+    "fontStyle": "Semi Bold",
+    "fontSize": 40,
+    "fill": "#F2F4F7",
+    "letterSpacing": -1
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "text",
+   "name": "MERIDIAN",
+   "x": 142,
+   "y": 112,
+   "parent": 10,
+   "text": "MERIDIAN",
+   "props": {
+    "fontFamily": "Inter",
+    "fontStyle": "Medium",
+    "fontSize": 12,
+    "fill": "#6D7582",
+    "letterSpacing": 3
+   }
+  }
+ }
+]

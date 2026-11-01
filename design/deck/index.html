@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Auto Trader — Meridian</title>
+<style>
+  :root {
+    --bg: #0a0b0d; --s1: #101216; --s2: #16191f; --line: #23272f;
+    --text: #f2f4f7; --t2: #a7afbc; --t3: #6d7582;
+    --brand: #5b6cff; --pos: #3ddc97; --neg: #ff6b81; --warn: #f5b454;
+    --serif: "Source Serif 4", Cambria, Georgia, serif;
+    --sans: "Inter", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  @page { size: 1280px 720px; margin: 0; }
+  html, body { background: #000; }
+  body { font-family: var(--sans); color: var(--text); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .slide {
+    position: relative; width: 1280px; height: 720px; overflow: hidden;
+    background: var(--bg); page-break-after: always; break-after: page;
+    padding: 64px 72px;
+  }
+  .slide:last-child { page-break-after: auto; }
+  .glow { position: absolute; inset: -20% -10% auto; height: 620px;
+    background: radial-gradient(50% 60% at 40% 0%, rgba(91,108,255,.22), transparent 70%),
+                radial-gradient(36% 50% at 80% 10%, rgba(53,214,232,.12), transparent 72%);
+    pointer-events: none; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -.02em; }
+  .tile { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(145deg, #5b6cff, #35d6e8);
+    display: grid; place-items: center; }
+  .tile svg { width: 17px; height: 17px; }
+  .small { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--t3); font-weight: 500; }
+  h1 { font-family: var(--serif); font-weight: 500; font-size: 64px; line-height: 1.02; letter-spacing: -.03em; }
+  h1 em { font-style: italic; color: var(--brand); }
+  h2 { font-family: var(--serif); font-weight: 500; font-size: 40px; line-height: 1.1; letter-spacing: -.022em; }
+  h3 { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+  p { font-size: 15px; line-height: 1.6; color: var(--t2); }
+  .lead { font-size: 17px; max-width: 46ch; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .card { background: var(--s1); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+  .num { font-size: 34px; font-weight: 600; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .dim { color: var(--t3); font-size: 12px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .between { justify-content: space-between; }
+  ul { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  li { display: flex; gap: 10px; font-size: 14.5px; line-height: 1.45; color: var(--t2); align-items: flex-start; }
+  li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--brand); margin-top: 8px; flex: none; }
+  li b { color: var(--text); font-weight: 600; }
+  .accent { width: 92px; height: 3px; background: var(--brand); margin: 22px 0; }
+  .foot { position: absolute; left: 72px; right: 72px; bottom: 32px; display: flex; justify-content: space-between;
+    font-size: 11px; color: var(--t3); border-top: 1px solid var(--line); padding-top: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 99px;
+    border: 1px solid var(--line); font-size: 11px; color: var(--t2); }
+  .shot { width: 100%; border: 1px solid var(--line); border-radius: 10px; display: block; }
+  .sw { height: 54px; border-radius: 8px; border: 1px solid var(--line); }
+  .cover-meta { display: flex; gap: 40px; margin-top: 44px; }
+  .cover-meta b { display: block; font-size: 22px; font-weight: 600; letter-spacing: -.02em; }
+  .kbd { border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; font-size: 10px; color: var(--t2); }
+</style>
+</head>
+<body>
+
+<!-- 1 -->
+<section class="slide" style="padding: 72px 80px;">
+  <div class="glow"></div>
+  <div class="brand" style="position:relative">
+    <span class="tile"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 17l5-6 4 3 7-9"/></svg></span>
+    Auto Trader <span class="dim" style="margin-left:6px; letter-spacing:.18em">MERIDIAN</span>
+  </div>
+  <h1 style="position:relative; margin-top:118px;">The quiet<br /><em>advantage.</em></h1>
+  <p class="lead" style="position:relative; margin-top:26px;">Um redesign completo de UI/UX para trading autônomo de cripto: 22 telas, um design system e um protótipo navegável.</p>
+  <div class="cover-meta" style="position:relative">
+    <div><b>22</b><span class="dim">telas especificadas</span></div>
+    <div><b>14</b><span class="dim">frames editáveis</span></div>
+    <div><b>0</b><span class="dim">overflow no mobile</span></div>
+  </div>
+  <div class="foot"><span>v1.0.0 · 01 Nov 2026</span><span>Design · Protótipo · Design system · Plano de implementação</span></div>
+</section>
+
+<!-- 2 -->
+<section class="slide">
+  <div class="small">Diagnóstico</div>
+  <h2 style="margin-top:14px">A interface atual não escala.</h2>
+  <p style="margin-top:14px; max-width: 62ch">Auditoria com navegador real, DOM e código. Sete problemas explicam quase todo o atrito.</p>
+  <div class="grid2" style="margin-top:34px">
+    <ul>
+      <li><b>Uma página de 5.284 px</b> com 12 domínios e nenhuma URL própria.</li>
+      <li><b>Hierarquia inexistente:</b> tudo entre 8 e 11 px, caixa alta, mesmo peso.</li>
+      <li><b>Cor sem semântica:</b> verde neon = marca = lucro = status.</li>
+      <li><b>Navegação escondida:</b> abas a 4.700 px do topo e ⌘K sem affordance.</li>
+    </ul>
+    <ul>
+      <li><b>Estados vazios</b> como buracos negros, sem próximo passo.</li>
+      <li><b>i18n incompleto:</b> português dentro de UI em inglês.</li>
+      <li><b>Sem responsividade:</b> 406–503 px de overflow em 390 px.</li>
+      <li><b>Kill switch ao lado de Start</b>, sem confirmação tipada.</li>
+    </ul>
+  </div>
+  <div class="grid4" style="margin-top:40px">
+    <div class="card"><div class="num neg">5.284</div><div class="dim">px de altura da home</div></div>
+    <div class="card"><div class="num">12</div><div class="dim">domínios em uma tela</div></div>
+    <div class="card"><div class="num neg">0</div><div class="dim">deep links de entidade</div></div>
+    <div class="card"><div class="num neg">9</div><div class="dim">pontos abaixo de 4,5:1</div></div>
+  </div>
+  <div class="foot"><span>Auditoria completa em design/docs/01-AUDIT.md</span><span>02</span></div>
+</section>
+
+<!-- 3 -->
+<section class="slide">
+  <div class="small">Antes → depois</div>
+  <h2 style="margin-top:12px; font-size:34px">De painel único a produto com arquitetura.</h2>
+  <div class="grid2" style="margin-top:26px; gap:24px">
+    <div>
+      <div class="dim" style="margin-bottom:8px">ANTES · 12 seções, 5.284 px</div>
+      <img class="shot" src="../docs/img/before/current-dashboard-1440.png" alt="Dashboard atual" />
+    </div>
+    <div>
+      <div class="dim" style="margin-bottom:8px">DEPOIS · uma pergunta por tela</div>
+      <img class="shot" src="../prototype/shots/final-overview.png" alt="Novo overview" />
+    </div>
+  </div>
+  <div class="row" style="margin-top:22px; gap:26px">
+    <span class="pill">Operação calma</span><span class="pill">Risco isolado</span><span class="pill">Tudo endereçável</span><span class="pill">Explicação como produto</span>
+  </div>
+  <div class="foot"><span>Protótipo navegável em design/prototype</span><span>03</span></div>
+</section>
+
+<!-- 4 -->
+<section class="slide">
+  <div class="small">Conceito</div>
+  <h2 style="margin-top:12px">Sete princípios, uma direção.</h2>
+  <div class="grid3" style="margin-top:30px">
+    <div class="card"><h3>1 · Calmo por padrão</h3><p style="font-size:13px;margin-top:6px">Só risco e perda podem gritar.</p></div>
+    <div class="card"><h3>2 · Uma pergunta por tela</h3><p style="font-size:13px;margin-top:6px">Cada rota responde a uma decisão.</p></div>
+    <div class="card"><h3>3 · Números são o produto</h3><p style="font-size:13px;margin-top:6px">Tabulares, sinal verdadeiro, janela explícita.</p></div>
+    <div class="card"><h3>4 · Divulgação progressiva</h3><p style="font-size:13px;margin-top:6px">Resumo → gaveta → página.</p></div>
+    <div class="card"><h3>5 · Tudo endereçável</h3><p style="font-size:13px;margin-top:6px">Posição, token, trade e rodada com URL.</p></div>
+    <div class="card"><h3>6 · Destrutivo é diferente</h3><p style="font-size:13px;margin-top:6px">Kill switch isolado, confirmação HALT.</p></div>
+    <div class="card"><h3>7 · Transparência</h3><p style="font-size:13px;margin-top:6px">“Por que?” é botão em todo lugar.</p></div>
+    <div class="card" style="background:linear-gradient(160deg,#151a38,#101216)">
+      <h3>Marca</h3><p style="font-size:13px;margin-top:6px">Ultramarine <b style="color:#8c9bff">#5B6CFF</b>. Verde e vermelho só para resultado.</p>
+    </div>
+    <div class="card" style="background:linear-gradient(160deg,#0f2a22,#101216)">
+      <h3>Tipografia</h3><p style="font-size:13px;margin-top:6px">Serif editorial no público, Inter no app, mono nos dados.</p>
+    </div>
+  </div>
+  <div class="foot"><span>Design system em design/docs/04-DESIGN-SYSTEM.md</span><span>04</span></div>
+</section>
+
+<!-- 5 -->
+<section class="slide">
+  <div class="small">Arquitetura</div>
+  <h2 style="margin-top:12px">Quatro grupos, 22 telas, zero becos sem saída.</h2>
+  <div class="grid4" style="margin-top:30px">
+    <div class="card"><div class="small" style="color:var(--brand)">Operate</div>
+      <p style="font-size:13px;margin-top:10px;line-height:1.8">Overview<br/>Markets · Token<br/>Portfolio · Position<br/>Strategy & engine<br/>Backtest<br/>Analytics<br/>Journal</p></div>
+    <div class="card"><div class="small" style="color:var(--warn)">Guard</div>
+      <p style="font-size:13px;margin-top:10px;line-height:1.8">Risk & safety<br/>AI Copilot</p>
+      <p class="dim" style="margin-top:16px">Só entra aqui o que pode parar algo.</p></div>
+    <div class="card"><div class="small">System</div>
+      <p style="font-size:13px;margin-top:10px;line-height:1.8">Alerts<br/>Data & sources<br/>Settings<br/>Billing<br/>Admin</p></div>
+    <div class="card"><div class="small">Público</div>
+      <p style="font-size:13px;margin-top:10px;line-height:1.8">Landing<br/>Pricing<br/>Sign in · Sign up<br/>Reset<br/>Onboarding (4)</p></div>
+  </div>
+  <div class="grid3" style="margin-top:26px">
+    <div class="card"><h3>Navegação</h3><p style="font-size:12.5px;margin-top:6px">Rail de 256 px, topbar de 60, telemetria de 34, ⌘K espelhando tudo.</p></div>
+    <div class="card"><h3>Fluxos</h3><p style="font-size:12.5px;margin-top:6px">Alerta → posição · scanner → token · decisão → evidência · risco → parada.</p></div>
+    <div class="card"><h3>Estados</h3><p style="font-size:12.5px;margin-top:6px">7 estados por tela de dados: vazio, carregando, erro, offline, permissão, degradado, sucesso.</p></div>
+  </div>
+  <div class="foot"><span>Mapa completo em design/figcraft/renders/13 · Information architecture.png</span><span>05</span></div>
+</section>
+
+<!-- 6 -->
+<section class="slide">
+  <div class="small">Telas-chave</div>
+  <h2 style="margin-top:12px; font-size:34px">O que o operador vê primeiro.</h2>
+  <div class="grid2" style="margin-top:22px; gap:16px">
+    <div><img class="shot" src="../prototype/shots/final-overview.png" alt="" /></div>
+    <div><img class="shot" src="../prototype/shots/final-markets.png" alt="" /></div>
+    <div><img class="shot" src="../prototype/shots/final-risk.png" alt="" /></div>
+    <div><img class="shot" src="../prototype/shots/final-copilot.png" alt="" /></div>
+  </div>
+  <div class="foot"><span>Overview · Markets · Risk & safety · AI Copilot</span><span>06</span></div>
+</section>
+
+<!-- 7 -->
+<section class="slide">
+  <div class="small">Design system</div>
+  <h2 style="margin-top:12px">Tokens antes de pixels.</h2>
+  <div class="row" style="margin-top:26px; gap:10px">
+    <div style="flex:1"><div class="sw" style="background:#0a0b0d"></div><div class="dim" style="margin-top:6px">canvas</div></div>
+    <div style="flex:1"><div class="sw" style="background:#101216"></div><div class="dim" style="margin-top:6px">surface 1</div></div>
+    <div style="flex:1"><div class="sw" style="background:#23272f"></div><div class="dim" style="margin-top:6px">line</div></div>
+    <div style="flex:1"><div class="sw" style="background:#5b6cff"></div><div class="dim" style="margin-top:6px">brand</div></div>
+    <div style="flex:1"><div class="sw" style="background:#3ddc97"></div><div class="dim" style="margin-top:6px">profit</div></div>
+    <div style="flex:1"><div class="sw" style="background:#ff6b81"></div><div class="dim" style="margin-top:6px">loss</div></div>
+    <div style="flex:1"><div class="sw" style="background:#f5b454"></div><div class="dim" style="margin-top:6px">warning</div></div>
+    <div style="flex:1"><div class="sw" style="background:#f2f4f7"></div><div class="dim" style="margin-top:6px">text</div></div>
+  </div>
+  <div class="grid2" style="margin-top:30px">
+    <div>
+      <div class="dim" style="margin-bottom:10px">ESCALA TIPOGRÁFICA</div>
+      <div style="font-family:var(--serif); font-size:34px; letter-spacing:-.02em">Display 56 / Cambria</div>
+      <div style="font-size:24px; font-weight:600; margin-top:10px">H1 32 / Inter</div>
+      <div style="font-size:14px; color:var(--t2); margin-top:10px">Body 14 / 22 — números tabulares em toda a interface.</div>
+      <div class="small" style="margin-top:10px; color:var(--t3)">CAPTION 11 · CAIXA ALTA · +6%</div>
+    </div>
+    <div>
+      <div class="dim" style="margin-bottom:10px">REGRAS</div>
+      <ul>
+        <li>Marca nunca significa lucro.</li>
+        <li>Sem sombra no app: elevação por superfície.</li>
+        <li>Números à direita, tabulares, com sinal verdadeiro.</li>
+        <li>Contraste mínimo 4,5:1 — texto em 3 tokens apenas.</li>
+        <li>Uma ação primária por tela.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>Fonte de verdade: design/tokens.json → tokens.css → FigCraft</span><span>07</span></div>
+</section>
+
+<!-- 8 -->
+<section class="slide">
+  <div class="small">Confiança</div>
+  <h2 style="margin-top:12px">Risco é o único lugar que pode parar a máquina.</h2>
+  <div class="grid2" style="margin-top:28px; gap:40px">
+    <ul>
+      <li><b>Kill switch isolado</b> em Risk &amp; safety (e na paleta), com confirmação digitada <span class="kbd">HALT</span>.</li>
+      <li><b>Envelope humano</b> — o motor aperta limites, nunca afrouxa.</li>
+      <li><b>Gates visíveis</b> antes de qualquer ordem: liquidez, autoridade, sell test, exposição.</li>
+      <li><b>Trilha imutável</b> — cada evento encadeado por hash.</li>
+      <li><b>Graduação</b>: 50 ciclos positivos antes de liberar live, com MFA.</li>
+    </ul>
+    <img class="shot" src="../prototype/shots/final-risk.png" alt="" />
+  </div>
+  <div class="foot"><span>Auditoria e controles especificados em design/docs/03-PAGES.md</span><span>08</span></div>
+</section>
+
+<!-- 9 -->
+<section class="slide">
+  <div class="small">Implementação</div>
+  <h2 style="margin-top:12px">Quatro fases, sem parar a operação.</h2>
+  <div class="grid4" style="margin-top:30px">
+    <div class="card"><div class="small">Fase 0</div><h3 style="margin-top:10px">Fundação</h3><p style="font-size:12.5px;margin-top:6px">Tokens, tema claro, shell, primitivos, paleta.</p></div>
+    <div class="card"><div class="small">Fase 1</div><h3 style="margin-top:10px">Operate</h3><p style="font-size:12.5px;margin-top:6px">Overview, markets, token, portfolio, posição.</p></div>
+    <div class="card"><div class="small">Fase 2</div><h3 style="margin-top:10px">Guard &amp; Analyze</h3><p style="font-size:12.5px;margin-top:6px">Risk, copilot, strategy, backtest, analytics, journal.</p></div>
+    <div class="card"><div class="small">Fase 3</div><h3 style="margin-top:10px">Sistema &amp; público</h3><p style="font-size:12.5px;margin-top:6px">Alerts, data, settings, billing, admin, landing.</p></div>
+  </div>
+  <div class="grid2" style="margin-top:28px">
+    <div class="card"><h3>Critério de saída por fase</h3><p style="font-size:12.5px;margin-top:6px">Paridade funcional · deep links · 7 estados · axe sem violações críticas · 390 px sem overflow.</p></div>
+    <div class="card"><h3>Risco principal</h3><p style="font-size:12.5px;margin-top:6px">Dividir a home de 39 KB em rotas sem perder comportamento. Mitigação: inventário painel→rota e fase 1 atrás de flag.</p></div>
+  </div>
+  <div class="foot"><span>Plano completo em design/docs/05-IMPLEMENTATION.md</span><span>09</span></div>
+</section>
+
+<!-- 10 -->
+<section class="slide" style="padding:80px">
+  <div class="glow"></div>
+  <div style="position:relative">
+    <div class="small">Próximos passos</div>
+    <h2 style="margin-top:14px; font-size:44px">Abra o protótipo.<br />Clique em tudo.</h2>
+    <div class="grid3" style="margin-top:40px">
+      <div class="card"><h3>Protótipo</h3><p style="font-size:12.5px;margin-top:6px">design/prototype<br /><span class="dim">22 rotas, dark/light, ⌘K</span></p></div>
+      <div class="card"><h3>Design</h3><p style="font-size:12.5px;margin-top:6px">design/figcraft<br /><span class="dim">14 frames editáveis + renders</span></p></div>
+      <div class="card"><h3>Especificação</h3><p style="font-size:12.5px;margin-top:6px">design/docs<br /><span class="dim">auditoria, conceito, páginas, DS, plano</span></p></div>
+    </div>
+    <p style="margin-top:36px; font-size:13px">Branch <b style="color:var(--text)">design/uiux-concept-v2</b> · v1.0.0 · 01 Nov 2026</p>
+  </div>
+  <div class="foot"><span>Auto Trader — Meridian</span><span>10</span></div>
+</section>
+
+</body>
+</html>

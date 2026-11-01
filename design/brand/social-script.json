@@ -1,0 +1,191 @@
+[
+  {
+    "command": "file.new",
+    "params": {
+      "units": "Pixels",
+      "width": 1200,
+      "height": 630,
+      "artboards": 1,
+      "colorMode": "rgb"
+    }
+  },
+  {
+    "command": "path.create",
+    "params": {
+      "d": "M0 0 H1200 V630 H0 Z",
+      "closed": true
+    }
+  },
+  {
+    "command": "paint.setFill",
+    "params": {
+      "color": "#0A0B0D"
+    }
+  },
+  {
+    "command": "path.create",
+    "params": {
+      "d": "M120 64 H164 A20 20 0 0 1 184 84 V128 A20 20 0 0 1 164 148 H120 A20 20 0 0 1 100 128 V84 A20 20 0 0 1 120 64 Z",
+      "closed": true
+    }
+  },
+  {
+    "command": "paint.setFill",
+    "params": {
+      "color": "#5B6CFF"
+    }
+  },
+  {
+    "command": "path.create",
+    "params": {
+      "d": "M116 128 L128 112 L136 118 L150 100",
+      "closed": false
+    }
+  },
+  {
+    "command": "paint.setStroke",
+    "params": {
+      "color": "#FFFFFF",
+      "width": 4
+    }
+  },
+  {
+    "command": "path.create",
+    "params": {
+      "d": "M150 100 m -5 0 a 5 5 0 1 0 10 0 a 5 5 0 1 0 -10 0",
+      "closed": true
+    }
+  },
+  {
+    "command": "paint.setFill",
+    "params": {
+      "color": "#FFFFFF"
+    }
+  },
+  {
+    "command": "text.create",
+    "params": {
+      "x": 80,
+      "y": 188,
+      "text": "Auto Trader",
+      "size": 20,
+      "font": "Segoe UI",
+      "color": "#F2F4F7"
+    }
+  },
+  {
+    "command": "text.create",
+    "params": {
+      "x": 80,
+      "y": 212,
+      "text": "MERIDIAN",
+      "size": 10,
+      "font": "Segoe UI",
+      "color": "#7E8795"
+    }
+  },
+  {
+    "command": "path.create",
+    "params": {
+      "d": "M80 236 H132 V239 H80 Z",
+      "closed": true
+    }
+  },
+  {
+    "command": "paint.setFill",
+    "params": {
+      "color": "#5B6CFF"
+    }
+  },
+  {
+    "command": "text.create",
+    "params": {
+      "x": 78,
+      "y": 320,
+      "text": "The quiet",
+      "size": 76,
+      "font": "Georgia",
+      "color": "#F2F4F7"
+    }
+  },
+  {
+    "command": "text.create",
+    "params": {
+      "x": 78,
+      "y": 402,
+      "text": "advantage.",
+      "size": 76,
+      "font": "Georgia",
+      "color": "#8C9BFF"
+    }
+  },
+  {
+    "command": "text.create",
+    "params": {
+      "x": 80,
+      "y": 500,
+      "text": "Risk-first autonomous crypto trading. 22 screens, one design system.",
+      "size": 18,
+      "font": "Segoe UI",
+      "color": "#A7AFBC"
+    }
+  },
+  {
+    "command": "text.create",
+    "params": {
+      "x": 80,
+      "y": 556,
+      "text": "design/prototype",
+      "size": 13,
+      "font": "Consolas",
+      "color": "#7E8795"
+    }
+  },
+  {
+    "command": "text.create",
+    "params": {
+      "x": 994,
+      "y": 556,
+      "text": "v1.0.0",
+      "size": 13,
+      "font": "Consolas",
+      "color": "#7E8795"
+    }
+  },
+  {
+    "command": "text.create",
+    "params": {
+      "x": 1150,
+      "y": 520,
+      "text": "MERIDIAN · DESIGN SYSTEM · AUTOTRADER",
+      "size": 11,
+      "font": "Segoe UI",
+      "color": "#4A5260",
+      "rotation": -90
+    }
+  },
+  {
+    "command": "document.export",
+    "params": {
+      "path": "D:\\PROJETOS\\Auto Trader\\at-meridian\\design\\brand\\exports\\social-card.png",
+      "format": "png",
+      "artboard": 0,
+      "scale": 1,
+      "background": "#0A0B0D"
+    }
+  },
+  {
+    "command": "document.export",
+    "params": {
+      "path": "D:\\PROJETOS\\Auto Trader\\at-meridian\\design\\brand\\exports\\social-card.svg",
+      "format": "svg",
+      "artboard": 0
+    }
+  },
+  {
+    "command": "file.saveAs",
+    "params": {
+      "path": "D:\\PROJETOS\\Auto Trader\\at-meridian\\design\\brand\\exports\\social-card.vectorcraft"
+    }
+  }
+]
