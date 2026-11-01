@@ -56,6 +56,11 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # binda só no IP do eth0 (healthcheck intra-container em localhost falha com
 # ECONNREFUSED). Bind padrão 0.0.0.0 = comportamento normal de container.
 ENV HOSTNAME=0.0.0.0
+# Railway: o volume /data é montado root:root e o app precisa escrever o
+# SQLite nele. O entrypoint roda como root, chown no /data e DESCE para
+# node (setpriv) antes do exec — non-root preservado em runtime (T074/T080).
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 USER node
 # T074: start via node (runtime already validated) instead of `npm start`,
 # whose script requires `bun`, absent from this image (pre-existing entrypoint
