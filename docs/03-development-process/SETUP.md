@@ -23,9 +23,10 @@ npm ci
 # 2. Variáveis de ambiente
 cp .env.example .env
 #   Defina no mínimo: SESSION_SECRET (>=32 chars), ENCRYPTION_KEY (base64 32 bytes),
-#   DATABASE_URL (SQLite dev: file:./db/custom.db)
+#   DATABASE_URL (Postgres dev: docker compose up -d db → postgresql://autotrader:autotrader@localhost:5435/autotrader —
+#   porta via docker-compose.override.yml local; ajuste se a 5435 estiver ocupada)
 
-# 3. Schema no banco (dev = SQLite)
+# 3. Schema no banco (dev = Postgres local via docker compose)
 npx prisma db push
 npx prisma generate
 

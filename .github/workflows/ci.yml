@@ -18,6 +18,21 @@ jobs:
   ci:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # Postgres para os testes (provider postgresql desde a migração Railway 2026-11-01)
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: autotrader
+          POSTGRES_PASSWORD: autotrader
+          POSTGRES_DB: autotrader
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U autotrader"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       # T056: full history para o Gitleaks resolver o range de commits
       # (checkout raso quebrava o scan com 'unknown revision').
@@ -55,7 +70,7 @@ jobs:
       - name: Push test DB schema (for test:ci vault/signer)
         run: npx prisma db push
         env:
-          DATABASE_URL: file:./prisma/test.db
+          DATABASE_URL: postgresql://autotrader:autotrader@localhost:5432/autotrader
 
       - name: Dependency audit (high+)
         run: npm audit --audit-level=high
@@ -63,13 +78,13 @@ jobs:
       - name: Tests — test:ci gate (637 checks)
         run: npm run test:ci
         env:
-          DATABASE_URL: file:./prisma/test.db
+          DATABASE_URL: postgresql://autotrader:autotrader@localhost:5432/autotrader
           SIGNER_TEST_HOOKS: "1"
 
       - name: Tests — coverage (Vitest, baseline thresholds)
         run: npx vitest run --coverage --run
         env:
-          DATABASE_URL: file:./prisma/test.db
+          DATABASE_URL: postgresql://autotrader:autotrader@localhost:5432/autotrader
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
@@ -165,6 +180,20 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'e2e') || github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: autotrader
+          POSTGRES_PASSWORD: autotrader
+          POSTGRES_DB: autotrader
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U autotrader"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -173,19 +202,19 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma generate
-      # test.db precisa de schema + seed: sem isso /api/health retorna 503
+      # Postgres de CI precisa de schema + seed: sem isso /api/health retorna 503
       # e o webServer do Playwright estoura o timeout de 120s (S39).
       - run: npx prisma db push
         env:
-          DATABASE_URL: file:./prisma/test.db
+          DATABASE_URL: postgresql://autotrader:autotrader@localhost:5432/autotrader
       - run: npx tsx scripts/seed-auth.ts
         env:
-          DATABASE_URL: file:./prisma/test.db
+          DATABASE_URL: postgresql://autotrader:autotrader@localhost:5432/autotrader
       - run: npx playwright install --with-deps
       - run: npx playwright test
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
-          DATABASE_URL: file:./prisma/test.db
+          DATABASE_URL: postgresql://autotrader:autotrader@localhost:5432/autotrader
           SESSION_SECRET: test-session-secret-32-chars-minimum-for-ci-e2e
           ENCRYPTION_KEY: "base64:dGVzdC1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcy1iYXNlNjQ="
           SIGNER_TEST_HOOKS: "1"

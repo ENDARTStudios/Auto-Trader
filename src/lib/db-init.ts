@@ -1,16 +1,17 @@
-// src/lib/db-init.ts — Auto-inicialização de bancos SQLite vazios.
-// Contexto: em produção Vercel (serverless), o SQLite apontado por
-// DATABASE_URL nasce VAZIO a cada instância (sem schema, sem usuários) —
-// login dava 500 "table main.User does not exist". Este módulo aplica o
-// schema + seed idempotente UMA vez por instância no cold start
-// (instrumentation.ts). Bancos já inicializados (dev/CI) pulam tudo.
+// src/lib/db-init.ts — Auto-inicialização de bancos Postgres vazios.
+// Contexto: produção Railway com Postgres gerenciado — se o banco nascer
+// vazio (primeiro deploy, banco novo), o login daria 500 "relation "User"
+// does not exist". Este módulo aplica o schema + seed idempotente UMA vez
+// por instância no cold start (instrumentation.ts). Bancos já inicializados
+// pulam tudo (uma query barata).
 //
-// AVISO (efemeridade): no Vercel o arquivo é efêmero por instância —
-// posições/preferências resetam a cada cold start e NÃO são compartilhadas
-// entre instâncias. Solução durável: Postgres hospedado (Neon/Supabase) +
-// migration do schema — pendência registrada em PENDENCIAS_OPERADOR.md.
+// Herança: versão anterior aplicava DDL SQLite em databases efêmeros da
+// Vercel (produção obsoleta desde a migração para Railway). Dev legado em
+// SQLite file: não é mais auto-inicializado — usar `npx prisma db push`.
 //
-// Manter em sincronia com scripts/seed-auth.ts e scripts/seed-flags.ts.
+// O DDL é gerado por scripts/gen-schema-sql.mjs (prisma migrate diff) e
+// acompanha o provider atual (postgresql). Manter em sincronia com
+// scripts/seed-auth.ts e scripts/seed-flags.ts.
 import { db } from "@/lib/db";
 import { hashPasswordSync } from "@/lib/auth/password";
 import { SCHEMA_SQL } from "@/lib/db/schema-sql.generated";
@@ -23,13 +24,16 @@ export function ensureDatabaseReady(): Promise<void> {
 }
 
 async function init(): Promise<void> {
-  try {
-    const tables = (await db.$queryRawUnsafe<Array<{ name: string }>>(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='User'",
-    )) as Array<{ name: string }>;
-    if (tables.length > 0) return; // banco já inicializado (dev/CI) — nada a fazer
+  const url = process.env.DATABASE_URL ?? "";
+  if (url.startsWith("file:") || !url) return; // dev legado SQLite — schema via prisma db push
 
-    console.log("[db-init] banco SQLite vazio — aplicando schema + seed…");
+  try {
+    const exists = (await db.$queryRawUnsafe<Array<{ ok: boolean }>>(
+      `SELECT to_regclass('public."User"') IS NOT NULL AS ok`,
+    )) as Array<{ ok: boolean }>;
+    if (exists[0]?.ok) return; // banco já inicializado — nada a fazer
+
+    console.log("[db-init] banco Postgres vazio — aplicando schema + seed…");
     for (const stmt of SCHEMA_SQL.split(";")) {
       const clean = stmt
         .split("\n")
