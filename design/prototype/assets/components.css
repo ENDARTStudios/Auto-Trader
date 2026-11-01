@@ -18,7 +18,7 @@
   letter-spacing: -0.005em;
   white-space: nowrap;
   transition: background var(--dur-2) var(--ease), border-color var(--dur-2),
-    color var(--dur-2), transform var(--dur-1) var(--ease);
+    color var(--dur-2), transform 160ms var(--ease-out-strong);
   user-select: none;
 }
 .btn svg {
@@ -26,8 +26,8 @@
   height: 16px;
   flex: none;
 }
-.btn:active {
-  transform: translateY(0.5px);
+.btn:active:not([disabled]) {
+  transform: scale(0.97);
 }
 .btn-sm {
   --btn-h: 30px;
@@ -42,15 +42,15 @@
   border-radius: 10px;
 }
 .btn-primary {
-  background: var(--brand);
+  background: var(--brand-solid);
   color: var(--brand-ink);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 .btn-primary:hover {
-  background: var(--brand-hover);
+  background: var(--brand-solid-hover);
 }
 .btn-primary:active {
-  background: var(--brand-press);
+  background: var(--brand-solid-press);
 }
 .btn-secondary {
   background: var(--surface-2);
@@ -77,7 +77,7 @@
   background: color-mix(in srgb, var(--crit) 20%, transparent);
 }
 .btn-danger-solid {
-  background: var(--crit);
+  background: var(--crit-solid);
   color: #fff;
 }
 .btn-danger-solid:hover {
@@ -191,7 +191,8 @@
   background: var(--surface-1);
   font-size: 12px;
   color: var(--text-2);
-  transition: all var(--dur-2);
+  transition: background var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
 }
 .chip:hover {
   border-color: var(--line-strong);
@@ -498,7 +499,8 @@
 }
 .input::placeholder,
 .textarea::placeholder {
-  color: var(--text-3);
+  color: var(--text-2);
+  opacity: 1;
 }
 .input:hover,
 .select:hover,
@@ -671,6 +673,11 @@
   height: 2px;
   border-radius: 2px;
   background: var(--brand);
+  transform-origin: left center;
+  animation: tab-in var(--dur-3) var(--ease-out-strong);
+}
+@keyframes tab-in {
+  from { transform: scaleX(0.2); opacity: 0.4; }
 }
 .tab .badge {
   height: 17px;
@@ -688,9 +695,12 @@
 .meter > span {
   display: block;
   height: 100%;
+  width: 100%;
   border-radius: 99px;
   background: linear-gradient(90deg, var(--brand), #35d6e8);
-  transition: width var(--dur-4) var(--ease-out);
+  transform-origin: left center;
+  transform: scaleX(var(--p, 0));
+  transition: transform var(--dur-4) var(--ease-out-strong);
 }
 .meter.pos > span {
   background: var(--pos);
@@ -981,8 +991,9 @@
   display: flex;
   flex-direction: column;
   transform: translateX(102%);
-  transition: transform var(--dur-4) var(--ease-out);
+  transition: transform var(--dur-4) var(--ease-drawer);
   box-shadow: var(--shadow-overlay);
+  overscroll-behavior: contain;
 }
 .drawer.open {
   transform: none;
@@ -1074,7 +1085,7 @@
   backdrop-filter: blur(3px);
   opacity: 0;
   pointer-events: none;
-  transition: opacity var(--dur-2);
+  transition: none;
 }
 .palette-wrap.open {
   opacity: 1;
@@ -1090,8 +1101,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transform: translateY(-8px) scale(0.995);
-  transition: transform var(--dur-3) var(--ease-out);
+  transform: none;
+  transition: none;
 }
 .palette-wrap.open .palette {
   transform: none;
@@ -1186,8 +1197,21 @@
   border: 1px solid var(--line-strong);
   background: var(--surface-3);
   box-shadow: var(--shadow-pop);
-  animation: toast-in var(--dur-4) var(--ease-out);
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity var(--dur-4) var(--ease), transform var(--dur-4) var(--ease-out-strong);
   pointer-events: auto;
+}
+.toast[data-leaving] {
+  opacity: 0;
+  transform: translateY(6px);
+  transition-duration: 160ms;
+}
+@starting-style {
+  .toast {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
 }
 .toast .ti {
   width: 18px;
@@ -1516,7 +1540,8 @@
   background: var(--surface-1);
   border-radius: var(--r-lg);
   padding: 16px;
-  transition: all var(--dur-2);
+  transition: background var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease);
   display: flex;
   flex-direction: column;
   gap: 4px;

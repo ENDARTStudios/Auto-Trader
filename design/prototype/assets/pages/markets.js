@@ -108,12 +108,12 @@ export const markets = {
         <div class="card-body">
           <div class="row between t-xs" style="margin-bottom:6px"><span class="pos">Buy 62.4%</span><span class="neg">Sell 37.6%</span></div>
           <div class="flow-bar"><span class="buy" style="width:62.4%"></span><span class="sell" style="width:37.6%"></span></div>
-          <div class="dl tight" style="margin-top:14px">
+          <dl class="dl tight" style="margin-top:14px">
             <dt>Buy volume</dt><dd class="pos">$4.82M</dd>
             <dt>Sell volume</dt><dd class="neg">$2.91M</dd>
             <dt>Large orders</dt><dd>12 (>$50k)</dd>
             <dt>Depth ±1%</dt><dd>$1.24M</dd>
-          </div>
+          </dl>
           <div style="margin-top:12px">${depthChart({ w: 280, h: 92 })}</div>
         </div>
       </section>
@@ -158,7 +158,7 @@ export const token = {
     <span class="dim t-xs">/ ${a.name}</span>
   </div>
   ${pageHead({
-    eyebrow: `<span class="badge brand">${a.tag}</span> <span class="dim t-xs">${a.pair} · Binance</span>`,
+    status: `<span class="badge brand">${a.tag}</span> <span class="dim t-xs">${a.pair} · Binance</span>`,
     title: `<span class="row gap-3">${assetIco(a.sym, a.color, "xl")} ${a.name} <span class="dim" style="font-size:16px;font-weight:500">${a.sym}</span></span>`,
     actions: `<button class="btn btn-secondary btn-sm">${icon("star", { size: 15 })} Watchlist</button>
       <button class="btn btn-secondary btn-sm" data-nav="#/copilot">${icon("sparkles", { size: 15 })} Ask Copilot</button>
@@ -207,13 +207,13 @@ export const token = {
         ? `<section class="card" style="margin-top:16px">
         <div class="card-hd"><div class="card-title">Your position</div><span class="badge ${held.side === "LONG" ? "pos" : "neg"}">${held.side}</span></div>
         <div class="card-body">
-          <div class="dl tight">
+          <dl class="dl tight">
             <dt>Size</dt><dd>${fmt.usd(held.size)}</dd>
             <dt>Entry</dt><dd>$${fmt.px(held.entry)}</dd>
             <dt>Mark</dt><dd>$${fmt.px(held.mark)}</dd>
             <dt>Unrealized</dt><dd class="${held.pnl >= 0 ? "pos" : "neg"}">${fmt.signed(held.pnl)} (${fmt.pct(held.pnlPct)})</dd>
             <dt>Stop / target</dt><dd>$${fmt.px(held.stop)} / $${fmt.px(held.target)}</dd>
-          </div>
+          </dl>
           <button class="btn btn-secondary btn-sm btn-block" style="margin-top:14px" data-nav="#/position/${held.sym}">Open position ${icon("arrowRight", { size: 14 })}</button>
         </div>
       </section>`

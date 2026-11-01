@@ -9,7 +9,7 @@ export const copilot = {
   html() {
     return `
   ${pageHead({
-    eyebrow: `<span class="badge brand">grounded</span> <span class="dim t-xs">answers cite the evidence they used</span>`,
+    status: `<span class="badge brand">grounded</span> <span class="dim t-xs">answers cite the evidence they used</span>`,
     title: "AI Copilot",
     sub: "Ask about decisions, risk or performance. The Copilot reads the same ledger the engine uses and never invents numbers.",
     actions: `<button class="btn btn-ghost btn-sm">${icon("history", { size: 15 })} History</button>

@@ -92,6 +92,26 @@ export function mountAreaChart(host, opts) {
   const cross = host.querySelector("[data-cross]");
   const dot = host.querySelector("[data-dot]");
 
+  // One authored moment: the equity line draws itself once per view.
+  // Motion is a single, purposeful reveal — no scattered effects.
+  const lineEl = svg.querySelector("path[stroke]");
+  if (lineEl && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    try {
+      const len = lineEl.getTotalLength();
+      if (len > 0) {
+        lineEl.animate(
+          [
+            { strokeDasharray: String(len), strokeDashoffset: String(len) },
+            { strokeDasharray: String(len), strokeDashoffset: "0" },
+          ],
+          { duration: 620, easing: "cubic-bezier(0.23, 1, 0.32, 1)", fill: "none" }
+        );
+      }
+    } catch (_) {
+      /* geometry APIs unavailable — render the final frame */
+    }
+  }
+
   svg.addEventListener("pointermove", (e) => {
     const r = svg.getBoundingClientRect();
     const rel = ((e.clientX - r.left) / r.width) * w;

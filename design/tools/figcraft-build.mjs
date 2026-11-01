@@ -135,11 +135,12 @@ const SW = [
 {
   const f = doc.frame("02 · Overview", 0, 1000, 1440, 900);
   const { x, y, w } = chrome(doc, f, { active: "Overview", crumb: "Overview" });
-  doc.rect(f, x - 2, y - 12, 46, 18, { fill: "rgba(245,180,84,0.12)", radius: 5 });
-  doc.text(f, x + 6, y - 9, "Paper", { size: 9, weight: "Semi Bold", color: C.warn });
-  doc.text(f, x + 54, y - 9, "Engine running · round 4,128", { size: 9, color: C.t3 });
 
   pageTitle(doc, f, x, y + 12, "Mission control", "Autonomous engine scanning 18 pairs. 4 open positions, 75.4% exposure, no unresolved risk events.", { w: 620 });
+  // status sits beside the title, never as a kicker above it
+  doc.rect(f, x + 222, y + 20, 46, 18, { fill: "rgba(245,180,84,0.12)", radius: 5 });
+  doc.text(f, x + 230, y + 23, "Paper", { size: 9, weight: "Semi Bold", color: C.warn });
+  doc.text(f, x + 276, y + 23, "Engine running · round 4,128", { size: 9, color: C.t3 });
   button(doc, f, 1048, y + 12, "Export", { w: 84 });
   button(doc, f, 1140, y + 12, "New backtest", { w: 116 });
   button(doc, f, 1266, y + 12, "Pause engine", { primary: true, w: 120 });

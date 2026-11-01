@@ -377,7 +377,7 @@ export const admin = {
   html() {
     return `
   ${pageHead({
-    eyebrow: `<span class="badge brand">super_admin</span> <span class="dim t-xs">restricted area</span>`,
+    status: `<span class="badge brand">super_admin</span> <span class="dim t-xs">restricted area</span>`,
     title: "Users & audit",
     sub: "Create accounts, adjust roles and review every privileged action. Changes are written to the hash-chained audit log.",
     actions: `<button class="btn btn-secondary btn-sm">${icon("download", { size: 15 })} Export audit</button>

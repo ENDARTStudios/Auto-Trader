@@ -9,7 +9,7 @@ export const risk = {
   html() {
     return `
   ${pageHead({
-    eyebrow: `${badge("All clear", "pos")} <span class="dim t-xs">no unresolved incidents</span>`,
+    status: `${badge("All clear", "pos")} <span class="dim t-xs">no unresolved incidents</span>`,
     title: "Risk & safety",
     sub: "The only page allowed to stop the machine. Limits here are human-owned; the engine can tighten them but never loosen them.",
     actions: `<button class="btn btn-ghost btn-sm">${icon("clipboard", { size: 15 })} Run drill</button>

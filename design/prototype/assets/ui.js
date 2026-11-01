@@ -32,11 +32,13 @@ export function assetCell(sym, name, color, sub = null) {
   </div>`;
 }
 
-export function pageHead({ eyebrow = "", title, sub = "", actions = "" }) {
+export function pageHead({ status = "", title, sub = "", actions = "" }) {
   return `<header class="page-head">
     <div>
-      ${eyebrow ? `<div class="eyebrow">${eyebrow}</div>` : ""}
-      <h1 class="page-title">${title}</h1>
+      <div class="page-title-row">
+        <h1 class="page-title">${title}</h1>
+        ${status ? `<span class="page-status">${status}</span>` : ""}
+      </div>
       ${sub ? `<p class="page-sub">${sub}</p>` : ""}
     </div>
     ${actions ? `<div class="page-actions">${actions}</div>` : ""}
@@ -73,8 +75,9 @@ export function empty({ iconName = "compass", title, desc = "", actions = "", cl
   </div>`;
 }
 
-export function meter(pct, tone = "") {
-  return `<div class="meter ${tone}" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><span style="width:${Math.min(100, Math.max(0, pct))}%"></span></div>`;
+export function meter(pct, tone = "", label = "Progress") {
+  const p = Math.min(100, Math.max(0, pct));
+  return `<div class="meter ${tone}" role="progressbar" aria-valuenow="${p}" aria-valuemin="0" aria-valuemax="100" aria-label="${label}"><span style="--p:${(p / 100).toFixed(3)}"></span></div>`;
 }
 
 export function tabs(items, active) {

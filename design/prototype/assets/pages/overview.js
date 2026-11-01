@@ -34,7 +34,7 @@ export const overview = {
   html() {
     return `
   ${pageHead({
-    eyebrow: `${badge("Paper", "warn")} <span class="dim t-xs">Engine running · round 4,128</span>`,
+    status: `${badge("Paper", "warn")} <span class="dim t-xs">Engine running · round 4,128</span>`,
     title: "Mission control",
     sub: "Autonomous engine scanning 18 pairs. 4 open positions, 75.4% exposure, no unresolved risk events.",
     actions: `
@@ -133,7 +133,7 @@ export const overview = {
   <section class="card" style="margin-top:16px">
     <div class="kpi-row">
       ${kpi({ label: "Equity", value: "$24,812.44", foot: `<span class="pos">+$14,812.44</span> all-time` })}
-      ${kpi({ label: "30d P&L", value: "$3,128.19", foot: delta(14.42) + "<span class='dim'>vs benchmark +8.1%</span>" })}
+      ${kpi({ label: "30d P&L", value: "$3,128.19", foot: delta(14.42) + "<span class='dim'>vs bench +8.1%</span>" })}
       ${kpi({ label: "Win rate", value: "61.8%", foot: "<span class='dim'>92W · 56L · 148 trades</span>" })}
       ${kpi({ label: "Sharpe", value: "1.84", foot: "<span class='dim'>30d · non-annualized</span>" })}
       ${kpi({ label: "Exposure", value: "75.4%", foot: "<span class='dim'>$18,692 of $24,812</span>" })}
@@ -159,7 +159,7 @@ export const overview = {
         .slice(0, 3)
         .map(
           (a) => `<div class="alert-row">
-        <div class="severity ${a.sev === "crit" ? "crit" : a.sev === "warn" ? "" : "info"}"></div>
+        <span class="sev-ico ${a.sev === "crit" ? "neg" : a.sev === "warn" ? "warn" : "brand"}">${icon(a.icon, { size: 14 })}</span>
         <div class="grow">
           <div class="row gap-2" style="font-size:12.5px;font-weight:550">${a.title}</div>
           <div class="dim t-xs" style="margin-top:2px;line-height:1.45">${a.desc}</div>

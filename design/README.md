@@ -14,7 +14,10 @@ Redesign completo da interface do Auto Trader: arquitetura de informação, desi
 | **Protótipo navegável** | [`prototype/index.html`](prototype/index.html) | Ver e clicar em todas as telas, dark/light, mobile |
 | **Arquivo de design** | [`figcraft/autotrader-meridian.figcraft`](figcraft/autotrader-meridian.figcraft) | Editar no FigCraft Desktop (14 frames editáveis) |
 | **Renders das telas** | [`figcraft/renders/`](figcraft/renders) | Revisão rápida sem abrir ferramenta |
-| **Marca** | [`brand/exports/`](brand/exports) | Logo em PNG/SVG (tile, mark, wordmark) |
+| **Marca** | [`brand/exports/`](brand/exports) | Logo PNG/SVG, card social vetorial (VectorCraft) e OG do produto (PhotoCraft) |
+| **Contact sheet A4** | [`brand/exports/contact-sheet.pdf`](brand/exports/contact-sheet.pdf) | Revisão impressa de 12 telas (DesignCraft) |
+| **Craft pass + testes** | [`docs/06-CRAFT.md`](docs/06-CRAFT.md) · [`tests/prototype.spec.ts`](tests/prototype.spec.ts) | Skills aplicadas e 49 testes Playwright |
+| **Pacote Replit** | [`replit/autotrader-meridian-replit.zip`](replit/autotrader-meridian-replit.zip) | Site estático pronto para importar |
 | **Apresentação (PDF)** | [`deck/autotrader-meridian.pdf`](deck/autotrader-meridian.pdf) | Contexto para stakeholders (10 slides) |
 | **Auditoria** | [`docs/01-AUDIT.md`](docs/01-AUDIT.md) | Por que a versão atual falha (com evidências) |
 | **Conceito** | [`docs/02-CONCEPT.md`](docs/02-CONCEPT.md) | Princípios, IA, marca, fluxos, antes/depois |

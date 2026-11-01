@@ -271,12 +271,20 @@
 .alerts-mini .alert-row:last-child {
   border-bottom: 0;
 }
-.alerts-mini .severity {
-  width: 3px;
-  border-radius: 2px;
-  background: var(--warn);
+.alerts-mini .sev-ico {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
   flex: none;
+  margin-top: 1px;
 }
+.alerts-mini .sev-ico.neg { color: var(--neg); border-color: color-mix(in srgb, var(--neg) 30%, var(--line)); }
+.alerts-mini .sev-ico.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 30%, var(--line)); }
+.alerts-mini .sev-ico.brand { color: var(--brand); border-color: color-mix(in srgb, var(--brand) 30%, var(--line)); }
 .alerts-mini .severity.crit {
   background: var(--crit);
 }

@@ -4164,56 +4164,6 @@
  {
   "command": "node.create",
   "params": {
-   "type": "rectangle",
-   "name": "rect",
-   "x": 286,
-   "y": 84,
-   "width": 46,
-   "height": 18,
-   "parent": 154,
-   "props": {
-    "fill": "rgba(245,180,84,0.12)",
-    "cornerRadius": 5
-   }
-  }
- },
- {
-  "command": "node.create",
-  "params": {
-   "type": "text",
-   "name": "Paper",
-   "x": 294,
-   "y": 87,
-   "parent": 154,
-   "text": "Paper",
-   "props": {
-    "fontFamily": "Inter",
-    "fontStyle": "Semi Bold",
-    "fontSize": 9,
-    "fill": "#F5B454"
-   }
-  }
- },
- {
-  "command": "node.create",
-  "params": {
-   "type": "text",
-   "name": "Engine running · round 4,128",
-   "x": 342,
-   "y": 87,
-   "parent": 154,
-   "text": "Engine running · round 4,128",
-   "props": {
-    "fontFamily": "Inter",
-    "fontStyle": "Regular",
-    "fontSize": 9,
-    "fill": "#6D7582"
-   }
-  }
- },
- {
-  "command": "node.create",
-  "params": {
    "type": "text",
    "name": "Mission control",
    "x": 288,
@@ -4246,6 +4196,56 @@
     "fill": "#A7AFBC",
     "lineHeight": 19,
     "textAutoResize": "height"
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "rectangle",
+   "name": "rect",
+   "x": 510,
+   "y": 116,
+   "width": 46,
+   "height": 18,
+   "parent": 154,
+   "props": {
+    "fill": "rgba(245,180,84,0.12)",
+    "cornerRadius": 5
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "text",
+   "name": "Paper",
+   "x": 518,
+   "y": 119,
+   "parent": 154,
+   "text": "Paper",
+   "props": {
+    "fontFamily": "Inter",
+    "fontStyle": "Semi Bold",
+    "fontSize": 9,
+    "fill": "#F5B454"
+   }
+  }
+ },
+ {
+  "command": "node.create",
+  "params": {
+   "type": "text",
+   "name": "Engine running · round 4,128",
+   "x": 564,
+   "y": 119,
+   "parent": 154,
+   "text": "Engine running · round 4,128",
+   "props": {
+    "fontFamily": "Inter",
+    "fontStyle": "Regular",
+    "fontSize": 9,
+    "fill": "#6D7582"
    }
   }
  },

@@ -23,7 +23,7 @@ export const design = {
   html() {
     return `
   ${pageHead({
-    eyebrow: '<span class="badge brand">Meridian 1.0</span> <span class="dim t-xs">living documentation</span>',
+    status: '<span class="badge brand">Meridian 1.0</span> <span class="dim t-xs">living documentation</span>',
     title: "Design system",
     sub: "Tokens, components and rules used across every screen. The same source of truth is exported to FigCraft and to the Next.js theme.",
     actions: `<button class="btn btn-secondary btn-sm">${icon("copy", { size: 15 })} Copy tokens</button>

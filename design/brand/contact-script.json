@@ -1,0 +1,447 @@
+[
+  {
+    "command": "file.new",
+    "params": {
+      "width": 842,
+      "height": 595,
+      "pages": 1,
+      "intent": "print",
+      "margins": 40,
+      "facingPages": false
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        40,
+        34,
+        802,
+        62
+      ],
+      "content": "text",
+      "text": "Auto Trader — Meridian"
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        40,
+        62,
+        802,
+        82
+      ],
+      "content": "text",
+      "text": "12 of 22 screens · UI/UX concept v1.0 · 1440×900 · 01 Nov 2026"
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        40,
+        86,
+        802,
+        88
+      ],
+      "content": "graphic"
+    }
+  },
+  {
+    "command": "place.load",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/prototype/shots/final-overview.png"
+    }
+  },
+  {
+    "command": "place.drop",
+    "params": {
+      "x": 40,
+      "y": 96,
+      "rect": [
+        40,
+        96,
+        217,
+        206.625
+      ]
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        40,
+        208.625,
+        217,
+        224.625
+      ],
+      "content": "text",
+      "text": "Overview"
+    }
+  },
+  {
+    "command": "place.load",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/prototype/shots/final-markets.png"
+    }
+  },
+  {
+    "command": "place.drop",
+    "params": {
+      "x": 235,
+      "y": 96,
+      "rect": [
+        235,
+        96,
+        412,
+        206.625
+      ]
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        235,
+        208.625,
+        412,
+        224.625
+      ],
+      "content": "text",
+      "text": "Markets"
+    }
+  },
+  {
+    "command": "place.load",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/prototype/shots/final-token.png"
+    }
+  },
+  {
+    "command": "place.drop",
+    "params": {
+      "x": 430,
+      "y": 96,
+      "rect": [
+        430,
+        96,
+        607,
+        206.625
+      ]
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        430,
+        208.625,
+        607,
+        224.625
+      ],
+      "content": "text",
+      "text": "Token detail"
+    }
+  },
+  {
+    "command": "place.load",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/prototype/shots/final-portfolio.png"
+    }
+  },
+  {
+    "command": "place.drop",
+    "params": {
+      "x": 625,
+      "y": 96,
+      "rect": [
+        625,
+        96,
+        802,
+        206.625
+      ]
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        625,
+        208.625,
+        802,
+        224.625
+      ],
+      "content": "text",
+      "text": "Portfolio"
+    }
+  },
+  {
+    "command": "place.load",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/prototype/shots/final-position.png"
+    }
+  },
+  {
+    "command": "place.drop",
+    "params": {
+      "x": 40,
+      "y": 250.625,
+      "rect": [
+        40,
+        250.625,
+        217,
+        361.25
+      ]
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        40,
+        363.25,
+        217,
+        379.25
+      ],
+      "content": "text",
+      "text": "Position"
+    }
+  },
+  {
+    "command": "place.load",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/prototype/shots/final-strategy.png"
+    }
+  },
+  {
+    "command": "place.drop",
+    "params": {
+      "x": 235,
+      "y": 250.625,
+      "rect": [
+        235,
+        250.625,
+        412,
+        361.25
+      ]
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        235,
+        363.25,
+        412,
+        379.25
+      ],
+      "content": "text",
+      "text": "Strategy"
+    }
+  },
+  {
+    "command": "place.load",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/prototype/shots/final-risk.png"
+    }
+  },
+  {
+    "command": "place.drop",
+    "params": {
+      "x": 430,
+      "y": 250.625,
+      "rect": [
+        430,
+        250.625,
+        607,
+        361.25
+      ]
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        430,
+        363.25,
+        607,
+        379.25
+      ],
+      "content": "text",
+      "text": "Risk & safety"
+    }
+  },
+  {
+    "command": "place.load",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/prototype/shots/final-copilot.png"
+    }
+  },
+  {
+    "command": "place.drop",
+    "params": {
+      "x": 625,
+      "y": 250.625,
+      "rect": [
+        625,
+        250.625,
+        802,
+        361.25
+      ]
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        625,
+        363.25,
+        802,
+        379.25
+      ],
+      "content": "text",
+      "text": "AI Copilot"
+    }
+  },
+  {
+    "command": "place.load",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/prototype/shots/final-backtest.png"
+    }
+  },
+  {
+    "command": "place.drop",
+    "params": {
+      "x": 40,
+      "y": 405.25,
+      "rect": [
+        40,
+        405.25,
+        217,
+        515.875
+      ]
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        40,
+        517.875,
+        217,
+        533.875
+      ],
+      "content": "text",
+      "text": "Backtest"
+    }
+  },
+  {
+    "command": "place.load",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/prototype/shots/final-analytics.png"
+    }
+  },
+  {
+    "command": "place.drop",
+    "params": {
+      "x": 235,
+      "y": 405.25,
+      "rect": [
+        235,
+        405.25,
+        412,
+        515.875
+      ]
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        235,
+        517.875,
+        412,
+        533.875
+      ],
+      "content": "text",
+      "text": "Analytics"
+    }
+  },
+  {
+    "command": "place.load",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/prototype/shots/final-journal.png"
+    }
+  },
+  {
+    "command": "place.drop",
+    "params": {
+      "x": 430,
+      "y": 405.25,
+      "rect": [
+        430,
+        405.25,
+        607,
+        515.875
+      ]
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        430,
+        517.875,
+        607,
+        533.875
+      ],
+      "content": "text",
+      "text": "Journal"
+    }
+  },
+  {
+    "command": "place.load",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/prototype/shots/final-onboarding.png"
+    }
+  },
+  {
+    "command": "place.drop",
+    "params": {
+      "x": 625,
+      "y": 405.25,
+      "rect": [
+        625,
+        405.25,
+        802,
+        515.875
+      ]
+    }
+  },
+  {
+    "command": "frame.create",
+    "params": {
+      "rect": [
+        625,
+        517.875,
+        802,
+        533.875
+      ],
+      "content": "text",
+      "text": "Onboarding"
+    }
+  },
+  {
+    "command": "file.exportPdf",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/brand/exports/contact-sheet.pdf"
+    }
+  },
+  {
+    "command": "file.saveAs",
+    "params": {
+      "path": "D:/PROJETOS/Auto Trader/at-meridian/design/brand/exports/contact-sheet.designcraft"
+    }
+  }
+]

@@ -161,7 +161,7 @@ export const portfolio = {
           desc: "A market order will be simulated at the current mark. Paper mode — no capital moves.",
           primary: "Close position",
           tone: "danger",
-          body: `<div class="dl tight"><dt>Notional</dt><dd>$8,420.50</dd><dt>Est. slippage</dt><dd>0.04%</dd><dt>Realized P&L</dt><dd class="pos">+$525.40</dd></div>`,
+          body: `<dl class="dl tight"><dt>Notional</dt><dd>$8,420.50</dd><dt>Est. slippage</dt><dd>0.04%</dd><dt>Realized P&L</dt><dd class="pos">+$525.40</dd></dl>`,
           onConfirm: () => window.__at.toast({ title: "Close order submitted", desc: `${b.dataset.close} flattening at market.`, iconName: "checkCircle" }),
         });
       })
@@ -187,7 +187,7 @@ export const position = {
     <span class="dim t-xs">/ ${p.pair} · ${p.strategy}</span>
   </div>
   ${pageHead({
-    eyebrow: `<span class="badge ${p.side === "LONG" ? "pos" : "neg"}">${p.side}</span> <span class="dim t-xs">opened ${p.opened} ago · ${p.round}</span>`,
+    status: `<span class="badge ${p.side === "LONG" ? "pos" : "neg"}">${p.side}</span> <span class="dim t-xs">opened ${p.opened} ago · ${p.round}</span>`,
     title: `<span class="row gap-3">${assetIco(p.sym, p.color, "xl")} ${p.sym}/USDT</span>`,
     sub: `Entry $${fmt.px(p.entry)} · mark $${fmt.px(p.mark)} · stop $${fmt.px(p.stop)} · target $${fmt.px(p.target)}`,
     actions: `<button class="btn btn-secondary btn-sm" data-nav="#/copilot">${icon("sparkles", { size: 15 })} Ask Copilot</button>
@@ -269,7 +269,7 @@ export const position = {
           desc: "A market order is simulated at the current mark.",
           primary: "Close position",
           tone: "danger",
-          body: `<div class="dl tight"><dt>Notional</dt><dd>${fmt.usd(8420.5)}</dd><dt>Est. slippage</dt><dd>0.04%</dd><dt>Realized P&L</dt><dd class="pos">+$525.40</dd></div>`,
+          body: `<dl class="dl tight"><dt>Notional</dt><dd>${fmt.usd(8420.5)}</dd><dt>Est. slippage</dt><dd>0.04%</dd><dt>Realized P&L</dt><dd class="pos">+$525.40</dd></dl>`,
           onConfirm: () => window.__at.toast({ title: "Position closed", desc: "SOL/USDT flattened at $208.31.", iconName: "checkCircle" }),
         })
       )

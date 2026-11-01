@@ -62,10 +62,8 @@ export function toast({ title, desc, tone = "pos", iconName = "checkCircle" }) {
   t.innerHTML = `${icon(iconName, { size: 18, cls: "ti " + tone })}<div><b>${title}</b>${desc ? `<p>${desc}</p>` : ""}</div>`;
   wrap.appendChild(t);
   setTimeout(() => {
-    t.style.opacity = "0";
-    t.style.transform = "translateY(6px)";
-    t.style.transition = "all .3s";
-    setTimeout(() => t.remove(), 320);
+    t.dataset.leaving = "";
+    setTimeout(() => t.remove(), 180);
   }, 4200);
 }
 
@@ -102,7 +100,7 @@ export function closeDrawer() {
   });
 }
 
-export function openModal({ title, desc = "", body = "", primary = "Confirm", tone = "primary", onConfirm }) {
+export function openModal({ title, desc = "", body = "", primary = "Confirm", tone = "primary", requireText = null, onConfirm }) {
   const wrap = document.createElement("div");
   wrap.className = "modal-wrap";
   wrap.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="${title}">
@@ -110,17 +108,40 @@ export function openModal({ title, desc = "", body = "", primary = "Confirm", to
     <div class="modal-body">${body}</div>
     <div class="modal-foot">
       <button class="btn btn-ghost" data-cancel>Cancel</button>
-      <button class="btn ${tone === "danger" ? "btn-danger-solid" : "btn-primary"}" data-ok>${primary}</button>
+      <button class="btn ${tone === "danger" ? "btn-danger-solid" : "btn-primary"}" data-ok ${requireText ? "disabled" : ""}>${primary}</button>
     </div></div>`;
   overlays.appendChild(wrap);
   requestAnimationFrame(() => wrap.classList.add("open"));
+  const okBtn = wrap.querySelector("[data-ok]");
   const close = () => {
     wrap.classList.remove("open");
     setTimeout(() => wrap.remove(), 220);
   };
+  if (requireText) {
+    const input = wrap.querySelector("input");
+    input.autofocus = true;
+    requestAnimationFrame(() => input.focus());
+    input.addEventListener("input", () => {
+      okBtn.disabled = input.value.trim().toUpperCase() !== requireText;
+    });
+  }
   wrap.querySelector("[data-cancel]").addEventListener("click", close);
   wrap.addEventListener("click", (e) => e.target === wrap && close());
-  wrap.querySelector("[data-ok]").addEventListener("click", () => {
+  wrap.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    const f = [...wrap.querySelectorAll("button:not([disabled]), input, [href], select, textarea")];
+    if (!f.length) return;
+    const first = f[0];
+    const last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+  okBtn.addEventListener("click", () => {
     close();
     onConfirm?.();
   });
@@ -144,6 +165,7 @@ export function openKillSwitch() {
     desc: "Immediately halts the engine and cancels every open order. Positions are flattened at market on the next tick.",
     tone: "danger",
     primary: "Trigger kill switch",
+    requireText: "HALT",
     body: `<div class="banner danger" style="margin-bottom:14px">${icon("alert", { size: 16 })}<div>This is the only action that stops execution instantly. It is logged in the audit trail.</div></div>
       <div class="field"><label for="ks">Type <b>HALT</b> to confirm</label><input class="input" id="ks" placeholder="HALT" autocomplete="off" /></div>`,
     onConfirm: () => {
@@ -364,6 +386,16 @@ function bindCommon() {
   app.querySelectorAll("[data-nav]").forEach((n) =>
     n.addEventListener("click", () => (location.hash = n.dataset.nav))
   );
+  app.querySelectorAll(".icon-btn").forEach((n) => {
+    if (!n.getAttribute("aria-label")) n.setAttribute("aria-label", n.dataset.tip || "Action");
+  });
+  app.querySelectorAll(".table-wrap").forEach((n) => {
+    if (!n.hasAttribute("tabindex")) n.tabIndex = 0;
+    if (!n.getAttribute("aria-label")) {
+      const t = n.closest(".card")?.querySelector(".card-title")?.textContent?.trim();
+      n.setAttribute("aria-label", t ? `${t} table` : "Data table");
+    }
+  });
   app.querySelectorAll("[data-palette]").forEach((n) => n.addEventListener("click", openPalette));
   app.querySelectorAll("[data-menu]").forEach((n) =>
     n.addEventListener("click", () => {
