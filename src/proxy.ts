@@ -88,7 +88,10 @@ export function proxy(req: NextRequest) {
   }
 
   // 2. CSRF for state-mutating /api/* requests (browser-driven, not webhooks)
-  if (pathname.startsWith('/api/') && isStateMutating(method)) {
+  // Sem cookie de sessão não existe credencial a proteger: deixa a rota
+  // responder 401 (requireSession) em vez de mascarar com 403 de CSRF.
+  const hasSessionCookie = Boolean(req.cookies.get('session')?.value);
+  if (pathname.startsWith('/api/') && isStateMutating(method) && hasSessionCookie) {
     const csrf = verifyCsrf(req);
     if (!csrf.valid) {
       return NextResponse.json({ error: 'csrf_failed', reason: csrf.reason }, { status: 403 });

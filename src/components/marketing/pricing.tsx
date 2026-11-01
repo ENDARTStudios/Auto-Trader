@@ -24,7 +24,7 @@ export function Pricing() {
     retry: 0,
   });
 
-  const current = sub.data?.subscription?.plan ?? sub.data?.plan ?? "free";
+  const current = user ? sub.data?.subscription?.plan ?? sub.data?.plan ?? "free" : null;
 
   const change = useMutation({
     mutationFn: (planId: string) =>
@@ -88,6 +88,7 @@ export function Pricing() {
                 </div>
                 <button
                   type="button"
+                  data-testid={`pricing-subscribe-${plan.id}`}
                   className={`mrd-btn ${featured ? "mrd-btn-primary" : "mrd-btn-secondary"}`}
                   disabled={change.isPending || isCurrent}
                   onClick={() => (user ? change.mutate(plan.id) : router.push("/login"))}

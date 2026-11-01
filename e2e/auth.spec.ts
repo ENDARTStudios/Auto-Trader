@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { csrfHeaders } from './csrf';
 
 test('anônimo cai na landing pública', async ({ page }) => {
   await page.goto('/');
