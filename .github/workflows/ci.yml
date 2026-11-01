@@ -21,7 +21,7 @@ jobs:
     steps:
       # T056: full history para o Gitleaks resolver o range de commits
       # (checkout raso quebrava o scan com 'unknown revision').
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -108,7 +108,7 @@ jobs:
       # codeql-action/analyze consulta o workflow run (Get a workflow run)
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: github/codeql-action/init@v4
         with:
           languages: javascript-typescript
@@ -147,7 +147,7 @@ jobs:
     timeout-minutes: 10
     environment: staging
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Deploy to Fly.io staging (manual — requires FLY_API_TOKEN + STAGING_URL)
         run: |
           echo "Staging deploy stub — Fase 9.1.6. Configure FLY_API_TOKEN + STAGING_URL em vars/secrets e habilite vars.STAGING_ENABLED=true."
@@ -162,7 +162,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 20
