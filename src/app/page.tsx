@@ -16,5 +16,5 @@ export default async function RootPage() {
   } catch {
     session = null;
   }
-  redirect(session ? "/overview" : "/login");
+  redirect(session ? "/overview" : "/welcome");
 }

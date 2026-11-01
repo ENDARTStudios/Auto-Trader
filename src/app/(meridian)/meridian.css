@@ -1,3 +1,11 @@
+/* Aliases para tokens que o CSS do shell usa e o gerador de tokens nao emite. */
+.mrd {
+  --brand-solid: var(--brand);
+  --brand-solid-hover: color-mix(in srgb, var(--brand) 86%, #000);
+  --brand-solid-press: color-mix(in srgb, var(--brand) 74%, #000);
+  --crit-solid: var(--critical);
+  --ease-out-strong: cubic-bezier(0.22, 1, 0.36, 1);
+}
 /* ==========================================================================
    Meridian shell + overview — escopo .mrd
    Tradução direta do design system (design/04-DESIGN-SYSTEM.md).
@@ -494,3 +502,66 @@
 .mrd-suggest { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 14px; border-top: 1px solid var(--line); }
 .mrd-chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--surface-1); font-size: 12px; color: var(--text-2); }
 .mrd-chip:hover { border-color: var(--line-strong); color: var(--text); }
+
+/* ---------- marketing / landing ---------- */
+.mrd-mkt { min-height: 100dvh; display: flex; flex-direction: column; background: var(--bg); color: var(--text); }
+.mrd-mkt-nav { display: flex; align-items: center; gap: 24px; padding: 18px 40px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); z-index: 10; }
+.mrd-mkt-brand { display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
+.mrd-mkt-brand b { display: block; font-size: 14px; letter-spacing: -0.01em; }
+.mrd-mkt-brand small { display: block; font-size: 9px; letter-spacing: 0.16em; color: var(--text-3); }
+.mrd-mkt-links { display: flex; gap: 18px; margin-left: 12px; }
+.mrd-mkt-links a { color: var(--text-2); font-size: 12.5px; text-decoration: none; }
+.mrd-mkt-links a:hover { color: var(--text); }
+.mrd-mkt-actions { margin-left: auto; display: flex; gap: 8px; }
+.mrd-mkt main { width: min(1080px, 100% - 48px); margin: 0 auto; }
+.mrd-mkt-hero { padding: 72px 0 40px; max-width: 760px; }
+.mrd-mkt-eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-2); border: 1px solid var(--line); border-radius: 99px; padding: 5px 12px; margin-bottom: 22px; }
+.mrd-mkt-hero h1 { font-size: clamp(38px, 5.4vw, 62px); line-height: 1.04; letter-spacing: -0.035em; font-weight: 680; }
+.mrd-mkt-accent { color: var(--brand); }
+.mrd-mkt-hero p { margin-top: 18px; font-size: 15.5px; line-height: 1.6; color: var(--text-2); max-width: 560px; }
+.mrd-mkt-cta { display: flex; gap: 10px; margin-top: 26px; flex-wrap: wrap; }
+.mrd-mkt-trust { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 26px; font-size: 11.5px; color: var(--text-3); }
+.mrd-mkt-trust span { display: inline-flex; align-items: center; gap: 6px; }
+.mrd-mkt-shot { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--surface-1); box-shadow: 0 40px 80px -40px rgba(0,0,0,0.7); }
+.mrd-mkt-shot-bar { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.mrd-mkt-shot-bar span { width: 8px; height: 8px; border-radius: 50%; background: var(--surface-3); }
+.mrd-mkt-shot-bar em { margin-left: 10px; font-style: normal; font-size: 10.5px; color: var(--text-3); }
+.mrd-mkt-shot-body { display: grid; grid-template-columns: 190px minmax(0, 1fr); min-height: 300px; }
+.mrd-mkt-shot-rail { border-right: 1px solid var(--line); padding: 14px 10px; display: grid; gap: 4px; align-content: start; }
+.mrd-mkt-shot-rail div { font-size: 11.5px; color: var(--text-3); padding: 6px 10px; border-radius: 7px; }
+.mrd-mkt-shot-rail div.on { background: var(--surface-3); color: var(--text); }
+.mrd-mkt-shot-main { padding: 18px 20px; }
+.mrd-mkt-shot-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.mrd-mkt-shot-head b { font-size: 17px; letter-spacing: -0.02em; }
+.mrd-mkt-shot-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.mrd-mkt-shot-kpis div { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 2px; }
+.mrd-mkt-shot-kpis small { font-size: 10px; color: var(--text-3); }
+.mrd-mkt-shot-kpis b { font-size: 17px; letter-spacing: -0.02em; }
+.mrd-mkt-shot-kpis em { font-style: normal; font-size: 10.5px; color: var(--text-3); }
+.mrd-mkt-shot-chart { margin-top: 14px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; }
+.mrd-mkt-shot-chart svg { width: 100%; height: 130px; display: block; }
+.mrd-mkt-features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; padding: 48px 0 8px; }
+.mrd-mkt-card { border: 1px solid var(--line); border-radius: 14px; padding: 20px; background: var(--surface-1); }
+.mrd-mkt-ico { display: inline-grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: var(--brand-soft); color: var(--brand); margin-bottom: 14px; }
+.mrd-mkt-card h2 { font-size: 14.5px; margin-bottom: 8px; }
+.mrd-mkt-card p { font-size: 12.5px; line-height: 1.6; color: var(--text-2); }
+.mrd-mkt-band { margin: 48px 0; border: 1px solid var(--line-strong); border-radius: 16px; padding: 28px; display: flex; align-items: center; gap: 28px; justify-content: space-between; background: linear-gradient(120deg, var(--surface-1), var(--surface-2)); flex-wrap: wrap; }
+.mrd-mkt-band h2 { font-size: 22px; letter-spacing: -0.025em; margin-bottom: 8px; }
+.mrd-mkt-band p { font-size: 13px; color: var(--text-2); max-width: 560px; line-height: 1.6; }
+.mrd-mkt-foot { margin-top: auto; border-top: 1px solid var(--line); padding: 20px 40px; display: flex; justify-content: space-between; gap: 16px; font-size: 11.5px; color: var(--text-3); flex-wrap: wrap; }
+.mrd-mkt-foot nav { display: flex; gap: 16px; }
+.mrd-mkt-foot a { color: var(--text-3); text-decoration: none; }
+.mrd-mkt-foot a:hover { color: var(--text); }
+@media (max-width: 900px) {
+  .mrd-mkt-features { grid-template-columns: 1fr; }
+  .mrd-mkt-shot-body { grid-template-columns: 1fr; }
+  .mrd-mkt-shot-rail { display: none; }
+  .mrd-mkt-links { display: none; }
+}
+@media (max-width: 640px) {
+  .mrd-mkt-nav { padding: 14px 18px; }
+  .mrd-mkt main { width: min(100% - 32px, 1080px); }
+  .mrd-mkt-hero { padding: 44px 0 28px; }
+  .mrd-mkt-shot-kpis { grid-template-columns: 1fr; }
+  .mrd-mkt-foot { padding: 16px 18px; }
+}

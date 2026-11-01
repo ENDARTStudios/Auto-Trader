@@ -61,3 +61,9 @@ export function isMeridianPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   return MERIDIAN_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 }
+
+/** Rotas sem o chrome legado (shell Meridian OU página pública nova). */
+export function isChromelessPath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  return isMeridianPath(pathname) || pathname === "/welcome";
+}

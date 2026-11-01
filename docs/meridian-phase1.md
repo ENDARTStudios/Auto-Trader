@@ -62,3 +62,32 @@ O proxy (`src/proxy.ts`) exige `x-csrf-token` em POST/PUT/PATCH/DELETE, mas nenh
 3. O guard de sessão no layout consulta o banco a cada navegação; cache curto por request é o próximo passo.
 4. Falta `next build` completo (exige `.env` e banco de produção) — rodar no CI da PR.
 5. Dados de demonstração do banco local foram semeados apenas no worktree; não estão versionados.
+
+## Estado final da implementação
+
+| Rota | Estado |
+|---|---|
+| `/` | redireciona: sessão → `/overview`, anônimo → `/welcome` |
+| `/welcome` | landing pública (tokens Meridian, sem chrome legado) |
+| `/overview` `/markets` `/portfolio` `/strategy` `/risk` | implementadas com dados reais |
+| `/analytics` `/journal` `/backtest` `/copilot` | implementadas |
+| `/alerts` `/data` `/settings` `/billing` `/admin` | implementadas |
+| `/terminal` | dashboard antigo preservado (sem link na navegação) |
+| `/login` `/signup` `/pricing` `/privacy` `/terms` | telas legadas ainda em uso |
+
+### Achados de infraestrutura corrigidos
+
+1. **CSRF**: o proxy exigia `x-csrf-token` e nenhuma rota emitia — toda escrita respondia 403. Adicionado `GET /api/auth/csrf` + envio no `apiPost`.
+2. **Tokens ausentes**: `--brand-solid`, `--crit-solid`, `--ease-out-strong` eram usados pelo CSS e não gerados; botões primários ficavam transparentes. Aliases adicionados em `meridian.css`.
+3. **Guard da raiz**: o proxy bloqueava `/` antes do roteador; agora só `/dashboard` é protegido e a raiz decide sozinha.
+4. **Hidratação**: tempos relativos e `isFetching` removidos do HTML servido; preferências via `useSyncExternalStore`.
+
+### Build
+
+`npx next build` — concluído com sucesso (exit 0), 61 rotas compiladas, incluindo as 14 páginas do shell.
+
+### Pendências conscientes
+
+- `/login`, `/signup` e `/pricing` continuam no design antigo; o fluxo de auth funciona, mas não foi redesenhado nesta fase.
+- MFA setup, convite de usuários e portal de assinatura estão desabilitados com aviso explícito.
+- `page.test`/e2e do repositório não cobrem as rotas novas ainda.
