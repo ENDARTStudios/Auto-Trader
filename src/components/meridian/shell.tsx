@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { NAV } from "@/lib/meridian/nav";
 import { clockUtc, duration } from "@/lib/meridian/format";
 import { apiGet, type RuntimeStatus } from "./api";
@@ -12,9 +12,44 @@ import { Dot } from "./ui";
 
 interface ShellProps {
   user: { email: string; role: string };
+  serverNow: string;
   children: React.ReactNode;
 }
 
+
+/* Preferência persistida sem setState em effect e sem mismatch de hidratação. */
+const storeListeners = new Set<() => void>();
+function subscribeStore(cb: () => void) {
+  storeListeners.add(cb);
+  const onStorage = () => cb();
+  window.addEventListener("storage", onStorage);
+  return () => {
+    storeListeners.delete(cb);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+function readStore(key: string, fallback: string) {
+  try {
+    return window.localStorage.getItem(key) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writeStore(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* storage indisponível: mantém o padrão */
+  }
+  storeListeners.forEach((listener) => listener());
+}
+function useStored(key: string, fallback: string) {
+  return useSyncExternalStore(
+    subscribeStore,
+    () => readStore(key, fallback),
+    () => fallback
+  );
+}
 const initials = (email: string) =>
   email
     .split("@")[0]
@@ -23,17 +58,14 @@ const initials = (email: string) =>
     .join("")
     .slice(0, 2) || "AT";
 
-export function Shell({ user, children }: ShellProps) {
+export function Shell({ user, serverNow, children }: ShellProps) {
   const pathname = usePathname();
-  const [rail, setRail] = useState<"expanded" | "collapsed">(() =>
-    typeof window !== "undefined" && window.localStorage.getItem("mrd.rail") === "collapsed" ? "collapsed" : "expanded"
-  );
+  const railPref = useStored("mrd.rail", "expanded");
+  const rail: "expanded" | "collapsed" = railPref === "collapsed" ? "collapsed" : "expanded";
+  const theme: "dark" | "light" = useStored("mrd.theme", "dark") === "light" ? "light" : "dark";
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [theme, setTheme] = useState<"dark" | "light">(() =>
-    typeof window !== "undefined" && window.localStorage.getItem("mrd.theme") === "light" ? "light" : "dark"
-  );
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [clock, setClock] = useState<string>(() => clockUtc());
+  const [clock, setClock] = useState<string>(() => clockUtc(serverNow));
 
   const status = useQuery<RuntimeStatus>({
     queryKey: ["mrd", "status"],
@@ -61,22 +93,18 @@ export function Shell({ user, children }: ShellProps) {
   }, []);
 
   const setRailPersisted = useCallback((next: "expanded" | "collapsed") => {
-    setRail(next);
-    window.localStorage.setItem("mrd.rail", next);
+    writeStore("mrd.rail", next);
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setTheme((t) => {
-      const next = t === "dark" ? "light" : "dark";
-      window.localStorage.setItem("mrd.theme", next);
-      return next;
-    });
-  }, []);
+    writeStore("mrd.theme", theme === "dark" ? "light" : "dark");
+  }, [theme]);
 
   const runtime = status.data?.runtime ?? (status.isLoading ? "…" : "STOPPED");
   const running = runtime === "RUNNING";
   const currentLabel =
-    pathname.startsWith("/overview") ? "Overview" : pathname.replace("/", "").replace("-", " ") || "Overview";
+    NAV.flatMap((g) => g.items).find((i) => pathname === i.href || pathname.startsWith(`${i.href}/`))?.label ??
+    "Overview";
 
   const groups = useMemo(() => NAV, []);
 

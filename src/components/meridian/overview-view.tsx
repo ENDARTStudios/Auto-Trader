@@ -16,7 +16,7 @@ import {
 import { Icon } from "./icons";
 import { AreaChart } from "./area-chart";
 import { AssetIcon, Badge, Card, colorFor, Delta, Dot, Empty, Kpi, Meter, Ring, Skeleton } from "./ui";
-import { money, pct, price, relative, signedUsd, usd } from "@/lib/meridian/format";
+import { money, pct, price, clockUtc, signedUsd, usd } from "@/lib/meridian/format";
 
 type Range = "24h" | "7d" | "30d" | "all";
 const RANGES: { id: Range; label: string }[] = [
@@ -358,7 +358,7 @@ function DecisionCard({ insight, loading }: { insight?: InsightRow; loading: boo
       <div className="mrd-card-hd" style={{ paddingBottom: 0 }}>
         <div>
           <div className="mrd-card-title">
-            AI decision {insight ? <Badge>{relative(insight.createdAt)}</Badge> : null}
+            AI decision {insight ? <Badge>{clockUtc(insight.createdAt)}</Badge> : null}
           </div>
           <div className="mrd-card-sub">{insight ? insight.agentRole.replace("_", " ") : "no decision in this window"}</div>
         </div>
@@ -423,7 +423,7 @@ function PositionsCard({ rows, loading }: { rows: PositionRow[]; loading: boolea
                     <Badge tone="pos">LONG</Badge>
                   </div>
                   <div className="mrd-list-sub">
-                    entry {usd(p.entryPriceUsd)} · mark {price(p.currentPriceUsd)} · {relative(p.entryAt)}
+                    entry {usd(p.entryPriceUsd)} · mark {price(p.currentPriceUsd)} · {clockUtc(p.entryAt)}
                   </div>
                 </div>
                 <div className="mrd-list-side">
@@ -468,7 +468,7 @@ function RoundsCard({ rounds, loading }: { rounds: RoundRow[]; loading: boolean 
               </div>
               <div className="mrd-list-side">
                 <b className={r.roundPnlUsd >= 0 ? "mrd-pos" : "mrd-neg"}>{signedUsd(r.roundPnlUsd)}</b>
-                <div className="mrd-dim" style={{ fontSize: 10.5 }}>{relative(r.startedAt)}</div>
+                <div className="mrd-dim" style={{ fontSize: 10.5 }}>{clockUtc(r.startedAt)}</div>
               </div>
             </div>
           ))}
@@ -525,7 +525,7 @@ function ActivityCard({ rounds, positions }: { rounds: RoundRow[]; positions: Po
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p>{e.text}</p>
               </div>
-              <time dateTime={e.at}>{relative(e.at)}</time>
+              <time dateTime={e.at}>{clockUtc(e.at)}</time>
             </div>
           ))}
         </div>

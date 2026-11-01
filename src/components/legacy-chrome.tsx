@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { LanguageSelector } from "@/components/language-selector";
 import type { Locale } from "@/lib/i18n";
+import { isMeridianPath } from "@/lib/meridian/nav";
 
 interface Strings {
   copyright: string;
@@ -26,7 +27,7 @@ export function LegacyChrome({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isMeridian = pathname?.startsWith("/overview") ?? false;
+  const isMeridian = isMeridianPath(pathname);
 
   if (isMeridian) return <div className="flex-1">{children}</div>;
 
@@ -42,7 +43,7 @@ export function LegacyChrome({
 
 export function LegacyFooter({ strings }: { strings: Strings }) {
   const pathname = usePathname();
-  if (pathname?.startsWith("/overview")) return null;
+  if (isMeridianPath(pathname)) return null;
 
   return (
     <footer className="border-t border-border/40 bg-background/50 py-4 text-center text-xs text-muted-foreground">

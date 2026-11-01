@@ -23,7 +23,7 @@ export default async function MeridianLayout({ children }: { children: React.Rea
   if (!session) redirect("/login");
 
   return (
-    <Shell user={{ email: session.email, role: session.role }}>
+    <Shell user={{ email: session.email, role: session.role }} serverNow={new Date().toISOString()}>
       {children}
     </Shell>
   );

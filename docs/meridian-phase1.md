@@ -2,6 +2,14 @@
 
 Branch: **`feat/ui-meridian-shell`**, empilhada em `design/uiux-concept-v2` (worktree `D:\PROJETOS\Auto Trader\at-impl`). Nada foi alterado no checkout dos outros agentes.
 
+## Rotas implementadas
+
+| Rota | Fonte de dados | Ações |
+|---|---|---|
+| `/overview` | status, positions, analytics, rounds, graduation, ai-insights | start/pause engine, export CSV, range |
+| `/markets` | `/api/market` (snapshots + fear&greed + trending) | refresh, filtro por par |
+| `/portfolio` | analytics 30d, positions, reserve | export CSV, refresh, fechar posição (com nota) |
+
 ## O que entrou
 
 | Área | Arquivo | Papel |
