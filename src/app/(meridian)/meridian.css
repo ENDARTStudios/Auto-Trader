@@ -1,8 +1,11 @@
 /* Aliases para tokens que o CSS do shell usa e o gerador de tokens nao emite. */
 .mrd {
-  --brand-solid: var(--brand);
-  --brand-solid-hover: color-mix(in srgb, var(--brand) 86%, #000);
-  --brand-solid-press: color-mix(in srgb, var(--brand) 74%, #000);
+  /* WCAG: #7e8795 sobre surface-1 dá ~5.2:1; o token gerado (#6d7582) ficava em 4.03. */
+  --text-3: #7e8795;
+  /* #4a57e0 com texto branco dá 6.2:1 (o brand puro #5b6cff dava 3.78:1). */
+  --brand-solid: #4a57e0;
+  --brand-solid-hover: #5561e6;
+  --brand-solid-press: #3e49c6;
   --crit-solid: var(--critical);
   --ease-out-strong: cubic-bezier(0.22, 1, 0.36, 1);
 }
