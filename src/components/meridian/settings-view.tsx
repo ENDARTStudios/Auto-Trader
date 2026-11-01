@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { apiGet, apiPost } from "./api";
+import { apiDelete, apiGet, apiPost } from "./api";
 import { Icon } from "./icons";
 import { Badge, Card, Skeleton } from "./ui";
 
@@ -35,6 +35,43 @@ export function SettingsView() {
       void qc.invalidateQueries({ queryKey: ["mrd", "prefs"] });
     },
     onError: (err: Error) => toast.error("Could not save", { description: err.message }),
+  });
+
+  const [mfaOpen, setMfaOpen] = useState(false);
+  const [mfaSecret, setMfaSecret] = useState<string | null>(null);
+  const [mfaUrl, setMfaUrl] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+
+  const startMfa = useMutation({
+    mutationFn: () => apiPost<{ secret: string; otpauthUrl: string }>("/api/auth/mfa/setup"),
+    onSuccess: (res) => {
+      setMfaSecret(res.secret);
+      setMfaUrl(res.otpauthUrl);
+      setMfaOpen(true);
+    },
+    onError: (err: Error) => toast.error("Não foi possível iniciar o MFA", { description: err.message }),
+  });
+
+  const verifyMfa = useMutation({
+    mutationFn: () => apiPost<{ ok: boolean }>("/api/auth/mfa/verify", { token: mfaCode }),
+    onSuccess: () => {
+      toast.success("MFA ativado", { description: "Guarde o código de recuperação do app autenticador." });
+      setMfaOpen(false);
+      setMfaSecret(null);
+      setMfaUrl(null);
+      setMfaCode("");
+      void qc.invalidateQueries({ queryKey: ["mrd", "me"] });
+    },
+    onError: (err: Error) => toast.error("Código inválido", { description: err.message }),
+  });
+
+  const disableMfa = useMutation({
+    mutationFn: () => apiDelete<{ ok: boolean }>("/api/auth/mfa"),
+    onSuccess: () => {
+      toast.success("MFA desativado");
+      void qc.invalidateQueries({ queryKey: ["mrd", "me"] });
+    },
+    onError: (err: Error) => toast.error("Não foi possível desativar", { description: err.message }),
   });
 
   const user = me.data?.user;
@@ -88,9 +125,25 @@ export function SettingsView() {
                   <div className="mrd-list-title">Two-factor authentication <Badge tone={user?.mfaEnabled ? "pos" : "warn"}>{user?.mfaEnabled ? "enabled" : "not configured"}</Badge></div>
                   <div className="mrd-list-sub">TOTP · required to unlock live trading</div>
                 </div>
-                <button type="button" className="mrd-btn mrd-btn-secondary mrd-btn-sm" disabled title="MFA setup arrives in the next phase">
-                  Configure
-                </button>
+                {user?.mfaEnabled ? (
+                  <button
+                    type="button"
+                    className="mrd-btn mrd-btn-ghost mrd-btn-sm"
+                    onClick={() => disableMfa.mutate()}
+                    disabled={disableMfa.isPending}
+                  >
+                    Desativar
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="mrd-btn mrd-btn-secondary mrd-btn-sm"
+                    onClick={() => startMfa.mutate()}
+                    disabled={startMfa.isPending}
+                  >
+                    {startMfa.isPending ? "Gerando…" : "Configurar"}
+                  </button>
+                )}
               </div>
               <div className="mrd-list-item">
                 <span className="mrd-asset-ico" style={{ background: "var(--surface-2)", color: "var(--text-2)" }}><Icon name="admin" size={14} /></span>
@@ -101,6 +154,66 @@ export function SettingsView() {
                 <a className="mrd-btn mrd-btn-ghost mrd-btn-sm" href="/admin">Open</a>
               </div>
             </div>
+
+            {mfaOpen && mfaSecret ? (
+              <div style={{ borderTop: "1px solid var(--line)", marginTop: 12, paddingTop: 14, display: "grid", gap: 12 }}>
+                <div className="mrd-card-sub">
+                  1. Adicione a conta no app autenticador usando o segredo abaixo
+                  {mfaUrl ? <> ou o link <a href={mfaUrl} style={{ color: "var(--brand)" }}>otpauth://</a></> : null}.
+                </div>
+                <code
+                  style={{
+                    display: "block",
+                    padding: "10px 12px",
+                    borderRadius: 8,
+                    background: "var(--surface-2)",
+                    border: "1px solid var(--line)",
+                    fontSize: 13,
+                    letterSpacing: "0.12em",
+                    wordBreak: "break-all",
+                  }}
+                >
+                  {mfaSecret}
+                </code>
+                <label className="mrd-field">
+                  <span>2. Código de 6 dígitos gerado pelo app</span>
+                  <input
+                    className="mrd-input"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, ""))}
+                    placeholder="123456"
+                    autoComplete="one-time-code"
+                  />
+                </label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    className="mrd-btn mrd-btn-primary mrd-btn-sm"
+                    disabled={mfaCode.length !== 6 || verifyMfa.isPending}
+                    onClick={() => verifyMfa.mutate()}
+                  >
+                    {verifyMfa.isPending ? "Confirmando…" : "Ativar MFA"}
+                  </button>
+                  <button
+                    type="button"
+                    className="mrd-btn mrd-btn-ghost mrd-btn-sm"
+                    onClick={() => {
+                      setMfaOpen(false);
+                      setMfaSecret(null);
+                      setMfaUrl(null);
+                      setMfaCode("");
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+                <p className="mrd-dim" style={{ fontSize: 11.5 }}>
+                  O segredo só aparece uma vez. Ativar o MFA é pré-requisito para liberar o modo live.
+                </p>
+              </div>
+            ) : null}
           </Card>
 
           <Card title="Preferences" sub="saved to your account">

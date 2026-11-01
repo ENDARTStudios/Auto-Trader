@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import "../(meridian)/meridian-tokens.css";
+import "../(meridian)/meridian.css";
 
 export const metadata: Metadata = {
   title: "Política de Privacidade — Auto Trader",
@@ -7,7 +10,19 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="container mx-auto max-w-3xl px-4 py-8 prose prose-invert prose-sm">
+    <div className="mrd mrd-legal" data-theme="dark">
+      <header className="mrd-mkt-nav">
+        <Link href="/welcome" className="mrd-mkt-brand">
+          <span className="mrd-logo">AT</span>
+          <span><b>Auto Trader</b><small>MERIDIAN</small></span>
+        </Link>
+        <div className="mrd-mkt-actions">
+          <Link href="/pricing" className="mrd-btn mrd-btn-ghost mrd-btn-sm">Planos</Link>
+          <Link href="/login" className="mrd-btn mrd-btn-primary mrd-btn-sm">Entrar</Link>
+        </div>
+      </header>
+      <main className="mrd-legal-main">
+        <article className="mrd-legal-body">
       <h1>Política de Privacidade — Auto Trader</h1>
       <p className="text-xs text-muted-foreground">Última atualização: 30 de agosto de 2026 — END ART Studios — CNPJ 45.370.930/0001-75 — Osasco/SP - Brasil — Encarregado: endart.studios@gmail.com</p>
 
@@ -77,6 +92,12 @@ export default function PrivacyPage() {
 
       <hr />
       <p className="text-center text-xs text-muted-foreground">Copyright © 2026 END ART Studios — CNPJ 45.370.930/0001-75 — Osasco/SP - Brasil — Todos os direitos reservados.</p>
+        </article>
+      </main>
+      <footer className="mrd-mkt-foot">
+        <span>© 2026 END ART Studios · Meridian</span>
+        <nav><Link href="/welcome">Produto</Link><Link href="/privacy">Privacidade</Link><Link href="/terms">Termos</Link></nav>
+      </footer>
     </div>
   );
 }
