@@ -102,9 +102,9 @@ export function Shell({ user, serverNow, children }: ShellProps) {
 
   const runtime = status.data?.runtime ?? (status.isLoading ? "…" : "STOPPED");
   const running = runtime === "RUNNING";
-  const currentLabel =
-    NAV.flatMap((g) => g.items).find((i) => pathname === i.href || pathname.startsWith(`${i.href}/`))?.label ??
-    "Overview";
+  const currentLabel = pathname.startsWith("/positions")
+    ? "Position detail"
+    : NAV.flatMap((g) => g.items).find((i) => pathname === i.href || pathname.startsWith(`${i.href}/`))?.label ?? "Overview";
 
   const groups = useMemo(() => NAV, []);
 

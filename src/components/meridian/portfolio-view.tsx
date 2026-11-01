@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiGet, apiPost, type AnalyticsResponse, type PositionRow } from "./api";
@@ -260,13 +261,13 @@ export function PortfolioView() {
                   return (
                     <tr key={p.id}>
                       <td>
-                        <div className="mrd-asset">
+                        <Link href={`/positions/${p.id}`} className="mrd-asset" style={{ textDecoration: "none", color: "inherit" }}>
                           <AssetIcon symbol={baseOf(p.symbol)} color={colorFor(baseOf(p.symbol))} />
                           <div className="mrd-cellstack">
                             <span>{p.symbol}</span>
                             <small>{p.source.toUpperCase()}</small>
                           </div>
-                        </div>
+                        </Link>
                       </td>
                       <td><Badge tone="pos">LONG</Badge></td>
                       <td className="num">{usd(p.entryAmountUsd)}</td>

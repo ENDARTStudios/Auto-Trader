@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiGet, type AnalyticsResponse, type RoundRow } from "./api";
@@ -273,6 +274,7 @@ export function JournalView() {
               </dl>
             </div>
             <div className="mrd-modal-foot">
+              <Link href={`/positions/${detail.id}`} className="mrd-btn mrd-btn-ghost">Abrir posição</Link>
               <button type="button" className="mrd-btn mrd-btn-secondary" onClick={() => setDetail(null)}>
                 Close
               </button>
