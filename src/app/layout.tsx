@@ -27,6 +27,12 @@ const LOCALE_OG: Record<string, string> = {
 
 export async function generateMetadata(): Promise<Metadata> {
   const { locale, t } = await getServerTranslation();
+  // NEXT_PUBLIC_APP_URL vazio ("" na Vercel) NÃO é coberto por ?? — new URL("")
+  // lança ERR_INVALID_URL e derruba toda página SSR (500 no /login, T058).
+  // Fallback em cadeia: env explícita → VERCEL_URL (auto da plataforma) → local.
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
   return {
     title: {
       default: "Auto Trader — Autonomous Crypto Paper Trading",
@@ -35,7 +41,7 @@ export async function generateMetadata(): Promise<Metadata> {
     description: t("common.tagline"),
     keywords: ["auto trader", "crypto", "trading bot", "autonomous", "scam detection", "paper trading"],
     authors: [{ name: "Auto Trader" }],
-    metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"),
+    metadataBase: new URL(appUrl),
     alternates: { canonical: "/" },
     openGraph: {
       title: "Auto Trader — Autonomous Crypto Paper Trading",
