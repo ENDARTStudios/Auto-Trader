@@ -1,8 +1,8 @@
 // scripts/seed-auth.ts — Seed admin@local + viewer@local
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '@/lib/db';
 import { hashPasswordSync } from '../src/lib/auth/password';
 
-const db = new PrismaClient();
+const db = createPrismaClient();
 
 async function main() {
   const adminHash = hashPasswordSync('Admin123!');

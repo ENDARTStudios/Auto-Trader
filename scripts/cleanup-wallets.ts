@@ -1,5 +1,5 @@
-import { PrismaClient } from "@prisma/client";
-const db = new PrismaClient();
+import { createPrismaClient } from "@/lib/db";
+const db = createPrismaClient();
 async function main() {
   const all = await db.walletConnection.findMany();
   console.log("Found", all.length, "test wallets leftover");

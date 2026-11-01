@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '@/lib/db';
 import { assertOwner } from '@/lib/auth/rls';
 
-const db = new PrismaClient();
+const db = createPrismaClient();
 
 describe('Position RLS E2E (Direct DB)', () => {
   let admin: { id: string; email: string; role: string };

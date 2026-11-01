@@ -2,12 +2,12 @@
 // Usage: npx tsx scripts/test-auth-rbac.ts
 // This script tests the auth flow via direct DB + RBAC helpers (no HTTP needed for Windows dev)
 
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '@/lib/db';
 import { hasPermission } from '../src/lib/auth/rbac';
 import { rlsWhere } from '../src/lib/auth/rls';
 import { hashPassword, verifyPassword } from '../src/lib/auth/password';
 
-const db = new PrismaClient();
+const db = createPrismaClient();
 
 async function main() {
   console.log('=== AUTH RBAC/RLS TESTS ===');

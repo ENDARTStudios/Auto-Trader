@@ -1,7 +1,8 @@
 // src/lib/auth/session.ts — Opaque token session helpers
 import { randomBytes, createHash } from 'crypto';
 import { db } from '@/lib/db';
-import { UnauthorizedError, RateLimitedError } from './errors';
+import { UnauthorizedError, ForbiddenError, RateLimitedError } from './errors';
+import type { Permission } from './rbac';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 export const SESSION_COOKIE_NAME = 'session';
@@ -88,4 +89,19 @@ export async function getSession(req: Request): Promise<SessionUser | null> {
     if (err instanceof RateLimitedError) throw err;
     return null;
   }
+}
+
+// Guard server-side movido do rbac.ts (2026-10-31): o import dinâmico de
+// './session' dentro do rbac puro arrastava db.ts (adapter nativo better-sqlite3)
+// para bundles de client components e quebrava o build Turbopack.
+// Uso em rotas: const session = await requirePermission('engine:kill')(req)
+export function requirePermission(perm: Permission) {
+  return async (req: Request) => {
+    const session = await requireSession(req);
+    const { hasPermission } = await import('./rbac');
+    if (!hasPermission(session.role, perm)) {
+      throw new ForbiddenError(perm);
+    }
+    return session;
+  };
 }

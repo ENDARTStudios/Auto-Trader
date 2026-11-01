@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Módulos nativos/adapter do Prisma 7: nunca bundlar (Turbopack não resolve
+  // o exports map do adapter e better-sqlite3 é .node nativo).
+  serverExternalPackages: ["@prisma/adapter-better-sqlite3", "better-sqlite3", "@prisma/client"],
   // Type errors fail the build (tsc --noEmit is green; keep it that way).
   // Do NOT re-add ignoreBuildErrors — it masked 231 errors incl. runtime
   // crashes (missing Prisma models). See SPRINT S37.

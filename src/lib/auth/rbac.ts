@@ -95,16 +95,3 @@ export function hasPermission(role: string, perm: Permission): boolean {
   return set.has(perm);
 }
 
-export function requirePermission(perm: Permission) {
-  // Returns a guard function that can be used in routes:
-  //   const session = await requirePermission('engine:kill')(req)
-  return async (req: Request) => {
-    const { requireSession } = await import('./session');
-    const session = await requireSession(req);
-    if (!hasPermission(session.role, perm)) {
-      const { ForbiddenError } = await import('./errors');
-      throw new ForbiddenError(perm);
-    }
-    return session;
-  };
-}

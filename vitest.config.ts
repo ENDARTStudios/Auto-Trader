@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { defineConfig } from 'vitest/config';
 import path from 'path';
 
@@ -19,7 +20,7 @@ export default defineConfig({
       include: ['src/lib/trading/**', 'src/lib/chain/**', 'src/lib/auth/**', 'src/lib/observability/**'],
       exclude: ['src/components/ui/**', 'src/lib/crash-logger.ts', '**/*.test.ts'],
     },
-    setupFiles: [],
+    setupFiles: ['dotenv/config'],
     testTimeout: 15_000,
   },
   resolve: {

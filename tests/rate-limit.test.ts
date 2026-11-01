@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '@/lib/db';
 import {
   checkRateLimit,
   rateLimitConfig,
@@ -10,7 +10,7 @@ import { requireSession, generateToken, hashToken } from '@/lib/auth/session';
 import { RateLimitedError } from '@/lib/auth/errors';
 import { hashPassword } from '@/lib/auth/password';
 
-const db = new PrismaClient();
+const db = createPrismaClient();
 
 describe('rate limit — sliding window (memory)', () => {
   beforeEach(() => __resetRateLimitStore());

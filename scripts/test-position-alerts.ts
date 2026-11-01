@@ -1,7 +1,7 @@
 // scripts/test-position-alerts.ts — S26 T002: verify runSurveillance creates PositionAlert rows
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '@/lib/db';
 
-const db = new PrismaClient();
+const db = createPrismaClient();
 
 async function main() {
   console.log('=== PositionAlert trigger (S26 T002) ===');

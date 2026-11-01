@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '@/lib/db';
 import { hashPassword, verifyPassword } from '@/lib/auth/password';
 import { generateToken, hashToken } from '@/lib/auth/session';
 
-const db = new PrismaClient();
+const db = createPrismaClient();
 
 describe('password reset', () => {
   const testEmail = `reset-test-${Date.now()}@local`;
