@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+
 import { Shield, LogIn } from "lucide-react";
 import { useAuth, useLogin } from "@/hooks/use-auth";
 import { useRouter } from "next/navigation";
@@ -133,17 +133,17 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <Alert className="mt-4">
-              <AlertDescription className="text-xs leading-relaxed">
-                <span className="font-medium">{t("login.credentialsTest")}</span>
-                <br />
-                <span className="tabular">admin@local / Admin123! {t("login.adminRole")}</span>
-                <br />
-                <span className="tabular">viewer@local / Viewer123! {t("login.viewerRole")}</span>
-                <br />
-                <span className="tabular">trader@local / Trader123! {t("login.traderRole")}</span>
-              </AlertDescription>
-            </Alert>
+            {/* Credenciais de teste como texto plano — card dentro de card é
+                anti-pattern (Impeccable nested-cards) */}
+            <div className="mt-4 border-t border-border/40 pt-3 text-xs leading-relaxed text-muted-foreground">
+              <span className="font-medium">{t("login.credentialsTest")}</span>
+              <br />
+              <span className="tabular">admin@local / Admin123! {t("login.adminRole")}</span>
+              <br />
+              <span className="tabular">viewer@local / Viewer123! {t("login.viewerRole")}</span>
+              <br />
+              <span className="tabular">trader@local / Trader123! {t("login.traderRole")}</span>
+            </div>
           </CardContent>
         </Card>
       </motion.div>
