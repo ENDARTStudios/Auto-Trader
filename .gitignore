@@ -86,3 +86,6 @@ skills-lock.json
 /mnt/
 *.pid
 check-result.txt
+
+# docker compose local override (portas locais, ex.: db em 5435)
+docker-compose.override.yml

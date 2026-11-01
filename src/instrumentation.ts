@@ -57,11 +57,10 @@ export async function register(): Promise<void> {
   const { installRequestPeerCapture } = await import("@/lib/request-peer-capture");
   installRequestPeerCapture();
 
-  // Auto-init do banco em ambientes efêmeros (Vercel serverless): o SQLite
-  // nasce vazio (sem schema/seed) e o login dava 500 "table main.User does
-  // not exist". Aplica schema + seed idempotente uma vez por instância.
-  // Só para file: — o SQL gerado é dialeto SQLite (ver src/lib/db-init.ts).
-  if (process.env.DATABASE_URL?.startsWith("file:") || !process.env.DATABASE_URL) {
+  // Auto-init do banco: se o Postgres de produção nascer vazio (banco novo),
+  // aplica schema + seed idempotente uma vez por instância (ver src/lib/db-init.ts).
+  // SQLite file: (dev legado) não é auto-inicializado — schema via prisma db push.
+  if (!process.env.DATABASE_URL?.startsWith("file:")) {
     try {
       const { ensureDatabaseReady } = await import("@/lib/db-init");
       await ensureDatabaseReady();

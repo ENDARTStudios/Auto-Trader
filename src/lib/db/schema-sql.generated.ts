@@ -2,27 +2,30 @@
 // Fonte: prisma/schema.prisma (prisma migrate diff --from-empty --to-schema).
 // Consumido por src/lib/db-init.ts para auto-inicializar bancos SQLite vazios
 // em ambientes efêmeros (ex.: Vercel serverless).
-export const SCHEMA_SQL = `-- CreateTable
+export const SCHEMA_SQL = `-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
+-- CreateTable
 CREATE TABLE "Config" (
-    "id" TEXT NOT NULL PRIMARY KEY DEFAULT 'singleton',
+    "id" TEXT NOT NULL DEFAULT 'singleton',
     "mode" TEXT NOT NULL DEFAULT 'paper',
     "loopIntervalSec" INTEGER NOT NULL DEFAULT 60,
-    "initialCapitalUsd" REAL NOT NULL DEFAULT 1000.0,
+    "initialCapitalUsd" DOUBLE PRECISION NOT NULL DEFAULT 1000.0,
     "maxPositionsPerRound" INTEGER NOT NULL DEFAULT 10,
-    "capitalPctPerRound" REAL NOT NULL DEFAULT 100.0,
-    "reservePct" REAL NOT NULL DEFAULT 50.0,
-    "reinvestPct" REAL NOT NULL DEFAULT 50.0,
+    "capitalPctPerRound" DOUBLE PRECISION NOT NULL DEFAULT 100.0,
+    "reservePct" DOUBLE PRECISION NOT NULL DEFAULT 50.0,
+    "reinvestPct" DOUBLE PRECISION NOT NULL DEFAULT 50.0,
     "reserveAsset" TEXT NOT NULL DEFAULT 'USDC',
-    "takeProfitPct" REAL NOT NULL DEFAULT 15.0,
-    "stopLossPct" REAL NOT NULL DEFAULT 8.0,
+    "takeProfitPct" DOUBLE PRECISION NOT NULL DEFAULT 15.0,
+    "stopLossPct" DOUBLE PRECISION NOT NULL DEFAULT 8.0,
     "maxHoldMinutes" INTEGER NOT NULL DEFAULT 180,
-    "maxDailyLossPct" REAL NOT NULL DEFAULT 10.0,
-    "maxLossPerTradePct" REAL NOT NULL DEFAULT 5.0,
-    "maxExposurePerTokenPct" REAL NOT NULL DEFAULT 15.0,
-    "maxDrawdownPct" REAL NOT NULL DEFAULT 20.0,
+    "maxDailyLossPct" DOUBLE PRECISION NOT NULL DEFAULT 10.0,
+    "maxLossPerTradePct" DOUBLE PRECISION NOT NULL DEFAULT 5.0,
+    "maxExposurePerTokenPct" DOUBLE PRECISION NOT NULL DEFAULT 15.0,
+    "maxDrawdownPct" DOUBLE PRECISION NOT NULL DEFAULT 20.0,
     "scamScoreMin" INTEGER NOT NULL DEFAULT 70,
-    "minLiquidityUsd" REAL NOT NULL DEFAULT 100000.0,
-    "minVolume24hUsd" REAL NOT NULL DEFAULT 50000.0,
+    "minLiquidityUsd" DOUBLE PRECISION NOT NULL DEFAULT 100000.0,
+    "minVolume24hUsd" DOUBLE PRECISION NOT NULL DEFAULT 50000.0,
     "scanCex" BOOLEAN NOT NULL DEFAULT true,
     "scanDex" BOOLEAN NOT NULL DEFAULT true,
     "cexSymbols" TEXT NOT NULL DEFAULT '["BTC/USDT","ETH/USDT","SOL/USDT","BNB/USDT","XRP/USDT"]',
@@ -30,7 +33,7 @@ CREATE TABLE "Config" (
     "engineRunning" BOOLEAN NOT NULL DEFAULT false,
     "killSwitchActive" BOOLEAN NOT NULL DEFAULT false,
     "killSwitchReason" TEXT,
-    "killSwitchAt" DATETIME,
+    "killSwitchAt" TIMESTAMP(3),
     "paperCyclesRequired" INTEGER NOT NULL DEFAULT 50,
     "paperCyclesPassed" INTEGER NOT NULL DEFAULT 0,
     "graduatedToLive" BOOLEAN NOT NULL DEFAULT false,
@@ -38,79 +41,88 @@ CREATE TABLE "Config" (
     "maxPositionsPerChain" INTEGER NOT NULL DEFAULT 5,
     "maxPositionsPerStrategy" INTEGER NOT NULL DEFAULT 5,
     "enabledStrategies" TEXT NOT NULL DEFAULT '["scalp","day","swing"]',
-    "feeBps" REAL NOT NULL DEFAULT 10.0,
-    "slippageBps" REAL NOT NULL DEFAULT 30.0,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "feeBps" DOUBLE PRECISION NOT NULL DEFAULT 10.0,
+    "slippageBps" DOUBLE PRECISION NOT NULL DEFAULT 30.0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Config_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Position" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "symbol" TEXT NOT NULL,
     "tokenId" TEXT,
     "chain" TEXT,
     "source" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'open',
-    "entryPriceUsd" REAL NOT NULL,
-    "entryAmountUsd" REAL NOT NULL,
-    "entryQty" REAL NOT NULL,
-    "entryAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "exitPriceUsd" REAL,
-    "exitAmountUsd" REAL,
-    "exitAt" DATETIME,
+    "entryPriceUsd" DOUBLE PRECISION NOT NULL,
+    "entryAmountUsd" DOUBLE PRECISION NOT NULL,
+    "entryQty" DOUBLE PRECISION NOT NULL,
+    "entryAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "exitPriceUsd" DOUBLE PRECISION,
+    "exitAmountUsd" DOUBLE PRECISION,
+    "exitAt" TIMESTAMP(3),
     "exitReason" TEXT,
-    "pnlUsd" REAL,
-    "pnlPct" REAL,
-    "takeProfitPrice" REAL NOT NULL,
-    "stopLossPrice" REAL NOT NULL,
-    "maxExitAt" DATETIME NOT NULL,
+    "pnlUsd" DOUBLE PRECISION,
+    "pnlPct" DOUBLE PRECISION,
+    "takeProfitPrice" DOUBLE PRECISION NOT NULL,
+    "stopLossPrice" DOUBLE PRECISION NOT NULL,
+    "maxExitAt" TIMESTAMP(3) NOT NULL,
     "scamScore" INTEGER NOT NULL DEFAULT 0,
     "scamBreakdown" TEXT,
     "strategy" TEXT NOT NULL DEFAULT 'day',
     "ownerId" TEXT NOT NULL,
     "roundId" INTEGER NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "Position_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Position_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Reserve" (
-    "id" TEXT NOT NULL PRIMARY KEY DEFAULT 'singleton',
+    "id" TEXT NOT NULL DEFAULT 'singleton',
     "asset" TEXT NOT NULL DEFAULT 'USDC',
-    "balanceUsd" REAL NOT NULL DEFAULT 0.0,
-    "totalDepositedUsd" REAL NOT NULL DEFAULT 0.0,
-    "totalWithdrawnUsd" REAL NOT NULL DEFAULT 0.0,
-    "updatedAt" DATETIME NOT NULL
+    "balanceUsd" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "totalDepositedUsd" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "totalWithdrawnUsd" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Reserve_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "TradingBalance" (
-    "id" TEXT NOT NULL PRIMARY KEY DEFAULT 'singleton',
-    "balanceUsd" REAL NOT NULL DEFAULT 1000.0,
-    "peakBalanceUsd" REAL NOT NULL DEFAULT 1000.0,
-    "realizedPnlUsd" REAL NOT NULL DEFAULT 0.0,
+    "id" TEXT NOT NULL DEFAULT 'singleton',
+    "balanceUsd" DOUBLE PRECISION NOT NULL DEFAULT 1000.0,
+    "peakBalanceUsd" DOUBLE PRECISION NOT NULL DEFAULT 1000.0,
+    "realizedPnlUsd" DOUBLE PRECISION NOT NULL DEFAULT 0.0,
     "tradesOpened" INTEGER NOT NULL DEFAULT 0,
     "tradesClosed" INTEGER NOT NULL DEFAULT 0,
     "wins" INTEGER NOT NULL DEFAULT 0,
     "losses" INTEGER NOT NULL DEFAULT 0,
-    "updatedAt" DATETIME NOT NULL
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "TradingBalance_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "RiskEvent" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "severity" TEXT NOT NULL DEFAULT 'warning',
     "message" TEXT NOT NULL,
     "context" TEXT,
-    "triggeredAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "triggeredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RiskEvent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "ScamReport" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "symbol" TEXT NOT NULL,
     "tokenId" TEXT,
     "chain" TEXT,
@@ -123,63 +135,71 @@ CREATE TABLE "ScamReport" (
     "holderScore" INTEGER NOT NULL DEFAULT 0,
     "ageScore" INTEGER NOT NULL DEFAULT 0,
     "findings" TEXT,
-    "analyzedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "analyzedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ScamReport_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Round" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "startedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "endedAt" DATETIME,
-    "tradingBalanceUsd" REAL NOT NULL,
-    "reserveBalanceUsd" REAL NOT NULL,
+    "id" SERIAL NOT NULL,
+    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "endedAt" TIMESTAMP(3),
+    "tradingBalanceUsd" DOUBLE PRECISION NOT NULL,
+    "reserveBalanceUsd" DOUBLE PRECISION NOT NULL,
     "tokensScanned" INTEGER NOT NULL DEFAULT 0,
     "tokensPassedFilter" INTEGER NOT NULL DEFAULT 0,
     "tokensRejectedScam" INTEGER NOT NULL DEFAULT 0,
     "positionsOpened" INTEGER NOT NULL DEFAULT 0,
     "positionsClosed" INTEGER NOT NULL DEFAULT 0,
-    "roundPnlUsd" REAL,
+    "roundPnlUsd" DOUBLE PRECISION,
     "status" TEXT NOT NULL DEFAULT 'running',
-    "notes" TEXT
+    "notes" TEXT,
+
+    CONSTRAINT "Round_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "AppLog" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "level" TEXT NOT NULL DEFAULT 'info',
     "source" TEXT NOT NULL DEFAULT 'engine',
     "message" TEXT NOT NULL,
     "context" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AppLog_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "MarketSnapshot" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "symbol" TEXT NOT NULL,
     "source" TEXT NOT NULL,
     "chain" TEXT,
     "tokenId" TEXT,
-    "priceUsd" REAL NOT NULL,
-    "rsi14" REAL,
-    "macdHist" REAL,
-    "ema20" REAL,
-    "ema50" REAL,
-    "bollUpper" REAL,
-    "bollLower" REAL,
-    "bollPercent" REAL,
+    "priceUsd" DOUBLE PRECISION NOT NULL,
+    "rsi14" DOUBLE PRECISION,
+    "macdHist" DOUBLE PRECISION,
+    "ema20" DOUBLE PRECISION,
+    "ema50" DOUBLE PRECISION,
+    "bollUpper" DOUBLE PRECISION,
+    "bollLower" DOUBLE PRECISION,
+    "bollPercent" DOUBLE PRECISION,
     "fearGreedIndex" INTEGER,
     "fearGreedClass" TEXT,
     "trendingRank" INTEGER,
     "signalScore" INTEGER NOT NULL DEFAULT 50,
     "signalLabel" TEXT NOT NULL DEFAULT 'neutral',
     "rawIndicators" TEXT,
-    "analyzedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "analyzedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "MarketSnapshot_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "AIInsight" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "agentRole" TEXT NOT NULL,
     "symbol" TEXT,
     "tokenId" TEXT,
@@ -192,12 +212,14 @@ CREATE TABLE "AIInsight" (
     "tokensUsed" INTEGER NOT NULL DEFAULT 0,
     "durationMs" INTEGER NOT NULL DEFAULT 0,
     "error" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AIInsight_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "SiteAudit" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "url" TEXT NOT NULL,
     "symbol" TEXT,
     "tokenId" TEXT,
@@ -218,75 +240,83 @@ CREATE TABLE "SiteAudit" (
     "safeBrowsingFlagged" BOOLEAN NOT NULL DEFAULT false,
     "redFlags" TEXT,
     "findings" TEXT,
-    "auditedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "auditedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SiteAudit_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "PositionAlert" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "positionId" TEXT NOT NULL,
     "symbol" TEXT NOT NULL,
     "type" TEXT NOT NULL,
     "severity" TEXT NOT NULL DEFAULT 'info',
     "message" TEXT NOT NULL,
     "context" TEXT,
-    "detectedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "resolvedAt" DATETIME,
-    "resolution" TEXT
+    "detectedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "resolvedAt" TIMESTAMP(3),
+    "resolution" TEXT,
+
+    CONSTRAINT "PositionAlert_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "BacktestResult" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "symbols" TEXT NOT NULL,
     "interval" TEXT NOT NULL,
     "periodDays" INTEGER NOT NULL,
-    "initialCapitalUsd" REAL NOT NULL,
-    "perTradeUsd" REAL NOT NULL,
-    "takeProfitPct" REAL NOT NULL,
-    "stopLossPct" REAL NOT NULL,
+    "initialCapitalUsd" DOUBLE PRECISION NOT NULL,
+    "perTradeUsd" DOUBLE PRECISION NOT NULL,
+    "takeProfitPct" DOUBLE PRECISION NOT NULL,
+    "stopLossPct" DOUBLE PRECISION NOT NULL,
     "maxHoldBars" INTEGER NOT NULL,
-    "rsiEntryMax" REAL NOT NULL,
-    "rsiExitMin" REAL NOT NULL,
+    "rsiEntryMax" DOUBLE PRECISION NOT NULL,
+    "rsiExitMin" DOUBLE PRECISION NOT NULL,
     "totalTrades" INTEGER NOT NULL,
     "wins" INTEGER NOT NULL,
     "losses" INTEGER NOT NULL,
-    "winRate" REAL NOT NULL,
-    "profitFactor" REAL NOT NULL,
-    "totalPnlUsd" REAL NOT NULL,
-    "totalPnlPct" REAL NOT NULL,
-    "maxDrawdownPct" REAL NOT NULL,
-    "sharpeRatio" REAL NOT NULL,
-    "avgTradePnlUsd" REAL NOT NULL,
-    "avgHoldBars" REAL NOT NULL,
-    "bestTradeUsd" REAL NOT NULL,
-    "worstTradeUsd" REAL NOT NULL,
+    "winRate" DOUBLE PRECISION NOT NULL,
+    "profitFactor" DOUBLE PRECISION NOT NULL,
+    "totalPnlUsd" DOUBLE PRECISION NOT NULL,
+    "totalPnlPct" DOUBLE PRECISION NOT NULL,
+    "maxDrawdownPct" DOUBLE PRECISION NOT NULL,
+    "sharpeRatio" DOUBLE PRECISION NOT NULL,
+    "avgTradePnlUsd" DOUBLE PRECISION NOT NULL,
+    "avgHoldBars" DOUBLE PRECISION NOT NULL,
+    "bestTradeUsd" DOUBLE PRECISION NOT NULL,
+    "worstTradeUsd" DOUBLE PRECISION NOT NULL,
     "equityCurve" TEXT NOT NULL,
     "tradesJson" TEXT NOT NULL,
-    "startedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "finishedAt" DATETIME,
+    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "finishedAt" TIMESTAMP(3),
     "durationMs" INTEGER,
     "status" TEXT NOT NULL DEFAULT 'running',
-    "error" TEXT
+    "error" TEXT,
+
+    CONSTRAINT "BacktestResult_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "PerformanceSnapshot" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-    "timestamp" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "tradingBalanceUsd" REAL NOT NULL,
-    "reserveBalanceUsd" REAL NOT NULL,
-    "peakBalanceUsd" REAL NOT NULL,
-    "realizedPnlUsd" REAL NOT NULL,
-    "unrealizedPnlUsd" REAL NOT NULL,
-    "totalEquityUsd" REAL NOT NULL,
+    "id" SERIAL NOT NULL,
+    "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "tradingBalanceUsd" DOUBLE PRECISION NOT NULL,
+    "reserveBalanceUsd" DOUBLE PRECISION NOT NULL,
+    "peakBalanceUsd" DOUBLE PRECISION NOT NULL,
+    "realizedPnlUsd" DOUBLE PRECISION NOT NULL,
+    "unrealizedPnlUsd" DOUBLE PRECISION NOT NULL,
+    "totalEquityUsd" DOUBLE PRECISION NOT NULL,
     "openPositionsCount" INTEGER NOT NULL,
-    "drawdownPct" REAL NOT NULL
+    "drawdownPct" DOUBLE PRECISION NOT NULL,
+
+    CONSTRAINT "PerformanceSnapshot_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "NotificationChannel" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "ownerId" TEXT,
     "name" TEXT NOT NULL,
     "type" TEXT NOT NULL,
@@ -294,14 +324,15 @@ CREATE TABLE "NotificationChannel" (
     "events" TEXT NOT NULL,
     "enabled" BOOLEAN NOT NULL DEFAULT true,
     "throttleSec" INTEGER NOT NULL DEFAULT 0,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "NotificationChannel_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "NotificationChannel_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "NotificationLog" (
-    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "id" SERIAL NOT NULL,
     "channelId" TEXT NOT NULL,
     "channelName" TEXT NOT NULL,
     "channelType" TEXT NOT NULL,
@@ -310,63 +341,71 @@ CREATE TABLE "NotificationLog" (
     "status" TEXT NOT NULL DEFAULT 'sent',
     "error" TEXT,
     "durationMs" INTEGER NOT NULL DEFAULT 0,
-    "sentAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "sentAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "NotificationLog_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "TradingSchedule" (
-    "id" TEXT NOT NULL PRIMARY KEY DEFAULT 'singleton',
+    "id" TEXT NOT NULL DEFAULT 'singleton',
     "enabled" BOOLEAN NOT NULL DEFAULT false,
     "daysOfWeek" TEXT NOT NULL DEFAULT '[1,2,3,4,5]',
     "startTime" TEXT NOT NULL DEFAULT '09:00',
     "endTime" TEXT NOT NULL DEFAULT '21:00',
     "timezone" TEXT NOT NULL DEFAULT 'America/Sao_Paulo',
     "forceCloseAtEnd" BOOLEAN NOT NULL DEFAULT false,
-    "updatedAt" DATETIME NOT NULL
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "TradingSchedule_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "User" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
     "role" TEXT NOT NULL DEFAULT 'viewer',
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "mfaEnabled" BOOLEAN NOT NULL DEFAULT false,
     "mfaSecret" TEXT,
-    "lastLoginAt" DATETIME,
-    "onboardedAt" DATETIME,
+    "lastLoginAt" TIMESTAMP(3),
+    "onboardedAt" TIMESTAMP(3),
     "preferences" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Session" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
-    "expiresAt" DATETIME NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
     "ip" TEXT,
     "userAgent" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "PasswordReset" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
-    "expiresAt" DATETIME NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
     "used" BOOLEAN NOT NULL DEFAULT false,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "PasswordReset_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PasswordReset_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "AuditLog" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "actorId" TEXT NOT NULL,
     "actorRole" TEXT NOT NULL,
     "action" TEXT NOT NULL,
@@ -375,13 +414,14 @@ CREATE TABLE "AuditLog" (
     "prevHash" TEXT,
     "hash" TEXT NOT NULL,
     "seq" INTEGER NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT "AuditLog_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "WalletConnection" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "ownerId" TEXT,
     "label" TEXT NOT NULL,
     "type" TEXT NOT NULL DEFAULT 'evm',
@@ -391,58 +431,67 @@ CREATE TABLE "WalletConnection" (
     "privateKeyEncrypted" TEXT,
     "isActive" BOOLEAN NOT NULL DEFAULT false,
     "readOnly" BOOLEAN NOT NULL DEFAULT false,
-    "lastUsedAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "WalletConnection_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    "lastUsedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "WalletConnection_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "FeatureFlag" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "key" TEXT NOT NULL,
     "enabled" BOOLEAN NOT NULL DEFAULT false,
     "rolloutPct" INTEGER NOT NULL DEFAULT 100,
     "description" TEXT,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "FeatureFlag_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "Embedding" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "entityType" TEXT NOT NULL,
     "entityId" TEXT NOT NULL,
     "embedding" TEXT NOT NULL,
     "content" TEXT NOT NULL,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Embedding_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "KnowledgeGraph" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "subject" TEXT NOT NULL,
     "predicate" TEXT NOT NULL,
     "object" TEXT NOT NULL,
-    "weight" REAL NOT NULL DEFAULT 1.0,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "weight" DOUBLE PRECISION NOT NULL DEFAULT 1.0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "KnowledgeGraph_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "DataSource" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "url" TEXT,
     "status" TEXT NOT NULL DEFAULT 'pending',
     "recordsCount" INTEGER NOT NULL DEFAULT 0,
     "error" TEXT,
-    "startedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "finishedAt" DATETIME
+    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "finishedAt" TIMESTAMP(3),
+
+    CONSTRAINT "DataSource_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "ExchangeConnection" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "ownerId" TEXT,
     "label" TEXT NOT NULL,
     "exchange" TEXT NOT NULL,
@@ -454,48 +503,53 @@ CREATE TABLE "ExchangeConnection" (
     "testnet" BOOLEAN NOT NULL DEFAULT false,
     "ipWhitelistConfigured" BOOLEAN NOT NULL DEFAULT false,
     "isActive" BOOLEAN NOT NULL DEFAULT false,
-    "lastUsedAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL,
-    CONSTRAINT "ExchangeConnection_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+    "lastUsedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ExchangeConnection_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "WatchlistToken" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "symbol" TEXT NOT NULL,
     "source" TEXT NOT NULL,
     "chain" TEXT,
     "tokenId" TEXT,
     "notes" TEXT,
-    "alertThresholdPct" REAL NOT NULL DEFAULT 10.0,
+    "alertThresholdPct" DOUBLE PRECISION NOT NULL DEFAULT 10.0,
     "enabled" BOOLEAN NOT NULL DEFAULT true,
-    "addedPriceUsd" REAL,
-    "lastPriceUsd" REAL,
-    "lastCheckedAt" DATETIME,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "addedPriceUsd" DOUBLE PRECISION,
+    "lastPriceUsd" DOUBLE PRECISION,
+    "lastCheckedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "WatchlistToken_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "SourceHealth" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "source" TEXT NOT NULL,
-    "lastSuccessAt" DATETIME,
-    "lastErrorAt" DATETIME,
+    "lastSuccessAt" TIMESTAMP(3),
+    "lastErrorAt" TIMESTAMP(3),
     "lastErrorMsg" TEXT,
     "successCount24h" INTEGER NOT NULL DEFAULT 0,
     "errorCount24h" INTEGER NOT NULL DEFAULT 0,
     "rateLimited" BOOLEAN NOT NULL DEFAULT false,
-    "rateLimitUntil" DATETIME,
-    "windowStartedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "rateLimitUntil" TIMESTAMP(3),
+    "windowStartedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "windowSuccessCount" INTEGER NOT NULL DEFAULT 0,
-    "windowErrorCount" INTEGER NOT NULL DEFAULT 0
+    "windowErrorCount" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "SourceHealth_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "StrategicCapability" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "category" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT NOT NULL,
@@ -503,47 +557,55 @@ CREATE TABLE "StrategicCapability" (
     "completionPct" INTEGER NOT NULL DEFAULT 0,
     "notes" TEXT,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
-    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" DATETIME NOT NULL
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "StrategicCapability_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "ScoutSkipStat" (
-    "reason" TEXT NOT NULL PRIMARY KEY,
+    "reason" TEXT NOT NULL,
     "count" INTEGER NOT NULL DEFAULT 0,
-    "lastAt" DATETIME
+    "lastAt" TIMESTAMP(3),
+
+    CONSTRAINT "ScoutSkipStat_pkey" PRIMARY KEY ("reason")
 );
 
 -- CreateTable
 CREATE TABLE "FeeAuditLog" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "positionId" TEXT NOT NULL,
     "symbol" TEXT NOT NULL,
     "side" TEXT NOT NULL,
-    "grossAmountUsd" REAL NOT NULL,
-    "executedPriceUsd" REAL NOT NULL DEFAULT 0,
-    "qty" REAL NOT NULL DEFAULT 0,
-    "feeBps" REAL NOT NULL,
-    "feeUsd" REAL NOT NULL,
-    "slippageBps" REAL NOT NULL,
-    "slippageUsd" REAL NOT NULL,
-    "totalCostUsd" REAL NOT NULL,
-    "netAmountUsd" REAL NOT NULL,
+    "grossAmountUsd" DOUBLE PRECISION NOT NULL,
+    "executedPriceUsd" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "qty" DOUBLE PRECISION NOT NULL DEFAULT 0,
+    "feeBps" DOUBLE PRECISION NOT NULL,
+    "feeUsd" DOUBLE PRECISION NOT NULL,
+    "slippageBps" DOUBLE PRECISION NOT NULL,
+    "slippageUsd" DOUBLE PRECISION NOT NULL,
+    "totalCostUsd" DOUBLE PRECISION NOT NULL,
+    "netAmountUsd" DOUBLE PRECISION NOT NULL,
     "strategy" TEXT,
     "exchange" TEXT,
-    "executedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "executedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "FeeAuditLog_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "PaperCycleAttempt" (
-    "id" TEXT NOT NULL PRIMARY KEY,
+    "id" TEXT NOT NULL,
     "roundId" INTEGER NOT NULL,
-    "pnlUsd" REAL NOT NULL,
+    "pnlUsd" DOUBLE PRECISION NOT NULL,
     "tokensScanned" INTEGER NOT NULL DEFAULT 0,
     "positionsOpened" INTEGER NOT NULL DEFAULT 0,
     "positionsClosed" INTEGER NOT NULL DEFAULT 0,
     "profitable" BOOLEAN NOT NULL DEFAULT false,
-    "completedAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    "completedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PaperCycleAttempt_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -740,5 +802,26 @@ CREATE INDEX "PaperCycleAttempt_completedAt_idx" ON "PaperCycleAttempt"("complet
 
 -- CreateIndex
 CREATE INDEX "PaperCycleAttempt_roundId_idx" ON "PaperCycleAttempt"("roundId");
+
+-- AddForeignKey
+ALTER TABLE "Position" ADD CONSTRAINT "Position_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "NotificationChannel" ADD CONSTRAINT "NotificationChannel_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PasswordReset" ADD CONSTRAINT "PasswordReset_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_actorId_fkey" FOREIGN KEY ("actorId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "WalletConnection" ADD CONSTRAINT "WalletConnection_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ExchangeConnection" ADD CONSTRAINT "ExchangeConnection_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 `;
