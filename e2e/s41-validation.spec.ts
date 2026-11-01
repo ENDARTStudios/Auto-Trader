@@ -1,4 +1,5 @@
 import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
+import { csrfHeaders } from './csrf';
 
 // T052 — S41 validation: prefs mass-assignment/IDOR, news sanitization,
 // pricing redirect, palette RBAC/keyboard/focus-trap (Playwright-native a11y).
@@ -39,8 +40,9 @@ async function dismissWizardIfOpen(page: Page) {
 
 test('prefs mass-assignment: privileged fields stripped, 200', async ({ request }) => {
   const cookie = await loginApi(request, 'viewer@local', 'Viewer123!');
+  const csrf = await csrfHeaders(request, cookie);
   const put = await request.put('/api/preferences', {
-    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    headers: { Cookie: csrf.cookie, 'Content-Type': 'application/json', 'x-csrf-token': csrf.token },
     data: JSON.stringify({
       riskTolerance: 'balanced',
       goals: ['growth'],

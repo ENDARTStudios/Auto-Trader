@@ -9,7 +9,7 @@ import { Icon } from "@/components/meridian/icons";
 import { useAuth, useLogin } from "@/hooks/use-auth";
 
 export default function LoginPage() {
-  const { user, isLoading } = useAuth();
+  const { user } = useAuth();
   const login = useLogin();
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -66,13 +66,7 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {isLoading ? (
-            <div style={{ display: "grid", gap: 10 }}>
-              <div className="mrd-skeleton" style={{ height: 38 }} />
-              <div className="mrd-skeleton" style={{ height: 38 }} />
-              <div className="mrd-skeleton" style={{ height: 38 }} />
-            </div>
-          ) : (
+          {(
             <form
               onSubmit={(e) => {
                 e.preventDefault();
