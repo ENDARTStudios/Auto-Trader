@@ -565,3 +565,50 @@
   .mrd-mkt-shot-kpis { grid-template-columns: 1fr; }
   .mrd-mkt-foot { padding: 16px 18px; }
 }
+
+/* ---------- auth + pricing (público) ---------- */
+.mrd-auth { min-height: 100dvh; display: grid; grid-template-columns: 1.05fr 1fr; background: var(--bg); color: var(--text); }
+.mrd-auth-brand { padding: 48px 56px; display: flex; flex-direction: column; gap: 28px; border-right: 1px solid var(--line); background: radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--brand) 14%, transparent), transparent 60%), var(--surface-1); }
+.mrd-auth-brand h1 { font-size: clamp(30px, 3.4vw, 44px); line-height: 1.06; letter-spacing: -0.03em; font-weight: 660; max-width: 460px; }
+.mrd-auth-brand p { font-size: 14px; line-height: 1.65; color: var(--text-2); max-width: 430px; }
+.mrd-auth-list { display: grid; gap: 12px; margin-top: 8px; }
+.mrd-auth-list div { display: flex; gap: 10px; font-size: 12.5px; color: var(--text-2); align-items: flex-start; }
+.mrd-auth-list i { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--brand-soft); color: var(--brand); flex: none; font-style: normal; font-size: 10px; }
+.mrd-auth-mini { margin-top: auto; border: 1px solid var(--line); border-radius: 12px; padding: 16px; background: var(--surface-2); display: grid; gap: 6px; max-width: 380px; }
+.mrd-auth-mini small { font-size: 10.5px; color: var(--text-3); }
+.mrd-auth-mini b { font-size: 22px; letter-spacing: -0.02em; }
+.mrd-auth-panel { display: grid; place-items: center; padding: 40px 24px; }
+.mrd-auth-form { width: min(380px, 100%); display: grid; gap: 16px; }
+.mrd-auth-form h2 { font-size: 22px; letter-spacing: -0.025em; }
+.mrd-auth-form .sub { font-size: 12.5px; color: var(--text-3); }
+.mrd-auth-form form { display: grid; gap: 13px; }
+.mrd-auth-alt { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-3); }
+.mrd-auth-alt a { color: var(--text-2); text-decoration: none; }
+.mrd-auth-alt a:hover { color: var(--text); }
+.mrd-auth-note { border: 1px dashed var(--line-strong); border-radius: 10px; padding: 10px 12px; font-size: 11px; color: var(--text-3); line-height: 1.5; }
+.mrd-pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.mrd-plan { border: 1px solid var(--line); border-radius: 14px; padding: 20px; background: var(--surface-1); display: grid; gap: 14px; align-content: start; }
+.mrd-plan.featured { border-color: color-mix(in srgb, var(--brand) 45%, var(--line)); background: linear-gradient(180deg, color-mix(in srgb, var(--brand) 7%, var(--surface-1)), var(--surface-1)); }
+.mrd-plan h3 { font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.mrd-plan .price { font-size: 34px; font-weight: 660; letter-spacing: -0.03em; }
+.mrd-plan .price small { font-size: 12px; font-weight: 500; color: var(--text-3); }
+.mrd-plan ul { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.mrd-plan li { font-size: 12px; color: var(--text-2); display: flex; gap: 7px; }
+.mrd-plan li::before { content: "·"; color: var(--brand); font-weight: 700; }
+@media (max-width: 900px) {
+  .mrd-auth { grid-template-columns: 1fr; }
+  .mrd-auth-brand { border-right: none; border-bottom: 1px solid var(--line); padding: 28px 24px; }
+  .mrd-auth-mini { display: none; }
+  .mrd-pricing-grid { grid-template-columns: 1fr; }
+}
+
+/* Reset de botao do app antigo zera background em <button>; reforca especificidade. */
+button.mrd-btn { background: transparent; border-color: transparent; }
+button.mrd-btn-primary { background: var(--brand-solid); color: var(--brand-ink); border-color: transparent; }
+button.mrd-btn-primary:hover { background: var(--brand-solid-hover); }
+button.mrd-btn-primary:active { background: var(--brand-solid-press); }
+button.mrd-btn-secondary { background: var(--surface-2); border-color: var(--line-strong); color: var(--text); }
+button.mrd-btn-secondary:hover { background: var(--surface-3); }
+button.mrd-btn-ghost { background: transparent; color: var(--text-2); }
+button.mrd-btn-ghost:hover { background: var(--surface-2); color: var(--text); }
+button.mrd-btn-danger-solid { background: var(--crit-solid); color: #fff; }

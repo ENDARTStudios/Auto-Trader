@@ -91,3 +91,10 @@ O proxy (`src/proxy.ts`) exige `x-csrf-token` em POST/PUT/PATCH/DELETE, mas nenh
 - `/login`, `/signup` e `/pricing` continuam no design antigo; o fluxo de auth funciona, mas não foi redesenhado nesta fase.
 - MFA setup, convite de usuários e portal de assinatura estão desabilitados com aviso explícito.
 - `page.test`/e2e do repositório não cobrem as rotas novas ainda.
+
+## Páginas públicas (redesign)
+
+- `/login` — split screen Meridian, MFA condicional, erro inline, credenciais de teste; fluxo real validado (login → `/overview`).
+- `/pricing` — planos reais de `lib/billing/plans` (Free/Pro/Elite), assinatura via `/api/billing/subscription` quando autenticado, CTA para login quando anônimo.
+- `/signup` — acesso por convite (não existe self-signup no backend); explica o fluxo em vez de prometer cadastro.
+- `/welcome` — landing pública.
