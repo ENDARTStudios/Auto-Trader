@@ -53,7 +53,8 @@ const eslintConfig = [...nextCoreWebVitals, ...nextTypescript, {
 }, {
   ignores: ["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", "examples/**", "skills", ".claude/**", "scripts/**", "graft/**", "coverage/**", ".kilo/**", ".ai/**"]
 }, {
-  files: ["src/app/page.tsx"],
+  // O dashboard legado vive em /terminal desde a fase 1; mesma divida de hooks.
+  files: ["src/app/page.tsx", "src/app/(legacy)/**/page.tsx"],
   rules: {
     "react-hooks/rules-of-hooks": "off",
   },
