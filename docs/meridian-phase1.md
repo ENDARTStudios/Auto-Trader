@@ -102,3 +102,7 @@ O proxy (`src/proxy.ts`) exige `x-csrf-token` em POST/PUT/PATCH/DELETE, mas nenh
 ## Fluxos de recuperação de senha
 
 `/forgot` e `/reset` **não existiam** (o link em /login levava a 404). Agora existem no design Meridian, ligados a `/api/auth/forgot` e `/api/auth/reset`: resposta idêntica para conta inexistente (anti-enumeração), aviso de link expirado em 15 min, validação de 8+ caracteres e confirmação, e encerramento de todas as sessões ao trocar a senha.
+
+## Onboarding
+
+`/onboarding` (item "Primeiros passos" no rail) monta um checklist a partir do estado real: modo paper, kill switch já exercitado, rounds, posições, curva de equity e progresso de graduação — cada passo leva para a tela onde a ação acontece.
