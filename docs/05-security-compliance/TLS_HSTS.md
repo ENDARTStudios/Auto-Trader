@@ -72,7 +72,7 @@
 }
 ```
 
-**Sem Caddy (Vercel/Fly.io/Railway):** TLS é gerenciado pela plataforma (já Full Strict). Só garantir HSTS header no `next.config.ts` / `middleware.ts`:
+**Sem Caddy (Vercel/Fly.io/Railway):** TLS é gerenciado pela plataforma (já Full Strict). Só garantir HSTS header no `next.config.ts` / `src/proxy.ts`:
 
 ```ts
 // next.config.ts — HSTS via headers()
@@ -198,7 +198,7 @@ nmap --script ssl-enum-ciphers -p 443 your-domain.com 2>&1 | grep -E "TLSv|SSLv"
 - [ ] `securityheaders.com` → A ou A+
 - [ ] (Opcional) Submetido em `hstspreload.org` e aprovado
 - [ ] `next.config.ts` headers() também tem HSTS (defesa em profundidade se Caddy cair)
-- [ ] `middleware.ts` também seta HSTS em prod (terceira camada)
+- [ ] `src/proxy.ts` também seta HSTS em prod (terceira camada)
 
 ---
 

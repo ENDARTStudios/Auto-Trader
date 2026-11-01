@@ -27,7 +27,7 @@
 [ ] Ler contracts/<relacionados>       (api.md, database.md, rpc.md, events.md conforme escopo)
 [ ] Ler standards/<relacionados>       (coding-style, testing, security, etc.)
 [ ] Ler ENGINEERING_RULES.md           (fluxo: Ler → Mapear → Planejar → Executar → Validar → Documentar)
-[ ] Ler worklog.md (entradas recentes) (o que foi feito nas últimas tarefas)
+[ ] Ler docs/08-knowledge-management/worklog.md (entradas recentes) (o que foi feito nas últimas tarefas)
 ```
 
 > **Dica de eficiência:** se a tarefa é bem-escopada (ex.: alterar
@@ -107,7 +107,7 @@ Se qualquer item falhou, a tarefa NÃO está completa.
 ## Fase 6 — Documentação pós-implementação
 
 ```
-[ ] Atualizar worklog.md (raiz do projeto) com Task ID, Work Log, Stage Summary
+[ ] Atualizar docs/08-knowledge-management/worklog.md com Task ID, Work Log, Stage Summary
 [ ] Atualizar PROJECT_STATE.md se o estado mudou (nova fase, novo FROZEN, etc.)
 [ ] Adicionar DEC-NNN em DECISION_LOG.md se houve decisão arquitetural
 [ ] Criar ADR-NNNN em decisions/ se a decisão é estrutural (ver MANIFEST.md)
@@ -150,7 +150,7 @@ em package.json), as Fases 1-3 podem ser reduzidas a:
 [ ] Confirmar que nenhum contrato público muda
 ```
 
-Mas Fases 5 (Validação) e 6 (Documentação — pelo menos worklog.md)
+Mas Fases 5 (Validação) e 6 (Documentação — pelo menos docs/08-knowledge-management/worklog.md)
 continuam obrigatórias.
 
 ---

@@ -1,8 +1,9 @@
 // src/lib/auth/session.ts — Opaque token session helpers
 import { randomBytes, createHash } from 'crypto';
 import { db } from '@/lib/db';
-import { UnauthorizedError, ForbiddenError } from './errors';
+import { UnauthorizedError, ForbiddenError, RateLimitedError } from './errors';
 import type { Permission } from './rbac';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const SESSION_COOKIE_NAME = 'session';
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -70,13 +71,22 @@ export async function requireSession(req: Request): Promise<SessionUser> {
   const user = await db.user.findUnique({ where: { id: session.userId } });
   if (!user) throw new UnauthorizedError('User not found');
   if (!user.isActive) throw new UnauthorizedError('User inactive');
+  // Per-user rate limit (identity-aware): route-scoped sliding window keyed by
+  // userId — aplica-se a TODAS as rotas autenticadas sem tocar handler por handler.
+  // IP-keyed pre-gates seguem nos handlers de rotas públicas (login/forgot/reset).
+  const route = new URL(req.url).pathname;
+  const rl = checkRateLimit(`user:${user.id}`, route);
+  if (!rl.allowed) throw new RateLimitedError(rl.retryAfter ?? 60);
   return { userId: user.id, email: user.email, role: user.role, isActive: user.isActive };
 }
 
 export async function getSession(req: Request): Promise<SessionUser | null> {
   try {
     return await requireSession(req);
-  } catch {
+  } catch (err) {
+    // RateLimitedError degrada para null (soft-auth) — aceitável: quem usa getSession
+    // trata ausência de sessão graciosamente; o gate duro é requireSession.
+    if (err instanceof RateLimitedError) throw err;
     return null;
   }
 }

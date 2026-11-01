@@ -1,10 +1,10 @@
 ---
 name: agent-mirofish
-description: MiroFish-ES como gerador de cenários por simulação de enxame — milhares de agentes com persona/memória em mundo digital paralelo, injeção divina de variáveis, ReportAgent. Fonte de cenários/teses (challenger), nunca de probabilidade.
-version: 1.0.0
+description: MiroFish como gerador de cenários por simulação de enxame — milhares de agentes com persona/memória em mundo digital paralelo, injeção divina de variáveis, ReportAgent. Fonte de cenários/teses (challenger), nunca de probabilidade.
+version: 1.1.0
 type: agent-skill
 language: pt-BR
-source: https://github.com/DragonJAR/MiroFish-ES (acessado 2026-09-13; fork de 666ghj/MiroFish 72k★; este fork 17★, Python, motor OASIS CAMEL-AI)
+source: https://github.com/666ghj/MiroFish (upstream, ~83k★, revalidado 2026-10-31; fork DragonJAR/MiroFish-ES 17★ analisado 2026-09-13; Python, motor OASIS CAMEL-AI + Zep Cloud/Graphiti para memória)
 license: AGPL-3.0 (via API GitHub) — SPEC-ONLY, nenhum código copiado (copyleft com cláusula de rede)
 ---
 
@@ -12,6 +12,8 @@ license: AGPL-3.0 (via API GitHub) — SPEC-ONLY, nenhum código copiado (copyle
 
 ## 1. Função (evidência do repo + API)
 Motor de predição por inteligência de enxame: sementes do mundo real (notícias, políticas, sinais financeiros) → **GraphRAG** (memória individual/coletiva) → personas + parâmetros por agente → **simulação paralela** com memória temporal dinâmica → **ReportAgent** (relatório + conversa pós-sim) → interação profunda com qualquer agente. **Injeção divina**: variáveis alteradas mid-sim para deduzir trajetórias ("ensaiar o futuro"). Memória Zep Cloud ou local Graphiti+Neo4j. Stack própria (frontend :3000 + Python :5001 + Docker). Previsão financeira listada como **"próximamente"** (imaturo — ver §5).
+
+**Revalidação upstream (2026-10-31, 666ghj/MiroFish ~83k★):** confirmado — "Simple and Universal Swarm Intelligence Engine, Predicting Anything"; workflow de 5 etapas (graph building → environment setup → simulation dual-plataforma → report → deep interaction); engine sobre **OASIS** (camel-ai); incubado Shanda Group; tópicos: policy/PR, **financial forecasting**, opinião pública (recherche/decisão, não sistema de trading).
 
 ## 2. Papel no projeto/skill v1.6
 - **Gerador de cenários (challenger, M_lang):** enxame produz *narrativas de "e se"* (ex: "e se o Fed corta 50bps com DXY em alta?") → entram como **teses candidatas** no debate (§4.5) e como choques no gerador de cenários (§5.4b). Calibração do gerador contra cauda empírica continua obrigatória — simulação aprova candidato, cauda real dá a palavra final.

@@ -117,7 +117,7 @@ imutáveis por padrão:
 | `.ai/decisions/ADR-*.md`         | Append-only. Depreciação = novo ADR-NNNN.            |
 | `.ai/memory/implementation-history.md` | Append-only. Nunca apagar entradas antigas.     |
 | `.ai/memory/known-problems.md`   | Append-only. KP resolvido ganha nota, não é removido.|
-| `worklog.md`                     | Append-only multi-agente. Nunca editar entradas antigas.|
+| `docs/08-knowledge-management/worklog.md`     | Append-only multi-agente. Nunca editar entradas antigas.|
 
 ---
 

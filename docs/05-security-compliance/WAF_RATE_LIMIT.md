@@ -1,6 +1,6 @@
 # WAF + Bot Fight Mode + Rate Limiting
 
-> **Versão:** 1.0 — 2026-08-26
+> **Versão:** 2.0 — 2026-09-30 (v1.0 — 2026-08-26; v2.0: rate limit identity-aware — por usuário/conta/IP, sliding window em memória E Redis, resposta 429 padronizada via helper único)
 > **Stack:** Next.js middleware (app-layer) + Cloudflare WAF/Bot (edge) + Caddy rate limit
 > **Princípio:** Toda rota tem rate limit. Bot malicioso é bloqueado na borda, não no app.
 
@@ -28,7 +28,7 @@
                  │
                  ▼
   ┌──────────────────────────────┐
-  │  Next.js middleware.ts       │  ← Rate limit por IP + por user + por rota (app-layer)
+  │  Next.js proxy.ts            │  ← Rate limit por IP + por user + por rota (app-layer)
   │  + proxy-trust.ts (REG-002)  │     (última barreira, com lógica de negócio)
   │  + RBAC + RLS               │
   └──────────────┬───────────────┘
@@ -156,119 +156,77 @@ Dashboard → Security → Rate limiting rules:
 
 ---
 
-## 4. App-Layer Rate Limiting (`src/middleware.ts` + `src/lib/rate-limit.ts`)
+## 4. App-Layer Rate Limiting (`src/lib/rate-limit.ts` + `src/lib/auth/session.ts`)
 
-### 4.1 Store (memória dev, Redis prod)
+> **v2.0 — implementação real (testada em `tests/rate-limit.test.ts`):** identity-aware.
+> Limite por **usuário** (`user:<id>`) em todas as rotas autenticadas (hook no `requireSession`),
+> por **conta** (`acct:<email>`) em endpoints de credencial e por **IP** em rotas públicas.
+> Algoritmo: **sliding window** em memória (dev) e Redis ZSET (prod).
+> Resposta padronizada 429 + `Retry-After` via `rateLimitResponse()` / `RateLimitedError` → `handleApiError`.
 
-```ts
-// src/lib/rate-limit.ts — SPRINT implementa
-import { getEnv } from '@/lib/env';
+### 4.1 Chaves por camada
 
-type Bucket = { timestamps: number[] }; // sliding window
+| Camada | Chave | Onde aplica |
+|---|---|---|
+| **Usuário autenticado** | `user:<userId>` | `requireSession()` — cobre TODAS as rotas protegidas sem tocar handler por handler; excede → `RateLimitedError` → 429 |
+| **Conta (credencial)** | `acct:<email lowercased>` | `POST /api/auth/login` e `/api/auth/forgot` — mitiga brute force distribuído que o limite por IP não pega |
+| **IP (rotas públicas)** | `ip:<addr>` (XFF/XRI) | Pre-gate nos handlers públicos (`/api/auth/*`, `/api/health`) |
 
-const memoryStore = new Map<string, Bucket>();
+Nota: `src/proxy.ts` NÃO aplica rate limit (roda no runtime Node do Proxy, sem store compartilhado) — só auth guard, CSRF e security headers. O gate de identidade vive no `requireSession` (após resolver sessão no DB). `getSession()` propaga `RateLimitedError` (quem usa soft-auth recebe 429 no `handleApiError`).
 
-function getStore() {
-  const redisUrl = getEnv().REDIS_URL;
-  if (redisUrl) {
-    // Em prod: usar @upstash/redis ou ioredis com sliding window Lua script
-    // Por ora, fallback para memória mesmo em prod se Redis não configurado
-  }
-  return memoryStore;
-}
-
-// Sliding window: mantém só timestamps dentro da janela
-function isAllowed(key: string, limit: number, windowMs: number): { allowed: boolean; retryAfter?: number } {
-  const now = Date.now();
-  const store = getStore();
-  let bucket = store.get(key);
-  if (!bucket) { bucket = { timestamps: [] }; store.set(key, bucket); }
-
-  // Remove fora da janela
-  bucket.timestamps = bucket.timestamps.filter(t => now - t < windowMs);
-
-  if (bucket.timestamps.length >= limit) {
-    const oldestInWindow = bucket.timestamps[0];
-    const retryAfter = Math.ceil((oldestInWindow + windowMs - now) / 1000);
-    return { allowed: false, retryAfter: Math.max(1, retryAfter) };
-  }
-
-  bucket.timestamps.push(now);
-  return { allowed: true };
-}
-
-export const rateLimitConfig: Record<string, { limit: number; windowMs: number }> = {
-  default: { limit: 100, windowMs: 10_000 },        // 100 req / 10s por IP
-  auth: { limit: 5, windowMs: 60_000 },             // 5 req / 60s por IP (login, register, reset)
-  health: { limit: 20, windowMs: 10_000 },          // 20 req / 10s (health)
-  vault: { limit: 10, windowMs: 60_000 },           // 10 unlock tries / 60s por IP (REG-002)
-};
-
-export function checkRateLimit(key: string, route: string): { allowed: boolean; retryAfter?: number } {
-  const cfg = route.startsWith('/api/auth/') ? rateLimitConfig.auth
-            : route.startsWith('/api/vault') ? rateLimitConfig.vault
-            : route.startsWith('/api/health') ? rateLimitConfig.health
-            : rateLimitConfig.default;
-  return isAllowed(`${route}:${key}`, cfg.limit, cfg.windowMs);
-}
-```
-
-### 4.2 Middleware (`src/middleware.ts`)
+### 4.2 Algoritmo — sliding window (memória + Redis)
 
 ```ts
-// src/middleware.ts — SPRINT implementa
-import { NextResponse, type NextRequest } from 'next/server';
-import { checkRateLimit } from '@/lib/rate-limit';
-import { resolveTrustedClientIp } from '@/lib/trading/proxy-trust';
+// Memória (sync fast-path): bucket de timestamps filtrado pela janela
+isAllowedMemory(key, limit, windowMs) → { allowed, retryAfter }
 
-export function middleware(req: NextRequest) {
-  // 1. Resolve IP confiável (REG-002 — usa remoteAddress se sem proxy secret)
-  const ip = resolveTrustedClientIp(req as any) ?? 'unknown';
-
-  // 2. Rate limit por rota
-  const pathname = req.nextUrl.pathname;
-  if (pathname.startsWith('/api/')) {
-    const rl = checkRateLimit(ip, pathname);
-    if (!rl.allowed) {
-      return new NextResponse(JSON.stringify({ error: 'rate_limited', retryAfter: rl.retryAfter }), {
-        status: 429,
-        headers: {
-          'Content-Type': 'application/json',
-          'Retry-After': String(rl.retryAfter ?? 60),
-          'X-RateLimit-Limit': '100',
-          'X-RateLimit-Remaining': '0',
-        },
-      });
-    }
-  }
-
-  // 3. Security headers (defesa em profundidade — também no Caddy)
-  const res = NextResponse.next();
-  res.headers.set('X-Frame-Options', 'DENY');
-  res.headers.set('X-Content-Type-Options', 'nosniff');
-  res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  // HSTS só em produção (evita travar localhost)
-  if (process.env.NODE_ENV === 'production') {
-    res.headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
-  }
-  return res;
-}
-
-export const config = {
-  matcher: ['/api/:path*', '/((?!_next/static|_next/image|favicon.ico).*)'],
-};
+// Redis (prod, REDIS_URL): ZSET com score = timestamp ms
+//   ZREMRANGEBYSCORE rlz:<key> -inf <now-windowMs>   // expira entradas antigas
+//   ZADD rlz:<key> <now> <member>                     // tentativa atual
+//   ZCARD → count > limit? ZREM do próprio member (negado NUNCA estende a janela)
+//          e retryAfter = (score mais antigo + windowMs) - now
+//   PEXPIRE rlz:<key> windowMs+1s                     // chaves ociosas morrem sozinhas
 ```
+
+Fallback: Redis indisponível → memória local (por instância — aceitável; multi-instância sério exige Redis saudável).
+
+### 4.3 Tiers (`rateLimitConfig`)
+
+```ts
+default: { limit: 100, windowMs: 10_000 }, // rotas autenticadas genéricas (por user)
+auth:    { limit: 5,   windowMs: 60_000 }, // /api/auth/* pré-auth (por IP)
+account: { limit: 10,  windowMs: 60_000 }, // acct:<email> em login/forgot (por conta)
+health:  { limit: 20,  windowMs: 10_000 },
+vault:   { limit: 10,  windowMs: 60_000 }, // REG-002 (por IP)
+```
+
+Em teste (`test.db` ou `NODE_ENV=test`) os limites sobem (100/1000) para não flakar e2e paralelo.
+
+### 4.4 Resposta padronizada 429
+
+Único shape em todo o sistema — `rateLimitResponse(retryAfter)` (em `rate-limit.ts`) e
+`handleApiError(RateLimitedError)` (em `error-handler.ts`) emitem:
+
+- Status **429**
+- Header **`Retry-After: N`** (segundos, inteiro ≥ 1)
+- Header `Cache-Control: no-store`
+- Body `{ error: 'rate_limited', retryAfter: N }`
+
+**Nova rota NUNCA monta 429 à mão** — importa `rateLimitResponse` (pré-auth) ou joga `RateLimitedError` (autenticada).
 
 ---
 
 ## 5. Tabela de Limites (Resumo)
 
-| Rota | Limite (edge Cloudflare) | Limite (app middleware) | Store |
+| Rota | Chave | Limite (app) | Store |
 |---|---|---|---|
-| `GET /api/*` (default) | 100 / 10s por IP | 100 / 10s por IP | Memória (dev) / Redis (prod) |
-| `POST /api/auth/*` | 5 / 60s por IP | 5 / 60s por IP | Memória / Redis |
-| `POST /api/vault/*` | 10 / 60s por IP | 10 / 60s por IP (REG-002 per-IP bucket) | Memória / Redis |
-| `GET /api/health` | 20 / 10s por IP | 20 / 10s por IP | Memória |
+| Rotas autenticadas (`/api/*` com sessão) | `user:<id>` + rota | default 100/10s | Memória (dev) / Redis ZSET (prod) |
+| `POST /api/auth/*` (pré-auth) | `ip:<addr>` | 5/60s | Memória / Redis |
+| `POST /api/auth/login` + `/forgot` (por conta) | `acct:<email>` | 10/60s | Memória / Redis |
+| `POST /api/vault/*` | `ip:<addr>` | 10/60s (REG-002) | Memória / Redis |
+| `GET /api/health` | `ip:<addr>` | 20/10s | Memória |
+
+Rotas públicas (allowlist do middleware): `/api/health`, `/api/auth/login`, `/api/auth/forgot`, `/api/auth/reset` — recuperação de senha precisa funcionar para usuário deslogado (proteção: rate limit 5/60s por IP + 10/60s por conta + token single-use). Todo o resto exige cookie de sessão e recebe o gate por usuário.
 
 Resposta de estouro: **HTTP 429** + header `Retry-After` + body `{ error: 'rate_limited', retryAfter: N }`.
 

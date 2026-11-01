@@ -48,7 +48,7 @@ sincronizada com o estado real do projeto.
    é (em ordem decrescente):
    `CORE_RULES > PROJECT_STATE > decisions/ADR-* > DECISION_LOG >
    architecture/invariants > architecture/frozen-files > SECURITY.md
-   > HARDENING-ROADMAP.md > worklog.md`.
+   > HARDENING-ROADMAP.md > docs/08-knowledge-management/worklog.md`.
 
 7. **Versionamento do próprio Project OS.** Toda mudança
    estrutural neste diretório bumpa a versão (v2.1, v2.2, ...) e
@@ -111,7 +111,7 @@ nota `Status: Supercedado por <novo-ID>`.
 ## O que NÃO deve existir neste diretório
 
 - Cópia de código-fonte (apenas referências a caminhos).
-- Transcrição de logs (use `worklog.md` na raiz do projeto).
+- Transcrição de logs (use `docs/08-knowledge-management/worklog.md` na raiz do projeto).
 - Documentação de API externa (use `docs/` ou links externos).
 - Rascunhos temporários (use `/home/z/my-project/scripts/` ou
   `/tmp/`).

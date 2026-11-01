@@ -83,7 +83,7 @@ CORE_RULES.md
   > architecture/frozen-files.md
   > SECURITY.md (REG-NNN)
   > HARDENING-ROADMAP.md
-  > worklog.md
+  > docs/08-knowledge-management/worklog.md
 ```
 
 ## Fontes externas de verdade
@@ -92,7 +92,7 @@ CORE_RULES.md
 README.md (raiz)              → visão geral do projeto
 SECURITY.md (raiz)            → REG-NNN adversariais
 HARDENING-ROADMAP.md (raiz)   → mapeia 30 attack vectors
-worklog.md (raiz)             → log de trabalho contínuo
+docs/08-knowledge-management/worklog.md (log contínuo) → log de trabalho contínuo
 prisma/schema.prisma          → schema canônico do banco
 docs/                         → design docs (signer isolation, crypto)
 ```

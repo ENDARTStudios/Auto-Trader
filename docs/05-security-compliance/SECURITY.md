@@ -1937,7 +1937,7 @@ export async function GET(req: Request) {
 The 3-layer defense is load-bearing: `checkRateLimit` (WAF), `requireSession` (auth), `hasPermission` (RBAC), `rlsWhere` (row-level). Removing any one reopens a gap. The permanent principle from HARDENING-ROADMAP applies: every new route must ship with at least one test that attempts to access it without auth and with wrong role.
 
 **If you are tempted to "simplify" by removing the guard from a route:**
-Don't. Read `tests/auth.test.ts` — it asserts `hasPermission('viewer','engine:kill')===false`. A route without the guard would allow viewer to kill. If you have a structural reason to make a route public, add it to the explicit public allowlist in `middleware.ts` and in the route's own comment, and update this REG entry.
+Don't. Read `tests/auth.test.ts` — it asserts `hasPermission('viewer','engine:kill')===false`. A route without the guard would allow viewer to kill. If you have a structural reason to make a route public, add it to the explicit public allowlist in `src/proxy.ts` and in the route's own comment, and update this REG entry.
 
 **History:** Aug 27 2026 — S02 implemented after S01 foundation wiring. Operator's directive: close OWASP A01/A07 (public routes) before adding new features. S01 had 5 routes with rate-limit only; S02 adds auth+RBAC to 5 critical routes + wallets RLS. The auth helpers are pure and tested via `tests/auth.test.ts` (8 tests) + `scripts/test-auth-rbac.ts` (11 checks). No frozen `chain`/`signer`/`audit` files were touched (verified via `git diff --name-only`).
 

@@ -11,13 +11,13 @@ const VALID_LICENSES = new Set<string>(['permissive', 'copyleft', 'fair-code', '
 const VALID_STATUS = new Set<string>(['wired', 'dependency', 'spec-only']);
 const VALID_CATEGORIES = new Set<string>(['trading', 'agent-infra']);
 
-describe('External systems registry (20 skills, advisory-only)', () => {
-  it('registry tem 20 sistemas (9 trading + 11 agent-infra), ids únicos', () => {
-    expect(EXTERNAL_SYSTEMS.length).toBe(20);
+describe('External systems registry (27 skills, advisory-only)', () => {
+  it('registry tem 27 sistemas (11 trading + 16 agent-infra), ids únicos', () => {
+    expect(EXTERNAL_SYSTEMS.length).toBe(27);
     const ids = EXTERNAL_SYSTEMS.map((s) => s.id);
-    expect(new Set(ids).size).toBe(20);
-    expect(byCategory('trading').length).toBe(9);
-    expect(byCategory('agent-infra').length).toBe(11);
+    expect(new Set(ids).size).toBe(27);
+    expect(byCategory('trading').length).toBe(11);
+    expect(byCategory('agent-infra').length).toBe(16);
   });
 
   it('todos advisoryOnly=true (regra-mãe: ninguém decide/executa)', () => {
@@ -38,12 +38,17 @@ describe('External systems registry (20 skills, advisory-only)', () => {
     for (const s of byCategory('agent-infra')) expect(s.skillFile.startsWith('skills/agent-')).toBe(true);
   });
 
-  it('arquivos de skill existem no disco', () => {
-    for (const s of EXTERNAL_SYSTEMS) {
-      expect(existsSync(resolve(s.skillFile))).toBe(true);
-    }
-    expect(existsSync(resolve('skills/EXTERNAL_SYSTEMS_INDEX.md'))).toBe(true);
-  });
+  // Higiene de dev: a imagem Docker multi-stage não copia skills/ (não é
+  // runtime) — o check roda só onde o repo completo existe.
+  it.skipIf(!existsSync(resolve('skills/EXTERNAL_SYSTEMS_INDEX.md')))(
+    'arquivos de skill existem no disco',
+    () => {
+      for (const s of EXTERNAL_SYSTEMS) {
+        expect(existsSync(resolve(s.skillFile))).toBe(true);
+      }
+      expect(existsSync(resolve('skills/EXTERNAL_SYSTEMS_INDEX.md'))).toBe(true);
+    },
+  );
 
   it('copyleft/fair-code/unverified nunca são dependency/wired com código (só spec)', () => {
     for (const s of EXTERNAL_SYSTEMS) {
@@ -71,7 +76,7 @@ describe('External systems registry (20 skills, advisory-only)', () => {
   it('getExternalSystem: hit trading + hit agent-infra + miss', () => {
     expect(getExternalSystem('ccxt')?.repo).toContain('ccxt/ccxt');
     expect(getExternalSystem('strix')?.repo).toContain('usestrix/strix');
-    expect(getExternalSystem('mirofish')?.repo).toContain('DragonJAR/MiroFish-ES');
+    expect(getExternalSystem('mirofish')?.repo).toContain('666ghj/MiroFish');
     expect(getExternalSystem('mirofish')?.licenseClass).toBe('copyleft');
     expect(getExternalSystem('inexistente')).toBeNull();
   });
