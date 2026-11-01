@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "./providers";
 import { I18nHydration } from "@/lib/i18n/hydration";
 import { getServerTranslation } from "@/lib/i18n/server";
-import { LanguageSelector } from "@/components/language-selector";
+import { LegacyChrome, LegacyFooter } from "@/components/legacy-chrome";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -93,39 +93,31 @@ export default async function RootLayout({
       <body
         className={`${inter.variable} ${geistMono.variable} antialiased bg-background text-foreground flex min-h-screen flex-col`}
       >
-        <div className="flex-1">
-          <Providers>
-            {/* Hidrata a store i18n client-side (login/onboarding mostravam chaves cruas) */}
-            <I18nHydration initial={{ locale, messages }} />
-            <div className="flex justify-end border-b border-border/40 bg-background/30 px-4 py-1.5">
-              <LanguageSelector currentLocale={locale} />
-            </div>
+        <Providers>
+          {/* Hidrata a store i18n client-side (login/onboarding mostravam chaves cruas) */}
+          <I18nHydration initial={{ locale, messages }} />
+          <LegacyChrome
+            locale={locale}
+            strings={{
+              copyright: t("footer.copyright"),
+              contact: t("footer.contact"),
+              telegram: t("footer.telegram"),
+              terms: t("footer.terms"),
+              privacy: t("footer.privacy"),
+            }}
+          >
             {children}
-          </Providers>
-        </div>
-        <footer className="border-t border-border/40 bg-background/50 py-4 text-center text-xs text-muted-foreground">
-          <div className="container mx-auto px-4">
-            <p>{t("footer.copyright")}</p>
-            <p className="mt-1">
-              {t("footer.contact")}:{" "}
-              <a href="mailto:endart.studios@gmail.com" className="underline hover:text-foreground">
-                endart.studios@gmail.com
-              </a>{" "}
-              ·{" "}
-              <a href="https://t.me/AutoTrader2027" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
-                {t("footer.telegram")}
-              </a>{" "}
-              ·{" "}
-              <a href="/terms" className="underline hover:text-foreground">
-                {t("footer.terms")}
-              </a>{" "}
-              ·{" "}
-              <a href="/privacy" className="underline hover:text-foreground">
-                {t("footer.privacy")}
-              </a>
-            </p>
-          </div>
-        </footer>
+          </LegacyChrome>
+          <LegacyFooter
+            strings={{
+              copyright: t("footer.copyright"),
+              contact: t("footer.contact"),
+              telegram: t("footer.telegram"),
+              terms: t("footer.terms"),
+              privacy: t("footer.privacy"),
+            }}
+          />
+        </Providers>
         <Toaster richColors position="top-right" theme="dark" />
       </body>
     </html>

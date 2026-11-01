@@ -1,0 +1,55 @@
+export interface NavItem {
+  id: string;
+  label: string;
+  href: string;
+  icon: "overview" | "markets" | "portfolio" | "strategy" | "backtest" | "analytics" | "journal" | "risk" | "copilot" | "alerts" | "data" | "settings" | "billing" | "admin";
+  count?: number;
+  soon?: boolean;
+}
+
+export interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+/**
+ * Fase 1 do plano (design/docs/05-IMPLEMENTATION.md): apenas Overview está
+ * implementado. Os demais itens aparecem desabilitados com "soon" em vez de
+ * levar a uma rota 404 — navegação quebrada é pior que navegação incompleta.
+ */
+export const NAV: NavGroup[] = [
+  {
+    label: "Operate",
+    items: [
+      { id: "overview", label: "Overview", href: "/overview", icon: "overview" },
+      { id: "markets", label: "Markets", href: "/markets", icon: "markets", soon: true },
+      { id: "portfolio", label: "Portfolio", href: "/portfolio", icon: "portfolio", soon: true },
+      { id: "strategy", label: "Strategy & engine", href: "/strategy", icon: "strategy", soon: true },
+      { id: "backtest", label: "Backtest", href: "/backtest", icon: "backtest", soon: true },
+      { id: "analytics", label: "Analytics", href: "/analytics", icon: "analytics", soon: true },
+      { id: "journal", label: "Journal", href: "/journal", icon: "journal", soon: true },
+    ],
+  },
+  {
+    label: "Guard",
+    items: [
+      { id: "risk", label: "Risk & safety", href: "/risk", icon: "risk", count: 0, soon: true },
+      { id: "copilot", label: "AI Copilot", href: "/copilot", icon: "copilot", soon: true },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { id: "alerts", label: "Alerts", href: "/alerts", icon: "alerts", count: 0, soon: true },
+      { id: "data", label: "Data & sources", href: "/data", icon: "data", soon: true },
+      { id: "settings", label: "Settings", href: "/settings", icon: "settings", soon: true },
+      { id: "billing", label: "Billing", href: "/billing", icon: "billing", soon: true },
+    ],
+  },
+  {
+    label: "Admin",
+    items: [{ id: "admin", label: "Users & audit", href: "/admin/users", icon: "admin", soon: true }],
+  },
+];
+
+export const ALL_NAV_ITEMS = NAV.flatMap((g) => g.items);
