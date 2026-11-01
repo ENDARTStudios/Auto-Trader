@@ -26,7 +26,8 @@ async function loginUi(page: Page, email: string, password: string) {
   await page.fill('#email', email);
   await page.fill('#password', password);
   await page.click('button[type=submit]');
-  await page.waitForURL('/', { timeout: 10_000 });
+  await page.waitForURL(/\/overview/, { timeout: 10_000 });
+  await page.goto('/terminal');
 }
 
 async function dismissWizardIfOpen(page: Page) {

@@ -1,68 +1,78 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-
-import { Shield, LogIn } from "lucide-react";
-import { useAuth, useLogin } from "@/hooks/use-auth";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { fadeInUp } from "@/lib/ui/motion";
-import { useTranslation } from "@/lib/i18n/hooks";
+import "../(meridian)/meridian-tokens.css";
+import "../(meridian)/meridian.css";
+import { Icon } from "@/components/meridian/icons";
+import { useAuth, useLogin } from "@/hooks/use-auth";
 
 export default function LoginPage() {
-  const { t } = useTranslation();
   const { user, isLoading } = useAuth();
   const login = useLogin();
   const router = useRouter();
-  const [email, setEmail] = useState("admin@local");
-  const [password, setPassword] = useState("Admin123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [totp, setTotp] = useState("");
   const [mfaRequired, setMfaRequired] = useState(false);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <Skeleton className="h-6 w-24" />
-            <Skeleton className="h-4 w-48 mt-2" />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-          </CardContent>
-        </Card>
-      </div>
-    );
+  if (user) {
+    router.replace("/overview");
   }
 
-  if (user) {
-    router.push("/");
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">Já logado como {user.email} — redirecionando…</p>
-      </div>
-    );
-  }
+  const error = login.error as (Error & { mfaRequired?: boolean }) | null;
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <motion.div variants={fadeInUp} initial="hidden" animate="visible" className="w-full max-w-sm">
-        <Card className="border-border/60">
-          <CardHeader className="text-center">
-            <div className="mx-auto size-10 rounded-full bg-primary/10 flex items-center justify-center mb-2">
-              <Shield className="size-5 text-primary" />
+    <div className="mrd mrd-auth" data-theme="dark">
+      <aside className="mrd-auth-brand">
+        <Link href="/welcome" className="mrd-mkt-brand" style={{ color: "inherit", textDecoration: "none" }}>
+          <span className="mrd-logo">
+            <Icon name="overview" size={16} />
+          </span>
+          <span>
+            <b>Auto Trader</b>
+            <small>MERIDIAN</small>
+          </span>
+        </Link>
+
+        <div>
+          <h1>O motor que mostra o porquê de cada trade.</h1>
+          <p style={{ marginTop: 14 }}>
+            Risco humano no comando, auditoria em cada passo e paper trading antes de qualquer capital real. Entre para
+            ver o que o motor está decidindo agora.
+          </p>
+        </div>
+
+        <div className="mrd-auth-list">
+          <div><i>✓</i> Kill switch com confirmação tipada e registro de quem apertou</div>
+          <div><i>✓</i> Journal exportável com o motivo de cada saída</div>
+          <div><i>✓</i> Caps de perda, drawdown e exposição avaliados a cada rodada</div>
+        </div>
+
+        <div className="mrd-auth-mini">
+          <small>Conta de demonstração</small>
+          <b>$11,018.80</b>
+          <small className="mrd-pos">+9.69% em 30 dias · 3 posições abertas · paper mode</small>
+        </div>
+      </aside>
+
+      <main className="mrd-auth-panel">
+        <div className="mrd-auth-form">
+          <div>
+            <h2>Entrar</h2>
+            <div className="sub" style={{ marginTop: 6 }}>
+              Use a conta do workspace. Sessões expiram e podem ser revogadas em Settings.
             </div>
-            <CardTitle className="text-xl">{t("login.title")}</CardTitle>
-            <CardDescription>{t("login.subtitle")}</CardDescription>
-          </CardHeader>
-          <CardContent>
+          </div>
+
+          {isLoading ? (
+            <div style={{ display: "grid", gap: 10 }}>
+              <div className="mrd-skeleton" style={{ height: 38 }} />
+              <div className="mrd-skeleton" style={{ height: 38 }} />
+              <div className="mrd-skeleton" style={{ height: 38 }} />
+            </div>
+          ) : (
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -70,47 +80,55 @@ export default function LoginPage() {
                   { email, password, totp: totp || undefined },
                   {
                     onError: (err: unknown) => {
-                      const mfa = (err as Error & { mfaRequired?: boolean }).mfaRequired;
-                      if (mfa) setMfaRequired(true);
+                      if ((err as Error & { mfaRequired?: boolean }).mfaRequired) setMfaRequired(true);
                     },
-                    onSuccess: () => setMfaRequired(false),
-                  },
+                  }
                 );
               }}
-              className="space-y-4"
             >
-              <div className="space-y-2">
-                <Label htmlFor="email">{t("login.email")}</Label>
-                <Input
+              {error && !error.mfaRequired ? (
+                <div className="mrd-banner" role="alert">
+                  <Icon name="risk" size={15} />
+                  <div className="grow">{error.message || "Não foi possível entrar. Confira e-mail e senha."}</div>
+                </div>
+              ) : null}
+
+              <label className="mrd-field" htmlFor="email">
+                <span>E-mail</span>
+                <input
                   id="email"
+                  className="mrd-input"
+                  style={{ height: 38, fontSize: 16 }}
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@local"
-                  required
+                  placeholder="voce@empresa.com"
                   autoComplete="email"
-                  className="h-9"
+                  required
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">{t("login.password")}</Label>
-                <Input
+              </label>
+
+              <label className="mrd-field" htmlFor="password">
+                <span>Senha</span>
+                <input
                   id="password"
+                  className="mrd-input"
+                  style={{ height: 38, fontSize: 16 }}
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  required
                   autoComplete="current-password"
-                  className="h-9"
+                  required
                 />
-              </div>
-              {mfaRequired && (
-                <div className="space-y-2">
-                  <Label htmlFor="totp">Código 2FA (TOTP)</Label>
-                  <Input
-                    id="totp"
-                    type="text"
+              </label>
+
+              {mfaRequired ? (
+                <label className="mrd-field">
+                  <span>Código 2FA (6 dígitos)</span>
+                  <input
+                    className="mrd-input"
+                    style={{ height: 38, fontSize: 16, letterSpacing: "0.2em" }}
                     inputMode="numeric"
                     pattern="\d{6}"
                     maxLength={6}
@@ -118,35 +136,30 @@ export default function LoginPage() {
                     onChange={(e) => setTotp(e.target.value.replace(/\D/g, ""))}
                     placeholder="123456"
                     autoComplete="one-time-code"
-                    className="h-9 font-mono tracking-widest"
+                    autoFocus
                   />
-                  <p className="text-[11px] text-muted-foreground">Abra seu app autenticador (Google Authenticator, Authy) e insira o código de 6 dígitos.</p>
-                </div>
-              )}
-              <Button type="submit" className="w-full gap-2" disabled={login.isPending}>
-                {login.isPending ? (
-                  <span className="size-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
-                ) : (
-                  <LogIn className="size-4" />
-                )}
-                {login.isPending ? t("login.signingIn") : t("login.signIn")}
-              </Button>
-            </form>
+                  <small>Abra o app autenticador e insira o código atual.</small>
+                </label>
+              ) : null}
 
-            {/* Credenciais de teste como texto plano — card dentro de card é
-                anti-pattern (Impeccable nested-cards) */}
-            <div className="mt-4 border-t border-border/40 pt-3 text-xs leading-relaxed text-muted-foreground">
-              <span className="font-medium">{t("login.credentialsTest")}</span>
-              <br />
-              <span className="tabular">admin@local / Admin123! {t("login.adminRole")}</span>
-              <br />
-              <span className="tabular">viewer@local / Viewer123! {t("login.viewerRole")}</span>
-              <br />
-              <span className="tabular">trader@local / Trader123! {t("login.traderRole")}</span>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+              <button type="submit" className="mrd-btn mrd-btn-primary" style={{ height: 38 }} disabled={login.isPending}>
+                {login.isPending ? "Entrando…" : "Entrar"}
+                {!login.isPending ? <Icon name="up" size={15} /> : null}
+              </button>
+            </form>
+          )}
+
+          <div className="mrd-auth-alt">
+            <Link href="/forgot">Esqueci a senha</Link>
+            <Link href="/pricing">Ver planos</Link>
+          </div>
+
+          <div className="mrd-auth-note">
+            Conta de teste neste ambiente: <b>admin@local</b> / <b>Admin123!</b> · o cadastro é por convite, feito por um
+            administrador.
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

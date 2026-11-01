@@ -96,7 +96,7 @@ export function proxy(req: NextRequest) {
   }
 
   // 3. Page guard: / (dashboard) requires session, redirect to /login
-  if (pathname === '/' || pathname.startsWith('/dashboard')) {
+  if (pathname.startsWith('/dashboard')) {
     const hasSession = req.cookies.get('session')?.value;
     if (!hasSession) {
       const url = req.nextUrl.clone();

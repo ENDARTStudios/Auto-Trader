@@ -20,7 +20,7 @@ export default defineConfig({
       // derrubando funcs p/ 39.49% e branches p/ 27.42%. Ratchet re-alinhado à nova régua;
       // investigar atribuição (T050c spirit) e subir de volta para >=55/70 antes de novas features.
       thresholds: { lines: 30, functions: 39, branches: 27 },
-      include: ['src/lib/trading/**', 'src/lib/chain/**', 'src/lib/auth/**', 'src/lib/observability/**'],
+      include: ['src/lib/trading/**', 'src/lib/chain/**', 'src/lib/auth/**', 'src/lib/observability/**', 'src/lib/meridian/**'],
       exclude: ['src/components/ui/**', 'src/lib/crash-logger.ts', '**/*.test.ts'],
     },
     setupFiles: ['dotenv/config'],
