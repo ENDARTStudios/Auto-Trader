@@ -1,8 +1,9 @@
 # TASKS — Backlog Corrente
 
-> **Versão:** 1.0 — 2026-09-23
-> **Fonte viva:** `SPRINT.md` (sprint corrente) + Issues do GitHub. Este doc dá a visão consolidada.
+> **Versão:** 1.1 — 2026-11-01 (v1.0 — 2026-09-23; v1.1 aponta a auditoria geral consolidada)
+> **Fonte viva:** [current-state-audit.md](../08-knowledge-management/current-state-audit.md) §C (pendências priorizadas, 2026-11-01) · `SPRINT.md` · Issues do GitHub.
 > **Regra:** toda tarefa nasce de Issue → branch → PR → CI (ver [DEVELOPMENT.md](./DEVELOPMENT.md)).
+> **Execução:** equipe de bots em [AGENT_TEAM.md](./AGENT_TEAM.md) — lock por issue, worktree por bot.
 
 ---
 

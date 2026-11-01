@@ -331,6 +331,7 @@ scripts/
 | Doc | Descrição |
 |---|---|
 | `AGENT_GUIDE.md` | **Padrão obrigatório para qualquer agente** — Issues, PRs, Deploys, anti-padrões |
+| `docs/03-development-process/AGENT_TEAM.md` | **Equipe de bots** — 6 agentes especializados (Sentinela/Builder/Guardião/Pesquisador/Ops/Revisor), plano de aceleração |
 | `SPRINT.md` | Próxima sprint (T001–T008) — maior impacto/menor complexidade, com tarefas/critérios/testes |
 | `docs/01-product-discovery/PRD.md` | Product Requirements Document |
 | `docs/02-architecture-design/UML.md` | Diagramas de classes e sequência (Mermaid) |

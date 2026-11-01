@@ -69,3 +69,55 @@
 2. **Thinker**: decidir Phase C (tar7 toolchain) ou aceitar risco node-tar.
 3. **Doer (baixo risco, sem Operador)**: T067 cleanup + `git fetch --prune`
    local + fechar documentações pendentes, se autorizado.
+
+---
+
+# Auditoria Geral — 2026-11-01 (pós-aceleração Railway/Vercel/UI-UX)
+
+> Método: estado ao vivo (git/gh/railway/vercel CLIs), gates locais, screenshots
+> Playwright de produção (`D:\tmp\ui-audit-prod\`), logs de runtime da Vercel
+> e do Railway. Executada durante o turno "auditoria geral + equipe de bots".
+
+## A. Produção — UP e funcional
+
+| Item | Estado |
+|---|---|
+| **Plataforma** | **Railway** (migração concluída nesta data) — projeto `auto-trader`, serviço + **volume persistente `/data`** |
+| **URL** | https://auto-trader-production-0cbc.up.railway.app (sem SSO/challenge — acesso direto) |
+| **Deploy** | Dockerfile do repo (standalone Next), entrypoint com chown no volume + drop p/ node (non-root preservado) |
+| **Login** | **FUNCIONANDO** — verificado por curl: POST /api/auth/login → 200 + cookie; GET /api/status autenticado → snapshot real. Screenshots confirmam dashboard + onboarding em pt-BR |
+| **Banco** | SQLite no volume (persistente entre restarts/deploys); auto-init aplica schema (33 tabelas) + seed (3 usuários + 9 flags) no cold start (`src/lib/db-init.ts`, PR #51) |
+| **Vercel** | Obsoleta (SQLite efêmero + SSO/challenge impossibilitavam login — `NEXT_PUBLIC_APP_URL` vazio derrubava SSR há 52 dias; fixes #50/#51). Projeto pode ser deletado pelo Operador |
+
+## B. CI/CD — verde
+
+- Gates locais: tsc 0 · eslint 0 · vitest **419/1sk** · build OK (validados neste turno).
+- GitHub Actions: quota mensal esgotada em 31/10 (runs instantâneos zero-step) — **resetou 00:00 UTC 01/11**, runs normais desde então.
+- PRs: **todas mergeadas** (#15 prisma 7, #18, #21, #45, #48, #49, #50, #51). Aberta: **#8 (TS 7)** — bloqueada por typescript-eslint (sem suporte a TS 7); reabre sozinha quando o upstream suportar.
+
+## C. Pendências consolidadas (priorizadas)
+
+| # | Pendência | Prioridade | Dono |
+|---|---|---|---|
+| 1 | **Banco durável em produção**: SQLite no volume é persistente mas single-instance — decidir Postgres hospedado (Neon/Supabase) × VPS (docker-compose pgvector) × manter efêmero | P1 | Operador (3 opções em `PENDENCIAS_OPERADOR.md`) |
+| 2 | **#8 TS 7** — aguardar typescript-eslint suportar TS 7 (fechar se preferir; dependabot reabre quando houver suporte) | P2 | upstream/Operador |
+| 3 | **Warning React** "Cannot update a component while rendering" — reproduzir com trace nomeado e corrigir | P2 | Builder |
+| 4 | **401 noise** no console do login (`useAuth me` silencioso quando desautenticado) | P2 | Builder |
+| 5 | **robots duplicado**: `public/robots.txt` estático × `src/app/robots.ts` (o dinâmico venceu no build) — remover o estático | P2 | Builder |
+| 6 | **T058 smoke** — **AGORA DESBLOQUEADO no Railway** (sem SSO/challenge): executar checklist com credenciais de teste | P2 | Sentinela/Ops |
+| 7 | **Spec-ports** ROADMAP Fase II: Day Trader PASS/BLOCK, Backtrader analyzers, replay de setup (Hindsight-style) | P2 | Builder/Pesquisador |
+| 8 | **iFixAi**: 1 auditoria comportamental do Doer/squad com relatório anexado | P2 | Guardião |
+| 9 | **CVEs npm** (moderates residuais) + Trivy `continue-on-error` (decisão formal pendente) | P3 | Guardião |
+| 10 | **llms.txt** + sitemap ampliado (pricing/privacy/terms) | P3 | Builder |
+| 11 | **Validator de episodes no CI** (T086) | P3 | Builder |
+| 12 | **S14 live trading** — requer chaves/aprovação/Postgres durável primeiro | — | Operador |
+
+## D. Riscos residuais
+
+- SQLite por instância no Railway: dados persistentes entre restarts, mas **single-instance** (escalar para 2+ instâncias corrompe o SQLite — não fazer antes do item C.1).
+- 52 CVEs OS Debian bookworm sem fix upstream (herdados; hardening compensatório validado — ver `docs/05-security-compliance/risk-acceptance-proposal.md`).
+- `NEXT_PUBLIC_APP_URL` vazio na Vercel: corrigido no código (fallback VERCEL_URL); opcionalmente preencher a env com a URL do Railway se manter a Vercel.
+
+## E. Equipe de bots
+
+Criada: `docs/03-development-process/AGENT_TEAM.md` — 6 bots (Sentinela/Builder/Guardião/Pesquisador/Ops/Revisor), worktree por bot, lock por issue, automações diária/semanal.
