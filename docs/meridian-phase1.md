@@ -98,3 +98,7 @@ O proxy (`src/proxy.ts`) exige `x-csrf-token` em POST/PUT/PATCH/DELETE, mas nenh
 - `/pricing` — planos reais de `lib/billing/plans` (Free/Pro/Elite), assinatura via `/api/billing/subscription` quando autenticado, CTA para login quando anônimo.
 - `/signup` — acesso por convite (não existe self-signup no backend); explica o fluxo em vez de prometer cadastro.
 - `/welcome` — landing pública.
+
+## Fluxos de recuperação de senha
+
+`/forgot` e `/reset` **não existiam** (o link em /login levava a 404). Agora existem no design Meridian, ligados a `/api/auth/forgot` e `/api/auth/reset`: resposta idêntica para conta inexistente (anti-enumeração), aviso de link expirado em 15 min, validação de 8+ caracteres e confirmação, e encerramento de todas as sessões ao trocar a senha.
