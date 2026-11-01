@@ -214,6 +214,8 @@ jobs:
       - run: npx playwright test
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
+          # 26+ logins paralelos estouram 5/60s e devolvem 429. Só existe na CI.
+          E2E_RATE_LIMIT_BYPASS: "1"
           DATABASE_URL: postgresql://autotrader:autotrader@localhost:5432/autotrader
           SESSION_SECRET: test-session-secret-32-chars-minimum-for-ci-e2e
           ENCRYPTION_KEY: "base64:dGVzdC1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcy1iYXNlNjQ="

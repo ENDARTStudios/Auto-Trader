@@ -40,7 +40,12 @@ async function getRedis(): Promise<RedisSlidingClient | null> {
   }
 }
 
-const isTest = process.env.DATABASE_URL?.includes('test.db') || process.env.NODE_ENV === 'test';
+// E2E roda contra Postgres (DATABASE_URL sem 'test.db'), então precisa de um
+// sinal explícito para subir os limites — setado apenas no job de e2e da CI.
+const isTest =
+  process.env.DATABASE_URL?.includes('test.db') ||
+  process.env.NODE_ENV === 'test' ||
+  process.env.E2E_RATE_LIMIT_BYPASS === '1';
 
 export const rateLimitConfig: Record<string, { limit: number; windowMs: number }> = {
   default: { limit: isTest ? 1000 : 100, windowMs: 10_000 },
