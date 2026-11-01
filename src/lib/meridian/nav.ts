@@ -26,8 +26,8 @@ export const NAV: NavGroup[] = [
       { id: "portfolio", label: "Portfolio", href: "/portfolio", icon: "portfolio" },
       { id: "strategy", label: "Strategy & engine", href: "/strategy", icon: "strategy" },
       { id: "backtest", label: "Backtest", href: "/backtest", icon: "backtest", soon: true },
-      { id: "analytics", label: "Analytics", href: "/analytics", icon: "analytics", soon: true },
-      { id: "journal", label: "Journal", href: "/journal", icon: "journal", soon: true },
+      { id: "analytics", label: "Analytics", href: "/analytics", icon: "analytics" },
+      { id: "journal", label: "Journal", href: "/journal", icon: "journal" },
     ],
   },
   {
@@ -55,7 +55,7 @@ export const NAV: NavGroup[] = [
 export const ALL_NAV_ITEMS = NAV.flatMap((g) => g.items);
 
 /** Rotas já migradas para o shell Meridian (o chrome legado se esconde nelas). */
-export const MERIDIAN_ROUTES = ["/overview", "/markets", "/portfolio", "/strategy", "/risk"];
+export const MERIDIAN_ROUTES = ["/overview", "/markets", "/portfolio", "/strategy", "/risk", "/analytics", "/journal"];
 
 export function isMeridianPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;

@@ -42,6 +42,8 @@ export interface AnalyticsResponse {
     rangeEnd: string;
   };
   bySymbol: { symbol: string; trades: number; wins: number; losses: number; winRate: number; totalPnlUsd: number; avgPnlUsd: number }[];
+  byDayOfWeek: { dow: number; trades: number; wins: number; losses: number; totalPnlUsd: number }[];
+  byHour: { hour: number; trades: number; wins: number; losses: number; totalPnlUsd: number }[];
   streaks: { currentWinStreak: number; currentLossStreak: number; longestWinStreak: number; longestLossStreak: number };
   bestTrade: { symbol: string; pnlUsd: number; pnlPct: number; exitAt: string } | null;
   worstTrade: { symbol: string; pnlUsd: number; pnlPct: number; exitAt: string } | null;

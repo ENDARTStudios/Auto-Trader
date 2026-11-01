@@ -73,3 +73,16 @@ export const duration = (ms: number) => {
 
 export type Tone = "pos" | "neg" | "neutral";
 export const toneOf = (n: number): Tone => (n > 0 ? "pos" : n < 0 ? "neg" : "neutral");
+
+export const stampUtc = (iso?: string | null) => {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (!Number.isFinite(d.getTime())) return "—";
+  return d.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  });
+};
