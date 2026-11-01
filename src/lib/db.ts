@@ -2,11 +2,14 @@ import { mkdirSync } from 'node:fs'
 import { dirname, isAbsolute, resolve } from 'node:path'
 import { PrismaClient } from '@prisma/client'
 import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
+import { PrismaPg } from '@prisma/adapter-pg'
 
-// Prisma 7: datasource url saiu do schema (P1012) — a conexão SQLite passa a
-// ser feita via driver adapter no construtor do client.
-//   - app:  DATABASE_URL do .env (dev: file:./db/custom.db)
-//   - CI:   DATABASE_URL=file:./prisma/test.db
+// Prisma 7: datasource url saiu do schema (P1012) — a conexão passa a ser feita
+// via driver adapter no construtor do client, escolhido pelo esquema da URL:
+//   - file:...         → SQLite via better-sqlite3 (legado, se DATABASE_URL pedir)
+//   - postgresql://... → Postgres via pg (produção Railway + dev docker pgvector)
+// O default é postgres: o provider do schema é postgresql e um fallback sqlite
+// quebraria o `next build` (Collecting page data instancia o client sem env).
 // better-sqlite3 NÃO cria diretórios (o engine do prisma 6 criava) — mkdir antes.
 function ensureSqliteDir(url: string): void {
   if (!url.startsWith('file:')) return
@@ -15,9 +18,11 @@ function ensureSqliteDir(url: string): void {
 }
 
 export function createPrismaClient(dataSourceUrl?: string): PrismaClient {
-  const url = dataSourceUrl ?? process.env.DATABASE_URL ?? 'file:./db/custom.db'
+  const url = dataSourceUrl ?? process.env.DATABASE_URL ?? 'postgresql://localhost:5432/autotrader'
   ensureSqliteDir(url)
-  const adapter = new PrismaBetterSqlite3({ url })
+  const adapter = url.startsWith('file:')
+    ? new PrismaBetterSqlite3({ url })
+    : new PrismaPg({ connectionString: url })
   return new PrismaClient({ adapter, log: ['query'] })
 }
 

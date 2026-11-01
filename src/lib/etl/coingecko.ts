@@ -1,4 +1,10 @@
-// src/lib/etl/coingecko.ts — CoinGecko connector (mock, 10 tokens)
+// src/lib/etl/coingecko.ts — CoinGecko connector
+// Real: GET /api/v3/coins/markets (top 100 por market cap) com a chave Demo
+// (header x-cg-demo-api-key, 30 req/min). Sem rede/chave → fallback mock.
+// Em NODE_ENV=test fica no mock para os testes serem determinísticos.
+import { getEnv } from "@/lib/env";
+import { logger } from "../trading/logger";
+
 export interface Token {
   symbol: string;
   name: string;
@@ -21,7 +27,72 @@ const MOCK_TOKENS: Token[] = [
   { symbol: "TOSHI", name: "Toshi", chain: "base", priceUsd: 0.001, marketCapUsd: 100_000_000, volume24hUsd: 10_000_000 },
 ];
 
+// CoinGecko id → chain interna (o resto cai em "cex", igual ao mock dos majors)
+const CHAIN_BY_CG_ID: Record<string, string> = {
+  arbitrum: "arbitrum",
+  "wrapped-bitcoin": "cex",
+  "coinbase-wrapped-btc": "base",
+  optimism: "optimism",
+  "degen-base": "base",
+  brett: "base",
+  "based-brett": "base",
+  toshi: "base",
+  "aerodrome-finance": "base",
+};
+
+interface CgMarketRow {
+  id: string;
+  symbol: string;
+  name: string;
+  current_price: number;
+  market_cap: number;
+  total_volume: number;
+}
+
+function mapMarkets(rows: CgMarketRow[]): Token[] {
+  return rows
+    .filter((r) => typeof r.current_price === "number" && r.current_price > 0)
+    .map((r) => ({
+      symbol: r.symbol.toUpperCase(),
+      name: r.name,
+      chain: CHAIN_BY_CG_ID[r.id] ?? "cex",
+      priceUsd: r.current_price,
+      marketCapUsd: r.market_cap ?? 0,
+      volume24hUsd: r.total_volume ?? 0,
+    }));
+}
+
 export async function fetchCoinGecko(): Promise<{ tokens: Token[]; source: string }> {
-  // Real: fetch https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc
-  return { tokens: MOCK_TOKENS, source: "CoinGecko mock" };
+  if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+    return { tokens: MOCK_TOKENS, source: "CoinGecko mock" };
+  }
+
+  try {
+    const apiKey = getEnv().COINGECKO_API_KEY;
+    const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1";
+    const resp = await fetch(url, {
+      cache: "no-store",
+      headers: {
+        Accept: "application/json",
+        ...(apiKey ? { "x-cg-demo-api-key": apiKey } : {}),
+      },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!resp.ok) {
+      throw new Error(`CoinGecko HTTP ${resp.status}`);
+    }
+    const rows = (await resp.json()) as CgMarketRow[];
+    if (!Array.isArray(rows) || rows.length === 0) {
+      throw new Error("CoinGecko resposta vazia ou malformada");
+    }
+    const tokens = mapMarkets(rows);
+    logger.info("etl", `CoinGecko real: ${tokens.length} tokens (top market cap)`);
+    return {
+      tokens,
+      source: apiKey ? "CoinGecko real (demo key)" : "CoinGecko real (public)",
+    };
+  } catch (e) {
+    logger.warn("etl", `CoinGecko real falhou — usando mock como fallback: ${String(e)}`);
+    return { tokens: MOCK_TOKENS, source: "CoinGecko mock (fallback)" };
+  }
 }
