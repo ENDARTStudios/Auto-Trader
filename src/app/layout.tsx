@@ -3,6 +3,7 @@ import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "./providers";
+import { I18nHydration } from "@/lib/i18n/hydration";
 import { getServerTranslation } from "@/lib/i18n/server";
 import { LanguageSelector } from "@/components/language-selector";
 
@@ -74,7 +75,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { locale, t } = await getServerTranslation();
+  const { locale, t, messages } = await getServerTranslation();
   return (
     <html lang={locale} suppressHydrationWarning className="dark">
       <head>
@@ -88,6 +89,8 @@ export default async function RootLayout({
       >
         <div className="flex-1">
           <Providers>
+            {/* Hidrata a store i18n client-side (login/onboarding mostravam chaves cruas) */}
+            <I18nHydration initial={{ locale, messages }} />
             <div className="flex justify-end border-b border-border/40 bg-background/30 px-4 py-1.5">
               <LanguageSelector currentLocale={locale} />
             </div>
