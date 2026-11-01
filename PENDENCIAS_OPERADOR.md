@@ -61,3 +61,11 @@ Sem chaves, `ORCAMENTO_ESTOURADO` mantém live desabilitado por design.
 - docs/branch-protection-policy.md entregue (T090): regra mínima (PR obrigatório, ci/codeql/gitleaks verdes, sem force push/deleção), e2e condicional, Vercel monitorado, Trivy non-blocking até T081, anti-regressão .env/segredos, escalonamento ao Operador.
 - **Evidência:** main SEM proteção formal (gh api .../branches/main/protection = HTTP 404).
 - **Decisão necessária:** aprovar, ajustar ou rejeitar a política antes de aplicação. O Doer não aplica configuração no GitHub sem aprovação explícita.
+
+## Pendência: banco de produção durável (Vercel) — 2026-11-01
+**Contexto:** produção na Vercel roda SQLite efêmero por instância (auto-init aplica schema+seed no cold start — login funciona, mas posições/preferências resetam a cada cold start e não são compartilhadas entre instâncias).
+**Decisão necessária do Operador:** escolher o caminho durável —
+1. **Postgres hospedado free (Neon/Supabase)**: migrar schema provider para `postgresql` + `@prisma/adapter-pg` + `DATABASE_URL` do provedor no env da Vercel; CI precisaria de Postgres de teste (service container).
+2. **VPS/Docker próprio** (docker-compose pgvector já existe no repo): deploy fora da Vercel, mantendo SQLite.
+3. **Manter efêmero** (aceitar reset por cold start — só demo).
+**Refs:** PR #51 (auto-init), `src/lib/db-init.ts`, `PRODUCTION_DEPLOY.md`.
