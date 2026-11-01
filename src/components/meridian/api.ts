@@ -126,6 +126,22 @@ async function csrfToken(): Promise<string> {
   return csrfPromise;
 }
 
+export async function apiDelete<T>(path: string): Promise<T> {
+  const token = await csrfToken();
+  const res = await fetch(path, {
+    method: "DELETE",
+    credentials: "include",
+    headers: token ? { "x-csrf-token": token } : {},
+  });
+  if (res.status === 401) {
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+    if (typeof window !== "undefined") window.location.assign("/login");
+    throw new ApiError("unauthorized", 401);
+  }
+  if (!res.ok) throw new ApiError(`${res.status} ${res.statusText}`, res.status);
+  return (await res.json()) as T;
+}
+
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   const token = await csrfToken();
   const res = await fetch(path, {
