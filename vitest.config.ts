@@ -5,6 +5,9 @@ import path from 'path';
 export default defineConfig({
   test: {
     globals: true,
+    // O SQLite de teste é único por run: arquivos em paralelo criam/limpam
+    // posições ao mesmo tempo e quebram suites que assumem banco vazio.
+    fileParallelism: false,
     environment: 'node',
     include: ['src/**/*.{test,spec}.{ts,tsx}', 'tests/**/*.{test,spec}.{ts,tsx}'],
     exclude: ['e2e/**', 'node_modules/**', '.next/**', 'prisma/**'],

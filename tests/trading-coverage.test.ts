@@ -325,6 +325,12 @@ describe('T049b — Trading Coverage (≥40% per module)', () => {
   });
 
   describe('diversification.ts', () => {
+  // O banco de teste é compartilhado entre arquivos/suites; sem isso o snapshot
+  // enxerga posições criadas por outro teste e a asserção de "zero posições" quebra.
+  beforeEach(async () => {
+    await db.position.deleteMany();
+  });
+
     const mockCandidate = (overrides: any = {}) => ({
       symbol: overrides.symbol ?? 'BTCUSDT',
       chain: overrides.chain ?? 'cex',
