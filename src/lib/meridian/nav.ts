@@ -57,8 +57,11 @@ export const ALL_NAV_ITEMS = NAV.flatMap((g) => g.items);
 /** Rotas já migradas para o shell Meridian (o chrome legado se esconde nelas). */
 export const MERIDIAN_ROUTES = ["/overview", "/markets", "/portfolio", "/strategy", "/risk", "/analytics", "/journal", "/backtest", "/copilot", "/alerts", "/data", "/settings", "/billing", "/admin", "/positions", "/onboarding"];
 
+const LEGACY_STILL_UNDER_MERIDIAN_PREFIX = ["/admin/users"];
+
 export function isMeridianPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
+  if (LEGACY_STILL_UNDER_MERIDIAN_PREFIX.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return false;
   return MERIDIAN_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 }
 

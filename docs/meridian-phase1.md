@@ -106,3 +106,20 @@ O proxy (`src/proxy.ts`) exige `x-csrf-token` em POST/PUT/PATCH/DELETE, mas nenh
 ## Onboarding
 
 `/onboarding` (item "Primeiros passos" no rail) monta um checklist a partir do estado real: modo paper, kill switch já exercitado, rounds, posições, curva de equity e progresso de graduação — cada passo leva para a tela onde a ação acontece.
+
+## Testes
+
+**Unitários (Vitest)** — `tests/meridian-format.test.ts`: 13 casos sobre formatação monetária/temporal e resolução de rotas do shell (`isMeridianPath`, `isChromelessPath`), incluindo o caso `/admin/users`, que continua sendo tela legada. `src/lib/meridian/**` entrou no `include` de coverage (100% coberto), elevando os totais do gate.
+
+**E2E (Playwright)** — `e2e/meridian.spec.ts` + `e2e/meridian.setup.ts`: sessão criada uma vez via API (storage state, evita rate limit), 15 rotas verificadas com título e rail, raiz autenticada → `/overview`, kill switch exigindo `HALT`, e páginas públicas sem sessão. Rode com:
+
+```powershell
+$env:PLAYWRIGHT_BASE_URL="http://localhost:3100"
+npx playwright test --config playwright.meridian.config.ts
+```
+
+Resultado local: **6 passed** (setup + 5) e `e2e/auth.spec.ts` **3 passed**.
+
+### Sobre o gate de coverage da CI
+
+Os totais do job vermelho eram **32.28 / 27.73 / 40.02 / 32.62** contra thresholds **30 / 39 / 27** — ou seja, o threshold é atendido. O exit 1 vem dos testes daquele passo, não da régua: os arquivos que falham são dependentes de banco (`tests/rag.test.ts`, `tests/trading-coverage.test.ts`), com o mesmo sintoma de isolamento que reproduzi localmente (DB com posições semeadas). Isso é anterior a este trabalho e vive em `src/lib`/`tests` de outros agentes.

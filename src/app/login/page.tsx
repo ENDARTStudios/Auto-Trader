@@ -93,9 +93,10 @@ export default function LoginPage() {
                 </div>
               ) : null}
 
-              <label className="mrd-field">
+              <label className="mrd-field" htmlFor="email">
                 <span>E-mail</span>
                 <input
+                  id="email"
                   className="mrd-input"
                   style={{ height: 38, fontSize: 16 }}
                   type="email"
@@ -107,9 +108,10 @@ export default function LoginPage() {
                 />
               </label>
 
-              <label className="mrd-field">
+              <label className="mrd-field" htmlFor="password">
                 <span>Senha</span>
                 <input
+                  id="password"
                   className="mrd-input"
                   style={{ height: 38, fontSize: 16 }}
                   type="password"

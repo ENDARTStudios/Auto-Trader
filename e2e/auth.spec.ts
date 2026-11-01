@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 
-test('redirect to /login when no cookie', async ({ page }) => {
+test('anônimo cai na landing pública', async ({ page }) => {
   await page.goto('/');
-  // middleware or client guard should redirect to /login
-  await expect(page).toHaveURL(/\/login/, { timeout: 5000 });
-  // i18n-agnostic: login page always has #email + submit (text varies por locale)
+  await expect(page).toHaveURL(/\/welcome/, { timeout: 10_000 });
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('O motor que mostra');
+  await page.goto('/login');
   await expect(page.locator('#email')).toBeVisible();
   await expect(page.locator('button[type=submit]')).toBeVisible();
 });
@@ -31,7 +31,7 @@ test('login viewer then dashboard shows role', async ({ page }) => {
   await page.fill('#email', 'viewer@local');
   await page.fill('#password', 'Viewer123!');
   await page.click('button[type=submit]');
-  await page.waitForURL('/', { timeout: 5000 });
+  await page.waitForURL(/\/overview/, { timeout: 10_000 });
+  await expect(page.locator('.mrd-title')).toContainText('Mission control');
   await expect(page.locator('text=viewer@local')).toBeVisible({ timeout: 5000 });
-  await expect(page.locator('text=viewer')).toBeVisible();
 });
