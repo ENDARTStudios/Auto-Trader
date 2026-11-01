@@ -13,10 +13,14 @@ const envSchema = z.object({
 
   // Optional — extra layers
   GOOGLE_SAFE_BROWSING_KEY: z.string().optional(),
+  COINGECKO_API_KEY: z.string().optional(),
   ETHERSCAN_API_KEY: z.string().optional(),
   ARBISCAN_API_KEY: z.string().optional(),
   BASESCAN_API_KEY: z.string().optional(),
   OPTIMISM_ETHERSCAN_API_KEY: z.string().optional(),
+  SOLSCAN_API_KEY: z.string().optional(),
+  CARDANOSCAN_API_KEY: z.string().optional(),
+  BSC_RPC_URL: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.string().optional(),
   REDIS_URL: z.string().optional(),
