@@ -127,19 +127,20 @@ async function cleanup() {
 // without manual intervention.
 //
 // GUARD: refuses to run if DATABASE_URL looks like a production DB —
-// specifically: refuses if it does NOT start with `file:` (SQLite local
-// file) or if the path contains "prod". This is a speed bump against
-// accidentally truncating a real production database; the operator can
-// always set VAULT_TEST_FORCE_TRUNCATE=1 to override (e.g., for unusual
-// dev DB naming).
+// specifically: refuses if it is NOT a local dev/test database (SQLite
+// `file:` or Postgres on localhost/127.0.0.1) or if the URL contains
+// "prod"/known managed hosts. This is a speed bump against accidentally
+// truncating a real production database; the operator can always set
+// VAULT_TEST_FORCE_TRUNCATE=1 to override (e.g., for unusual dev DB naming).
 async function hardCleanupBeforeSuite() {
   const dbUrl = process.env.DATABASE_URL ?? "";
   const isLocalSqlite = dbUrl.startsWith("file:");
-  const looksLikeProd = /prod/i.test(dbUrl);
+  const isLocalPostgres = /^postgres(ql)?:\/\/[^@/]*@(localhost|127\.0\.0\.1)[:/]/.test(dbUrl);
+  const looksLikeProd = /prod|railway\.internal|neon\.tech|supabase/i.test(dbUrl);
   const force = process.env.VAULT_TEST_FORCE_TRUNCATE === "1";
-  if (!isLocalSqlite || (looksLikeProd && !force)) {
+  if ((!isLocalSqlite && !isLocalPostgres) || (looksLikeProd && !force)) {
     throw new Error(
-      `Refusing to run vault test suite: DATABASE_URL=${dbUrl} does not look like a local SQLite dev/test DB. ` +
+      `Refusing to run vault test suite: DATABASE_URL=${dbUrl} does not look like a local dev/test DB. ` +
       `This suite truncates WalletConnection + ExchangeConnection tables at start. ` +
       `If this is actually a dev/test DB with an unusual name, set VAULT_TEST_FORCE_TRUNCATE=1 and rerun.`
     );
