@@ -18,6 +18,7 @@ export type LogSource =
   | "market"
   | "ai"
   | "goplus"
+  | "etl"
   | "site"
   | "surveillance"
   | "exit_planner"
