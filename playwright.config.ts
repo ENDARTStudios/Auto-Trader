@@ -2,6 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  // O smoke do shell Meridian tem config própria (porta 3100 + storage state);
+  // roda com: npx playwright test --config playwright.meridian.config.ts
+  testIgnore: /meridian\.(spec|setup)\.ts/,
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
   use: {
