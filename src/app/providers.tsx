@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
+import { MotionConfig } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -58,7 +59,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         enableSystem={false}
         disableTransitionOnChange
       >
-        {children}
+        {/* reducedMotion="user": respeita prefers-reduced-motion em toda a árvore
+            framer-motion (regra de motion — docs/MOTION.md + ui-ux-pro-max prio 7) */}
+        <MotionConfig reducedMotion="user">{children}</MotionConfig>
       </ThemeProvider>
     </QueryClientProvider>
   );
