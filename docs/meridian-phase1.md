@@ -44,6 +44,10 @@ npx next dev -p 3100        # abra http://localhost:3100/overview
 
 > Use `localhost`, não `127.0.0.1`: o Next 16 bloqueia assets de dev em origens não listadas (`allowedDevOrigins`), o que impede a hidratação. Foi a causa do sintoma “tela em skeleton” durante a validação.
 
+## Correção de segurança encontrada no caminho
+
+O proxy (`src/proxy.ts`) exige `x-csrf-token` em POST/PUT/PATCH/DELETE, mas nenhuma rota emitia o token — todas as ações de escrita do app (start engine, salvar config, kill switch) respondiam **403**. Adicionado `GET /api/auth/csrf` (token HMAC ligado à sessão + cookie `csrf`) e o `apiPost` do Meridian passa a buscá-lo e enviar o header. Sem isso, nenhuma ação do produto funcionava.
+
 ## Verificado
 
 - `npx tsc --noEmit` — sem erros.

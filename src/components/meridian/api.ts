@@ -112,11 +112,24 @@ export async function apiGet<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+let csrfPromise: Promise<string> | null = null;
+
+async function csrfToken(): Promise<string> {
+  if (!csrfPromise) {
+    csrfPromise = fetch("/api/auth/csrf", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : { token: "" }))
+      .then((j: { token?: string }) => j.token ?? "")
+      .catch(() => "");
+  }
+  return csrfPromise;
+}
+
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
+  const token = await csrfToken();
   const res = await fetch(path, {
     method: "POST",
     credentials: "include",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...(token ? { "x-csrf-token": token } : {}) },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (res.status === 401) {
@@ -126,4 +139,56 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   }
   if (!res.ok) throw new ApiError(`${res.status} ${res.statusText}`, res.status);
   return (await res.json().catch(() => ({}))) as T;
+}
+
+export interface EngineConfig {
+  mode: "paper" | "live";
+  loopIntervalSec: number;
+  initialCapitalUsd: number;
+  maxPositionsPerRound: number;
+  capitalPctPerRound: number;
+  reservePct: number;
+  reinvestPct: number;
+  takeProfitPct: number;
+  stopLossPct: number;
+  maxHoldMinutes: number;
+  maxDailyLossPct: number;
+  maxLossPerTradePct: number;
+  maxExposurePerTokenPct: number;
+  maxDrawdownPct: number;
+  scamScoreMin: number;
+  minLiquidityUsd: number;
+  minVolume24hUsd: number;
+  enabledStrategies: string[];
+  engineRunning: boolean;
+  killSwitchActive: boolean;
+  killSwitchReason?: string | null;
+  killSwitchAt?: string | null;
+  paperCyclesRequired: number;
+  paperCyclesPassed: number;
+  graduatedToLive: boolean;
+}
+
+export interface RiskScaleResponse {
+  assessment: {
+    winRate: number;
+    tradesClosed: number;
+    band: { label: string; description: string; multiplier: number; minWinRate: number; maxWinRate: number };
+    multiplier: number;
+    scaledAmountUsd: number;
+    baseAmountUsd: number;
+    applied: boolean;
+    reason?: string;
+  };
+  bands: { minWinRate: number; maxWinRate: number; multiplier: number; label: string; description: string }[];
+}
+
+export interface SurveillanceAlert {
+  id: string;
+  severity?: string;
+  title?: string;
+  message?: string;
+  symbol?: string | null;
+  createdAt: string;
+  resolvedAt?: string | null;
 }
