@@ -152,3 +152,18 @@ Tentei criar a conta Auto Trader dentro da organização com os dados fornecidos
 O fluxo abre em **Configurações da organização → Adicionar conta**, com duas opções: "Conta existente" e "Nova conta". A opção "Nova conta" é um `a[role=button]` controlado por React que não responde a clique sintético nem a seletor único (as duas opções compartilham classe e testid), e o dashboard passou a responder com timeouts de CDP em navegação pesada. **Nenhuma conta foi criada e nenhuma chave foi gerada** — parar antes de um cadastro parcial é intencional: uma conta incompleta pode bloquear o CNPJ para uma criação correta depois.
 
 Caminho recomendado (2 minutos, humano): abrir o mesmo modal, escolher **Nova conta**, preencher os dados acima e concluir o KYC. Em seguida, em **Desenvolvedores → Chaves de API**, copiar a **secret key de teste** e o **webhook secret** para o `.env` (nunca no git) e criar os dois preços no modo test. O cartão Stripe em `/billing` passa a `pronto` sem mudança de código.
+
+## Stripe — configurado (test mode)
+
+Conta: `acct_1UXCaGQ76C0SHZqc` (Auto Trader, test). Chaves salvas **apenas** no `.env` local (gitignored):
+
+- `STRIPE_PUBLISHABLE_KEY` / `STRIPE_SECRET_KEY` (test)
+- `STRIPE_PRICE_PRO` = `price_1UXLh5Q76C0SHZqczCS6agBU` (US$ 49/mês)
+- `STRIPE_PRICE_ELITE` = `price_1UXLh6Q76C0SHZqcimbzImay` (US$ 199/mês)
+- `STRIPE_WEBHOOK_SECRET` gerado pela Stripe CLI (`stripe listen --print-secret`), estável por dispositivo
+
+Rotas novas: `POST /api/billing/checkout` (Checkout Session) e `POST /api/billing/portal` (Billing Portal, 409 `no_customer` quando ainda não assinou). O proxy passou a liberar `/api/webhooks/*` — webhooks autenticam por assinatura HMAC, não por sessão; antes respondiam **401**.
+
+Verificado ponta a ponta: checkout devolve URL `checkout.stripe.com`; `stripe trigger checkout.session.completed` chega em `/api/webhooks/stripe` com **[200]** e assinatura válida.
+
+Produção ainda exige: endpoint público de webhook no dashboard (o secret da CLI vale para o encaminhamento local) e as chaves live.

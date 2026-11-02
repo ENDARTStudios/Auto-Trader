@@ -26,6 +26,28 @@ export function Pricing() {
 
   const current = user ? sub.data?.subscription?.plan ?? sub.data?.plan ?? "free" : null;
 
+  const stripeStatus = useQuery<{ configured: boolean }>({
+    queryKey: ["mrd", "stripe-status"],
+    queryFn: () => apiGet<{ configured: boolean }>("/api/billing/status"),
+    enabled: Boolean(user),
+    retry: 0,
+  });
+
+  const checkout = useMutation({
+    mutationFn: (plan: "pro" | "elite") => apiPost<{ url: string }>("/api/billing/checkout", { plan }),
+    onSuccess: (res) => window.location.assign(res.url),
+    onError: (err: Error) => toast.error("Não foi possível iniciar o checkout", { description: err.message }),
+  });
+
+  const subscribe = (planId: string) => {
+    if (!user) return router.push("/login");
+    if (planId === "free") return change.mutate(planId);
+    if (stripeStatus.data?.configured) return checkout.mutate(planId as "pro" | "elite");
+    return toast.error("Stripe não configurado", {
+      description: "As chaves de teste precisam estar no .env para abrir o checkout.",
+    });
+  };
+
   const change = useMutation({
     mutationFn: (planId: string) =>
       apiPost<{ ok: boolean }>("/api/billing/subscription", {
@@ -91,7 +113,7 @@ export function Pricing() {
                   data-testid={`pricing-subscribe-${plan.id}`}
                   className={`mrd-btn ${featured ? "mrd-btn-primary" : "mrd-btn-secondary"}`}
                   disabled={change.isPending || isCurrent}
-                  onClick={() => (user ? change.mutate(plan.id) : router.push("/login"))}
+                  onClick={() => subscribe(plan.id)}
                 >
                   {isCurrent ? "Plano atual" : plan.priceUsdMonthly === 0 ? "Voltar para o Free" : `Assinar ${plan.name}`}
                 </button>
