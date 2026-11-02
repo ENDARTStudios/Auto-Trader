@@ -93,6 +93,40 @@ test("MFA: painel de setup mostra segredo e campo de código", async ({ page }) 
   await expect(page.getByText("Código de 6 dígitos gerado pelo app")).toHaveCount(0);
 });
 
+test("copilot mostra ledger de evidências da resposta", async ({ page }) => {
+  await page.goto("/copilot");
+  await expect(page.locator(".mrd-title")).toContainText("Copilot", { timeout: 20_000 });
+  await page.fill(".mrd-compose textarea", "drawdown atual?");
+  await page.locator(".mrd-compose button").click();
+  await expect(page.getByText(/números auditados/)).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByText(/com fonte|sem fonte/).first()).toBeVisible();
+});
+
+test("MCP orders_list responde somente leitura", async ({ page }) => {
+  await page.goto("/overview");
+  const out = await page.evaluate(async () => {
+    const r = await fetch("/api/mcp", {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "orders_list" } }),
+    });
+    const body = await r.json();
+    const text = body?.result?.content?.[0]?.text ?? "{}";
+    return { status: r.status, orders: JSON.parse(text).orders?.length ?? -1 };
+  });
+  expect(out.status).toBe(200);
+  expect(out.orders).toBeGreaterThanOrEqual(0);
+});
+
+test("detalhe da posição mostra o ciclo da ordem", async ({ page }) => {
+  await page.goto("/portfolio");
+  const link = page.locator('a[href^="/positions/"]').first();
+  if ((await link.count()) === 0) test.skip(true, "sem posições no ambiente");
+  await link.click();
+  await expect(page.getByText("Ciclo da ordem")).toBeVisible({ timeout: 25_000 });
+});
+
 test("indicador SSE fica live no shell", async ({ page }) => {
   await page.goto("/overview");
   await expect(page.locator(".mrd-live")).toHaveText(/SSE/i, { timeout: 20_000 });

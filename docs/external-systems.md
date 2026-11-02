@@ -103,3 +103,29 @@ Persistência de uma tabela de ordens no engine fica para a próxima fase — a 
 **Ledger de evidências (C):** `src/lib/rag/evidence.ts` extrai números (dinheiro, %, número), normaliza pt-BR/en-US, ignora hashes/identificadores e cruza cada valor com o conteúdo das citações. `/api/ai/ask` devolve `evidence` com veredito `grounded | partial | unsupported | no_claims`; o Copilot mostra o selo e os números **sem fonte**. Testes: 10 casos.
 
 Regra aplicada: número sem citação não é tratado como verdade — aparece marcado, com a contagem de citações usada.
+
+## Fase D — design (ainda não implementada)
+
+Atribuição por fator no Analytics, inspirada no research desk do Fincept (spec-only) e nos
+fatores do Vibe-Trading, mas restrita ao que o Auto Trader **já armazena**:
+
+| Fator | Fonte disponível | Como derivar |
+|---|---|---|
+| Momentum | `MarketSnapshot.rsi14`, `macdHist`, `ema20/ema50` | sinal por posição no momento da entrada |
+| Tendência | `ema20` vs `ema50` | binário (acima/abaixo) |
+| Volatilidade | `bollPercent`, bandas | faixa de exposição |
+| Sentimento | `fearGreedIndex/Class` | valor no snapshot da entrada |
+| Qualidade do token | `scamScore`, `riskFlags` | faixa aprovada/reprovada |
+
+Regras de honestidade (as mesmas do resto do produto):
+
+1. Atribuição só existe para posições que têm snapshot na janela — sem interpolar.
+2. Grupo com amostra insuficiente devolve `null` e a UI mostra “sem amostra”, nunca 0.
+3. Nenhum fator é inventado a partir de correlação; é contagem + P&L médio por bucket.
+
+API proposta: `GET /api/analytics/attribution?range=30d` →
+`{ factors: [{ key, buckets: [{ label, trades, winRate, avgPnlPct, totalPnlUsd }] }] }`.
+
+UI: card “Atribuição por fator” abaixo de “Attribution by symbol”, com barras por bucket e o
+aviso de amostra. Implementação exige agregação por posição×snapshot (join que hoje não existe
+em `analytics`), portanto entra como fase própria, com testes.
