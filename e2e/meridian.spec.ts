@@ -61,6 +61,43 @@ test("kill switch exige HALT e não dispara sem confirmação", async ({ page })
   await expect(dialog).toBeHidden();
 });
 
+
+test("canais de alerta: cria, edita e remove", async ({ page }) => {
+  await page.goto("/alerts");
+  await expect(page.locator(".mrd-title")).toContainText("Alerts", { timeout: 20_000 });
+
+  await page.getByRole("button", { name: /new channel/i }).click();
+  const modal = page.locator(".mrd-modal");
+  await expect(modal).toBeVisible();
+  await modal.locator("input").first().fill("E2E canal");
+  await modal.locator("select").selectOption("webhook");
+  await modal.locator('input[type="text"]').last().fill("https://example.com/e2e-hook");
+  await modal.getByRole("button", { name: /criar canal/i }).click();
+
+  await expect(page.locator(".mrd-side").getByText("E2E canal")).toBeVisible({ timeout: 15_000 });
+
+  await page.locator(".mrd-side").getByRole("button", { name: "E2E canal" }).click();
+  await expect(modal.getByRole("button", { name: /^remover$/i })).toBeVisible();
+  await modal.getByRole("button", { name: /^remover$/i }).click();
+  await expect(page.locator(".mrd-side").getByText("E2E canal")).toHaveCount(0, { timeout: 15_000 });
+});
+
+test("MFA: painel de setup mostra segredo e campo de código", async ({ page }) => {
+  await page.goto("/settings");
+  await expect(page.locator(".mrd-title")).toContainText("Settings", { timeout: 20_000 });
+  await page.getByRole("button", { name: /^configurar$/i }).click();
+
+  await expect(page.getByText("Código de 6 dígitos gerado pelo app")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: /ativar mfa/i })).toBeDisabled();
+  await page.getByRole("button", { name: /^cancelar$/i }).click();
+  await expect(page.getByText("Código de 6 dígitos gerado pelo app")).toHaveCount(0);
+});
+
+test("indicador SSE fica live no shell", async ({ page }) => {
+  await page.goto("/overview");
+  await expect(page.locator(".mrd-live")).toHaveText(/SSE/i, { timeout: 20_000 });
+});
+
 test.describe("anônimo", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 

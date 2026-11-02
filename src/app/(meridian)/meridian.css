@@ -629,3 +629,16 @@ button.mrd-btn-danger-solid { background: var(--crit-solid); color: #fff; }
 .mrd-legal-body strong { color: var(--text); font-weight: 600; }
 .mrd-legal-body code { font-size: 12px; padding: 1px 5px; border-radius: 4px; background: var(--surface-2); border: 1px solid var(--line); }
 .mrd-legal-body hr { border: none; border-top: 1px solid var(--line); margin: 32px 0 18px; }
+
+/* ---------- indicador SSE ---------- */
+.mrd-live {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px;
+  border: 1px solid var(--line); border-radius: 99px; font-size: 10.5px;
+  letter-spacing: 0.04em; color: var(--text-3); text-transform: uppercase;
+}
+.mrd-live i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
+.mrd-live-live { color: var(--positive); border-color: color-mix(in srgb, var(--positive) 35%, var(--line)); }
+.mrd-live-live i { background: var(--positive); box-shadow: 0 0 0 3px color-mix(in srgb, var(--positive) 18%, transparent); }
+.mrd-live-polling { color: var(--warning); }
+.mrd-live-polling i { background: var(--warning); }
+@media (max-width: 900px) { .mrd-live { display: none; } }
