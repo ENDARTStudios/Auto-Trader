@@ -123,3 +123,24 @@ Resultado local: **6 passed** (setup + 5) e `e2e/auth.spec.ts` **3 passed**.
 ### Sobre o gate de coverage da CI
 
 Os totais do job vermelho eram **32.28 / 27.73 / 40.02 / 32.62** contra thresholds **30 / 39 / 27** — ou seja, o threshold é atendido. O exit 1 vem dos testes daquele passo, não da régua: os arquivos que falham são dependentes de banco (`tests/rag.test.ts`, `tests/trading-coverage.test.ts`), com o mesmo sintoma de isolamento que reproduzi localmente (DB com posições semeadas). Isso é anterior a este trabalho e vive em `src/lib`/`tests` de outros agentes.
+
+## Stripe — estado real (verificado no dashboard)
+
+A organização `END ART Studios` (`org_6VHXkc7K9Phts5CR8qMkBhI`) tem **três contas** e nenhuma delas é Auto Trader:
+
+| Conta | ID |
+|---|---|
+| Almanaque dos Clubes | `acct_1U89nHPvpIyYKAjl` |
+| MEDIA Rate | `acct_1TwWJAL2aUoTXFOy` |
+| ShopFinder | `acct_1U8UGgLEl3sW62zc` |
+
+Não existe conta Auto Trader nessa organização e a sessão não mostra outra org. **Nenhuma chave foi criada** — criar uma conta Stripe exige dados de negócio/KYC e não deve ser feito sem confirmação explícita.
+
+Em vez de simular faturas, a tela de Billing ganhou um cartão **Stripe** alimentado por `GET /api/billing/status`, que devolve apenas presença/ausência dos envs (nunca valores):
+
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+- `STRIPE_PRICE_PRO`
+- `STRIPE_PRICE_ELITE`
+
+Enquanto faltarem, o cartão mostra `falta configurar` com os nomes pendentes e o caminho do webhook (`/api/webhooks/stripe`).
