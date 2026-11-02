@@ -129,3 +129,12 @@ API proposta: `GET /api/analytics/attribution?range=30d` →
 UI: card “Atribuição por fator” abaixo de “Attribution by symbol”, com barras por bucket e o
 aviso de amostra. Implementação exige agregação por posição×snapshot (join que hoje não existe
 em `analytics`), portanto entra como fase própria, com testes.
+
+## Fase D implementada (2026-11-02)
+
+- `src/lib/analytics/factor-attribution.ts`: buckets puros (momentum por RSI, tendência EMA20/50, volatilidade por %B, sentimento pelo fear&greed, qualidade por scam score), janela de **48h** antes da entrada e amostra mínima de **3 trades**.
+- `GET /api/analytics/attribution?range=24h|7d|30d|all`: cruza posições fechadas do usuário com o snapshot mais próximo da entrada; devolve todos os fatores com `noSample` quando não há snapshot. Sessão + `dashboard:read` + rate limit.
+- UI: card **Atribuição por fator** no Analytics, com seletor de fator, barras por bucket, marcação de amostra baixa e a contagem de posições sem snapshot.
+- Testes: 11 casos (`tests/factor-attribution.test.ts`).
+
+Regras mantidas: sem snapshot na janela → fora da amostra (nunca zero); bucket com menos de 3 trades vem marcado `lowSample`; nenhum fator é derivado por correlação.
