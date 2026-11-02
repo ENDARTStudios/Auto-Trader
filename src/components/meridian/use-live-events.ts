@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 export type LiveStatus = "connecting" | "live" | "polling";
@@ -13,6 +13,36 @@ interface BusEvent {
   title?: string;
   message?: string;
   timestamp?: string;
+}
+
+export interface LiveEvent {
+  id: string;
+  type?: string;
+  level?: string;
+  title?: string;
+  message?: string;
+  source?: string;
+  at: string;
+}
+
+const EMPTY: LiveEvent[] = [];
+let feed: LiveEvent[] = EMPTY;
+const feedListeners = new Set<() => void>();
+
+function emit(event: LiveEvent) {
+  feed = [event, ...feed].slice(0, 20);
+  feedListeners.forEach((l) => l());
+}
+function subscribeFeed(cb: () => void) {
+  feedListeners.add(cb);
+  return () => {
+    feedListeners.delete(cb);
+  };
+}
+
+/** Últimos eventos recebidos pelo SSE, mais recente primeiro. */
+export function useLiveFeed(): LiveEvent[] {
+  return useSyncExternalStore(subscribeFeed, () => feed, () => EMPTY);
 }
 
 const INVALIDATE_BY_TYPE: Record<string, string[]> = {
@@ -56,6 +86,15 @@ export function useLiveEvents() {
       }
       setStatus("live");
       setLast(event);
+      emit({
+        id: `ev-${event.id ?? Date.now()}`,
+        type: event.type,
+        level: event.level,
+        title: event.title,
+        message: event.message,
+        source: event.source,
+        at: event.timestamp ?? new Date().toISOString(),
+      });
 
       const keys = INVALIDATE_BY_TYPE[event.type ?? ""] ?? ["status", "positions", "rounds"];
       for (const key of keys) {
