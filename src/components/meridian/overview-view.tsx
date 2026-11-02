@@ -15,6 +15,7 @@ import {
 } from "./api";
 import { Icon } from "./icons";
 import { AreaChart } from "./area-chart";
+import { useLiveFeed } from "./use-live-events";
 import { AssetIcon, Badge, Card, colorFor, Delta, Dot, Empty, Kpi, Meter, Ring, Skeleton } from "./ui";
 import { money, pct, price, clockUtc, signedUsd, usd } from "@/lib/meridian/format";
 
@@ -479,7 +480,21 @@ function RoundsCard({ rounds, loading }: { rounds: RoundRow[]; loading: boolean 
 }
 
 function ActivityCard({ rounds, positions }: { rounds: RoundRow[]; positions: PositionRow[] }) {
+  const live = useLiveFeed();
   const events = useMemo(() => {
+    const fromLive = live.map((e) => ({
+      id: e.id,
+      icon: (e.level === "critical" || e.level === "error" ? "risk" : e.type === "position" ? "up" : "activity") as
+        | "risk"
+        | "up"
+        | "activity",
+      text: (
+        <>
+          <b>{e.title ?? e.type ?? "event"}</b> {e.message ?? ""}
+        </>
+      ),
+      at: e.at,
+    }));
     const fromRounds = rounds.slice(0, 3).map((r) => ({
       id: `r-${r.id}`,
       icon: "activity",
@@ -509,7 +524,9 @@ function ActivityCard({ rounds, positions }: { rounds: RoundRow[]; positions: Po
     <section className="mrd-card mrd-activity">
       <div className="mrd-card-hd" data-border="true">
         <div>
-          <div className="mrd-card-title">Activity</div>
+          <div className="mrd-card-title">
+            Activity {live.length ? <Badge tone="pos">live</Badge> : null}
+          </div>
           <div className="mrd-card-sub">engine + operator log</div>
         </div>
       </div>
