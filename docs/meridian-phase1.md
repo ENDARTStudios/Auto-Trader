@@ -144,3 +144,11 @@ Em vez de simular faturas, a tela de Billing ganhou um cartão **Stripe** alimen
 - `STRIPE_PRICE_ELITE`
 
 Enquanto faltarem, o cartão mostra `falta configurar` com os nomes pendentes e o caminho do webhook (`/api/webhooks/stripe`).
+
+## Stripe — tentativa de criação da conta (2026-11-02)
+
+Tentei criar a conta Auto Trader dentro da organização com os dados fornecidos (razão social 45.370.930 EDINALDO SOARES DA SILVA, CNPJ 45.370.930/0001-75, Brasil, endart.studios@gmail.com, representante Edinaldo Soares da Silva).
+
+O fluxo abre em **Configurações da organização → Adicionar conta**, com duas opções: "Conta existente" e "Nova conta". A opção "Nova conta" é um `a[role=button]` controlado por React que não responde a clique sintético nem a seletor único (as duas opções compartilham classe e testid), e o dashboard passou a responder com timeouts de CDP em navegação pesada. **Nenhuma conta foi criada e nenhuma chave foi gerada** — parar antes de um cadastro parcial é intencional: uma conta incompleta pode bloquear o CNPJ para uma criação correta depois.
+
+Caminho recomendado (2 minutos, humano): abrir o mesmo modal, escolher **Nova conta**, preencher os dados acima e concluir o KYC. Em seguida, em **Desenvolvedores → Chaves de API**, copiar a **secret key de teste** e o **webhook secret** para o `.env` (nunca no git) e criar os dois preços no modo test. O cartão Stripe em `/billing` passa a `pronto` sem mudança de código.
