@@ -494,6 +494,8 @@ model User {
   isActive     Boolean   @default(true)
   mfaEnabled   Boolean   @default(false)
   mfaSecret    String?
+  googleId     String?   @unique
+  avatarUrl    String?
   lastLoginAt  DateTime?
   onboardedAt  DateTime?
   preferences  String?
