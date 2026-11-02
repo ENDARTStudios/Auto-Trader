@@ -8,6 +8,30 @@ import { AreaChart } from "./area-chart";
 import { Badge, Card, Empty, Kpi, Skeleton } from "./ui";
 import { pct, signedUsd, usd } from "@/lib/meridian/format";
 
+interface AttributionBucket {
+  label: string;
+  trades: number;
+  wins: number;
+  winRate: number | null;
+  totalPnlUsd: number;
+  avgPnlPct: number | null;
+  lowSample: boolean;
+}
+interface AttributionFactor {
+  key: string;
+  buckets: AttributionBucket[];
+  noSample: number;
+  totalTrades: number;
+}
+interface AttributionResponse {
+  range: string;
+  totalTrades: number;
+  snapshots: number;
+  minSample: number;
+  factors: Record<string, AttributionFactor>;
+}
+
+
 type Range = "24h" | "7d" | "30d" | "all";
 const RANGES: { id: Range; label: string }[] = [
   { id: "24h", label: "24h" },
@@ -16,13 +40,27 @@ const RANGES: { id: Range; label: string }[] = [
   { id: "all", label: "ALL" },
 ];
 const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const FACTOR_LABEL: Record<string, string> = {
+  momentum: "Momentum",
+  trend: "Tendência",
+  volatility: "Volatilidade",
+  sentiment: "Sentimento",
+  quality: "Qualidade",
+};
 
 export function AnalyticsView() {
   const [range, setRange] = useState<Range>("30d");
+  const [factor, setFactor] = useState<"momentum" | "trend" | "volatility" | "sentiment" | "quality">("momentum");
   const analytics = useQuery<AnalyticsResponse>({
     queryKey: ["mrd", "analytics", range],
     queryFn: () => apiGet<AnalyticsResponse>(`/api/analytics?range=${range}`),
     refetchInterval: 60_000,
+  });
+
+  const attribution = useQuery<AttributionResponse>({
+    queryKey: ["mrd", "attribution", range],
+    queryFn: () => apiGet<AttributionResponse>(`/api/analytics/attribution?range=${range}`),
+    refetchInterval: 120_000,
   });
 
   const data = analytics.data;
@@ -220,6 +258,74 @@ export function AnalyticsView() {
                   ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </section>
+
+      <section className="mrd-card" style={{ marginTop: 16 }}>
+        <div className="mrd-card-hd" data-border="true">
+          <div>
+            <div className="mrd-card-title">Atribuição por fator</div>
+            <div className="mrd-card-sub">posições fechadas cruzadas com o snapshot mais próximo da entrada</div>
+          </div>
+          <div className="mrd-toolbar">
+            {(["momentum", "trend", "volatility", "sentiment", "quality"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                className={`mrd-btn mrd-btn-sm ${factor === k ? "mrd-btn-secondary" : "mrd-btn-ghost"}`}
+                aria-pressed={factor === k}
+                onClick={() => setFactor(k)}
+              >
+                {FACTOR_LABEL[k]}
+              </button>
+            ))}
+          </div>
+        </div>
+        {attribution.isLoading ? (
+          <div className="mrd-card-body"><Skeleton height={20} /></div>
+        ) : !attribution.data || attribution.data.totalTrades === 0 ? (
+          <Empty title="Sem posições fechadas na janela" description="A atribuição aparece quando houver trades encerrados." />
+        ) : (
+          <div className="mrd-card-body">
+            {(() => {
+              const factorData = attribution.data.factors[factor];
+              if (!factorData || factorData.buckets.length === 0) {
+                return <p className="mrd-dim" style={{ fontSize: 12.5 }}>Nenhum snapshot disponível para este fator nesta janela.</p>;
+              }
+              const maxTrades = Math.max(...factorData.buckets.map((b) => b.trades), 1);
+              return (
+                <div style={{ display: "grid", gap: 10 }}>
+                  {factorData.buckets.map((b) => (
+                    <div key={b.label} style={{ display: "grid", gap: 4 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11.5 }}>
+                        <span className="mrd-muted">
+                          {b.label}
+                          {b.lowSample ? <span className="mrd-dim"> · amostra baixa</span> : null}
+                        </span>
+                        <span>
+                          <b>{b.trades}</b> trades · {b.winRate !== null ? `${b.winRate.toFixed(0)}% win` : "—"} ·{" "}
+                          <b className={b.totalPnlUsd >= 0 ? "mrd-pos" : "mrd-neg"}>{signedUsd(b.totalPnlUsd)}</b>
+                        </span>
+                      </div>
+                      <div style={{ height: 6, background: "var(--surface-3)", borderRadius: 99, overflow: "hidden" }}>
+                        <div
+                          style={{
+                            height: "100%",
+                            width: `${(b.trades / maxTrades) * 100}%`,
+                            background: b.totalPnlUsd >= 0 ? "var(--positive)" : "var(--negative)",
+                            borderRadius: 99,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <p className="mrd-dim" style={{ fontSize: 11, marginTop: 2 }}>
+                    {factorData.noSample} posição(ões) sem snapshot na janela · {attribution.data.snapshots} snapshots usados
+                  </p>
+                </div>
+              );
+            })()}
           </div>
         )}
       </section>
