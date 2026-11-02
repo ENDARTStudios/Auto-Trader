@@ -9,6 +9,7 @@ import { clockUtc, duration } from "@/lib/meridian/format";
 import { apiGet, type RuntimeStatus } from "./api";
 import { Icon } from "./icons";
 import { OnboardingWizard } from "./onboarding-wizard";
+import { useLiveEvents } from "./use-live-events";
 import { Dot } from "./ui";
 
 interface ShellProps {
@@ -101,6 +102,7 @@ export function Shell({ user, serverNow, children }: ShellProps) {
     writeStore("mrd.theme", theme === "dark" ? "light" : "dark");
   }, [theme]);
 
+  const live = useLiveEvents();
   const runtime = status.data?.runtime ?? (status.isLoading ? "…" : "STOPPED");
   const running = runtime === "RUNNING";
   const currentLabel = pathname.startsWith("/positions")
@@ -223,6 +225,19 @@ export function Shell({ user, serverNow, children }: ShellProps) {
                   <Dot /> Live
                 </button>
               </div>
+              <span
+                className={`mrd-live mrd-live-${live.status}`}
+                title={
+                  live.status === "live"
+                    ? `SSE conectado${live.last?.title ? " · " + live.last.title : ""}`
+                    : live.status === "connecting"
+                      ? "Conectando ao stream"
+                      : "Stream indisponível — polling ativo"
+                }
+              >
+                <i />
+                {live.status === "live" ? "SSE" : live.status === "connecting" ? "…" : "polling"}
+              </span>
               <span className="mrd-engine">
                 <Dot tone={running ? "pos" : status.data ? "warn" : "neutral"} live={running} />
                 <b>{running ? "Running" : runtime === "…" ? "…" : "Stopped"}</b>
