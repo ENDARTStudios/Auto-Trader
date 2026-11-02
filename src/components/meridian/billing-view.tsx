@@ -18,7 +18,21 @@ interface Subscription {
   [key: string]: unknown;
 }
 
+interface StripeStatus {
+  configured: boolean;
+  mode: "live" | "test" | "none";
+  missing: string[];
+  present: string[];
+  webhookPath: string;
+}
+
 export function BillingView() {
+  const stripe = useQuery<StripeStatus>({
+    queryKey: ["mrd", "stripe-status"],
+    queryFn: () => apiGet<StripeStatus>("/api/billing/status"),
+    retry: 0,
+  });
+
   const sub = useQuery<{ subscription?: Subscription | null } & Subscription>({
     queryKey: ["mrd", "subscription"],
     queryFn: () => apiGet<{ subscription?: Subscription | null } & Subscription>("/api/billing/subscription"),
@@ -112,6 +126,33 @@ export function BillingView() {
               </dl>
             ) : (
               <p className="mrd-dim" style={{ fontSize: 12.5 }}>No payment method recorded for this workspace.</p>
+            )}
+          </Card>
+          <Card title="Stripe" sub={stripe.data ? `modo ${stripe.data.mode}` : "integração"}>
+            {stripe.isLoading ? (
+              <Skeleton height={16} />
+            ) : stripe.data?.configured ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                <Badge tone="pos">pronto</Badge>
+                <p className="mrd-dim" style={{ fontSize: 11.5 }}>
+                  Checkout e webhook configurados. O portal de faturas usa {stripe.data.webhookPath}.
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 8 }}>
+                <Badge tone="warn">falta configurar</Badge>
+                <p className="mrd-dim" style={{ fontSize: 11.5, lineHeight: 1.55 }}>
+                  Nenhuma chave é inventada: sem estes envs o checkout fica desligado e a tela continua honesta.
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {(stripe.data?.missing ?? []).map((k) => (
+                    <span key={k} className="mrd-chip" style={{ height: 22, fontSize: 10.5 }}>{k}</span>
+                  ))}
+                </div>
+                <p className="mrd-dim" style={{ fontSize: 11 }}>
+                  Webhook: <code>{stripe.data?.webhookPath}</code> · assinatura verificada por HMAC.
+                </p>
+              </div>
             )}
           </Card>
         </div>
