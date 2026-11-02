@@ -11,6 +11,12 @@ export default defineConfig({
     trace: "off",
     screenshot: "only-on-failure",
   },
+  webServer: {
+    command: "npx next dev -p 3100",
+    url: "http://localhost:3100/api/health",
+    reuseExistingServer: !process.env.CI,
+    timeout: 180_000,
+  },
   projects: [
     { name: "setup", testMatch: /meridian\.setup\.ts/ },
     {
