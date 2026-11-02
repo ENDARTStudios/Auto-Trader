@@ -20,6 +20,7 @@ const PUBLIC_CSRF_PATHS = new Set([
   '/api/auth/forgot',
   '/api/auth/reset',
   '/api/webhooks/stripe',
+  '/api/mcp',
   '/api/auth/mfa', // MFA setup uses its own session check
 ]);
 
@@ -80,6 +81,7 @@ export function proxy(req: NextRequest) {
     // Webhooks se autenticam por assinatura HMAC na própria rota, não por sessão.
     pathname.startsWith('/api/webhooks/') ||
     pathname.startsWith('/api/auth/login') ||
+    pathname.startsWith('/api/auth/google') ||
     pathname === '/api/auth/forgot' ||
     pathname === '/api/auth/reset';
   if (pathname.startsWith('/api/') && !publicApi) {
