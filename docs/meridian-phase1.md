@@ -167,3 +167,17 @@ Rotas novas: `POST /api/billing/checkout` (Checkout Session) e `POST /api/billin
 Verificado ponta a ponta: checkout devolve URL `checkout.stripe.com`; `stripe trigger checkout.session.completed` chega em `/api/webhooks/stripe` com **[200]** e assinatura válida.
 
 Produção ainda exige: endpoint público de webhook no dashboard (o secret da CLI vale para o encaminhamento local) e as chaves live.
+
+## Login com Google — validado ponta a ponta (2026-11-02)
+
+Cliente OAuth configurado no projeto `auto-trader-513402`; `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` no `.env` local (gitignored) e `NEXT_PUBLIC_APP_URL=http://localhost:3100`.
+
+Fluxo exercitado no navegador real:
+
+1. `GET /api/auth/google` → 307 para `accounts.google.com` com `redirect_uri=http://localhost:3100/api/auth/google/callback`, `scope=openid email profile`, `state` + cookie `g_state` HttpOnly.
+2. Seletor de conta → tela de consentimento ("Fazer login no serviço Auto Trader", escopos nome/foto/e-mail) → **Continuar**.
+3. Callback trocou o code, leu o userinfo, criou o usuário e abriu sessão → `/overview` com o shell.
+
+Estado no banco após o teste: `endart.studios@gmail.com`, `role=viewer`, `googleId` presente, `avatarUrl` presente, `lastLoginAt` atualizado. Contas sociais nascem como **viewer** (leitura), sem senha utilizável.
+
+Casos negativos verificados por HTTP: `state` divergente e callback sem cookie → 307 para `/login?error=google_state`.
