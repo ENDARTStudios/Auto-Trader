@@ -225,6 +225,22 @@ export function handleCrash(
  * Public entry point — called by instrumentation.ts.
  * Idempotent: safe to call multiple times; subsequent calls are no-ops.
  */
+/**
+ * Erros de socket de requisições abortadas (navegação cancelada, reload,
+ * fechamento de aba) não indicam estado inconsistente do processo. Derrubar o
+ * servidor por causa deles transforma um request cancelado em indisponibilidade
+ * — foi o que aconteceu com "Error: aborted" no e2e.
+ */
+export function isBenignSocketError(err: unknown): boolean {
+  const e = err as { code?: string; message?: string; stack?: string } | null;
+  if (!e) return false;
+  const code = e.code ?? "";
+  if (["ECONNRESET", "EPIPE", "ECONNABORTED", "ERR_STREAM_PREMATURE_CLOSE"].includes(code)) return true;
+  const message = (e.message ?? "").toLowerCase();
+  const stack = e.stack ?? "";
+  return message === "aborted" && /node:_http_server|_http_server/.test(stack);
+}
+
 export function registerCrashHandlers(): void {
   if (process.env.DISABLE_CRASH_HANDLERS === "1") return;
   initCrashLogDir();
@@ -239,9 +255,21 @@ export function registerCrashHandlers(): void {
   }
 
   process.on("uncaughtException", (err) => {
+    if (isBenignSocketError(err)) {
+      try {
+        appendFileSync(
+          join(resolveLogDir(), "socket-warnings.log"),
+          "[" + new Date().toISOString() + "] uncaughtException ignorado: " + String((err as Error)?.message ?? err) + "\n"
+        );
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
     handleCrash("uncaughtException", err);
   });
   process.on("unhandledRejection", (reason) => {
+    if (isBenignSocketError(reason)) return;
     handleCrash("unhandledRejection", reason);
   });
 

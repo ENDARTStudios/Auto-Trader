@@ -189,3 +189,9 @@ Casos negativos verificados por HTTP: `state` divergente e callback sem cookie �
 - Mensagens de webhook (`evt_…`) são traduzidas para "evento recebido e verificado".
 - Entradas repetidas (mesma fonte+mensagem) são deduplicadas.
 - Ordem: SSE ao vivo → histórico persistido → posições → rounds.
+
+## Dev hardening + seed de demonstração (2026-11-02)
+
+**Crash por request abortado:** o handler de `uncaughtException` derrubava o processo em `Error: aborted` (ECONNRESET de navegação cancelada), o que derrubou a suíte de e2e uma vez. `isBenignSocketError` classifica apenas erros de socket do HTTP server (`ECONNRESET`, `EPIPE`, `ECONNABORTED`, `ERR_STREAM_PREMATURE_CLOSE` e `aborted` com stack de `_http_server`) e registra em `logs/socket-warnings.log` sem encerrar. Qualquer outro erro continua com crash dump + exit 1. Testes em `tests/crash-socket-filter.test.ts`.
+
+**Seed versionado:** `npm run db:seed:demo` (`scripts/seed-demo.ts`) cria dados de demonstração idempotentes com IDs fixos: 9 posições (3 abertas, 6 fechadas com snapshots e ordens), 6 snapshots de mercado, 30 pontos de equity, 5 rounds e 6 eventos de atividade. `--clean` remove tudo. Requer `admin@local` e `DATABASE_URL`; carrega `.env` via `dotenv/config`.
