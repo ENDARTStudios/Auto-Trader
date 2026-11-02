@@ -14,10 +14,26 @@ interface Citation {
   content: string;
 }
 
+interface EvidenceClaim {
+  raw: string;
+  value: number;
+  kind: "money" | "percent" | "number";
+  supported: boolean;
+  source?: { entityType?: string; entityId?: string };
+}
+
+interface EvidenceLedger {
+  verdict: "grounded" | "partial" | "unsupported" | "no_claims";
+  claims: EvidenceClaim[];
+  unsupportedCount: number;
+  citationCount: number;
+}
+
 interface AskResponse {
   answer: string;
   citations: Citation[];
   context: string;
+  evidence?: EvidenceLedger;
 }
 
 interface Message {
@@ -25,6 +41,7 @@ interface Message {
   role: "user" | "ai";
   text: string;
   citations?: Citation[];
+  evidence?: EvidenceLedger;
 }
 
 const SUGGESTIONS = [
@@ -52,7 +69,7 @@ export function CopilotView() {
       setMessages((m) => [
         ...m,
         { id: `u-${Date.now()}`, role: "user", text: q },
-        { id: `a-${Date.now()}`, role: "ai", text: res.answer, citations: res.citations },
+        { id: `a-${Date.now()}`, role: "ai", text: res.answer, citations: res.citations, evidence: res.evidence },
       ]);
       setQuestion("");
       requestAnimationFrame(() => listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }));
@@ -106,6 +123,33 @@ export function CopilotView() {
                 <span className="mrd-av">{m.role === "ai" ? "AI" : "AD"}</span>
                 <div>
                   <div className="mrd-bubble">{m.text}</div>
+                  {m.evidence && m.evidence.claims.length > 0 ? (
+                    <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                        <Badge tone={m.evidence.verdict === "grounded" ? "pos" : m.evidence.verdict === "unsupported" ? "neg" : "warn"}>
+                          {m.evidence.verdict === "grounded"
+                            ? "todos os números com fonte"
+                            : m.evidence.verdict === "unsupported"
+                              ? "nenhum número com fonte"
+                              : `${m.evidence.unsupportedCount} sem fonte`}
+                        </Badge>
+                        <span className="mrd-dim" style={{ fontSize: 10.5 }}>
+                          {m.evidence.claims.length} números auditados · {m.evidence.citationCount} citações
+                        </span>
+                      </div>
+                      {m.evidence.unsupportedCount > 0 ? (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {m.evidence.claims
+                            .filter((c) => !c.supported)
+                            .map((c) => (
+                              <span key={c.raw} className="mrd-cite" style={{ borderColor: "color-mix(in srgb, var(--warning) 45%, var(--line))", color: "var(--warning)" }}>
+                                {c.raw} sem citação
+                              </span>
+                            ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {m.citations?.length ? (
                     <div className="mrd-cites">
                       {m.citations.map((c, i) => (
