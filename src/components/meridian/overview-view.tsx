@@ -479,8 +479,28 @@ function RoundsCard({ rounds, loading }: { rounds: RoundRow[]; loading: boolean 
   );
 }
 
+const SOURCE_LABEL: Record<string, string> = {
+  risk: "Risco",
+  engine: "Engine",
+  portfolio: "Portfólio",
+  "stripe-webhook": "Stripe",
+};
+
+interface ActivityEvent {
+  id: string;
+  level: string;
+  source: string;
+  message: string;
+  at: string;
+}
+
 function ActivityCard({ rounds, positions }: { rounds: RoundRow[]; positions: PositionRow[] }) {
   const live = useLiveFeed();
+  const history = useQuery<{ events: ActivityEvent[] }>({
+    queryKey: ["mrd", "activity"],
+    queryFn: () => apiGet<{ events: ActivityEvent[] }>("/api/activity?limit=8"),
+    staleTime: 30_000,
+  });
   const events = useMemo(() => {
     const fromLive = live.map((e) => ({
       id: e.id,
@@ -491,6 +511,27 @@ function ActivityCard({ rounds, positions }: { rounds: RoundRow[]; positions: Po
       text: (
         <>
           <b>{e.title ?? e.type ?? "event"}</b> {e.message ?? ""}
+        </>
+      ),
+      at: e.at,
+    }));
+    const seenHistory = new Set<string>();
+    const fromHistory = (history.data?.events ?? [])
+      .filter((e) => {
+        const key = `${e.source}:${e.message}`;
+        if (seenHistory.has(key)) return false;
+        seenHistory.add(key);
+        return true;
+      })
+      .map((e) => ({
+      id: e.id,
+      icon: (e.level === "error" || e.level === "warn" ? "risk" : e.source === "portfolio" ? "up" : "activity") as
+        | "risk"
+        | "up"
+        | "activity",
+      text: (
+        <>
+          <b>{SOURCE_LABEL[e.source] ?? e.source}</b> {e.message}
         </>
       ),
       at: e.at,
@@ -515,10 +556,10 @@ function ActivityCard({ rounds, positions }: { rounds: RoundRow[]; positions: Po
       ),
       at: p.entryAt,
     }));
-    return [...fromPositions, ...fromRounds]
+    return [...fromLive, ...fromHistory, ...fromPositions, ...fromRounds]
       .sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime())
-      .slice(0, 4);
-  }, [rounds, positions]);
+      .slice(0, 5);
+  }, [rounds, positions, live, history.data]);
 
   return (
     <section className="mrd-card mrd-activity">
