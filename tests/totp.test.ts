@@ -24,7 +24,10 @@ describe('TOTP', () => {
 
   it('verify window', () => {
     const s = generateSecret();
-    const now = Date.now();
+    // Alinhado 5s depois do início do passo de 30s: +31s cai sempre no passo
+    // seguinte (window 1) e +90s cai 3 passos à frente, independente de quando
+    // o teste roda. Antes usava Date.now() puro e falhava perto da borda.
+    const now = Math.floor(Date.now() / 30_000) * 30_000 + 5_000;
     const t = totp(s, now);
     // same time -> true
     expect(verify(t, s, 1, now)).toBe(true);
