@@ -195,3 +195,10 @@ Casos negativos verificados por HTTP: `state` divergente e callback sem cookie �
 **Crash por request abortado:** o handler de `uncaughtException` derrubava o processo em `Error: aborted` (ECONNRESET de navegação cancelada), o que derrubou a suíte de e2e uma vez. `isBenignSocketError` classifica apenas erros de socket do HTTP server (`ECONNRESET`, `EPIPE`, `ECONNABORTED`, `ERR_STREAM_PREMATURE_CLOSE` e `aborted` com stack de `_http_server`) e registra em `logs/socket-warnings.log` sem encerrar. Qualquer outro erro continua com crash dump + exit 1. Testes em `tests/crash-socket-filter.test.ts`.
 
 **Seed versionado:** `npm run db:seed:demo` (`scripts/seed-demo.ts`) cria dados de demonstração idempotentes com IDs fixos: 9 posições (3 abertas, 6 fechadas com snapshots e ordens), 6 snapshots de mercado, 30 pontos de equity, 5 rounds e 6 eventos de atividade. `--clean` remove tudo. Requer `admin@local` e `DATABASE_URL`; carrega `.env` via `dotenv/config`.
+
+## Seed no e2e + job Meridian na CI (2026-11-02)
+
+- `playwright.meridian.config.ts` ganhou `webServer` (`npx next dev -p 3100`) — o job de CI sobe o servidor sozinho, sem depender de processo manual.
+- Novo job `e2e-meridian` no `ci.yml` (roda em push para `main` ou PR com label `e2e`): Postgres + `prisma db push` + `seed-auth` + `seed-demo` + suíte Meridian. O teste do detalhe da posição deixou de ser skip porque o seed garante posições abertas.
+- O teste de rotas ganhou uma repetição para `ERR_ABORTED` (compilação sob demanda no dev) e o teste da posição consulta `/api/positions` antes de navegar, em vez de contar links no instante do load.
+- Verificação local: **13 passed, 0 skipped**.

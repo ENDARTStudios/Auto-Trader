@@ -32,7 +32,17 @@ test("rotas do shell respondem sem erro de página", async ({ page }) => {
   page.on("pageerror", (e) => errors.push(e.message.slice(0, 160)));
 
   for (const [path, heading] of ROUTES) {
-    await page.goto(path);
+    // No dev server a primeira visita compila a rota e um redirect interno pode
+    // abortar a navegação (ERR_ABORTED). Uma repetição resolve.
+    for (let attempt = 0; ; attempt++) {
+      try {
+        await page.goto(path, { waitUntil: "load", timeout: 60_000 });
+        break;
+      } catch (err) {
+        if (attempt >= 1 || !/ERR_ABORTED/.test(String(err))) throw err;
+        await page.waitForTimeout(1500);
+      }
+    }
     await expect(page.locator(".mrd-title")).toContainText(heading, { timeout: 20_000 });
     await expect(page.locator(".mrd-rail")).toBeVisible();
   }
@@ -120,9 +130,16 @@ test("MCP orders_list responde somente leitura", async ({ page }) => {
 });
 
 test("detalhe da posição mostra o ciclo da ordem", async ({ page }) => {
+  // Consulta a API antes de navegar: sem posições o teste é skip explícito.
+  const res = await page.request.get("/api/positions");
+  const body = await res.json().catch(() => null);
+  const rows = Array.isArray(body) ? body : (body?.positions ?? []);
+  const open = rows.filter((p: { status?: string }) => p.status === "open");
+  if (open.length === 0) test.skip(true, "sem posições no ambiente");
+
   await page.goto("/portfolio");
   const link = page.locator('a[href^="/positions/"]').first();
-  if ((await link.count()) === 0) test.skip(true, "sem posições no ambiente");
+  await expect(link).toBeVisible({ timeout: 25_000 });
   await link.click();
   await expect(page.getByText("Ciclo da ordem")).toBeVisible({ timeout: 25_000 });
 });
