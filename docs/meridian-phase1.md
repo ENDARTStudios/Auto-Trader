@@ -181,3 +181,11 @@ Fluxo exercitado no navegador real:
 Estado no banco após o teste: `endart.studios@gmail.com`, `role=viewer`, `googleId` presente, `avatarUrl` presente, `lastLoginAt` atualizado. Contas sociais nascem como **viewer** (leitura), sem senha utilizável.
 
 Casos negativos verificados por HTTP: `state` divergente e callback sem cookie → 307 para `/login?error=google_state`.
+
+## Timeline persistida no Activity (2026-11-02)
+
+`GET /api/activity?limit=12` lê o `AppLog` (fontes risk/engine/portfolio/stripe-webhook) e alimenta o card **Activity** do Overview como histórico após reload — antes o card só tinha SSE em memória e caía para rounds/posições.
+
+- Mensagens de webhook (`evt_…`) são traduzidas para "evento recebido e verificado".
+- Entradas repetidas (mesma fonte+mensagem) são deduplicadas.
+- Ordem: SSE ao vivo → histórico persistido → posições → rounds.
