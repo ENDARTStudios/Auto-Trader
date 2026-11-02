@@ -1,7 +1,8 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { apiGet } from "./api";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { apiGet, apiPost } from "./api";
 import { Icon } from "./icons";
 import { Badge, Card, Kpi, Skeleton } from "./ui";
 import { clockUtc } from "@/lib/meridian/format";
@@ -27,6 +28,19 @@ interface StripeStatus {
 }
 
 export function BillingView() {
+  const portal = useMutation({
+    mutationFn: () => apiPost<{ url: string }>("/api/billing/portal"),
+    onSuccess: (res) => window.location.assign(res.url),
+    onError: (err: Error) => {
+      const message = err.message.includes("409")
+        ? "Assine um plano primeiro para abrir o portal."
+        : err.message.includes("503")
+          ? "Stripe ainda não está configurado neste ambiente."
+          : err.message;
+      toast.error("Não foi possível abrir o portal", { description: message });
+    },
+  });
+
   const stripe = useQuery<StripeStatus>({
     queryKey: ["mrd", "stripe-status"],
     queryFn: () => apiGet<StripeStatus>("/api/billing/status"),

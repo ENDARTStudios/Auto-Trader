@@ -77,6 +77,8 @@ export function proxy(req: NextRequest) {
   // usuário deslogado precisa deles; proteção = rate limit 5/60s + token single-use.
   const publicApi =
     pathname === '/api/health' ||
+    // Webhooks se autenticam por assinatura HMAC na própria rota, não por sessão.
+    pathname.startsWith('/api/webhooks/') ||
     pathname.startsWith('/api/auth/login') ||
     pathname === '/api/auth/forgot' ||
     pathname === '/api/auth/reset';
