@@ -24,6 +24,11 @@ const TOOLS = [
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {
+    name: "orders_list",
+    description: "Ordens em paper com estado persistido e histórico de transições.",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
     name: "risk_status",
     description: "Estado de risco: modo, kill switch e limites configurados.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
@@ -71,6 +76,11 @@ async function callTool(name: ToolName, userId: string) {
       lastEquityUsd: latest?.totalEquityUsd ?? null,
       lastSnapshotAt: latest?.timestamp ?? null,
     };
+  }
+
+  if (name === "orders_list") {
+    const rows = await db.paperOrder.findMany({ orderBy: { createdAt: "desc" }, take: 20 });
+    return { orders: rows };
   }
 
   const cfg = await db.config.findUnique({ where: { id: "singleton" } });

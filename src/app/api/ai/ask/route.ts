@@ -6,6 +6,7 @@ import { ForbiddenError } from '@/lib/auth/errors';
 import { handleApiError } from '@/lib/api/error-handler';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { askRag } from '@/lib/rag/pipeline';
+import { buildEvidenceLedger } from '@/lib/rag/evidence';
 
 const schema = z.object({ question: z.string().min(3).max(500) });
 
@@ -28,7 +29,8 @@ export async function POST(req: Request) {
     const parsed = schema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: 'validation_error', details: parsed.error.flatten() }, { status: 400 });
     const result = await askRag(parsed.data.question);
-    return NextResponse.json(result);
+    const evidence = buildEvidenceLedger(result.answer, result.citations);
+    return NextResponse.json({ ...result, evidence });
   } catch (err) {
     return handleApiError(err, 'POST /api/ai/ask');
   }

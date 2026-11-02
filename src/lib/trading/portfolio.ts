@@ -20,6 +20,7 @@ import {
   liveSell,
   ExecutionResult,
 } from "./paper-trader";
+import { recordPaperOrder, transitionPaperOrder } from "./paper-order-store";
 import type {
   ExitReason,
   PositionRow,
@@ -131,6 +132,14 @@ export async function openPosition(
     data: { tradesOpened: { increment: 1 } },
   });
 
+  await recordPaperOrder({
+    positionId: position.id,
+    symbol: candidate.symbol,
+    priceUsd: result.executedPriceUsd,
+    qty: result.qty,
+    amountUsd: result.amountUsd,
+  });
+
   logger.info("portfolio", `Position OPENED ${candidate.symbol}`, {
     id: position.id,
     entry,
@@ -219,6 +228,12 @@ export async function closePosition(
       losses: { increment: pnlUsd < 0 ? 1 : 0 },
     },
   });
+
+  await transitionPaperOrder(
+    positionId,
+    reason === "kill_switch" ? "cancel" : "settle",
+    reason === "kill_switch" ? "kill switch: encerrada sem liquidação" : `saída: ${reason}`
+  );
 
   logger.info("portfolio", `Position CLOSED ${pos.symbol}`, {
     id: positionId,

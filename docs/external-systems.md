@@ -95,3 +95,11 @@ comportamentos descritos aqui.
 UI: card **Ciclo da ordem** no detalhe da posição, com a timeline real e a chave da ordem.
 Testes: 12 casos em `tests/paper-order-lifecycle.test.ts`.
 Persistência de uma tabela de ordens no engine fica para a próxima fase — a projeção atual não inventa etapas.
+
+## Fase B persistida + Fase C implementadas (2026-11-02)
+
+**Persistência do ciclo (B):** tabela `PaperOrder` (key única determinística, estado, preço/qtd, `transitions` JSON). `recordPaperOrder` cria a ordem já preenchida dentro de `openPosition`; `transitionPaperOrder` aplica `settle` (saída normal) ou `cancel` (kill switch) dentro de `closePosition`. Falha de bookkeeping nunca interrompe execução. `orders_list` entrou no bridge MCP (leitura).
+
+**Ledger de evidências (C):** `src/lib/rag/evidence.ts` extrai números (dinheiro, %, número), normaliza pt-BR/en-US, ignora hashes/identificadores e cruza cada valor com o conteúdo das citações. `/api/ai/ask` devolve `evidence` com veredito `grounded | partial | unsupported | no_claims`; o Copilot mostra o selo e os números **sem fonte**. Testes: 10 casos.
+
+Regra aplicada: número sem citação não é tratado como verdade — aparece marcado, com a contagem de citações usada.

@@ -804,3 +804,25 @@ model PaperCycleAttempt {
   @@index([completedAt])
   @@index([roundId])
 }
+
+// ---------------------------------------------------------------------------
+// Paper order lifecycle (Fase B) — transições persistidas por ordem.
+// Estado vive aqui (não derivado) para replay/auditoria com histórico real.
+// ---------------------------------------------------------------------------
+model PaperOrder {
+  id          String   @id @default(cuid())
+  key         String   @unique // hash determinístico positionId:side
+  positionId  String?
+  symbol      String
+  side        String   @default("buy") // buy | sell
+  state       String   @default("created") // created | filled | settled | cancelled
+  priceUsd    Float
+  qty         Float
+  amountUsd   Float
+  transitions String   // JSON [{state, at, note}]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([positionId])
+  @@index([createdAt])
+}
