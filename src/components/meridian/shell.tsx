@@ -8,6 +8,7 @@ import { NAV } from "@/lib/meridian/nav";
 import { clockUtc, duration } from "@/lib/meridian/format";
 import { apiGet, type RuntimeStatus } from "./api";
 import { Icon } from "./icons";
+import { OnboardingWizard } from "./onboarding-wizard";
 import { Dot } from "./ui";
 
 interface ShellProps {
@@ -278,8 +279,9 @@ export function Shell({ user, serverNow, children }: ShellProps) {
           onToggleTheme={toggleTheme}
         />
       ) : null}
-    </div>
-  );
+        <OnboardingWizard email={user.email} />
+      </div>
+    );
 }
 
 function CommandPalette({ onClose, onToggleTheme }: { onClose: () => void; onToggleTheme: () => void }) {
