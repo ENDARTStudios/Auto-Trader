@@ -262,6 +262,10 @@ jobs:
       - run: npx playwright test --config playwright.meridian.config.ts
         env:
           DATABASE_URL: postgresql://autotrader:autotrader@localhost:5432/autotrader
+          # Credenciais fake só para exercitar o guard de state do callback OAuth
+          # (o teste nunca chega a trocar código com o Google).
+          GOOGLE_CLIENT_ID: test-client-id.apps.googleusercontent.com
+          GOOGLE_CLIENT_SECRET: test-client-secret
           E2E_RATE_LIMIT_BYPASS: "1"
           SESSION_SECRET: test-session-secret-32-chars-minimum-for-ci-e2e
           ENCRYPTION_KEY: "base64:dGVzdC1lbmNyeXB0aW9uLWtleS0zMi1ieXRlcy1iYXNlNjQ="
