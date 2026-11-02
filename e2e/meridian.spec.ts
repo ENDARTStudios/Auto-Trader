@@ -114,6 +114,12 @@ test.describe("anônimo", () => {
     await expect(page.getByRole("heading", { level: 2 })).toContainText("Recuperar acesso");
   });
 
+  test("callback OAuth com state inválido volta ao login com erro", async ({ page }) => {
+    await page.goto("/api/auth/google/callback?code=fake&state=wrong");
+    await expect(page).toHaveURL(/\/login\?error=google_state/, { timeout: 15_000 });
+    await expect(page.locator(".mrd-banner")).toContainText("expirou");
+  });
+
   test("raiz anônima cai na landing", async ({ page }) => {
     await page.goto("/");
     await expect(page).toHaveURL(/\/welcome/, { timeout: 15_000 });

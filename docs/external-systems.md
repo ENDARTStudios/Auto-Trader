@@ -82,3 +82,16 @@ avançado (fatores, atribuição, cenários) sem importar código.
 
 Nenhum item do roadmap exige copiar código de terceiros; todos são contratos e
 comportamentos descritos aqui.
+
+## Fase B implementada (2026-11-02)
+
+`src/lib/trading/paper-order-lifecycle.ts` — máquina de estados própria (sem código de terceiros):
+
+- estados `created → filled → settled | cancelled`, com tabela de transições explícita;
+- invariantes: terminal não transiciona; não liquida antes de preencher; fill exige preço e quantidade positivos e finitos;
+- `orderKey(positionId, side)` — hash determinístico de 24 chars para replay idempotente;
+- `deriveLifecycle(position)` — projeta o ciclo a partir da posição persistida (aberta → `filled`, fechada → `settled`, kill switch → `cancelled`).
+
+UI: card **Ciclo da ordem** no detalhe da posição, com a timeline real e a chave da ordem.
+Testes: 12 casos em `tests/paper-order-lifecycle.test.ts`.
+Persistência de uma tabela de ordens no engine fica para a próxima fase — a projeção atual não inventa etapas.

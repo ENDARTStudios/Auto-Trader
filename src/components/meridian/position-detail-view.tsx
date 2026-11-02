@@ -8,6 +8,7 @@ import { apiGet, apiPost } from "@/components/meridian/api";
 import { Icon } from "@/components/meridian/icons";
 import { Badge, Card, Empty, Kpi, Skeleton } from "@/components/meridian/ui";
 import { clockUtc, pct, price, signedUsd, stampUtc, usd } from "@/lib/meridian/format";
+import { deriveLifecycle } from "@/lib/trading/paper-order-lifecycle";
 
 interface Detail {
   position: {
@@ -86,6 +87,13 @@ export function PositionDetailView({ id }: { id: string }) {
   }
 
   const { position: p, scamReport, aiInsights, surveillanceAlerts, marketSnapshots, round } = q.data;
+  const lifecycle = deriveLifecycle({
+    id: p.id,
+    status: p.status,
+    entryAt: p.entryAt,
+    exitAt: p.exitAt,
+    exitReason: p.exitReason,
+  });
   const isOpen = p.status === "open";
   const live = q.data.currentPrice ?? p.currentPriceUsd ?? 0;
   const hasLive = live > 0;
@@ -151,6 +159,33 @@ export function PositionDetailView({ id }: { id: string }) {
               <dt>Round P&L</dt>
               <dd className={(round?.roundPnlUsd ?? 0) >= 0 ? "mrd-pos" : "mrd-neg"}>{round?.roundPnlUsd !== undefined ? signedUsd(round.roundPnlUsd ?? 0) : "—"}</dd>
             </dl>
+          </Card>
+
+          <Card title="Ciclo da ordem" sub={`paper · chave ${lifecycle.key.slice(0, 10)}…`}>
+            <div style={{ display: "grid", gap: 8 }}>
+              {lifecycle.transitions.map((t, i) => (
+                <div key={`${t.state}-${i}`} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 12 }}>
+                  <span
+                    style={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: 99,
+                      marginTop: 5,
+                      background: i === lifecycle.transitions.length - 1 ? "var(--brand)" : "var(--line-strong)",
+                      flex: "none",
+                    }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <b style={{ fontSize: 12.5 }}>{t.state}</b>
+                    <div className="mrd-dim" style={{ fontSize: 11 }}>{t.note}</div>
+                  </div>
+                  <span className="mrd-dim" style={{ fontSize: 11 }}>{stampUtc(t.at)}</span>
+                </div>
+              ))}
+            </div>
+            <p className="mrd-dim" style={{ fontSize: 11, marginTop: 10, lineHeight: 1.5 }}>
+              Transições derivadas da posição persistida — o mesmo replay produz a mesma chave.
+            </p>
           </Card>
 
           <Card title="Scam report" sub="o que os gates viram antes da entrada">
