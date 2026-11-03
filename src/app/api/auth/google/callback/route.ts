@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
+  appBaseUrl,
   clearStateCookie,
   exchangeGoogleCode,
   fetchGoogleProfile,
@@ -29,7 +30,7 @@ function readCookie(req: Request, name: string): string | null {
 }
 
 function fail(req: Request, reason: string) {
-  const url = new URL(`/login?error=${reason}`, req.url);
+  const url = new URL(`/login?error=${reason}`, appBaseUrl());
   const res = NextResponse.redirect(url);
   res.headers.append("Set-Cookie", clearStateCookie());
   return res;
@@ -111,7 +112,7 @@ export async function GET(req: Request) {
       ip,
     }).catch(() => {});
 
-    const res = NextResponse.redirect(new URL("/overview", req.url));
+    const res = NextResponse.redirect(new URL("/overview", appBaseUrl()));
     res.headers.append("Set-Cookie", createSessionCookie(token, expiresAt));
     res.headers.append("Set-Cookie", clearStateCookie());
     return res;
