@@ -124,3 +124,13 @@ está definida — assim o portal não depende do "default" do dashboard.
   metadata `plan=elite`.
 - Produtos/preços de teste criados pelo CLI (`myproduct`, US$ 15) foram arquivados.
 - Webhook `we_1UXiTn…` agora assina também `invoice.payment_succeeded` (6 eventos).
+
+### Bloqueio atual para live (verificado na API)
+
+A conta do app é `acct_1UXCaGQ76C0SHZqc` (standard, BR) com `charges_enabled=false`,
+`payouts_enabled=false` e `details_submitted=false` — o onboarding nunca foi concluído.
+Enquanto isso, preços/keys live não podem ser criados: o Stripe só libera `sk_live_` após a
+ativação. A chave live do CLI (`rk_live_…`) também está expirada desde 2026-11-01.
+
+Para liberar: concluir o onboarding no dashboard (dados de negócio + conta bancária) e então
+rodar `stripe login --live` para renovar a chave do CLI, criar preços live e trocar as envs.

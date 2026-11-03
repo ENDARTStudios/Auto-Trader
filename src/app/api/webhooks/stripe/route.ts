@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { verifyStripeWebhook } from "@/lib/billing/stripe-hmac";
 import { checkoutSessionGrantsAccess, isActiveSubscriptionStatus, planFromMetadata, STRIPE_CUSTOMER_PREFIX, stripeCustomerKey, userIdFromCustomerKey } from "@/lib/billing/subscription-state";
 import { logger } from "@/lib/trading/logger";
+import { eventBus } from "@/lib/trading/event-bus";
 import { handleApiError } from "@/lib/api/error-handler";
 
 export const dynamic = "force-dynamic";
@@ -172,6 +173,17 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true, received: event.type });
   } catch (err) {
+    // Falha de processamento de cobrança é crítica: além do log, publica no
+    // barramento para aparecer no Activity/SSE do operador.
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error("api", "Stripe webhook falhou", { message });
+    eventBus.push({
+      type: "alert",
+      level: "error",
+      source: "stripe-webhook",
+      title: "Falha ao processar webhook do Stripe",
+      message: message.slice(0, 200),
+    });
     return handleApiError(err, "POST /api/webhooks/stripe");
   }
 }

@@ -92,3 +92,17 @@ token e adicionar `RAILWAY_TOKEN` nos secrets do GitHub; aí um job em `ci.yml` 
 `git archive` no Windows converters `.sh` para CRLF e o container morria com
 `docker-entrypoint.sh: No such file or directory`. `.gitattributes` fixa `eol=lf` para
 `.sh`/`Dockerfile`; qualquer deploy manual deve conferir os scripts antes do upload.
+
+## Deploy automático (opcional, já preparado)
+
+`.github/workflows/deploy-railway.yml` roda `railway up` no push para `main`, mas só quando
+`RAILWAY_DEPLOY_ENABLED=true` (variable) e `RAILWAY_TOKEN` (secret) existirem. Sem isso, o
+workflow fica pulado e o deploy continua manual.
+
+Passos: Railway → Project Settings → Tokens → *project token*; GitHub → Secrets →
+`RAILWAY_TOKEN`; GitHub → Variables → `RAILWAY_DEPLOY_ENABLED=true`.
+
+## Alerta de falha de cobrança
+
+O webhook do Stripe publica no `eventBus` (`level=error`, `source=stripe-webhook`) quando o
+processamento falha, então a falha aparece no card Activity além de ficar no `AppLog`.
