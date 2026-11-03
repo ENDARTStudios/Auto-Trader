@@ -106,3 +106,21 @@ FeatureFlag e o portal usa esse id primeiro, caindo no e-mail só como fallback.
 final do status. A tela de Billing mostra **“pagamento pendente”** quando `enabled=false`
 com plano pago. O userId é resolvido pelo customer salvo no checkout
 (`stripe_customer:<userId>`), sem chamada extra ao Stripe.
+
+### Configuração do Customer Portal
+
+Config `bpc_1UXjCbQ76C0SHZqcSueKL33Z` (test mode): atualiza nome/e-mail/endereço/telefone,
+troca de cartão, histórico de faturas e cancelamento ao fim do período (sem upgrade
+self-service). Headline e links de privacidade/termos apontam para o Railway.
+
+A rota `/api/billing/portal` passa `configuration` quando `STRIPE_PORTAL_CONFIGURATION`
+está definida — assim o portal não depende do "default" do dashboard.
+
+### Produtos e preços (via Stripe CLI)
+
+- `prod_VYSce3423wn0dW` **Auto Trader Pro** — default price `price_1UXLh5…` (US$ 49/mês),
+  metadata `plan=pro`.
+- `prod_VYScckU7wQK3bn` **Auto Trader Elite** — default price `price_1UXLh6…` (US$ 199/mês),
+  metadata `plan=elite`.
+- Produtos/preços de teste criados pelo CLI (`myproduct`, US$ 15) foram arquivados.
+- Webhook `we_1UXiTn…` agora assina também `invoice.payment_succeeded` (6 eventos).
