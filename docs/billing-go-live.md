@@ -134,3 +134,23 @@ ativação. A chave live do CLI (`rk_live_…`) também está expirada desde 202
 
 Para liberar: concluir o onboarding no dashboard (dados de negócio + conta bancária) e então
 rodar `stripe login --live` para renovar a chave do CLI, criar preços live e trocar as envs.
+
+## Live ativado (2026-11-03)
+
+Conta live `acct_1UXCZALsXM10JIlV` com `charges_enabled=true`.
+
+| Item | Valor |
+|---|---|
+| Chave | `rk_live_…` (restrita, no Railway) — modo detectado por prefixo `rk_live_`/`sk_live_` |
+| Publishable | `pk_live_…` |
+| Preço Pro | `price_1UXnXZLsXM10JIlVF4lX13Zy` (US$ 49/mês) |
+| Preço Elite | `price_1UXnXaLsXM10JIlVNZQo8RNP` (US$ 199/mês) |
+| Webhook | `we_1UXnfpLsXM10JIlVkpc9pJL9` — 6 eventos, URL do Railway |
+| Portal | `bpc_1UXnfqLsXM10JIlVMBe4cYLY` |
+
+Ajustes de código: `stripeMode()` reconhece chaves restritas (antes `rk_live_` era
+reportado como "test"); o portal faz fallback para e-mail quando o customer salvo é de
+outro modo (id de test após a migração), devolvendo `409 no_customer` em vez de 500.
+
+Estado de assinatura de test mode foi limpo no banco antes do go-live: o admin não herda
+plano pago na conta live.

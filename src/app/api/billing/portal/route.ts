@@ -39,13 +39,33 @@ export async function POST(req: Request) {
     }
 
     const portalConfig = process.env.STRIPE_PORTAL_CONFIGURATION?.trim();
-    const portal = await stripePost<{ url: string }>("/billing_portal/sessions", {
-      customer,
-      return_url: `${appUrl()}/billing`,
-      ...(portalConfig ? { configuration: portalConfig } : {}),
-    });
+    const openPortal = (customerId: string) =>
+      stripePost<{ url: string }>("/billing_portal/sessions", {
+        customer: customerId,
+        return_url: `${appUrl()}/billing`,
+        ...(portalConfig ? { configuration: portalConfig } : {}),
+      });
 
-    return NextResponse.json({ url: portal.url });
+    try {
+      const portal = await openPortal(customer);
+      return NextResponse.json({ url: portal.url });
+    } catch (err) {
+      // Customer de outro modo (ex.: id de test após migrar para live): tenta
+      // o e-mail antes de desistir, em vez de devolver 500.
+      const message = err instanceof Error ? err.message : String(err);
+      if (!/no such customer/i.test(message)) throw err;
+
+      const fallback = await stripeGet<{ data: { id: string }[] }>("/customers", {
+        email: session.email,
+        limit: 1,
+      });
+      const byEmail = fallback.data[0]?.id;
+      if (!byEmail) {
+        return NextResponse.json({ error: "no_customer" }, { status: 409 });
+      }
+      const portal = await openPortal(byEmail);
+      return NextResponse.json({ url: portal.url });
+    }
   } catch (err) {
     return handleApiError(err, "POST /api/billing/portal");
   }

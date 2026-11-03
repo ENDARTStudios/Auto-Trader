@@ -3,6 +3,7 @@ import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/rbac";
 import { ForbiddenError } from "@/lib/auth/errors";
 import { handleApiError } from "@/lib/api/error-handler";
+import { stripeMode } from "@/lib/billing/stripe-api";
 
 // GET /api/billing/status — what the Stripe integration still needs to work.
 // Nunca devolve valores de chave, apenas presença/ausência dos envs.
@@ -25,7 +26,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       configured: missing.length === 0,
-      mode: process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_") ? "live" : process.env.STRIPE_SECRET_KEY ? "test" : "none",
+      mode: stripeMode(),
       missing,
       present: REQUIRED.filter(present),
       webhookPath: "/api/webhooks/stripe",
