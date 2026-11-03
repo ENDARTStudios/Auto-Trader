@@ -69,6 +69,23 @@ export async function register(): Promise<void> {
     }
   }
 
+  // Host contínuo (Railway/container): retoma o engine se o banco diz que ele
+  // estava ligado antes do restart. Exige ENGINE_RESUME_ON_BOOT=1 para não
+  // disparar durante build nem em ambientes que só servem UI.
+  if (process.env.ENGINE_RESUME_ON_BOOT === "1" && !process.env.VERCEL && !process.env.DATABASE_URL?.startsWith("file:")) {
+    try {
+      const { getConfig } = await import("@/lib/trading/config");
+      const { engine } = await import("@/lib/trading/engine");
+      const cfg = await getConfig();
+      if (cfg.engineRunning && !cfg.killSwitchActive) {
+        await engine.start();
+        console.log("[instrumentation] engine retomada do estado persistido");
+      }
+    } catch (e) {
+      console.error("[instrumentation] resume do engine falhou:", (e as Error).message);
+    }
+  }
+
   // S05: Observability — OTEL (no-op if OTEL_EXPORTER_OTLP_ENDPOINT empty)
   try {
     const { initOTel } = await import("@/lib/observability/otel");

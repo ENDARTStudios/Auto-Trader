@@ -190,10 +190,12 @@ export default function LoginPage() {
             <Link href="/pricing">Ver planos</Link>
           </div>
 
-          <div className="mrd-auth-note">
-            Conta de teste neste ambiente: <b>admin@local</b> / <b>Admin123!</b> · o cadastro é por convite, feito por um
-            administrador.
-          </div>
+          {process.env.NODE_ENV !== "production" || process.env.NEXT_PUBLIC_SHOW_DEMO_CREDS === "1" ? (
+            <div className="mrd-auth-note">
+              Conta de teste neste ambiente: <b>admin@local</b> / <b>Admin123!</b> · o cadastro é por convite, feito por
+              um administrador.
+            </div>
+          ) : null}
         </div>
       </main>
     </div>
