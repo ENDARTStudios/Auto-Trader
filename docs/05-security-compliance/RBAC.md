@@ -1,8 +1,8 @@
 # RBAC — Matriz de Níveis de Acesso
 
 > **Versão:** 1.0 — 2026-08-26
-> **Padrão:** RBAC 4 papéis × 24 permissões, enforcement em middleware + RLS
-> **Fonte:** `src/lib/auth/rbac.ts` (a implementar em SPRINT) + `src/lib/auth/middleware.ts`
+> **Padrão:** RBAC 4 papéis × 25 permissões, enforcement no proxy (sessão assinada, deny-by-default) + `requirePermission` em cada rota + escopo por `ownerId` (RLS de aplicação; RLS nativo Postgres é pendência).
+> **Fonte:** `src/lib/auth/rbac.ts` + `src/proxy.ts` + `src/lib/auth/session.ts`
 
 ---
 

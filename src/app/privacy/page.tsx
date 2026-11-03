@@ -49,7 +49,7 @@ export default function PrivacyPage() {
       </ul>
 
       <h2>4. Finalidades</h2>
-      <p>Autenticar e autorizar acesso (RBAC 4 papéis × 24 permissões, RLS por `ownerId`), executar o loop de trading, auditar decisões, enviar alertas configurados, gerar analytics e cumprir obrigações legais. Não utilizamos seus dados para comercialização a terceiros.</p>
+      <p>Autenticar e autorizar acesso (RBAC 4 papéis × 25 permissões, escopo por `ownerId`), executar o loop de trading, auditar decisões, enviar alertas configurados, gerar analytics e cumprir obrigações legais. Não utilizamos seus dados para comercialização a terceiros.</p>
 
       <h2>5. Compartilhamento</h2>
       <p>
@@ -59,7 +59,7 @@ export default function PrivacyPage() {
       <h2>6. Armazenamento e Segurança</h2>
       <ul>
         <li>Senhas: hash bcrypt custo 12; nunca em texto plano.</li>
-        <li>Chaves privadas/API keys: AES-256-GCM com KDF versionado e `ENCRYPTION_KEY` em variável de ambiente/secret manager; zeroização de chave em `finally`.</li>
+        <li>Chaves privadas/API keys: AES-256-GCM com chave derivada por PBKDF2-SHA256 (600k iterações) a partir da passphrase do operador, IV aleatório por blob e zeroização em `finally`.</li>
         <li>Sessão: cookie `session` opaco, `HttpOnly`, `Secure` (produção), `SameSite=Lax`, expiração 7 dias; token armazenado como hash SHA-256.</li>
         <li>Transmissão: TLS 1.2/1.3, HSTS `max-age=63072000; includeSubDomains; preload`, CSP restritiva.</li>
         <li>Logs: `redact` de `password`, `token`, `apiKey`, `ENCRYPTION_KEY` em Pino; `gitleaks` no pre-commit/CI.</li>

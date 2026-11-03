@@ -201,3 +201,48 @@
 - Execuções: `.local/audit/{typecheck,vitest,coverage,eslint,build,testci}.log`.
 - Screenshots: `.local/audit/screens/` (dashboard local pós-trade, prod overview/markets/portfolio/strategy/backtest/analytics/risk/alerts/settings, `ui-start-click.png` com o 403).
 - Limitação: auditoria do **working tree** (46 commits atrás) + **produção** (código novo). Onde o remoto difere, está marcado. Nada foi alterado no código; a única escrita em banco foi o teste do engine paper no DB local de dev (autorizado) e logins de verificação em produção.
+
+---
+
+## 7. Status pós-correção — Rodada 1 (2026-11-03, branch `fix/audit-round1`, commit `e560604`)
+
+**Deploy em produção:** Railway `auto-trader-production-0cbc.up.railway.app` — deployment `ad42feeb` (Online), verificado às 19:15 -03.
+
+### Ações imediatas aplicadas (com prova em produção)
+
+| Ação | Antes | Agora (verificado) |
+|---|---|---|
+| Bypass de auth por cookie forjado | `Cookie: session=<qualquer>` → 200 em `/api/system/backup` e `/api/system/info` | **401** em backup/info/runtime/config/status com cookie forjado de 64 hex; sessão agora é `<token>.<HMAC-SHA256>` assinada e validada no proxy sem DB |
+| CSRF forjável | header==cookie sem segredo; par auto-emitido passava | token `HMAC(secret, "<session-cookie>.<ts>")` + janela 1h + Origin; **mutação com par forjado → 403**, com token legítimo → 200 |
+| Credencial default `admin@local/Admin123!` | login 200 `super_admin` em produção | **login 401**; senha rotacionada (credencial em `.local/audit/prod-admin-creds.txt`, fora do git); `viewer@local`/`trader@local` desativados; dono `endart.studios@gmail.com` promovido a `super_admin` |
+| Sessões antigas | 29 sessões no DB | **todas deletadas** + `SESSION_SECRET` rotacionado (64 hex) |
+| Rotas sem auth no handler | 28 rotas sem sessão (produção) | `requireSession`+`requirePermission` em **100%** das rotas não-públicas, com `system:admin` para backup/maintenance/initialize; teste de contrato percorre todos os `route.ts` |
+| Health probes | `/api/health/ready` inexistente (404) | **`/api/health/live` 200 e `/api/health/ready` 200** (DB check), allowlisted no proxy |
+
+### Sistemas simulados → reais (código novo, deployado)
+
+- **ETL**: mocks `MOCK_PAIRS`/`MOCK_AUDITS`/`MOCK_TOKENS` removidos; DexScreener/GoPlus/CoinGecko via HTTP real com proveniência (status `ok` só HTTP 2xx); nova rota `/api/etl` (GET `system:read`, POST `system:admin`).
+- **Sinais de DEX**: candles sintéticos (reta+seno) **removidos**; OHLCV real via GeckoTerminal por pool de maior liquidez; sem dado real → `MarketDataUnavailableError` e NO_TRADE (nunca indicador inventado).
+- **IA**: sem `z-ai-config` morto; novo provider OpenAI-compatible/Ollama (`AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, `OLLAMA_URL`); sem config → `AIUnavailableError` + `/api/ai/ask` 503, sem `investigate` fabricado.
+- **SourceHealth**: ligado em price-feed, market-analysis, goplus-scanner e /api/ai/ask.
+- **Scam detector**: tax/honeypot deixam de pontuar fixo; `unverified` + peso renormalizado.
+- **Motor paper**: fees/slippage reais + `FeeAuditLog`; round só criado após aprovação e **sempre finalizado**; validação de preço de entrada (mata o bug LIT/USDT −77% em 13s); timeout sem preço fecha e libera capital; `forceCloseAllIfOutsideWindow` corrigido; diversificação/graduação ligadas; engine escopado por `ownerId`.
+- **Infra**: scripts cross-platform (sem tee/bun); baseline de migração Postgres (34 modelos) + `migrate deploy` no CI + gate de drift; standalone assets verificados no CI; Docker `HEALTHCHECK` em `/api/health/ready`; backup/restore scripts; `/api/health/ready` sem vazar erro cru do driver.
+
+### Evidências de gate (branch `fix/audit-round1`)
+
+- `npx tsc --noEmit` → exit 0
+- `npx eslint .` → exit 0
+- `npx vitest run` → **52 arquivos / 626 pass / 1 skip**
+- `npm run build` → exit 0 (+ cópia de static/public para standalone)
+- Verificação em produção: health 200/200/200; cookie forjado 401; senha default antiga 401; senha nova 200; CSRF forjado 403; backup só `super_admin` 200; UI login+overview OK com 0 erros de console.
+
+### Ainda pendente (próximas rodadas — goal segue ativo)
+
+1. **Live trading real** (CEX/DEX/signer/broadcaster/MEV/lease) — segue stub/desconectado; exige chaves e aprovação de envelope (S14) + serviço signer.
+2. **Etherscan ETL** ainda declara `mock` (limitação de free tier) — precisa de contratos/keys acessíveis.
+3. **RLS nativo no Postgres** (policies + `SET LOCAL`) — hoje é escopo de aplicação (`ownerId`).
+4. **CI/CD**: `deploy-railway` continua desligado (deploy manual); branch protection ausente; Sentry/Redis stubs.
+5. **Cobertura**: 32% → subir engine/portfolio/etl/ai no ratchet; `test:ci` local ainda não reprodutível no Windows.
+6. **UI**: labels "Honeypot" → "Turnover (heurística)"; `/api/market` tratar `MarketDataUnavailableError`; limpar snapshots antigos possivelmente sintéticos.
+7. **Docs**: claims históricos de cobertura/arquitetura (5 camadas) e Fly.io ainda desatualizados.
