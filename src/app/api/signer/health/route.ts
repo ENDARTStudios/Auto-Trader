@@ -20,6 +20,7 @@ import {
   UnixSocketSignerTransport,
   maskSignerSocketPath,
 } from "@/lib/chain/signer-transport";
+import { getSignerSupervisorStatus } from "@/lib/signer-supervisor";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,10 @@ export async function GET(req: Request) {
   const expectedProtocolVersion =
     process.env.SIGNER_PROTOCOL_VERSION?.trim() || SIGNER_PROTOCOL_VERSION;
 
+  // Supervisor local (round 3): desligado por padrão (SIGNER_SPAWN!=1). O
+  // caminho do socket é mascarado — nunca vaza o filesystem real.
+  const supervisor = getSignerSupervisorStatus();
+
   const base = {
     configured: socketPath.length > 0,
     reachable: false,
@@ -49,6 +54,7 @@ export async function GET(req: Request) {
     protocolVersionMatches: false,
     expectedProtocolVersion,
     socketPathMasked: maskSignerSocketPath(socketPath),
+    supervisor,
     error: null as string | null,
   };
 

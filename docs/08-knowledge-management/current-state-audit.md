@@ -121,3 +121,49 @@
 ## E. Equipe de bots
 
 Criada: `docs/03-development-process/AGENT_TEAM.md` — 6 bots (Sentinela/Builder/Guardião/Pesquisador/Ops/Revisor), worktree por bot, lock por issue, automações diária/semanal.
+
+---
+
+# Auditoria Geral — 2026-11-03 (pós rodadas 1-2 de auditoria/hardening)
+
+> Método: estado local de `main` mergeado (rodadas 1-2) + gates executados
+> nesta data (`npx tsc --noEmit`, `npx eslint .`, `npx vitest run`,
+> `npx vitest run --coverage`). Sem deploy/edição de env nesta auditoria.
+> Esta seção **corrige claims históricos** de cobertura/checks (ver §D.2).
+
+## D.1 Estado real
+
+| Item | Estado em 2026-11-03 | Evidência |
+|---|---|---|
+| **Produção (Railway)** | UP; auth funcionando; execução **live DESLIGADA/fail-closed** | live-gating exige 6 condições; vars LIVE ausentes no Railway |
+| **Auth bypass** | **Fechado** (rodada 1): cookie forjado → 401; sessão assinada + CSRF | testes de sessão/CSRF na suíte |
+| **Signer** | **NÃO roda em produção** (`configured=false`, `reachable=false`); spawn só com `SIGNER_SPAWN=1` (Lead habilitará pós-deploy) | `/api/runtime/status`, `src/lib/chain/signer-*` |
+| **Dados externos** | ETL real (DexScreener/GoPlus/CoinGecko/GeckoTerminal OHLCV); Etherscan pode reportar `unavailable` (sem mock em produção) | `src/lib/etl/*`, `/api/etl` |
+| **IA** | Provider real configurável (OpenAI-compatible/Ollama); sem chave → `AI_UNAVAILABLE` (HTTP 503), nunca "investigate" falso | `src/lib/ai/provider.ts`, `/api/ai/ask` |
+| **CD** | **Desligado** — CI verde local; deploy é ação manual do Operador | `.github/workflows/ci.yml` |
+| **Gates locais** | tsc 0 · eslint 0 · build OK | este turno |
+
+## D.2 Gates de teste — números REAIS (correção de claim)
+
+- **Vitest:** **66 arquivos / 865 checks** (864 pass + 1 skip, medido 2026-11-03; a contagem cresce a cada rodada).
+- **`npm run test:ci` (REG-004):** **22 scripts `tsx`** — não "23"; execução local via **`npm run test:ci:local`** (`scripts/run-test-ci.mjs`).
+- **Cobertura medida** (`npx vitest run --coverage`, mesmo dia):
+  - Statements **45.92%** (3208/6986)
+  - Branches **40.82%** (2033/4980)
+  - Functions **52.58%** (499/949)
+  - Lines **46.18%** (2942/6370)
+- **Thresholds reais** (`vitest.config.ts`): **30% lines / 39% funcs / 27% branches**.
+- **O claim histórico de "cobertura 80%" era ASPIRACIONAL** (meta de produto),
+  nunca o gate executado. Os claims de "637 / 716 checks" contavam scripts
+  `tsx` do gate legado, não o Vitest atual. Histórico preservado em
+  `HARDENING-ROADMAP.md` (marcado como histórico) e `PLANO_MESTRE.md` (Fase 8).
+- **Escopo da medição** = só `src/lib/{trading,chain,auth,observability,meridian}`
+  (`vitest.config.ts`); `src/lib/etl`, `src/app`, `src/components` ficam fora
+  do ratchet por decisão de config (não alterada nesta rodada).
+
+## D.3 O que mudou desde a auditoria de 2026-11-01
+
+1. Rodada 1: auth/sessão assinada + CSRF; ETL/OHLCV/IA reais (fim dos mocks de dados e candles sintéticos); source-health ligado; motor corrigido.
+2. Rodada 2: Etherscan sem mock em produção; `/api/market` 503 tipado para `MARKET_DATA_UNAVAILABLE`; labels de UI honestos ("Turnover (heurística)"); `geckoterminal` crítico e gate de fonte **por escopo (CEX/DEX)**.
+3. Rodada 3 (esta): claims documentais corrigidos + cobertura real elevada nos módulos puros (`price-feed` 3%→100% lines, `risk-scaling` 0%→100%, `token-selector` 0%→97%).
+

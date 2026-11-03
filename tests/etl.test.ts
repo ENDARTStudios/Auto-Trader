@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fetchCoinGecko } from '@/lib/etl/coingecko';
 import { fetchDexScreener } from '@/lib/etl/dexscreener';
 import { fetchGoPlus } from '@/lib/etl/goplus';
-import { fetchEtherscan } from '@/lib/etl/etherscan';
+import { fetchEtherscan, isTestEnv } from '@/lib/etl/etherscan';
 import { runETL } from '@/lib/etl/run';
 import { __resetEnvCache } from '@/lib/env';
 
@@ -107,6 +107,14 @@ describe('Crypto ETL (connectors reais)', () => {
     const cg = res.sources.find((s) => s.name === 'CoinGecko');
     expect(cg?.status).toBe('ok');
   }, 30000);
+});
+
+describe('fetchEtherscan — helpers puros', () => {
+  it('isTestEnv() é true sob Vitest e false em produção simulada', () => {
+    expect(isTestEnv()).toBe(true);
+    enterProductionEnv(); // NODE_ENV=production + VITEST vazio
+    expect(isTestEnv()).toBe(false);
+  });
 });
 
 describe('fetchEtherscan — produção sem mock (audit round2)', () => {

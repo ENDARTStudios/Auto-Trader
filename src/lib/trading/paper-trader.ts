@@ -41,10 +41,14 @@ import {
 } from "@/lib/chain/cex-adapter";
 import {
   DexAdapterError,
-  createDexWallet,
+  addressOf,
+  createDexSigner,
   executeSwap,
   isDexChain,
+  providerOf,
+  readTokenDecimals,
   usdcAddressForChain,
+  type DexWalletLike,
 } from "@/lib/chain/dex-adapter";
 import { getCexCredentials, getDexCredentials } from "./live-credentials";
 
@@ -486,18 +490,22 @@ async function liveDexBuy(
   if (!creds.ok) {
     return FAILED(amountUsd, `LIVE_CREDS_UNAVAILABLE: ${creds.reason}`);
   }
-  let wallet;
+  let wallet: DexWalletLike;
   try {
-    wallet = await createDexWallet(creds.creds);
+    wallet = await createDexSigner(creds.creds);
   } catch (err) {
     return FAILED(amountUsd, `DEX_EXECUTION_FAILED: ${typedError(err)}`);
   }
+  const provider = providerOf(wallet);
+  if (!provider) return FAILED(amountUsd, "DEX_CONFIG_INVALID: wallet/signer sem provider RPC");
+  // Decimals do USDC lidos ON-CHAIN (não hardcode 6) + cache por chain/token.
+  let usdcDecimals: number;
   let amountInWei: bigint;
   try {
-    // USDC = 6 decimals; usa o valor exato que será gasto.
-    amountInWei = ethers.parseUnits(amountUsd.toFixed(6), 6);
-  } catch {
-    return FAILED(amountUsd, "DEX_INVALID_AMOUNT: amountUsd não conversível em USDC wei");
+    usdcDecimals = await readTokenDecimals(provider, usdc.address, chain);
+    amountInWei = ethers.parseUnits(amountUsd.toFixed(6), usdcDecimals);
+  } catch (err) {
+    return FAILED(amountUsd, `DEX_DECIMALS_UNAVAILABLE: ${typedError(err)}`);
   }
   const feeTier = envInt("DEX_FEE_TIER", DEX_FEE_TIER_DEFAULT);
   const swap = await executeSwap({
@@ -507,7 +515,7 @@ async function liveDexBuy(
     tokenOut: candidate.tokenId,
     amountInWei,
     slippageBps: envInt("DEX_SLIPPAGE_BPS", DEX_SLIPPAGE_BPS_DEFAULT),
-    recipient: wallet.address,
+    recipient: addressOf(wallet),
     feeTier,
   });
   if (!swap.ok) {
@@ -556,18 +564,25 @@ async function liveDexSell(
   if (!creds.ok) {
     return FAILED(0, `LIVE_CREDS_UNAVAILABLE: ${creds.reason}`);
   }
-  let wallet;
+  let wallet: DexWalletLike;
   try {
-    wallet = await createDexWallet(creds.creds);
+    wallet = await createDexSigner(creds.creds);
   } catch (err) {
     return FAILED(0, `DEX_EXECUTION_FAILED: ${typedError(err)}`);
   }
-  const tokenDecimals = pos.tokenDecimals ?? 18;
+  const provider = providerOf(wallet);
+  if (!provider) return FAILED(0, "DEX_CONFIG_INVALID: wallet/signer sem provider RPC");
+  // Decimals do TOKEN da posição lidos ON-CHAIN (fim do hardcode 18). O campo
+  // tokenDecimals da posição é apenas preferência explícita do caller.
+  let tokenDecimals: number;
+  let usdcDecimals: number;
   let amountInWei: bigint;
   try {
+    tokenDecimals = pos.tokenDecimals ?? (await readTokenDecimals(provider, pos.tokenId, chain));
+    usdcDecimals = await readTokenDecimals(provider, usdc.address, chain);
     amountInWei = ethers.parseUnits(pos.qty.toString(), tokenDecimals);
-  } catch {
-    return FAILED(0, "DEX_INVALID_AMOUNT: qty não conversível em wei");
+  } catch (err) {
+    return FAILED(0, `DEX_DECIMALS_UNAVAILABLE: ${typedError(err)}`);
   }
   const feeTier = envInt("DEX_FEE_TIER", DEX_FEE_TIER_DEFAULT);
   const swap = await executeSwap({
@@ -577,14 +592,14 @@ async function liveDexSell(
     tokenOut: usdc.address,
     amountInWei,
     slippageBps: envInt("DEX_SLIPPAGE_BPS", DEX_SLIPPAGE_BPS_DEFAULT),
-    recipient: wallet.address,
+    recipient: addressOf(wallet),
     feeTier,
   });
   if (!swap.ok) {
     return FAILED(0, `${swap.error}: ${swap.reason}`);
   }
-  // Saída é USDC (6 decimals): cash-in real.
-  const cashIn = Number(swap.amountOutWei) / 1e6;
+  // Saída é USDC: cash-in real (decimals lidos on-chain).
+  const cashIn = Number(swap.amountOutWei) / 10 ** usdcDecimals;
   const qty = pos.qty;
   const executedPrice = qty > 0 ? cashIn / qty : currentPriceUsd;
   const feeBps = feeTier / 100;

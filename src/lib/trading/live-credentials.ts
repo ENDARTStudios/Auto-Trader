@@ -56,6 +56,12 @@ export interface DexCredentials {
   rpcUrl: string;
   privateKey?: string; // source=env
   signerSocketPath?: string; // source=signer
+  /**
+   * source=signer only: qual WalletConnection do cofre o signer deve usar para
+   * o endereço/derivation path da tx (round 3). Sem ele, a assinatura via
+   * signer é recusada (fail-closed) — ver LIVE_CRED_ERROR.DEX_SIGNER_WALLET_ID_REQUIRED.
+   */
+  signerWalletId?: string;
 }
 
 export type LiveCredentialResult<T> =
@@ -78,6 +84,7 @@ export const LIVE_CRED_ERROR = {
   UNSUPPORTED_CHAIN: "LIVE_UNSUPPORTED_CHAIN",
   RPC_NOT_CONFIGURED: "LIVE_RPC_NOT_CONFIGURED",
   DB_ERROR: "LIVE_CREDS_DB_ERROR",
+  DEX_SIGNER_WALLET_ID_REQUIRED: "DEX_SIGNER_WALLET_ID_REQUIRED",
 } as const;
 
 export type LiveCredErrorCode =
@@ -315,6 +322,14 @@ export function getDexCredentials(chain: string): LiveCredentialResult<DexCreden
         "DEX_USE_SIGNER=1 mas SIGNER_SOCKET_PATH ausente",
       );
     }
+    // Fail-closed: assinar via signer exige saber QUAL wallet do cofre usar.
+    const signerWalletId = envValue("DEX_SIGNER_WALLET_ID");
+    if (!signerWalletId) {
+      return fail(
+        LIVE_CRED_ERROR.DEX_SIGNER_WALLET_ID_REQUIRED,
+        "DEX_USE_SIGNER=1 mas DEX_SIGNER_WALLET_ID ausente — assinatura via signer exige a wallet do cofre",
+      );
+    }
     return {
       ok: true,
       creds: {
@@ -322,6 +337,7 @@ export function getDexCredentials(chain: string): LiveCredentialResult<DexCreden
         chain: normalized,
         rpcUrl,
         signerSocketPath,
+        signerWalletId,
       },
     };
   }
@@ -374,7 +390,7 @@ export function getLiveCredentialStatus(): LiveCredentialStatus {
 
   const signerConfigured = Boolean(envValue("SIGNER_SOCKET_PATH"));
   const dexSource: LiveCredentialSource | null =
-    envValue("DEX_USE_SIGNER") === "1" && signerConfigured
+    envValue("DEX_USE_SIGNER") === "1" && signerConfigured && Boolean(envValue("DEX_SIGNER_WALLET_ID"))
       ? "signer"
       : envValue("DEX_OPERATOR_PRIVATE_KEY")
         ? "env"

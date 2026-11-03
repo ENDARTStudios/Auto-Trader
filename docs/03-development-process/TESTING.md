@@ -256,13 +256,21 @@ Badge no `README.md`:
 
 | Gate | Hoje (test:ci) | Futuro (com Vitest+Playwright) |
 |---|---|---|
-| Comando | `npm run test:ci` = 23 scripts `tsx` (637 checks) | `npm run test:coverage` + `npx playwright test` |
-| Cobertura | Ad-hoc por script | `v8` provider + threshold 80% |
+| Comando | `npm run test:ci` = **22 scripts `tsx`** (gate REG-004; local: `npm run test:ci:local`) | Vitest `npx vitest run` (`npm run test:run`) |
+| Cobertura | Ad-hoc por script | `v8` provider + thresholds reais **30/39/27** (lines/funcs/branches) |
 | E2E | Manual | Playwright 10 fluxos |
 | Codecov | Não | `lcov.info` upload |
 | Pre-push | `scripts/git-hooks/pre-push` → `test:ci` | Mesmo hook → `test:ci` + `test:coverage` |
 
-**Migração:** manter `test:ci` (REG-004) até Vitest cobrir 100% dos 637 checks. Depois `test:ci` chama `vitest run` internamente.
+**Migração:** manter `test:ci` (REG-004) até Vitest cobrir 100% dos checks legados. Hoje o gate real é duplo:
+`npm run test:ci` (22 scripts `tsx`, executável localmente via `npm run test:ci:local`) **e** `npx vitest run`.
+
+> **NOTA 2026-11-03 (correção de claim):** os números antigos desta página
+> ("23 scripts", "637 checks", "threshold 80%") eram do estado de 2026 (set/out)
+> e o "80%" era **aspiracional** — o threshold nunca foi 80%. O real hoje:
+> Vitest **66 arquivos / 865 checks**, cobertura medida **~46% lines / ~53%
+> funcs** com thresholds **30/39/27** em `vitest.config.ts`; `test:ci` tem
+> **22 scripts `tsx`**. Ver `docs/08-knowledge-management/current-state-audit.md` §D.
 
 ---
 
@@ -281,5 +289,5 @@ npm run test:e2e
 npm run test:e2e:ui  # modo interativo
 
 # Gate completo (como o pre-push faz)
-npm run test:ci && npm run test:coverage && npx playwright test
+npm run test:ci:local && npm run test:coverage && npx playwright test
 ```

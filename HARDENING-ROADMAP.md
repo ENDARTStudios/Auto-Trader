@@ -618,6 +618,12 @@ with a real adapter and confirms the contract still holds.
 close — M3.1 added 1 file and 60 checks). The frozen base is untouched:
 H0 (33), H1 (175), H2 (205), H2.6 (119) all still green.
 
+> **HISTÓRICO (métricas desta fase, não do estado atual).** Este "637 checks"
+> conta scripts `tsx` do gate `test:ci`, não o Vitest. Estado real em
+> 2026-11-03 (pós rodadas 1-2): `test:ci` = 22 scripts `tsx`; Vitest/CI gate
+> = 60 arquivos / 766+ checks; cobertura ~45% lines (thresholds 30/39/27 em
+> `vitest.config.ts`). Fonte: `docs/08-knowledge-management/current-state-audit.md` §D.
+
 ### M3.2 — Signer RPC methods — ✓ COMPLETE (Jul 15 2026)
 
 Added `signTransaction`, `signTypedData`, `signMessage` handlers to the
@@ -681,6 +687,10 @@ The M3.1 adapter computes `payloadHash = SHA-256(canonical JSON of payload)` and
 **Bugs caught:** Zero in signer-side code (expected for handlers delegating to ethers' well-tested signing primitives). Three bugs in the TEST FILE during iteration (regex too greedy, E.1 re-seed broke F.1, BigInt serialization) — all fixed.
 
 **CI gate:** 21 files / 716 checks (was 20 files / 637 checks at M3.1 close). Net +79 checks (M3.2 added 80, M3.1's D.2 lost 1 assertion that no longer applies). H0/H1/H2/H2.6/M3.1 all still pass their full suites.
+
+> **HISTÓRICO.** "716 checks" = scripts `tsx` da época. Estado atual (2026-11-03):
+> Vitest 60 arquivos / 766+ checks + `test:ci` 22 scripts `tsx`; ver
+> `docs/08-knowledge-management/current-state-audit.md` §D.
 
 **Frozen base respected:** Zero modifications to the 10 files listed in REG-009. The M3.1 adapter (`src/lib/chain/signer-adapter.ts`) is also unchanged — only the M3.1 TEST FILE had its D.2 assertion updated to reflect post-M3.2 behavior.
 
@@ -829,6 +839,10 @@ signed tx bytes) — it does NOT trust the RPC's returned hash.
 **CI gate:** 22 files / 763 checks (was 21 files / 716 checks at M3.2
 close — M3.3 added 1 file and 47 checks). H0/H1/H2/H2.6/M3.1/M3.2 all
 still pass their full suites.
+
+> **HISTÓRICO.** "763 checks" = scripts `tsx` da época. Estado atual
+> (2026-11-03): Vitest 60 arquivos / 766+ checks + `test:ci` 22 scripts `tsx`;
+> ver `docs/08-knowledge-management/current-state-audit.md` §D.
 
 **Bugs caught:** Zero in production code. Three test-file issues during
 iteration (all fixed, none in production code):

@@ -16,7 +16,7 @@
 - [x] **Fase 6** — Avançado `[ETL+RAG OBRIGATÓRIOS; pgvector+ollama PRODUÇÃO]` ✅ (S12 RAG mock `cosine` 1536 + S13b ETL crypto-only `src/lib/etl/{coingecko,dexscreener,goplus,etherscan,run}.ts`; prod `pgvector`+`ollama` S15+)
 - [x] **Fase 7** — Hardening `[Vault e DNSSEC CONDICIONAIS]` ✅ (H0/H1/H2/H2.6/M3 frozen intacto + S05 strict RLS Position.ownerId NOT NULL + S06 Redis rate-limit branch)
 - [x] **Fase 8** — Testes/segurança `[OBRIGATÓRIO + DAST]` ✅ (S02 test:auth 8/8 + S04 test:totp 6/6 + S05 test:password-reset 2/2 + S12 test:rag 6/6 + S13b test:etl 5/5 = **27 vitest**; S07 CI dep-cruiser+knip)
-- [x] **Fase 9** — CI/CD e deploy `[OBRIGATÓRIO]` ✅ (S01 `.github/workflows/ci.yml` lint+typecheck+test:ci 637+`vitest 27`+CodeQL+Trivy; S06 `scripts/backup-db.sh`+`verify-backup.sh`; S11 docs/DEPLOY Sentry/OTEL/RateLimit Redis)
+- [x] **Fase 9** — CI/CD e deploy `[OBRIGATÓRIO]` ✅ (S01 `.github/workflows/ci.yml` lint+typecheck+test:ci+`vitest`+CodeQL+Trivy (números históricos da fase: 637 checks tsx / 27 testes Vitest; estado em 2026-11-03: 22 scripts tsx / 766+ checks Vitest — ver `docs/08-knowledge-management/current-state-audit.md` §D); S06 `scripts/backup-db.sh`+`verify-backup.sh`; S11 docs/DEPLOY Sentry/OTEL/RateLimit Redis)
 
 > **Convenção:** `[x]` só com evidência real de verificação (PROTOCOLO_MESTRE.md Seção 6). `[~]` = parcialmente feito, com gap documentado.
 
@@ -233,7 +233,7 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ## FASE 8 — TESTES/SEGURANÇA `[OBRIGATÓRIO + DAST]` ✅ **S07/S27/S28 verificado 2026-08-27**
 
-- [x] 8.1 Testes unitários (Vitest) para services com mocks. Cobertura ≥ 80% em `src/lib/trading/**` e `src/lib/chain/**` — evidência: `vitest.config.ts:1` + `tests/live-trader.test.ts:1` 9 tests + `billing.test.ts:1` 12 tests + `91/91` `0b13f14`
+- [x] 8.1 Testes unitários (Vitest) para services com mocks. Cobertura ≥ 80% em `src/lib/trading/**` e `src/lib/chain/**` (**meta ASPIRACIONAL, não atingida** — thresholds reais 30/39/27; medido 2026-11-03: ~46% lines globais; ver `docs/08-knowledge-management/current-state-audit.md` §D) — evidência: `vitest.config.ts:1` + `tests/live-trader.test.ts:1` 9 tests + `billing.test.ts:1` 12 tests + `91/91` `0b13f14`
 - [x] 8.2 Testes de integração (Vitest + Prisma SQLite) para endpoints com auth (S02) — evidência: `tests/rbac-matrix.test.ts:1` 10 tests + `password-reset.test.ts:1` + `position-rls.test.ts:1`
 - [x] 8.3 Testes E2E (Playwright) para fluxos críticos: login, trading, kill-switch, MFA setup, password reset — evidência: `playwright.config.ts:1` + `e2e/auth.spec.ts:1` + `e2e/mfa.spec.ts:1` + `e2e/s27.spec.ts:1`
 - [x] 8.4 SAST: CodeQL no GitHub Actions (gratuito para repositórios públicos) — evidência: `.github/workflows/ci.yml:45` CodeQL `actions` + `docs/05-security-compliance/SECURITY_REVIEW.md:1`
@@ -244,7 +244,7 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 - [x] 8.9 Testes do pipeline de IA: verificar que respostas têm citações e que citações correspondem a dados reais — evidência: `tests/rag.test.ts:1` + `tests/etl.test.ts:1` 5 tests + `src/lib/rag/pipeline.ts:1` citações
 
 **Verificação:**
-- `npm run test:coverage` falha se cobertura < 80%.
+- `npm run test:coverage` falha se cobertura < thresholds reais do `vitest.config.ts` (30% lines / 39% funcs / 27% branches). O alvo histórico de 80% permanece aspiracional, **não** é o gate.
 - Relatório ZAP sem alertas high/critical no staging.
 - k6 reporta p95 < 500ms com 1.000 usuários.
 

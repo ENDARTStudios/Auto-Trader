@@ -4,8 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
-    "build": "next build && node scripts/copy-standalone-assets.mjs",
+    "build": "next build && node scripts/build-signer.mjs && node scripts/copy-standalone-assets.mjs",
     "build:assets": "node scripts/copy-standalone-assets.mjs",
+    "build:signer": "node scripts/build-signer.mjs",
     "typecheck": "tsc --noEmit",
     "start": "node .next/standalone/server.js",
     "lint": "eslint .",
@@ -32,6 +33,7 @@
     "test:m3-adapter": "npx tsx scripts/test-m3-signer-adapter.ts",
     "test:m3-handlers": "npx tsx scripts/test-m3-signer-handlers.ts",
     "test:m3-broadcaster": "npx tsx scripts/test-m3-broadcaster.ts",
+    "test:ci:local": "node scripts/run-test-ci.mjs",
     "test:ci": "npx tsx scripts/test-vault.ts && npx tsx scripts/test-request-peer-integration.ts && npx tsx scripts/test-signer-process.ts && npx tsx scripts/test-wallet-crud.ts && npx tsx scripts/test-signer-dispatcher-structural.ts && npx tsx scripts/test-signer-vault-integration.ts && npx tsx scripts/test-h0-kdf-versioning.ts && npx tsx scripts/test-h0-audit-hashchain.ts && npx tsx scripts/test-h0-key-rotation.ts && npx tsx scripts/test-h1-rpc-resilience.ts && npx tsx scripts/test-h1-simulation-gate.ts && npx tsx scripts/test-h1-approval-hardening.ts && npx tsx scripts/test-h1-mev-baseline.ts && npx tsx scripts/test-h2-contract-verification.ts && npx tsx scripts/test-h2-liquidity-verification.ts && npx tsx scripts/test-h2-token-authority.ts && npx tsx scripts/test-h2-sell-simulation.ts && npx tsx scripts/test-h2-adversarial.ts && npx tsx scripts/test-h2-integration-gate.ts && npx tsx scripts/test-m3-signer-adapter.ts && npx tsx scripts/test-m3-signer-handlers.ts && npx tsx scripts/test-m3-broadcaster.ts",
     "test": "vitest",
     "test:run": "vitest run",
@@ -47,6 +49,7 @@
     "db:backup": "node scripts/backup-full.mjs",
     "db:restore": "node scripts/restore-full.mjs",
     "db:seed:demo": "npx tsx scripts/seed-demo.ts",
+    "db:demo:clear": "node scripts/clear-demo-data.mjs",
     "billing:check": "npx tsx scripts/stripe-check.ts"
   },
   "dependencies": {
@@ -130,11 +133,14 @@
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^5.0.5",
     "bun-types": "^1.4.4",
+    "dotenv": "^17.4.2",
+    "esbuild": "^0.28.2",
     "eslint": "^10.14.0",
     "eslint-config-next": "^16.3.6",
     "eslint-plugin-react-hooks": "7.1.1",
     "prisma": "^7.10.1",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "tw-animate-css": "^1.3.5",
     "typescript": "^6.0.3",
     "vitest": "^5.0.5"
