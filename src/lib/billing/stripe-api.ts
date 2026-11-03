@@ -7,6 +7,17 @@ export function stripeConfigured(): boolean {
   return Boolean(process.env.STRIPE_SECRET_KEY?.trim());
 }
 
+/**
+ * Modo da chave em uso. Cobre chaves secretas (sk_) e restritas (rk_): a
+ * produção usa rk_live_ e a checagem antiga (só sk_live_) reportava "test".
+ */
+export function stripeMode(): "live" | "test" | "none" {
+  const key = process.env.STRIPE_SECRET_KEY?.trim();
+  if (!key) return "none";
+  if (key.startsWith("sk_live_") || key.startsWith("rk_live_")) return "live";
+  return "test";
+}
+
 function authHeader(): string {
   const key = process.env.STRIPE_SECRET_KEY?.trim();
   if (!key) throw new Error("stripe_not_configured");
