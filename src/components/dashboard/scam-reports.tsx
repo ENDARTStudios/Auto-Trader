@@ -115,10 +115,10 @@ export function ScamReportsList({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1 mt-3">
-                <ScoreBar score={r.honeypotScore} label="Honeypot" />
+                <ScoreBar score={r.honeypotScore} label="Turnover (heurística)" />
                 <ScoreBar score={r.liquidityScore} label="Liquidity" />
                 <ScoreBar score={r.contractScore} label="Contract" />
-                <ScoreBar score={r.taxScore} label="Tax" />
+                <ScoreBar score={r.taxScore} label="Taxa (não verificada)" />
                 <ScoreBar score={r.holderScore} label="Holders" />
                 <ScoreBar score={r.ageScore} label="Age" />
               </div>

@@ -594,17 +594,20 @@ it('returns correct current counts and caps', async () => {
       expect(result.executedPriceUsd).toBeCloseTo(expectedPrice, 0);
     });
 
-    it('liveBuy returns not implemented error', async () => {
+    it('liveBuy is fail-closed without live gate (paper mode)', async () => {
       const candidate = mockCandidate();
-      const result = await liveBuy(candidate as any, 1000);
+      const cfg = { mode: 'paper', graduatedToLive: false } as any;
+      const result = await liveBuy(cfg, candidate as any, 1000);
       expect(result.ok).toBe(false);
-      expect(result.error).toContain('graduation required');
+      expect(result.error).toContain('LIVE_DISABLED');
     });
 
-    it('liveSell returns not implemented error', async () => {
-      const result = await liveSell('BTCUSDT', 10, 50000);
+    it('liveSell is fail-closed without live gate (paper mode)', async () => {
+      const cfg = { mode: 'paper', graduatedToLive: false } as any;
+      const pos = { symbol: 'BTCUSDT', source: 'cex', qty: 10 } as any;
+      const result = await liveSell(cfg, pos, 50000);
       expect(result.ok).toBe(false);
-      expect(result.error).toContain('Live trading não implementado');
+      expect(result.error).toContain('LIVE_DISABLED');
     });
   });
 

@@ -3,7 +3,7 @@ import { randomBytes, createHash } from 'crypto';
 import { db } from '@/lib/db';
 import { UnauthorizedError, ForbiddenError, RateLimitedError } from './errors';
 import type { Permission } from './rbac';
-import { checkRateLimit } from '@/lib/rate-limit';
+import { checkRateLimitDistributed } from '@/lib/rate-limit';
 import { signSessionToken, verifySignedSessionToken } from './session-token';
 
 export { signSessionToken, verifySignedSessionToken, getSessionSecret } from './session-token';
@@ -96,8 +96,10 @@ export async function requireSession(req: Request): Promise<SessionUser> {
   // Per-user rate limit (identity-aware): route-scoped sliding window keyed by
   // userId — aplica-se a TODAS as rotas autenticadas sem tocar handler por handler.
   // IP-keyed pre-gates seguem nos handlers de rotas públicas (login/forgot/reset).
+  // checkRateLimitDistributed: usa Redis (limite global entre instâncias) quando
+  // REDIS_URL existe e cai para memória sem quebrar. Assinatura/erros inalterados.
   const route = new URL(req.url).pathname;
-  const rl = checkRateLimit(`user:${user.id}`, route);
+  const rl = await checkRateLimitDistributed(`user:${user.id}`, route);
   if (!rl.allowed) throw new RateLimitedError(rl.retryAfter ?? 60);
   return { userId: user.id, email: user.email, role: user.role, isActive: user.isActive };
 }

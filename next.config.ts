@@ -4,7 +4,10 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // Módulos nativos/adapter do Prisma 7: nunca bundlar (Turbopack não resolve
   // o exports map do adapter e better-sqlite3 é .node nativo).
-  serverExternalPackages: ["@prisma/adapter-better-sqlite3", "better-sqlite3", "@prisma/client"],
+  // ccxt (CEX execution, import dinâmico) traz dependências estáticas que o
+  // Turbopack não resolve (protobufjs/minimal.js) — mantê-lo externo evita o
+  // bundle e usa o pacote do node_modules em runtime (standalone inclui).
+  serverExternalPackages: ["@prisma/adapter-better-sqlite3", "better-sqlite3", "@prisma/client", "ccxt"],
   // Type errors fail the build (tsc --noEmit is green; keep it that way).
   // Do NOT re-add ignoreBuildErrors — it masked 231 errors incl. runtime
   // crashes (missing Prisma models). See SPRINT S37.

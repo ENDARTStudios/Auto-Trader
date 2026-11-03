@@ -1,123 +1,223 @@
-// tests/live-trader.test.ts — S20: CCXT testnet + ethers Uniswap V3 stubs
-import { describe, it, expect } from 'vitest';
+// tests/live-trader.test.ts — execução LIVE: FAIL-CLOSED, sem mock/random.
+//
+// Nenhum teste toca rede/exchange: credenciais são mockadas como indisponíveis
+// e a feature flag é controlada em memória. O que se prova aqui é o contrato de
+// recusa (LIVE_DISABLED / LIVE_CREDS_UNAVAILABLE) e a ausência de dados fake.
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+const hoisted = vi.hoisted(() => ({ flagEnabled: false }));
+
+vi.mock('@/lib/trading/feature-flags', () => ({
+  isEnabled: async () => hoisted.flagEnabled,
+}));
+
+vi.mock('@/lib/trading/live-credentials', () => ({
+  getCexCredentials: async () => ({
+    ok: false,
+    code: 'LIVE_CREDS_NOT_CONFIGURED',
+    reason: 'test: sem credenciais',
+  }),
+  getDexCredentials: () => ({
+    ok: false,
+    code: 'LIVE_CREDS_NOT_CONFIGURED',
+    reason: 'test: sem credenciais',
+  }),
+}));
+
 import {
-  cexMarketOrder,
   cexLimitOrder,
-  getCexBalances,
-  dexSwapExactTokensSingle,
+  cexMarketOrder,
   dexApproveToken,
+  dexSwapExactTokensSingle,
+  getCexBalances,
   LIVE_TRADER_CONFIG,
 } from '@/lib/chain/live-trader';
 
-describe('Live trader stubs (S20)', () => {
-  it('cexMarketOrder returns mock result', async () => {
-    const result = await cexMarketOrder({
-      symbol: 'BTC/USDT',
-      side: 'buy',
-      amountUsd: 100,
-      type: 'market',
-    });
-    expect(result.exchange).toBe('cex');
-    expect(result.orderId).toMatch(/^mock-ccxt-/);
-    if (result.filledPrice && result.filledQty) {
-      expect(result.filledPrice).toBeGreaterThan(0);
-      expect(result.filledQty).toBeGreaterThan(0);
-    }
+const LIVE_CFG = { mode: 'live', graduatedToLive: true, killSwitchActive: false };
+const FLAG_ON = () => {
+  hoisted.flagEnabled = true;
+};
+const FLAG_OFF = () => {
+  hoisted.flagEnabled = false;
+};
+
+const ENV_KEYS = ['LIVE_TRADING_ENABLED', 'S14_APPROVED'] as const;
+let savedEnv: Record<string, string | undefined> = {};
+
+beforeEach(() => {
+  savedEnv = {};
+  for (const key of ENV_KEYS) {
+    savedEnv[key] = process.env[key];
+    delete process.env[key];
+  }
+  FLAG_OFF();
+});
+
+afterEach(() => {
+  for (const key of ENV_KEYS) {
+    if (savedEnv[key] === undefined) delete process.env[key];
+    else process.env[key] = savedEnv[key];
+  }
+  FLAG_OFF();
+});
+
+function enableAllFlags() {
+  process.env.LIVE_TRADING_ENABLED = 'true';
+  process.env.S14_APPROVED = 'true';
+  FLAG_ON();
+}
+
+const MARKET_REQ = { symbol: 'BTC/USDT', side: 'buy' as const, amountUsd: 100, type: 'market' as const };
+const SWAP_REQ = {
+  chain: 'base' as const,
+  tokenIn: '0x' + '11'.repeat(20),
+  tokenOut: '0x' + '22'.repeat(20),
+  amountInWei: 1_000_000n,
+  amountOutMinWei: 990_000n,
+  to: '0x' + '33'.repeat(20),
+  deadline: Math.floor(Date.now() / 1000) + 600,
+};
+
+describe('live-trader — sem gate explícito tudo é recusado', () => {
+  it('cexMarketOrder sem LiveGateConfig → LIVE_DISABLED', async () => {
+    const r = await cexMarketOrder(MARKET_REQ);
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('LIVE_DISABLED');
+    expect(r.orderId).toBeUndefined();
+    expect(r.filledPrice).toBeUndefined();
   });
 
-  it('cexLimitOrder requires limitPrice', async () => {
-    const noPrice = await cexLimitOrder({
-      symbol: 'ETH/USDT',
-      side: 'buy',
-      amountUsd: 50,
-      type: 'limit',
-    });
+  it('cexLimitOrder sem gate → LIVE_DISABLED (e exige limitPrice antes)', async () => {
+    const noPrice = await cexLimitOrder({ ...MARKET_REQ, type: 'limit' });
     expect(noPrice.ok).toBe(false);
     expect(noPrice.error).toBe('limit_price_required');
 
-    const withPrice = await cexLimitOrder({
-      symbol: 'ETH/USDT',
-      side: 'buy',
-      amountUsd: 50,
-      type: 'limit',
-      limitPrice: 3000,
-    });
-    expect(withPrice.exchange).toBe('cex');
+    const r = await cexLimitOrder({ ...MARKET_REQ, type: 'limit', limitPrice: 100 });
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('LIVE_DISABLED');
   });
 
-  it('getCexBalances returns BTC, ETH, USDT', async () => {
-    const balances = await getCexBalances();
-    expect(balances.map((b) => b.asset)).toEqual(['BTC', 'ETH', 'USDT']);
-    expect(balances.every((b) => b.free >= 0)).toBe(true);
+  it('getCexBalances sem gate → [] (nunca saldos fake)', async () => {
+    expect(await getCexBalances()).toEqual([]);
   });
 
-  it('dexSwapExactTokensSingle applies 0.3% fee', async () => {
-    const amountIn = 1000000000000000000n; // 1 ETH in wei
-    const result = await dexSwapExactTokensSingle({
-      chain: 'ethereum',
-      tokenIn: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', // WETH
-      tokenOut: '0xA0b86991c6218b36c1d1D4F73CA3dab40Eb8Fd9Da', // USDC
-      amountInWei: amountIn,
-      amountOutMinWei: amountIn * 9700n / 10000n, // 3% slippage
-      to: '0x1234567890123456789012345678901234567890',
-      deadline: Math.floor(Date.now() / 1000) + 600, // 10 min
-    });
-    expect(result.ok).toBe(true);
-    expect(result.txHash).toMatch(/^0x[0-9a-f]{64}$/);
-    if (result.amountOutWei) {
-      // 0.3% fee: amountIn * 9970 / 10000
-      expect(result.amountOutWei).toBe(amountIn * 9970n / 10000n);
-    }
+  it('dexSwap sem gate → LIVE_DISABLED', async () => {
+    const r = await dexSwapExactTokensSingle(SWAP_REQ);
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('LIVE_DISABLED');
+    expect(r.txHash).toBeUndefined();
   });
 
-  it('dexSwapExactTokensSingle rejects past deadline', async () => {
-    const result = await dexSwapExactTokensSingle({
-      chain: 'ethereum',
-      tokenIn: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-      tokenOut: '0xA0b86991c6218b36c1d1D4F73CA3dab40Eb8Fd9Da',
-      amountInWei: 1000000n,
-      amountOutMinWei: 0n,
-      to: '0x0000000000000000000000000000000000000000',
-      deadline: Math.floor(Date.now() / 1000) - 60, // past
-    });
-    expect(result.ok).toBe(false);
-    expect(result.error).toBe('deadline_passed');
+  it('dexApproveToken sem gate → LIVE_DISABLED', async () => {
+    const r = await dexApproveToken('0x' + '11'.repeat(20), 1n, '0x' + '22'.repeat(20), 'base');
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('LIVE_DISABLED');
+  });
+});
+
+describe('live-trader — gate parcial continua negando', () => {
+  it('cfg live+graduated mas sem env flags → LIVE_DISABLED', async () => {
+    hoisted.flagEnabled = true; // flag ligada, mas env ausente
+    const r = await cexMarketOrder(MARKET_REQ, LIVE_CFG);
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('LIVE_DISABLED');
+    expect(r.error).toContain('LIVE_TRADING_ENABLED');
   });
 
-  it('dexSwapExactTokensSingle rejects zero amount', async () => {
-    const result = await dexSwapExactTokensSingle({
-      chain: 'ethereum',
-      tokenIn: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-      tokenOut: '0xA0b86991c6218b36c1d1D4F73CA3dab40Eb8Fd9Da',
-      amountInWei: 0n,
-      amountOutMinWei: 0n,
-      to: '0x0000000000000000000000000000000000000000',
-      deadline: Math.floor(Date.now() / 1000) + 60,
-    });
-    expect(result.ok).toBe(false);
-    expect(result.error).toBe('invalid_amount');
+  it('env flags ok mas feature flag off → LIVE_DISABLED', async () => {
+    process.env.LIVE_TRADING_ENABLED = 'true';
+    process.env.S14_APPROVED = 'true';
+    const r = await cexMarketOrder(MARKET_REQ, LIVE_CFG);
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('LIVE_DISABLED');
+    expect(r.error).toContain('enable_live_trading');
   });
 
-  it('dexApproveToken returns tx hash', async () => {
-    const result = await dexApproveToken(
-      '0xA0b86991c6218b36c1d1D4F73CA3dab40Eb8Fd9Da',
-      1000000000n,
-      '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45',
+  it('kill switch ativo → LIVE_DISABLED mesmo com tudo ligado', async () => {
+    enableAllFlags();
+    const r = await cexMarketOrder(MARKET_REQ, { ...LIVE_CFG, killSwitchActive: true });
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('killSwitchActive');
+  });
+
+  it('mode paper → LIVE_DISABLED mesmo com env/flags ligadas', async () => {
+    enableAllFlags();
+    const r = await cexMarketOrder(MARKET_REQ, { mode: 'paper', graduatedToLive: true });
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('LIVE_DISABLED');
+  });
+});
+
+describe('live-trader — gate ok mas credenciais ausentes → fail-closed', () => {
+  it('CEX: LIVE_CREDS_UNAVAILABLE, sem cair para paper', async () => {
+    enableAllFlags();
+    const r = await cexMarketOrder(MARKET_REQ, LIVE_CFG);
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('LIVE_CREDS_UNAVAILABLE');
+    expect(r.orderId).toBeUndefined();
+  });
+
+  it('CEX limite: LIVE_CREDS_UNAVAILABLE', async () => {
+    enableAllFlags();
+    const r = await cexLimitOrder({ ...MARKET_REQ, type: 'limit', limitPrice: 100 }, LIVE_CFG);
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('LIVE_CREDS_UNAVAILABLE');
+  });
+
+  it('saldos: [] quando credenciais ausentes', async () => {
+    enableAllFlags();
+    expect(await getCexBalances(LIVE_CFG)).toEqual([]);
+  });
+
+  it('DEX swap: LIVE_CREDS_UNAVAILABLE, sem txHash fake', async () => {
+    enableAllFlags();
+    const r = await dexSwapExactTokensSingle(SWAP_REQ, LIVE_CFG);
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('LIVE_CREDS_UNAVAILABLE');
+    expect(r.txHash).toBeUndefined();
+    expect(r.amountOutWei).toBeUndefined();
+  });
+
+  it('DEX approve: LIVE_CREDS_UNAVAILABLE; sem chain → DEX_CONFIG_INVALID', async () => {
+    enableAllFlags();
+    const r = await dexApproveToken('0x' + '11'.repeat(20), 1n, '0x' + '22'.repeat(20), 'base', LIVE_CFG);
+    expect(r.ok).toBe(false);
+    expect(r.error).toContain('LIVE_CREDS_UNAVAILABLE');
+
+    const noChain = await dexApproveToken(
+      '0x' + '11'.repeat(20),
+      1n,
+      '0x' + '22'.repeat(20),
+      undefined,
+      LIVE_CFG
     );
-    expect(result.ok).toBe(true);
-    expect(result.txHash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(noChain.ok).toBe(false);
+    expect(noChain.error).toContain('DEX_CONFIG_INVALID');
+  });
+});
+
+describe('live-trader — nenhum dado fake', () => {
+  it('resultados nunca contêm mocks, random ids ou txHash fabricado', async () => {
+    enableAllFlags();
+    const results = [
+      await cexMarketOrder(MARKET_REQ, LIVE_CFG),
+      await dexSwapExactTokensSingle(SWAP_REQ, LIVE_CFG),
+    ];
+    const serialized = JSON.stringify(results, (_k, v) =>
+      typeof v === 'bigint' ? v.toString() : v
+    );
+    expect(serialized).not.toContain('mock-');
+    expect(serialized).not.toMatch(/0x[0-9a-fA-F]{64}/); // nenhum txHash fake
+    for (const r of results) expect(r.ok).toBe(false);
   });
 
-  it('LIVE_TRADER_CONFIG has uniswap V3 routers for all chains', () => {
-    // Ethereum address regex matches 0x + 40 hex chars (case insensitive).
+  it('LIVE_TRADER_CONFIG expõe routers válidos e testnet default true', () => {
     const addr = (s: string) => /^0x[0-9a-fA-F]{40}$/.test(s);
     expect(addr(LIVE_TRADER_CONFIG.uniswapV3Router)).toBe(true);
     expect(addr(LIVE_TRADER_CONFIG.uniswapV3RouterArbitrum)).toBe(true);
     expect(addr(LIVE_TRADER_CONFIG.uniswapV3RouterOptimism)).toBe(true);
     expect(addr(LIVE_TRADER_CONFIG.uniswapV3RouterBase)).toBe(true);
-  });
-
-  it('testnet default true', () => {
     expect(LIVE_TRADER_CONFIG.testnet).toBe(true);
+    expect(LIVE_TRADER_CONFIG.failRate).toBe(0);
   });
 });

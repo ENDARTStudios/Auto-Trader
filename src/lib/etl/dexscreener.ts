@@ -25,7 +25,14 @@ export interface DexPair {
   quoteTokenAddress: string;
 }
 
-export type EtlProvenance = "live" | "mock" | "error";
+/**
+ * Proveniência do dado por connector:
+ *   live        — HTTP 2xx, dado real
+ *   mock        — dado sintético (SOMENTE permitido em NODE_ENV=test/VITEST)
+ *   unavailable — fonte não configurada/indisponível agora (ex.: sem API key); NÃO é mock
+ *   error       — falha de rede/HTTP/parse
+ */
+export type EtlProvenance = "live" | "mock" | "unavailable" | "error";
 
 /** Par bruto (subconjunto tipado) devolvido por /tokens/v1/{chain}/{address}. */
 export interface DexScreenerRawPair {

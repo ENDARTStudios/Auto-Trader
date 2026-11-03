@@ -94,6 +94,15 @@ export async function register(): Promise<void> {
     // OTEL optional — no endpoint means no traces
   }
 
+  // S28: Sentry — SDK if installed, senão envelope HTTP nativo (sentry-http).
+  // Sem SENTRY_DSN é no-op silencioso; com DSN, erros passam a sair da máquina.
+  try {
+    const { initSentry } = await import("@/lib/observability/sentry-init");
+    await initSentry();
+  } catch (e) {
+    console.error("[instrumentation] initSentry falhou:", (e as Error).message);
+  }
+
   // The crash-logger itself writes a boot marker to logs/boot.log on
   // initialization, so we don't need a separate console.log here. Keeping
   // this function side-effect-free (apart from the registration) also helps

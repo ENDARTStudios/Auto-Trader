@@ -46,6 +46,8 @@ interface JobOutcome<T> {
   source: string;
   provenance: EtlProvenance;
   data: T;
+  /** Motivo quando a fonte está indisponível (ex.: sem API key). */
+  error?: string;
 }
 
 async function runSource<T>(
@@ -67,8 +69,11 @@ async function runSource<T>(
       recordsCount: live ? out.records : 0,
       status: live ? "ok" : "error",
       provenance: out.provenance,
-      // status "ok" é reservado para dado real; mock/fallback vira erro explícito.
-      error: live ? undefined : `proveniência não-live: ${out.provenance} (${out.source})`,
+      // status "ok" é reservado para dado real (HTTP 2xx). mock/unavailable/error
+      // viram "error" explícito — nunca existe fonte "ok" com dado sintético.
+      error: live
+        ? undefined
+        : out.error ?? `proveniência não-live: ${out.provenance} (${out.source})`,
       durationMs: Date.now() - startedAt,
     };
   } catch (err) {
@@ -181,7 +186,7 @@ export async function runETL(): Promise<EtlRunResult> {
   );
   if (sources[2].status === "ok") audits = sources[2].recordsCount;
 
-  // 4. Etherscan (ainda com fallback mock — declarado como não-live)
+  // 4. Etherscan (mock só em teste; em produção sem chave -> unavailable)
   let contracts = 0;
   sources.push(
     await runSource(
@@ -189,7 +194,13 @@ export async function runETL(): Promise<EtlRunResult> {
       "https://api.etherscan.io/v2/api",
       async () => {
         const es = await fetchEtherscan();
-        return { records: es.sources.length, source: es.source, provenance: es.provenance, data: es.sources };
+        return {
+          records: es.sources.length,
+          source: es.source,
+          provenance: es.provenance,
+          data: es.sources,
+          error: es.error,
+        };
       },
       async (list) => {
         for (const s of list) {
