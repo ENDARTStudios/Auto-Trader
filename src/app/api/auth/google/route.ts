@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildGoogleAuthUrl, googleConfigured, newState, stateCookie } from "@/lib/auth/google";
+import { appBaseUrl, buildGoogleAuthUrl, googleConfigured, newState, stateCookie } from "@/lib/auth/google";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   if (!rl.allowed) return rateLimitResponse(rl.retryAfter);
 
   if (!googleConfigured()) {
-    return NextResponse.redirect(new URL("/login?error=google_not_configured", req.url));
+    return NextResponse.redirect(new URL("/login?error=google_not_configured", appBaseUrl()));
   }
 
   const state = newState();

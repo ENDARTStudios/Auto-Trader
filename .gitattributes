@@ -1,0 +1,13 @@
+# Scripts de shell e Dockerfile precisam de LF: CRLF no shebang quebra o
+# container ("/usr/local/bin/docker-entrypoint.sh: No such file or directory").
+*.sh text eol=lf
+Dockerfile text eol=lf
+docker-entrypoint.sh text eol=lf
+
+# Binários não devem sofrer conversão.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
