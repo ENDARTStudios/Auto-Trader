@@ -1,16 +1,21 @@
 // Source Health — tracks availability and error rate of external data sources.
 //
 // Sources tracked:
-//   binance     — CEX price feed (api.binance.com)
-//   dexscreener — DEX price + liquidity (api.dexscreener.com)
-//   goplus      — token security scan (api.gopluslabs.io)
-//   zai         — z-ai-web-dev-sdk LLM
-//   rdap        — domain whois via RDAP
-//   safebrowsing — Google Safe Browsing (heuristic fallback)
+//   binance      — CEX price feed (api.binance.com)
+//   dexscreener  — DEX price + liquidity (api.dexscreener.com)
+//   geckoterminal — OHLCV real de pools DEX (api.geckoterminal.com)
+//   goplus       — token security scan (api.gopluslabs.io)
+//   coingecko / feargreed — sentimento/mercado global
+//   zai          — LLM provider
+//   rdap / safebrowsing — auditoria de site
 //
-// The engine queries areCriticalSourcesHealthy() before SCOUT to decide
+// The engine queries evaluateSourceHealthForScout() before SCOUT to decide
 // whether to pause entradas. Critical sources are those whose failure
-// invalidates the analysis: binance, dexscreener, goplus, zai.
+// invalidates the analysis: binance, dexscreener, geckoterminal, goplus, zai.
+//
+// ESCOPO (audit round2): cada fonte crítica tem um escopo — CEX, DEX ou GLOBAL.
+// Uma fonte DEX em erro bloqueia APENAS candidatos DEX (o CEX continua
+// operando); uma fonte global (ex.: LLM) bloqueia ambos.
 //
 // Each source increments windowSuccessCount or windowErrorCount on every call.
 // The window resets every hour — so the error rate reflects the last hour of
@@ -56,9 +61,29 @@ export interface SourceHealthRow {
 const CRITICAL_SOURCES: ReadonlySet<SourceName> = new Set([
   "binance",
   "dexscreener",
+  "geckoterminal",
   "goplus",
   "zai",
 ]);
+
+/** Escopo de impacto de cada fonte: "cex" | "dex" | "all" (global). */
+export type SourceScope = "cex" | "dex" | "all";
+
+const SOURCE_SCOPE: Readonly<Record<SourceName, SourceScope>> = {
+  binance: "cex",
+  dexscreener: "dex",
+  geckoterminal: "dex",
+  goplus: "dex",
+  coingecko: "all",
+  feargreed: "all",
+  zai: "all",
+  rdap: "all",
+  safebrowsing: "all",
+};
+
+export function sourceScope(source: SourceName): SourceScope {
+  return SOURCE_SCOPE[source] ?? "all";
+}
 
 // Error-rate threshold above which a source is considered "degraded" within
 // the current rolling window. 30% means: out of the last N calls in the
@@ -227,33 +252,106 @@ function toRow(r: Awaited<ReturnType<typeof db.sourceHealth.findFirst>>): Source
 
 // ---------------------------------------------------------------------------
 // Engine decision: should SCOUT proceed?
-// Returns { proceed: true } or { proceed: false, reasons: string[] }
+// Returns { proceed, reasons, degradedSources, blocked scopes }
+//
+// Sem `candidateSource` o comportamento é conservador (qualquer fonte crítica
+// degradada bloqueia — compatível com o uso antigo). Com `candidateSource`,
+// respeita o escopo: fonte DEX não bloqueia CEX e vice-versa; fonte global
+// ("all") bloqueia os dois.
 // ---------------------------------------------------------------------------
-export async function evaluateSourceHealthForScout(): Promise<{
+export type ScoutCandidateSource = "cex" | "dex";
+
+export interface ScoutHealthDecision {
   proceed: boolean;
   reasons: string[];
   degradedSources: SourceName[];
-}> {
+  /** Escopos bloqueados (global => ambos true). */
+  blockedScopes: { cex: boolean; dex: boolean };
+  globalBlocked: boolean;
+}
+
+export async function evaluateSourceHealthForScout(opts?: {
+  candidateSource?: ScoutCandidateSource;
+}): Promise<ScoutHealthDecision> {
   const map = await getSourceHealthMap();
   const reasons: string[] = [];
   const degraded: SourceName[] = [];
+  let cexBlocked = false;
+  let dexBlocked = false;
+  let globalBlocked = false;
+
   for (const [name, row] of map.entries()) {
     if (!row.isCritical) continue;
+    let reason: string | null = null;
     if (row.status === "down") {
-      reasons.push(`${name} está DOWN (rate-limited até ${row.rateLimitUntil ?? "?"})`);
-      degraded.push(name);
+      reason = `${name} está DOWN (rate-limited até ${row.rateLimitUntil ?? "?"})`;
     } else if (row.status === "degraded") {
-      reasons.push(
-        `${name} degradada (${(row.windowErrorRate * 100).toFixed(0)}% erros na última janela)`
-      );
-      degraded.push(name);
+      reason = `${name} degradada (${(row.windowErrorRate * 100).toFixed(0)}% erros na última janela)`;
     }
+    if (!reason) continue;
+
+    const scope = sourceScope(name);
+    if (scope === "all") {
+      globalBlocked = true;
+      cexBlocked = true;
+      dexBlocked = true;
+    } else if (scope === "cex") {
+      cexBlocked = true;
+    } else {
+      dexBlocked = true;
+    }
+    reasons.push(`[${scope}] ${reason}`);
+    degraded.push(name);
   }
-  return { proceed: reasons.length === 0, reasons, degradedSources: degraded };
+
+  const candidateSource = opts?.candidateSource;
+  let proceed: boolean;
+  if (candidateSource === "cex") {
+    proceed = !cexBlocked;
+  } else if (candidateSource === "dex") {
+    proceed = !dexBlocked;
+  } else {
+    // Conservador: sem escopo informado, qualquer bloqueio impede o SCOUT.
+    proceed = !cexBlocked && !dexBlocked;
+  }
+
+  // Quando o escopo do candidato é conhecido, só reportamos o que o afeta —
+  // assim o motivo exibido é acionável (ex.: DEX degradado não explica CEX).
+  if (candidateSource) {
+    const relevant = degraded.filter((name) => {
+      const scope = sourceScope(name);
+      return scope === "all" || scope === candidateSource;
+    });
+    const relevantReasons = reasons.filter((reason) => {
+      const match = reason.match(/^\[(cex|dex|all)\]/);
+      const scope = match?.[1];
+      return scope === "all" || scope === candidateSource;
+    });
+    return {
+      proceed,
+      reasons: relevantReasons,
+      degradedSources: relevant,
+      blockedScopes: { cex: cexBlocked, dex: dexBlocked },
+      globalBlocked,
+    };
+  }
+
+  return {
+    proceed,
+    reasons,
+    degradedSources: degraded,
+    blockedScopes: { cex: cexBlocked, dex: dexBlocked },
+    globalBlocked,
+  };
 }
 
 export function isCritical(source: SourceName): boolean {
   return CRITICAL_SOURCES.has(source);
+}
+
+/** Fontes críticas cujo dado só afeta candidatos DEX. */
+export function isDexScopedSource(source: SourceName): boolean {
+  return CRITICAL_SOURCES.has(source) && sourceScope(source) === "dex";
 }
 
 // ---------------------------------------------------------------------------

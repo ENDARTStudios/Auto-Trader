@@ -17,10 +17,14 @@
 // includes fees + slippage on both legs. The returned breakdown is persisted
 // as FeeAuditLog by portfolio.ts once the Position row (and its id) exists.
 //
-// In live mode (NOT enabled by default — requires graduation), this would
-// route to the CEX adapter (CCXT createOrder) or DEX adapter (ethers
-// Uniswap router). Live mode is intentionally a stub for now.
+// In LIVE mode (requires graduation + explicit env/flag gate — see
+// live-gating.ts) the same functions route to REAL execution:
+//   - CEX via CCXT (src/lib/chain/cex-adapter.ts)
+//   - DEX via ethers v6 + Uniswap V3 (src/lib/chain/dex-adapter.ts)
+// Fail-closed: gate denied → LIVE_DISABLED; gate allowed but credentials
+// missing → LIVE_CREDS_UNAVAILABLE (never falls back to paper, never fake fill).
 
+import { ethers } from "ethers";
 import { db } from "@/lib/db";
 import { logger } from "./logger";
 import {
@@ -28,6 +32,21 @@ import {
   type FeeBreakdown,
 } from "./fee-model";
 import type { TokenCandidate } from "./types";
+import type { EngineConfig } from "./config";
+import { checkLiveGate } from "./live-gating";
+import {
+  CexAdapterError,
+  createCexClient,
+  placeMarketOrder,
+} from "@/lib/chain/cex-adapter";
+import {
+  DexAdapterError,
+  createDexWallet,
+  executeSwap,
+  isDexChain,
+  usdcAddressForChain,
+} from "@/lib/chain/dex-adapter";
+import { getCexCredentials, getDexCredentials } from "./live-credentials";
 
 // Fallbacks matching Config defaults. Callers (portfolio.ts) always pass
 // cfg.feeBps / cfg.slippageBps; these only apply to ad-hoc calls.
@@ -51,6 +70,10 @@ export interface ExecutionResult {
   slippageUsd: number;
   /** Full breakdown, to be persisted by portfolio.recordFeeAuditLog. */
   breakdown?: FeeBreakdown;
+  /** Live execution identifiers (undefined in paper mode). */
+  orderId?: string;
+  txHash?: string;
+  feeBps?: number;
   error?: string;
 }
 
@@ -255,31 +278,334 @@ export async function paperSell(
   };
 }
 
-// Live mode stub — to be implemented after graduation logic is exercised.
-export async function liveBuy(
-  candidate: TokenCandidate,
-  amountUsd: number
-): Promise<ExecutionResult> {
-  logger.error("portfolio", "liveBuy chamado mas live mode não implementado", {
-    symbol: candidate.symbol,
-  });
+// ---------------------------------------------------------------------------
+// LIVE execution — real CEX (CCXT) / DEX (ethers) behind the fail-closed gate
+// ---------------------------------------------------------------------------
+
+export interface LiveSellPosition {
+  symbol: string;
+  source: "cex" | "dex";
+  chain?: string | null;
+  tokenId?: string | null;
+  qty: number;
+  /** DEX only: token decimals for wei conversion (default 18). */
+  tokenDecimals?: number;
+}
+
+const DEX_FEE_TIER_DEFAULT = 3000; // 0.30% — pool mais comum p/ tokens voláteis
+const DEX_SLIPPAGE_BPS_DEFAULT = 100; // 1%
+
+function liveBreakdown(
+  side: "buy" | "sell",
+  notionalUsd: number,
+  feeUsd: number,
+  feeBps: number,
+  slippageUsd = 0
+): FeeBreakdown {
+  const gross = Number.isFinite(notionalUsd) && notionalUsd > 0 ? notionalUsd : 0;
+  const fee = Number.isFinite(feeUsd) && feeUsd > 0 ? feeUsd : 0;
+  const slip = Number.isFinite(slippageUsd) && slippageUsd > 0 ? slippageUsd : 0;
   return {
-    ...FAILED(amountUsd, "Live trading não implementado — graduation required first"),
-    amountUsd,
+    grossAmountUsd: gross,
+    feeBps: Number.isFinite(feeBps) ? feeBps : 0,
+    slippageBps: 0,
+    side,
+    feeUsd: fee,
+    slippageUsd: slip,
+    totalCostUsd: fee + slip,
+    netAmountUsd: Math.max(gross - fee - slip, 0),
   };
 }
 
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function typedError(err: unknown): string {
+  if (err instanceof CexAdapterError || err instanceof DexAdapterError) {
+    return `${err.code}: ${err.message}`;
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
+/**
+ * LIVE buy. Signature changed in round 2: receives cfg so the gate can be
+ * evaluated (mode/graduation/kill switch). Never falls back to paper.
+ */
+export async function liveBuy(
+  cfg: EngineConfig,
+  candidate: TokenCandidate,
+  amountUsd: number
+): Promise<ExecutionResult> {
+  const gate = await checkLiveGate(cfg);
+  if (!gate.allowed) {
+    logger.warn("portfolio", `liveBuy bloqueado (${candidate.symbol}): ${gate.reason}`);
+    return FAILED(amountUsd, `LIVE_DISABLED: ${gate.reason}`);
+  }
+  if (!Number.isFinite(amountUsd) || amountUsd <= 0) {
+    return FAILED(amountUsd, "LIVE_INVALID_AMOUNT: amountUsd <= 0");
+  }
+  if (candidate.source === "cex") return liveCexBuy(candidate, amountUsd);
+  if (candidate.source === "dex") return liveDexBuy(candidate, amountUsd);
+  return FAILED(amountUsd, `LIVE_UNKNOWN_SOURCE: '${String(candidate.source)}'`);
+}
+
+/**
+ * LIVE sell. Receives the position (symbol/source/chain/tokenId/qty) and cfg.
+ */
 export async function liveSell(
-  symbol: string,
-  qty: number,
+  cfg: EngineConfig,
+  pos: LiveSellPosition,
   currentPriceUsd: number
 ): Promise<ExecutionResult> {
-  logger.error("portfolio", "liveSell chamado mas live mode não implementado", {
-    symbol,
+  const gate = await checkLiveGate(cfg);
+  if (!gate.allowed) {
+    logger.warn("portfolio", `liveSell bloqueado (${pos.symbol}): ${gate.reason}`);
+    return FAILED(0, `LIVE_DISABLED: ${gate.reason}`);
+  }
+  if (!Number.isFinite(pos.qty) || pos.qty <= 0) {
+    return FAILED(0, "LIVE_INVALID_AMOUNT: qty <= 0");
+  }
+  if (pos.source === "cex") return liveCexSell(pos);
+  if (pos.source === "dex") return liveDexSell(pos, currentPriceUsd);
+  return FAILED(0, `LIVE_UNKNOWN_SOURCE: '${String(pos.source)}'`);
+}
+
+async function liveCexBuy(
+  candidate: TokenCandidate,
+  amountUsd: number
+): Promise<ExecutionResult> {
+  const creds = await getCexCredentials();
+  if (!creds.ok) {
+    return FAILED(amountUsd, `LIVE_CREDS_UNAVAILABLE: ${creds.reason}`);
+  }
+  let client;
+  try {
+    client = await createCexClient(creds.creds);
+  } catch (err) {
+    return FAILED(amountUsd, `CEX_EXECUTION_FAILED: ${typedError(err)}`);
+  }
+  const order = await placeMarketOrder(client, {
+    symbol: candidate.symbol,
+    side: "buy",
+    amountUsd,
+  });
+  if (!order.ok) {
+    return FAILED(amountUsd, `${order.error}: ${order.reason}`);
+  }
+  const notional = order.amountUsd > 0 ? order.amountUsd : order.filledPrice * order.filledQty;
+  const feeBps = notional > 0 ? (order.feeUsd / notional) * 10_000 : 0;
+  // CEX: fee normalmente é debitada em quote por cima do notional do fill.
+  const cashOut = notional + order.feeUsd;
+  const breakdown = liveBreakdown("buy", notional, order.feeUsd, feeBps);
+  logger.info("portfolio", `[LIVE BUY CEX] ${candidate.symbol}`, {
+    orderId: order.orderId,
+    filledPrice: order.filledPrice,
+    filledQty: order.filledQty,
+    feeUsd: order.feeUsd,
   });
   return {
-    ...FAILED(0, "Live trading não implementado"),
-    executedPriceUsd: currentPriceUsd,
+    ok: true,
+    executedPriceUsd: order.filledPrice,
+    qty: order.filledQty,
+    amountUsd: cashOut,
+    grossAmountUsd: notional,
+    feeUsd: order.feeUsd,
+    slippageUsd: 0,
+    feeBps,
+    breakdown,
+    orderId: order.orderId,
+  };
+}
+
+async function liveCexSell(pos: LiveSellPosition): Promise<ExecutionResult> {
+  const creds = await getCexCredentials();
+  if (!creds.ok) {
+    return FAILED(0, `LIVE_CREDS_UNAVAILABLE: ${creds.reason}`);
+  }
+  let client;
+  try {
+    client = await createCexClient(creds.creds);
+  } catch (err) {
+    return FAILED(0, `CEX_EXECUTION_FAILED: ${typedError(err)}`);
+  }
+  const order = await placeMarketOrder(client, {
+    symbol: pos.symbol,
+    side: "sell",
+    amountUsd: 0,
+    amount: pos.qty,
+  });
+  if (!order.ok) {
+    return FAILED(0, `${order.error}: ${order.reason}`);
+  }
+  const notional = order.amountUsd > 0 ? order.amountUsd : order.filledPrice * order.filledQty;
+  const feeBps = notional > 0 ? (order.feeUsd / notional) * 10_000 : 0;
+  const cashIn = Math.max(notional - order.feeUsd, 0);
+  const breakdown = liveBreakdown("sell", notional, order.feeUsd, feeBps);
+  logger.info("portfolio", `[LIVE SELL CEX] ${pos.symbol}`, {
+    orderId: order.orderId,
+    filledPrice: order.filledPrice,
+    filledQty: order.filledQty,
+    feeUsd: order.feeUsd,
+  });
+  return {
+    ok: true,
+    executedPriceUsd: order.filledPrice,
+    qty: order.filledQty,
+    amountUsd: cashIn,
+    grossAmountUsd: notional,
+    feeUsd: order.feeUsd,
+    slippageUsd: 0,
+    feeBps,
+    breakdown,
+    orderId: order.orderId,
+  };
+}
+
+async function liveDexBuy(
+  candidate: TokenCandidate,
+  amountUsd: number
+): Promise<ExecutionResult> {
+  const chain = candidate.chain ?? "";
+  if (!isDexChain(chain)) {
+    return FAILED(amountUsd, `DEX_CONFIG_INVALID: chain '${chain}' não suportada`);
+  }
+  if (!candidate.tokenId) {
+    return FAILED(amountUsd, "DEX_CONFIG_INVALID: tokenId ausente");
+  }
+  if (!Number.isFinite(candidate.priceUsd) || candidate.priceUsd <= 0) {
+    return FAILED(amountUsd, "DEX_PRICE_UNAVAILABLE: priceUsd inválido");
+  }
+  const usdc = usdcAddressForChain(chain);
+  if (!usdc.ok) return FAILED(amountUsd, `${usdc.error}: ${usdc.reason}`);
+  const creds = getDexCredentials(chain);
+  if (!creds.ok) {
+    return FAILED(amountUsd, `LIVE_CREDS_UNAVAILABLE: ${creds.reason}`);
+  }
+  let wallet;
+  try {
+    wallet = await createDexWallet(creds.creds);
+  } catch (err) {
+    return FAILED(amountUsd, `DEX_EXECUTION_FAILED: ${typedError(err)}`);
+  }
+  let amountInWei: bigint;
+  try {
+    // USDC = 6 decimals; usa o valor exato que será gasto.
+    amountInWei = ethers.parseUnits(amountUsd.toFixed(6), 6);
+  } catch {
+    return FAILED(amountUsd, "DEX_INVALID_AMOUNT: amountUsd não conversível em USDC wei");
+  }
+  const feeTier = envInt("DEX_FEE_TIER", DEX_FEE_TIER_DEFAULT);
+  const swap = await executeSwap({
+    wallet,
+    chain,
+    tokenIn: usdc.address,
+    tokenOut: candidate.tokenId,
+    amountInWei,
+    slippageBps: envInt("DEX_SLIPPAGE_BPS", DEX_SLIPPAGE_BPS_DEFAULT),
+    recipient: wallet.address,
+    feeTier,
+  });
+  if (!swap.ok) {
+    return FAILED(amountUsd, `${swap.error}: ${swap.reason}`);
+  }
+  // Decimals do token de saída são desconhecidos aqui; a contabilidade usa o
+  // preço verificado do candidato (mesmo feed da entrada) para qty em USD.
+  const qty = amountUsd / candidate.priceUsd;
+  const feeBps = feeTier / 100; // 3000 → 30 bps
+  const feeUsd = (amountUsd * feeBps) / 10_000;
+  const breakdown = liveBreakdown("buy", amountUsd, feeUsd, feeBps);
+  logger.info("portfolio", `[LIVE BUY DEX] ${candidate.symbol}`, {
+    txHash: swap.txHash,
+    amountOutWei: swap.amountOutWei.toString(),
+    amountOutSource: swap.amountOutSource,
+    gasUsed: swap.gasUsed.toString(),
+  });
+  return {
+    ok: true,
+    executedPriceUsd: candidate.priceUsd,
     qty,
+    amountUsd,
+    grossAmountUsd: amountUsd,
+    feeUsd,
+    slippageUsd: 0,
+    feeBps,
+    breakdown,
+    txHash: swap.txHash,
+  };
+}
+
+async function liveDexSell(
+  pos: LiveSellPosition,
+  currentPriceUsd: number
+): Promise<ExecutionResult> {
+  const chain = pos.chain ?? "";
+  if (!isDexChain(chain)) {
+    return FAILED(0, `DEX_CONFIG_INVALID: chain '${chain}' não suportada`);
+  }
+  if (!pos.tokenId) {
+    return FAILED(0, "DEX_CONFIG_INVALID: tokenId ausente");
+  }
+  const usdc = usdcAddressForChain(chain);
+  if (!usdc.ok) return FAILED(0, `${usdc.error}: ${usdc.reason}`);
+  const creds = getDexCredentials(chain);
+  if (!creds.ok) {
+    return FAILED(0, `LIVE_CREDS_UNAVAILABLE: ${creds.reason}`);
+  }
+  let wallet;
+  try {
+    wallet = await createDexWallet(creds.creds);
+  } catch (err) {
+    return FAILED(0, `DEX_EXECUTION_FAILED: ${typedError(err)}`);
+  }
+  const tokenDecimals = pos.tokenDecimals ?? 18;
+  let amountInWei: bigint;
+  try {
+    amountInWei = ethers.parseUnits(pos.qty.toString(), tokenDecimals);
+  } catch {
+    return FAILED(0, "DEX_INVALID_AMOUNT: qty não conversível em wei");
+  }
+  const feeTier = envInt("DEX_FEE_TIER", DEX_FEE_TIER_DEFAULT);
+  const swap = await executeSwap({
+    wallet,
+    chain,
+    tokenIn: pos.tokenId,
+    tokenOut: usdc.address,
+    amountInWei,
+    slippageBps: envInt("DEX_SLIPPAGE_BPS", DEX_SLIPPAGE_BPS_DEFAULT),
+    recipient: wallet.address,
+    feeTier,
+  });
+  if (!swap.ok) {
+    return FAILED(0, `${swap.error}: ${swap.reason}`);
+  }
+  // Saída é USDC (6 decimals): cash-in real.
+  const cashIn = Number(swap.amountOutWei) / 1e6;
+  const qty = pos.qty;
+  const executedPrice = qty > 0 ? cashIn / qty : currentPriceUsd;
+  const feeBps = feeTier / 100;
+  const feeUsd = (cashIn * feeBps) / 10_000;
+  const breakdown = liveBreakdown("sell", cashIn, feeUsd, feeBps);
+  logger.info("portfolio", `[LIVE SELL DEX] ${pos.symbol}`, {
+    txHash: swap.txHash,
+    amountOutWei: swap.amountOutWei.toString(),
+    amountOutSource: swap.amountOutSource,
+    gasUsed: swap.gasUsed.toString(),
+  });
+  return {
+    ok: true,
+    executedPriceUsd: executedPrice,
+    qty,
+    amountUsd: cashIn - feeUsd,
+    grossAmountUsd: cashIn,
+    feeUsd,
+    slippageUsd: 0,
+    feeBps,
+    breakdown,
+    txHash: swap.txHash,
   };
 }

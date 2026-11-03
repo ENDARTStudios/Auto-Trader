@@ -246,3 +246,50 @@
 5. **Cobertura**: 32% → subir engine/portfolio/etl/ai no ratchet; `test:ci` local ainda não reprodutível no Windows.
 6. **UI**: labels "Honeypot" → "Turnover (heurística)"; `/api/market` tratar `MarketDataUnavailableError`; limpar snapshots antigos possivelmente sintéticos.
 7. **Docs**: claims históricos de cobertura/arquitetura (5 camadas) e Fly.io ainda desatualizados.
+
+---
+
+## 8. Status pós-correção — Rodada 2 (2026-11-03, branch `feat/live-execution-round2`)
+
+**Escopo:** implementar os sistemas que ainda eram simulados (execução live, signer transport, observabilidade) e integrar gates pendentes. **Regra mantida:** execução live fica **desligada e fail-closed**; nenhuma flag/credencial foi habilitada em produção.
+
+### Execução real (implementada, desligada por padrão)
+
+| Item | Antes | Agora |
+|---|---|---|
+| CEX | `cexMarketOrder` mock com `Math.random()` | **CCXT real** (`src/lib/chain/cex-adapter.ts`): sandbox/testnet, rate limit, time sync, market/limit order, fills/fees reais, saldos reais; sem log de keys |
+| DEX | txHash aleatório, router placeholder | **ethers v6 + Uniswap V3 SwapRouter02/QuoterV2** (`dex-adapter.ts`): quoter obrigatório, `amountOutMinimum` nunca 0, receipt status=1, amountOut do evento Swap, gas; endereços validados/overridable |
+| Gate | stub sempre falhava | `live-gating.ts`: exige **6 condições** (mode=live, graduatedToLive, kill switch off, `LIVE_TRADING_ENABLED=true`, `S14_APPROVED=true`, feature flag); qualquer falta → `LIVE_DISABLED`; creds ausentes → `LIVE_CREDS_UNAVAILABLE` (nunca cai para paper) |
+| Credenciais | stub | `live-credentials.ts`: **cofre primeiro** (`ExchangeConnection` ativa + `walletVault.getExchangeCreds`); env só com `LIVE_CREDS_ALLOW_ENV=1`; mainnet só com `LIVE_ALLOW_MAINNET=1`; DEX por signer (`DEX_USE_SIGNER=1`) ou env; status mascarado |
+| Signer | transporte "to be added" | `UnixSocketSignerTransport` real (JSON-RPC 2.0 newline, timeouts, limite de frame, sem retry/fallback) + `makeSignerAdapterFromEnv` + `GET /api/signer/health` (auth `system:read`, caminho mascarado) |
+| Verificação em produção | — | `LIVE_TRADING_ENABLED`, `S14_APPROVED`, `CCXT_TESTNET`, `BINANCE_*`, `DEX_*`, `ALCHEMY_RPC_URL` **ausentes** nas env vars do Railway; `/api/status` segue `mode=paper`, `graduatedToLive=false` |
+
+**Limitações conhecidas da execução (documentadas no relatório):** approve ERC20 não é automático antes do swap; decimals do token não persistidos (sell DEX assume 18); DEX com `source=signer` ainda não assina via signer (fail-closed); signer não está rodando (serviço não implantado).
+
+### Dados / integrações
+
+- **Etherscan ETL sem mock em produção**: mock só em `NODE_ENV=test`; sem chave/rede → `provenance:"unavailable"`, `status:"error"`.
+- **`POST /api/market`**: `MarketDataUnavailableError` → **503** `market_data_unavailable`.
+- **SourceHealth escopado**: `geckoterminal` crítico DEX; `evaluateSourceHealthForScout({candidateSource})` bloqueia só o escopo afetado; **agora plugado no SCOUT do engine** (CEX continua com DEX fora, e vice-versa).
+- **UI**: “Honeypot” → “Turnover (heurística)”; “Taxa” → “Taxa (não verificada)”.
+
+### Observabilidade
+
+- **Sentry real sem dependência**: `sentry-http.ts` envia envelope HTTP ao DSN, com scrubbing recursivo, timeout e nunca lança; `initSentry()` agora é chamado no `instrumentation.ts`.
+- **Redis rate-limit real**: `redis@5`, conexão lazy com lock, fallback memória, ZSET correto; `checkRateLimitDistributed` ligado no `requireSession` (política de limites inalterada). Sem `REDIS_URL` em prod → segue memória (honesto).
+- **README.md** novo (status real) + `docs/08-knowledge-management/round2-status.md` + `.env.example` com os blocos LIVE/DEX/signer/Sentry/Redis **vazios/desligados**.
+
+### Evidências de gate (rodada 2)
+
+- `npx tsc --noEmit` → **0** · `npx eslint .` → **0** · `npx vitest run` → **60 arquivos / 766 pass / 1 skip** (era 52/626 na rodada 1)
+- `npm run build` → **OK** (ccxt marcado como `serverExternalPackages`; `.next/standalone` inclui ccxt + static + public)
+- Smoke do artefato standalone: `/api/health` **200**, `/api/health/ready` **200**
+- Live fail-closed coberto por testes (`live-gating`, `cex-adapter`, `dex-adapter`, `live-trader`, `live-credentials`, `signer-transport`)
+
+### Ainda pendente (goal ativo)
+
+1. **Signer em execução**: processo/serviço isolado (Unix socket 0600, supervisor, deploy separado) e DEX assinando via signer; approve ERC20 + decimals por token.
+2. **Habilitar live de verdade** só com envelope S14: chaves testnet, modo live, graduation, flag — decisão do operador.
+3. **RLS nativo Postgres**; CD automático; branch protection; Sentry/Redis/AI configurados em produção (hoje desligados por falta de DSN/URL/key).
+4. **Cobertura** do runtime (engine/portfolio/etl) no ratchet; `test:ci` local Windows; demo seed data vs dados reais.
+5. **Docs históricos** (skill 5 camadas, claims de cobertura, Fly.io).

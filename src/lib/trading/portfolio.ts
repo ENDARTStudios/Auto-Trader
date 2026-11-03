@@ -110,7 +110,7 @@ export async function openPosition(
   const isLive = cfg.mode === "live" && cfg.graduatedToLive;
   const executionOpts = { feeBps: cfg.feeBps, slippageBps: cfg.slippageBps };
   const result: ExecutionResult = isLive
-    ? await liveBuy(candidate, amountUsd)
+    ? await liveBuy(cfg, candidate, amountUsd)
     : await paperBuy(candidate, amountUsd, executionOpts);
 
   if (!result.ok) {
@@ -234,7 +234,17 @@ export async function closePosition(
 
   const isLive = cfg.mode === "live" && cfg.graduatedToLive;
   const result: ExecutionResult = isLive
-    ? await liveSell(pos.symbol, pos.entryQty, currentPriceUsd)
+    ? await liveSell(
+        cfg,
+        {
+          symbol: pos.symbol,
+          source: pos.source as "cex" | "dex",
+          chain: pos.chain,
+          tokenId: pos.tokenId,
+          qty: pos.entryQty,
+        },
+        currentPriceUsd
+      )
     : await paperSell(pos.symbol, pos.entryQty, currentPriceUsd, {
         feeBps: cfg.feeBps,
         slippageBps: cfg.slippageBps,

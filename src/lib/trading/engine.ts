@@ -45,6 +45,7 @@ import {
 } from "./portfolio";
 import { checkDiversification, pickStrategyForCandidate } from "./diversification";
 import { recordPaperCycleAttempt } from "./graduation";
+import { evaluateSourceHealthForScout } from "./source-health";
 import {
   decideMechanicalExit,
   evaluateAiSquadOutcome,
@@ -632,6 +633,41 @@ class Engine {
         rejected: rejectedPlatform,
       });
       return;
+    }
+
+    // ---- SOURCE HEALTH GATE (scoped: CEX vs DEX) ----
+    // Uma fonte crítica DEX em erro não derruba o CEX (e vice-versa); fonte
+    // global (LLM) bloqueia ambos. Sem isso o SCOUT ignora fonte morta.
+    try {
+      const health = await evaluateSourceHealthForScout();
+      if (health.globalBlocked || health.blockedScopes.cex || health.blockedScopes.dex) {
+        let rejectedHealth = 0;
+        const healthy = candidates.filter((c) => {
+          const scope = c.source === "cex" ? "cex" : "dex";
+          const blocked = health.globalBlocked || health.blockedScopes[scope];
+          if (blocked) {
+            rejectedHealth++;
+            logger.warn("engine", `${c.symbol} (${scope}) rejeitado por source health — ${health.reasons.join("; ")}`);
+          }
+          return !blocked;
+        });
+        candidates.length = 0;
+        candidates.push(...healthy);
+        if (rejectedHealth > 0) {
+          await safeRecordRiskEvent("no_trade", "warning", "Source health bloqueou candidatos", {
+            stage: "source_health",
+            rejected: rejectedHealth,
+            remaining: candidates.length,
+            reasons: health.reasons,
+          });
+        }
+        if (candidates.length === 0) {
+          logger.warn("engine", "Source health bloqueou todos — NO_TRADE (round não criado)");
+          return;
+        }
+      }
+    } catch (err) {
+      logger.warn("engine", `Erro avaliando source health — gate desativado: ${String(err)}`);
     }
 
     // ANALYZE

@@ -466,16 +466,17 @@ describe('T049c — Chain Coverage (≥40%)', () => {
   });
 
   describe('live-trader.ts', () => {
-    it('cexMarketOrder returns mock result', async () => {
+    it('cexMarketOrder is fail-closed without an explicit live gate', async () => {
       const { cexMarketOrder } = await import('@/lib/chain/live-trader');
       const result = await cexMarketOrder({
         symbol: 'BTC/USDT',
         side: 'buy',
-        amountUsd: 0.01 as any,
-        params: {},
-      } as any);
-      expect(result).toHaveProperty('orderId');
-      expect(result.orderId).toMatch(/^mock-ccxt-/);
+        amountUsd: 0.01,
+        type: 'market',
+      });
+      expect(result.ok).toBe(false);
+      expect(result.error).toContain('LIVE_DISABLED');
+      expect(result.orderId).toBeUndefined();
     });
   });
 });

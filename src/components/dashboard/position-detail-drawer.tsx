@@ -326,10 +326,10 @@ function PositionDetailContent({ data }: { data: PositionDetailData }) {
           </div>
           {data.scamReport ? (
             <div className="grid grid-cols-3 gap-2 text-xs">
-              <ScoreCell label="Honeypot" v={data.scamReport.honeypotScore} />
+              <ScoreCell label="Turnover (heurística)" v={data.scamReport.honeypotScore} />
               <ScoreCell label="Liquidez" v={data.scamReport.liquidityScore} />
               <ScoreCell label="Contrato" v={data.scamReport.contractScore} />
-              <ScoreCell label="Taxa" v={data.scamReport.taxScore} />
+              <ScoreCell label="Taxa (não verificada)" v={data.scamReport.taxScore} />
               <ScoreCell label="Holders" v={data.scamReport.holderScore} />
               <ScoreCell label="Idade" v={data.scamReport.ageScore} />
             </div>

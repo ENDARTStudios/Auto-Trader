@@ -1066,63 +1066,52 @@ describe('T050c — chain deep coverage ≥40%', () => {
       expect(r.reasons.some(x => x.includes('honeypot'))).toBe(true);
     });
 
-    it('live-trader market + limit + balances + dex', async () => {
-      const m = await cexMarketOrder({ symbol: 'BTC/USDT', side: 'buy', amountUsd: 0.01, type: 'market' });
-      expect(m.ok).toBe(true);
-      expect(m.orderId).toMatch(/^mock-ccxt-/);
-      expect(m.exchange).toBe('cex');
+    it('live-trader is fail-closed (no mock data, typed errors)', async () => {
+      // Sem env LIVE_TRADING_ENABLED/S14_APPROVED/flag: tudo nega com LIVE_DISABLED.
+      const gateCfg = { mode: 'live', graduatedToLive: true, killSwitchActive: false };
+      const m = await cexMarketOrder(
+        { symbol: 'BTC/USDT', side: 'buy', amountUsd: 0.01, type: 'market' },
+        gateCfg
+      );
+      expect(m.ok).toBe(false);
+      expect(m.error).toContain('LIVE_DISABLED');
+      expect(m.orderId).toBeUndefined();
 
       const noLimit = await cexLimitOrder({ symbol: 'BTC/USDT', side: 'buy', amountUsd: 1, type: 'limit' });
       expect(noLimit.ok).toBe(false);
       expect(noLimit.error).toBe('limit_price_required');
 
-      const l = await cexLimitOrder({ symbol: 'BTC/USDT', side: 'buy', amountUsd: 1, type: 'limit', limitPrice: 100 });
-      expect(l.ok).toBe(true);
-      expect(l.filledPrice).toBe(100);
+      const l = await cexLimitOrder(
+        { symbol: 'BTC/USDT', side: 'buy', amountUsd: 1, type: 'limit', limitPrice: 100 },
+        gateCfg
+      );
+      expect(l.ok).toBe(false);
+      expect(l.error).toContain('LIVE_DISABLED');
 
-      const bals = await getCexBalances();
-      expect(bals.length).toBe(3);
-      expect(bals[0].asset).toBe('BTC');
+      // Nunca saldos fake: sem gate, lista vazia.
+      const bals = await getCexBalances(gateCfg);
+      expect(bals).toEqual([]);
 
-      const swap = await dexSwapExactTokensSingle({
-        chain: 'base',
-        tokenIn: '0x' + '11'.repeat(20),
-        tokenOut: '0x' + '22'.repeat(20),
-        amountInWei: 1000n,
-        amountOutMinWei: 0n,
-        to: '0x' + '33'.repeat(20),
-        deadline: Math.floor(Date.now() / 1000) + 3600,
-      });
-      expect(swap.ok).toBe(true);
-      expect(swap.amountOutWei).toBe(997n);
-
-      const invalid = await dexSwapExactTokensSingle({
-        chain: 'base',
-        tokenIn: '0x1',
-        tokenOut: '0x2',
-        amountInWei: 0n,
-        amountOutMinWei: 0n,
-        to: '0x3',
-        deadline: Math.floor(Date.now() / 1000) + 3600,
-      });
-      expect(invalid.ok).toBe(false);
-      expect(invalid.error).toBe('invalid_amount');
-
-      const expired = await dexSwapExactTokensSingle({
-        chain: 'base',
-        tokenIn: '0x1',
-        tokenOut: '0x2',
-        amountInWei: 1n,
-        amountOutMinWei: 0n,
-        to: '0x3',
-        deadline: 1,
-      });
-      expect(expired.ok).toBe(false);
-      expect(expired.error).toBe('deadline_passed');
+      const swap = await dexSwapExactTokensSingle(
+        {
+          chain: 'base',
+          tokenIn: '0x' + '11'.repeat(20),
+          tokenOut: '0x' + '22'.repeat(20),
+          amountInWei: 1000n,
+          amountOutMinWei: 900n,
+          to: '0x' + '33'.repeat(20),
+          deadline: Math.floor(Date.now() / 1000) + 3600,
+        },
+        gateCfg
+      );
+      expect(swap.ok).toBe(false);
+      expect(swap.error).toContain('LIVE_DISABLED');
+      expect(swap.txHash).toBeUndefined();
 
       const ap = await dexApproveToken('0x' + '11'.repeat(20), 1n, '0x' + '22'.repeat(20));
-      expect(ap.ok).toBe(true);
-      expect(ap.txHash).toMatch(/^0x[0-9a-f]{64}$/);
+      expect(ap.ok).toBe(false);
+      expect(ap.error).toContain('LIVE_DISABLED');
+      expect(ap.txHash).toBeUndefined();
     });
 
     it('ContractVerifier getCode fail → fail closed', async () => {

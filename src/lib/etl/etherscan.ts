@@ -1,8 +1,14 @@
 // src/lib/etl/etherscan.ts — Etherscan contract source verifier
+//
 // Real: Etherscan API V2 (chave única multi-chain, param chainid). O free tier
 // valida apenas algumas chains — watchlist restrita a Ethereum + Arbitrum
-// (Base/Optimism/BSC exigem plano Pro; ver mapa em .env.example). Sem rede →
-// fallback mock. Em NODE_ENV=test fica no mock (determinismo).
+// (Base/Optimism/BSC exigem plano Pro; ver mapa em .env.example).
+//
+// POLÍTICA DE DADOS (audit round2):
+//   - MOCK só existe em NODE_ENV=test/VITEST (determinismo de teste).
+//   - Em produção, sem ETHERSCAN_API_KEY ou em falha de rede, devolvemos
+//     sources: [] com provenance "unavailable" + error. NUNCA devolvemos
+//     MOCK_SOURCES como se fosse dado real (o round1 ainda fazia fallback mock).
 import { getEnv } from "@/lib/env";
 import { logger } from "../trading/logger";
 
@@ -16,6 +22,7 @@ export interface ContractSource {
   compilerVersion: string;   // e.g. "v0.8.24+commit.e11b9ed9"
 }
 
+/** Fixtures sintéticas — usadas SOMENTE em ambiente de teste. */
 const MOCK_SOURCES: ContractSource[] = [
   { address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", chain: "ethereum", verified: true, hasMint: false, hasBlacklist: false, isProxy: false, compilerVersion: "v0.8.24+commit.e11b9ed9" },
   { address: "0xA0b86991c6218b36c1d1D4F73CA3dab40Eb8Fd9Da", chain: "ethereum", verified: true, hasMint: false, hasBlacklist: true,  isProxy: false, compilerVersion: "v0.6.6+commit.6cbfd09" },
@@ -38,6 +45,19 @@ interface V2SourceResult {
   ContractName: string;
   CompilerVersion: string;
   Proxy: string;
+}
+
+export interface EtherscanResult {
+  sources: ContractSource[];
+  /** Rótulo de proveniência; "etherscan:unavailable" quando não há dado real. */
+  source: string;
+  provenance: "live" | "mock" | "unavailable";
+  error?: string;
+}
+
+/** true só em ambiente de teste (Vitest) — único lugar onde mock é permitido. */
+export function isTestEnv(): boolean {
+  return process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
 }
 
 async function fetchOne(apiKey: string, chainId: number, address: string): Promise<ContractSource | null> {
@@ -65,21 +85,26 @@ async function fetchOne(apiKey: string, chainId: number, address: string): Promi
   };
 }
 
-export async function fetchEtherscan(): Promise<{
-  sources: ContractSource[];
-  source: string;
-  provenance: "live" | "mock";
-}> {
-  // NOTA (audit round1): este connector NÃO foi migrado para live-only nesta
-  // rodada (free tier V2 limita chains; ver report .local/audit/round1-data.md).
-  // Ele agora DECLARA a proveniência para o orquestrador não marcar mock como ok.
-  if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+/**
+ * Busca o source verificado dos contratos da watchlist.
+ * - ambiente de teste -> fixtures (provenance "mock")
+ * - produção sem chave / falha de rede -> sources: [], provenance "unavailable"
+ * - sucesso -> provenance "live"
+ */
+export async function fetchEtherscan(): Promise<EtherscanResult> {
+  if (isTestEnv()) {
     return { sources: MOCK_SOURCES, source: "Etherscan mock (NODE_ENV=test)", provenance: "mock" };
   }
 
   const apiKey = getEnv().ETHERSCAN_API_KEY;
   if (!apiKey) {
-    return { sources: MOCK_SOURCES, source: "Etherscan mock (sem ETHERSCAN_API_KEY)", provenance: "mock" };
+    logger.warn("etl", "Etherscan indisponível: sem ETHERSCAN_API_KEY (nenhum dado fabricado)");
+    return {
+      sources: [],
+      source: "etherscan:unavailable",
+      provenance: "unavailable",
+      error: "sem ETHERSCAN_API_KEY",
+    };
   }
 
   try {
@@ -98,7 +123,13 @@ export async function fetchEtherscan(): Promise<{
     logger.info("etl", `Etherscan real: ${out.length} contratos verificados`);
     return { sources: out, source: "Etherscan real (V2 multi-chain)", provenance: "live" };
   } catch (e) {
-    logger.warn("etl", `Etherscan real falhou — usando mock como fallback: ${String(e)}`);
-    return { sources: MOCK_SOURCES, source: "Etherscan mock (fallback)", provenance: "mock" };
+    const message = e instanceof Error ? e.message : String(e);
+    logger.warn("etl", `Etherscan indisponível (sem mock): ${message}`);
+    return {
+      sources: [],
+      source: "etherscan:unavailable",
+      provenance: "unavailable",
+      error: message,
+    };
   }
 }

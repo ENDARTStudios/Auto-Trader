@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { getFearGreedIndex, getTrendingTokens, analyzeMarket } from "@/lib/trading/market-analysis";
+import {
+  getFearGreedIndex,
+  getTrendingTokens,
+  analyzeMarket,
+  MarketDataUnavailableError,
+} from "@/lib/trading/market-analysis";
 import { selectCandidates } from "@/lib/trading/token-selector";
 import { getConfig } from "@/lib/trading/config";
 import { requireSession } from "@/lib/auth/session";
@@ -28,6 +33,19 @@ const postSchema = z.object({
 
 // GET /api/market — returns latest market snapshots + global sentiment
 // POST /api/market — body: { symbol, source, chain?, tokenId? } — runs analysis on-demand
+//
+// Sem OHLCV real a análise NÃO é fabricada: `analyzeMarket` lança
+// MarketDataUnavailableError e o POST responde 503 com code explícito
+// (o cliente/engine decide degradar; nunca recebe indicadores inventados).
+
+/**
+ * Checa por classe OU estruturalmente (`code`), porque a identidade da classe
+ * pode mudar entre bundles/HMR — o contrato público é o `code`.
+ */
+function isMarketDataUnavailableError(err: unknown): boolean {
+  if (err instanceof MarketDataUnavailableError) return true;
+  return (err as { code?: unknown } | null | undefined)?.code === "MARKET_DATA_UNAVAILABLE";
+}
 
 export async function GET(req: Request) {
   try {
@@ -103,8 +121,25 @@ export async function POST(req: Request) {
       }
     }
 
-    const signal = await analyzeMarket(candidate);
-    return NextResponse.json(signal);
+    try {
+      const signal = await analyzeMarket(candidate);
+      return NextResponse.json(signal);
+    } catch (err) {
+      if (isMarketDataUnavailableError(err)) {
+        const message = err instanceof Error ? err.message : "dados de mercado indisponíveis";
+        return NextResponse.json(
+          {
+            error: "market_data_unavailable",
+            code: "MARKET_DATA_UNAVAILABLE",
+            message,
+            symbol: candidate.symbol,
+            source: candidate.source,
+          },
+          { status: 503 }
+        );
+      }
+      throw err;
+    }
   } catch (err) {
     return handleApiError(err, "POST /api/market");
   }
