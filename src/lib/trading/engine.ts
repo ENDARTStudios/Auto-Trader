@@ -56,6 +56,12 @@ class Engine {
   private busy = false;
 
   async start(): Promise<void> {
+    // Serverless (Vercel) congela a instância após a resposta: gravar
+    // engineRunning=true aqui faria a UI mentir sobre um loop que não existe.
+    if (process.env.VERCEL) {
+      logger.warn("engine", "Start bloqueado: serverless não sustenta loop contínuo");
+      return;
+    }
     await ensureInitialized();
     const cfg = await getConfig();
     if (cfg.killSwitchActive) {
