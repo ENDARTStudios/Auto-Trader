@@ -91,3 +91,10 @@ O handler antigo gravava `enabled: false` nesse evento e, como ele chega depois 
 2. Trocar `pk`/`sk` para live.
 3. Criar endpoint de webhook live apontando para o mesmo path; copiar o novo `whsec_`.
 4. Rodar `npm run billing:check` com o ambiente de produção e repetir o teste de compra.
+
+### Customer persistido para o Billing Portal
+
+O portal procurava o customer **por e-mail**. Contas locais (`admin@local`) não têm e-mail
+entregável e o Stripe cria o customer com o e-mail digitado no Checkout — a busca falhava com
+`409 no_customer`. Agora `checkout.session.completed` grava `stripe_customer:<userId>` em
+FeatureFlag e o portal usa esse id primeiro, caindo no e-mail só como fallback.

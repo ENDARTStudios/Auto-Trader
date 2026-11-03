@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyStripeWebhook } from "@/lib/billing/stripe-hmac";
-import { checkoutSessionGrantsAccess, isActiveSubscriptionStatus, planFromMetadata } from "@/lib/billing/subscription-state";
+import { checkoutSessionGrantsAccess, isActiveSubscriptionStatus, planFromMetadata, stripeCustomerKey } from "@/lib/billing/subscription-state";
 import { logger } from "@/lib/trading/logger";
 import { handleApiError } from "@/lib/api/error-handler";
 

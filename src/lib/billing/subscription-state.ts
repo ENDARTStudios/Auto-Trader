@@ -23,3 +23,13 @@ export function planFromMetadata(metadata: Record<string, string> | undefined): 
   const plan = metadata?.plan?.trim();
   return plan === "pro" || plan === "elite" ? plan : "pro";
 }
+
+/** Chaves de estado no FeatureFlag (sem migração de schema). */
+export function subscriptionKey(userId: string): string {
+  return `subscription:${userId}`;
+}
+
+/** Guarda o customer do Stripe por usuário para o Billing Portal. */
+export function stripeCustomerKey(userId: string): string {
+  return `stripe_customer:${userId}`;
+}
