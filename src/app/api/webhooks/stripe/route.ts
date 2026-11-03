@@ -1,11 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyStripeWebhook } from "@/lib/billing/stripe-hmac";
-import { checkoutSessionGrantsAccess, isActiveSubscriptionStatus, planFromMetadata, stripeCustomerKey } from "@/lib/billing/subscription-state";
+import { checkoutSessionGrantsAccess, isActiveSubscriptionStatus, planFromMetadata, STRIPE_CUSTOMER_PREFIX, stripeCustomerKey, userIdFromCustomerKey } from "@/lib/billing/subscription-state";
 import { logger } from "@/lib/trading/logger";
 import { handleApiError } from "@/lib/api/error-handler";
 
 export const dynamic = "force-dynamic";
+
+/** Descobre o userId a partir do customer do Stripe (flag gravada no checkout). */
+async function userIdForCustomer(customer: string | undefined): Promise<string | null> {
+  if (!customer) return null;
+  const flag = await db.featureFlag
+    .findFirst({ where: { key: { startsWith: STRIPE_CUSTOMER_PREFIX }, description: customer } })
+    .catch(() => null);
+  return flag ? userIdFromCustomerKey(flag.key) : null;
+}
 
 // POST /api/webhooks/stripe
 // Stripe sends signed events here. We verify HMAC + persist idempotently.
@@ -106,6 +115,42 @@ export async function POST(req: NextRequest) {
             },
             update: { description: "free", enabled: false },
           }).catch(() => null);
+        }
+        break;
+      }
+      // Falha de cobrança: revoga acesso na hora, sem esperar o
+      // customer.subscription.updated (que pode vir com atraso).
+      case "invoice.payment_failed": {
+        const invoice = event.data?.object;
+        const userId = await userIdForCustomer(invoice?.customer);
+        if (userId) {
+          const existing = await db.featureFlag
+            .findFirst({ where: { key: `subscription:${userId}` } })
+            .catch(() => null);
+          await db.featureFlag
+            .upsert({
+              where: { key: `subscription:${userId}` },
+              create: {
+                key: `subscription:${userId}`,
+                description: existing?.description ?? "pro",
+                enabled: false,
+                rolloutPct: 100,
+              },
+              update: { enabled: false },
+            })
+            .catch(() => null);
+        }
+        logger.warn("api", "Stripe invoice.payment_failed", { id: event.id, customer: invoice?.customer });
+        break;
+      }
+      // Cobrança recuperada: devolve acesso (o subscription.updated mantém depois).
+      case "invoice.payment_succeeded": {
+        const invoice = event.data?.object;
+        const userId = await userIdForCustomer(invoice?.customer);
+        if (userId) {
+          await db.featureFlag
+            .updateMany({ where: { key: `subscription:${userId}` }, data: { enabled: true } })
+            .catch(() => null);
         }
         break;
       }

@@ -98,3 +98,11 @@ O portal procurava o customer **por e-mail**. Contas locais (`admin@local`) não
 entregável e o Stripe cria o customer com o e-mail digitado no Checkout — a busca falhava com
 `409 no_customer`. Agora `checkout.session.completed` grava `stripe_customer:<userId>` em
 FeatureFlag e o portal usa esse id primeiro, caindo no e-mail só como fallback.
+
+### Falha de cobrança
+
+`invoice.payment_failed` revoga o acesso na hora (`enabled: false`, plano preservado) e
+`invoice.payment_succeeded` devolve; `customer.subscription.updated` continua sendo a fonte
+final do status. A tela de Billing mostra **“pagamento pendente”** quando `enabled=false`
+com plano pago. O userId é resolvido pelo customer salvo no checkout
+(`stripe_customer:<userId>`), sem chamada extra ao Stripe.
