@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyStripeWebhook } from "@/lib/billing/stripe-hmac";
+import { checkoutSessionGrantsAccess, isActiveSubscriptionStatus, planFromMetadata } from "@/lib/billing/subscription-state";
 import { logger } from "@/lib/trading/logger";
 import { handleApiError } from "@/lib/api/error-handler";
 
@@ -31,7 +32,15 @@ export async function POST(req: NextRequest) {
     const event = JSON.parse(rawBody) as {
       id: string;
       type: string;
-      data?: { object?: { id?: string; customer?: string; status?: string; metadata?: Record<string, string> } };
+      data?: {
+        object?: {
+          id?: string;
+          customer?: string;
+          status?: string;
+          payment_status?: string;
+          metadata?: Record<string, string>;
+        };
+      };
     };
 
     // Idempotency: skip if event.id already processed
@@ -45,20 +54,41 @@ export async function POST(req: NextRequest) {
     }
 
     switch (event.type) {
-      case "checkout.session.completed":
+      // Checkout concluído: o objeto é a Session (status "complete"), não a
+      // subscription. Marcar enabled pelo status da sessão deixava o plano
+      // "pro" com enabled=false quando este evento chegava depois do
+      // subscription.created. Aqui o critério é o pagamento.
+      case "checkout.session.completed": {
+        const session = event.data?.object;
+        if (session?.customer && session?.metadata?.userId) {
+          const paid = checkoutSessionGrantsAccess(session);
+          await db.featureFlag.upsert({
+            where: { key: `subscription:${session.metadata.userId}` },
+            create: {
+              key: `subscription:${session.metadata.userId}`,
+              description: planFromMetadata(session.metadata),
+              enabled: paid,
+              rolloutPct: 100,
+            },
+            update: { description: planFromMetadata(session.metadata), enabled: paid },
+          }).catch(() => null);
+        }
+        break;
+      }
       case "customer.subscription.created":
       case "customer.subscription.updated": {
         const sub = event.data?.object;
+        const active = isActiveSubscriptionStatus(sub?.status);
         if (sub?.customer && sub?.metadata?.userId) {
           await db.featureFlag.upsert({
             where: { key: `subscription:${sub.metadata.userId}` },
             create: {
               key: `subscription:${sub.metadata.userId}`,
-              description: sub.metadata.plan ?? "pro",
-              enabled: sub.status === "active",
+              description: planFromMetadata(sub.metadata),
+              enabled: active,
               rolloutPct: 100,
             },
-            update: { description: sub.metadata.plan ?? "pro", enabled: sub.status === "active" },
+            update: { description: planFromMetadata(sub.metadata), enabled: active },
           }).catch(() => null);
         }
         break;
