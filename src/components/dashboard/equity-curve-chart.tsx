@@ -36,13 +36,14 @@ function fmtUsd(n: number) {
   });
 }
 
-function fmtTime(t: string) {
+function fmtTime(t: unknown): string {
+  const iso = String(t);
   try {
-    const d = new Date(t);
-    if (isNaN(d.getTime())) return t;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso;
     return d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   } catch {
-    return t;
+    return iso;
   }
 }
 
@@ -120,7 +121,7 @@ export function EquityCurveChart({
             }}
             labelStyle={{ color: "oklch(0.62 0.008 264)", fontSize: 10 }}
             labelFormatter={fmtTime}
-            formatter={(v: number) => [fmtUsd(v), "Equity"]}
+            formatter={(v) => [fmtUsd(Number(v)), "Equity"]}
           />
           <Area
             type="monotone"
