@@ -32,7 +32,7 @@
 import { spawn as nodeSpawn, type ChildProcess } from "node:child_process";
 import { existsSync, unlinkSync } from "node:fs";
 import os from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { maskSignerSocketPath } from "@/lib/chain/signer-transport";
 
 export interface SignerSupervisorStatus {
@@ -158,7 +158,22 @@ let bundlePathOverride: string | null = null;
 
 export function resolveSignerBundlePath(): string {
   if (bundlePathOverride) return bundlePathOverride;
-  return join(process.cwd(), ".next", "standalone", "signer.js");
+  // Em produção o Next standalone roda com cwd = <app>/.next/standalone
+  // (server.js), então o candidato canônico `cwd/.next/standalone/signer.js`
+  // resolve para .../standalone/.next/standalone/signer.js (bug rodada 3).
+  // Ordem: env override -> irmão do server.js (argv[1]) -> cwd standalone ->
+  // cwd repo. Retorna o primeiro que existir; fallback = repo canonical.
+  const candidates: string[] = [];
+  const fromEnv = process.env.SIGNER_BUNDLE_PATH?.trim();
+  if (fromEnv) candidates.push(fromEnv);
+  const entry = process.argv[1];
+  if (entry) candidates.push(join(dirname(entry), "signer.js"));
+  candidates.push(join(process.cwd(), "signer.js"));
+  candidates.push(join(process.cwd(), ".next", "standalone", "signer.js"));
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return candidates[candidates.length - 1] ?? join(process.cwd(), ".next", "standalone", "signer.js");
 }
 
 export function resolveSignerSocketPath(): string {
