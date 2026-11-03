@@ -62,8 +62,17 @@ tem `repo` associado — o último deploy foi via CLI em 01/11).
 ## Vercel: apenas preview
 
 `vercel.json` desliga deploy de `main` (`git.deploymentEnabled.main=false`). Previews de PR
-continuam; produção é só Railway. O alias antigo `auto-trader-snowy.vercel.app` segue no ar
-apontando para o último build (mesmo banco), mas não recebe mais deploy automático.
+continuam; produção é só Railway.
+
+Os aliases de produção da Vercel foram **removidos** (`vercel alias rm`):
+
+- `auto-trader-snowy.vercel.app` → 404
+- `auto-trader-end-art-studios.vercel.app` → 404
+- `auto-trader.vercel.app` → 404
+
+URLs diretas de deployment (`auto-trader-<hash>-end-art-studios.vercel.app`) ainda existem
+como artefato de builds antigos; podem ser apagadas com `vercel remove <url>` quando não
+forem mais necessárias.
 
 ## Auto-deploy do Railway
 
