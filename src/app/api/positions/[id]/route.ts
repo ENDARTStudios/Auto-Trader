@@ -2,14 +2,21 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { fetchPricesBatch } from "@/lib/trading/price-feed";
 import { getPaperOrderByPosition } from "@/lib/trading/paper-order-store";
+import { requirePermission } from "@/lib/auth/session";
+import { handleApiError } from "@/lib/api/error-handler";
 
 // GET /api/positions/[id] — returns full position detail aggregated with all
 // related data: scam report, AI insights, surveillance alerts, market snapshots,
 // round info, and current live price (if open).
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requirePermission("positions:read")(req);
+  } catch (err) {
+    return handleApiError(err, "GET /api/positions/[id]");
+  }
   const { id } = await params;
   const position = await db.position.findUnique({ where: { id } });
   if (!position) {

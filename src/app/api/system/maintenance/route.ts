@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/trading/logger";
+import { requirePermission } from "@/lib/auth/session";
+import { handleApiError } from "@/lib/api/error-handler";
 
 // POST /api/system/maintenance — executes a maintenance action.
 // Body: { action: "clear_logs" | "clear_market_snapshots" | "clear_performance_snapshots" | "clear_old_alerts" }
@@ -8,6 +10,11 @@ import { logger } from "@/lib/trading/logger";
 // All actions are scoped to old/excess data — they NEVER delete positions,
 // rounds, config, balances, or notification channels.
 export async function POST(req: Request) {
+  try {
+    await requirePermission("system:admin")(req);
+  } catch (err) {
+    return handleApiError(err, "POST /api/system/maintenance");
+  }
   const body = await req.json().catch(() => ({}));
   const action = String(body.action ?? "");
 

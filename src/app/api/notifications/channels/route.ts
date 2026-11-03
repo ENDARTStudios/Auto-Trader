@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import {
-  listChannels,
   ALL_EVENT_TYPES,
   type ChannelType,
   type NotificationEventType,
@@ -10,17 +9,45 @@ import {
   type WebhookConfig,
 } from "@/lib/trading/notifier";
 import { logger } from "@/lib/trading/logger";
+import { requirePermission } from "@/lib/auth/session";
+import { rlsWhere } from "@/lib/auth/rls";
+import { handleApiError } from "@/lib/api/error-handler";
 
-// GET /api/notifications/channels — list all channels
-// POST /api/notifications/channels — create new channel
-export async function GET() {
+// GET /api/notifications/channels — list channels (RLS: own channels, or all
+// for super_admin)
+// POST /api/notifications/channels — create new channel (owned by the caller)
+export async function GET(req: Request) {
   try {
-    const channels = await listChannels();
+    const session = await requirePermission("notifications:manage")(req);
+    const rows = await db.notificationChannel.findMany({
+      where: rlsWhere(session, "notificationChannel"),
+      orderBy: { createdAt: "asc" },
+    });
+    const channels = rows
+      .map((row) => {
+        try {
+          return {
+            id: row.id,
+            name: row.name,
+            type: row.type,
+            config: JSON.parse(row.config),
+            events: JSON.parse(row.events),
+            enabled: row.enabled,
+            throttleSec: row.throttleSec,
+          };
+        } catch {
+          return null;
+        }
+      })
+      .filter((c): c is NonNullable<typeof c> => c !== null);
     return NextResponse.json({
       channels,
       eventTypes: ALL_EVENT_TYPES,
     });
   } catch (err) {
+    if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
+      return handleApiError(err, "GET /api/notifications/channels");
+    }
     logger.error("api", `Erro listando channels: ${String(err)}`);
     return NextResponse.json(
       { error: "Failed to list channels" },
@@ -31,6 +58,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const session = await requirePermission("notifications:manage")(req);
     const body = (await req.json()) as {
       name?: string;
       type?: ChannelType;
@@ -90,6 +118,7 @@ export async function POST(req: Request) {
         events: JSON.stringify(events),
         enabled: body.enabled ?? true,
         throttleSec: Math.max(0, body.throttleSec ?? 0),
+        ownerId: session.userId,
       },
     });
 
@@ -106,6 +135,9 @@ export async function POST(req: Request) {
       createdAt: created.createdAt,
     });
   } catch (err) {
+    if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
+      return handleApiError(err, "POST /api/notifications/channels");
+    }
     logger.error("api", `Erro criando channel: ${String(err)}`);
     return NextResponse.json(
       { error: "Failed to create channel" },

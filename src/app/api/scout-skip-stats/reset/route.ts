@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/trading/logger";
 import { resetScoutSkipStats } from "@/lib/trading/scout-skip-stats";
+import { requirePermission } from "@/lib/auth/session";
+import { handleApiError } from "@/lib/api/error-handler";
 
 // POST /api/scout-skip-stats/reset
 //
@@ -11,12 +13,16 @@ import { resetScoutSkipStats } from "@/lib/trading/scout-skip-stats";
 // No body parameters — always resets all reasons (singletons make sense as
 // a unit; partial reset would skew the operator's view of recent vs. older
 // skips).
-export async function POST() {
+export async function POST(req: Request) {
   try {
+    await requirePermission("config:write")(req);
     const result = await resetScoutSkipStats();
     logger.info("api", `ScoutSkipStat reset: ${result.reset} razão(ões)`);
     return NextResponse.json(result);
   } catch (err) {
+    if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
+      return handleApiError(err, "POST /api/scout-skip-stats/reset");
+    }
     logger.error("api", `Erro resetando scout-skip-stats: ${String(err)}`);
     return NextResponse.json(
       { error: "Failed to reset scout skip stats" },

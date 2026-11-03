@@ -6,7 +6,7 @@ import {
   rateLimitResponse,
   __resetRateLimitStore,
 } from '@/lib/rate-limit';
-import { requireSession, generateToken, hashToken } from '@/lib/auth/session';
+import { requireSession, generateToken, hashToken, signSessionToken } from '@/lib/auth/session';
 import { RateLimitedError } from '@/lib/auth/errors';
 import { hashPassword } from '@/lib/auth/password';
 
@@ -64,6 +64,9 @@ describe('rate limit — sliding window (memory)', () => {
 describe('requireSession — limite por usuário (identity-aware)', () => {
   const email = `rl-user-${Date.now()}@local`;
   const token = generateToken();
+  // The cookie now carries the SIGNED value (<token>.<hmac>) — requireSession
+  // rejects unsigned cookies before the DB lookup.
+  const signedCookie = signSessionToken(token);
   let userId: string;
   let originalDefaultLimit: number;
 
@@ -94,7 +97,7 @@ describe('requireSession — limite por usuário (identity-aware)', () => {
 
   it('RateLimitedError após N chamadas do mesmo usuário na mesma rota', async () => {
     const req = () =>
-      new Request('http://localhost/api/status', { headers: { cookie: `session=${token}` } });
+      new Request('http://localhost/api/status', { headers: { cookie: `session=${signedCookie}` } });
     for (let i = 0; i < 3; i++) {
       const s = await requireSession(req());
       expect(s.userId).toBe(userId);
@@ -106,10 +109,10 @@ describe('requireSession — limite por usuário (identity-aware)', () => {
     __resetRateLimitStore();
     rateLimitConfig.default.limit = 1;
     const reqPositions = new Request('http://localhost/api/positions', {
-      headers: { cookie: `session=${token}` },
+      headers: { cookie: `session=${signedCookie}` },
     });
     const reqStatus = new Request('http://localhost/api/status', {
-      headers: { cookie: `session=${token}` },
+      headers: { cookie: `session=${signedCookie}` },
     });
     await expect(requireSession(reqPositions)).resolves.toBeTruthy();
     await expect(requireSession(reqStatus)).resolves.toBeTruthy();

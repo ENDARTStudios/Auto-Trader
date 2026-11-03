@@ -67,7 +67,8 @@ services:
     ports:
       - "3100:3000"
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      # readiness real: 200 só com banco reachable (503 se não)
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 15s
       timeout: 5s
       retries: 5

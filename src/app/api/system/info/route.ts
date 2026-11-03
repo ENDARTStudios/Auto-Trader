@@ -2,9 +2,16 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import fs from "fs";
 import path from "path";
+import { requirePermission } from "@/lib/auth/session";
+import { handleApiError } from "@/lib/api/error-handler";
 
 // GET /api/system/info — returns DB stats (table counts + file size + uptime)
-export async function GET() {
+export async function GET(req: Request) {
+  try {
+    await requirePermission("system:read")(req);
+  } catch (err) {
+    return handleApiError(err, "GET /api/system/info");
+  }
   const [
     configCount,
     positionsOpen,

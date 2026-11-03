@@ -1,12 +1,20 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/trading/logger";
+import { requirePermission } from "@/lib/auth/session";
+import { handleApiError } from "@/lib/api/error-handler";
 
 // GET /api/system/backup — exports the full DB as a JSON download.
-// Excludes transient runtime state (engineRunning, killSwitch fields) — those are
-// restored separately by the operator after import. We keep everything else,
-// including closed positions, rounds, logs, scam reports, snapshots, etc.
-export async function GET() {
+// SECURITY: full backup contains every table (users' positions, channels,
+// trading config) — super_admin only (system:admin).
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
+  try {
+    await requirePermission("system:admin")(req);
+  } catch (err) {
+    return handleApiError(err, "GET /api/system/backup");
+  }
   const [
     config,
     positions,
@@ -113,6 +121,11 @@ export async function GET() {
 //   - For each restorable table we UPSERT (insert-or-update) rows by their
 //     primary key. This preserves foreign-key-like relationships.
 export async function POST(req: Request) {
+  try {
+    await requirePermission("system:admin")(req);
+  } catch (err) {
+    return handleApiError(err, "POST /api/system/backup");
+  }
   let body: any;
   try {
     body = await req.json();

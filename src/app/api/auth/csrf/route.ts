@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireSession } from "@/lib/auth/session";
+import { requireSession, parseSessionCookieFromRequest } from "@/lib/auth/session";
 import { issueCsrfToken } from "@/lib/csrf";
 import { handleApiError } from "@/lib/api/error-handler";
 
@@ -12,8 +12,15 @@ import { handleApiError } from "@/lib/api/error-handler";
  */
 export async function GET(req: Request) {
   try {
-    const session = await requireSession(req);
-    const token = await issueCsrfToken(session.userId);
+    await requireSession(req);
+    // The token is HMAC-bound to the SIGNED session cookie value (not the user
+    // id and not the raw token) — the value the browser sends back on every
+    // request. A token issued for one session cannot be replayed with another.
+    const sessionCookieValue = parseSessionCookieFromRequest(req);
+    if (!sessionCookieValue) {
+      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+    }
+    const token = issueCsrfToken(sessionCookieValue);
     const res = NextResponse.json({ token });
     res.cookies.set("csrf", token, {
       httpOnly: false,

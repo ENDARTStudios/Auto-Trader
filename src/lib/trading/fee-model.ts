@@ -6,12 +6,17 @@
 // to skip marginal setups.
 //
 // The fee model is conservative: we apply the configured fee on BOTH sides
-// of the trade (entry and exit), plus slippage on both sides. This means
-// a position needs to move at least (2 * (feeBps + slippageBps)) / 10000
-// in the favorable direction before it breaks even on a round-trip.
+// of the trade (entry and exit), plus slippage on both sides.
 //
-// Example: feeBps=10, slippageBps=30 → round-trip cost = 2 * (10+30) = 80bps
-//          = 0.80% — the position needs to gain > 0.80% to be profitable.
+// Cost rate per side: c = (feeBps + slippageBps) / 10000. The round-trip
+// breakeven is COMPOUNDED, not a sum of percentages: to end with the same
+// cash you started with you need
+//
+//     (1 + move) = (1 + c) / (1 - c)   =>   move = 2c / (1 - c)
+//
+// Example: feeBps=10, slippageBps=30 → c = 0.004 → move = 0.80321%, not the
+// naive 0.80%. The naive sum understates the breakeven (about -$0.032 per
+// $1000 traded), which made marginal trades look profitable.
 //
 // All fee math is done in USD for clarity. Net P&L = gross P&L - totalFees.
 
@@ -63,25 +68,80 @@ export function computeFeeBreakdown(
 }
 
 /**
+ * Compounded round-trip breakeven move (%). A price move of exactly this
+ * percentage leaves the position net-flat after paying fees + slippage on
+ * both legs. Uses ratios of the net proceeds, so costs compound:
+ *
+ *   (1 + move) = (1 + c) / (1 - c),  c = (feeBps + slippageBps) / 10000
+ *
+ * Pure function; returns 0 when there are no costs.
+ */
+export function compoundBreakevenMovePct(feeBps: number, slippageBps: number): number {
+  const safeFee = Number.isFinite(feeBps) ? Math.max(feeBps, 0) : 0;
+  const safeSlippage = Number.isFinite(slippageBps) ? Math.max(slippageBps, 0) : 0;
+  const costRate = (safeFee + safeSlippage) / 10_000;
+  if (costRate <= 0) return 0;
+  if (costRate >= 1) return Infinity; // costs consume the whole notional
+  return ((1 + costRate) / (1 - costRate) - 1) * 100;
+}
+
+/**
  * Compute the round-trip cost (buy + sell) for a position of the given size.
- * Used by the engine in SCOUT to gate trades: if expected move < roundTripCost,
+ * Used by the engine in SCOUT to gate trades: if expected move < breakeven,
  * the trade is skipped because it can't be profitable.
  *
- * Returns the cost in USD and as a % of the gross position size.
+ * costUsd / costPct describe the LINEAR fee+slippage total (2 * c of notional)
+ * while breakevenMovePct is the COMPOUNDED move required to break even. Both
+ * are size-independent, so a zero/negative size no longer produces NaN.
  */
 export function computeRoundTripCost(
   positionSizeUsd: number,
   feeBps: number,
   slippageBps: number
 ): { costUsd: number; costPct: number; breakevenMovePct: number } {
-  const buyBreakdown = computeFeeBreakdown(positionSizeUsd, feeBps, slippageBps, "buy");
-  const sellBreakdown = computeFeeBreakdown(positionSizeUsd, feeBps, slippageBps, "sell");
-  const costUsd = buyBreakdown.totalCostUsd + sellBreakdown.totalCostUsd;
-  const costPct = (costUsd / positionSizeUsd) * 100;
-  // Breakeven move: how much the price needs to move in our favor (in %)
-  // before we start making money. Equals roundTripCost / positionSize * 100.
-  const breakevenMovePct = costPct;
+  const size =
+    Number.isFinite(positionSizeUsd) && positionSizeUsd > 0 ? positionSizeUsd : 0;
+  const safeFee = Number.isFinite(feeBps) ? Math.max(feeBps, 0) : 0;
+  const safeSlippage = Number.isFinite(slippageBps) ? Math.max(slippageBps, 0) : 0;
+  const costRate = (safeFee + safeSlippage) / 10_000;
+  const costUsd = size * costRate * 2; // both legs
+  const costPct = costRate * 2 * 100; // size-independent
+  const breakevenMovePct = compoundBreakevenMovePct(safeFee, safeSlippage);
   return { costUsd, costPct, breakevenMovePct };
+}
+
+/**
+ * Breakdown for a BUY where the cash amount is fixed and fee + slippage are
+ * paid OUT OF that cash (net-quantity convention used by paper-trader):
+ *
+ *   grossAmountUsd = cash debited
+ *   netAmountUsd   = market value actually acquired (gross - costs)
+ *
+ * The generic computeFeeBreakdown() keeps its "costs added on top of the
+ * notional" convention; this helper is the honest view for cash-budget buys.
+ */
+export function computeBuySpendBreakdown(
+  cashAmountUsd: number,
+  feeBps: number,
+  slippageBps: number
+): FeeBreakdown {
+  const gross =
+    Number.isFinite(cashAmountUsd) && cashAmountUsd > 0 ? cashAmountUsd : 0;
+  const safeFee = Number.isFinite(feeBps) ? Math.max(feeBps, 0) : 0;
+  const safeSlippage = Number.isFinite(slippageBps) ? Math.max(slippageBps, 0) : 0;
+  const feeUsd = (gross * safeFee) / 10_000;
+  const slippageUsd = (gross * safeSlippage) / 10_000;
+  const totalCostUsd = feeUsd + slippageUsd;
+  return {
+    grossAmountUsd: gross,
+    feeBps: safeFee,
+    slippageBps: safeSlippage,
+    side: "buy",
+    feeUsd,
+    slippageUsd,
+    totalCostUsd,
+    netAmountUsd: Math.max(gross - totalCostUsd, 0),
+  };
 }
 
 /**
@@ -93,7 +153,14 @@ export async function recordFeeAuditLog(
   symbol: string,
   side: "buy" | "sell",
   breakdown: FeeBreakdown,
-  opts?: { strategy?: string; exchange?: string }
+  opts?: {
+    strategy?: string;
+    exchange?: string;
+    /** Actual fill price — logged for audit (was hardcoded 0 before). */
+    executedPriceUsd?: number;
+    /** Actual filled quantity — logged for audit (was hardcoded 0 before). */
+    qty?: number;
+  }
 ): Promise<void> {
   try {
     await db.feeAuditLog.create({
@@ -102,8 +169,11 @@ export async function recordFeeAuditLog(
         symbol,
         side,
         grossAmountUsd: breakdown.grossAmountUsd,
-        executedPriceUsd: 0, // not tracked here — caller can update if needed
-        qty: 0,
+        executedPriceUsd:
+          opts?.executedPriceUsd !== undefined && Number.isFinite(opts.executedPriceUsd)
+            ? opts.executedPriceUsd
+            : 0,
+        qty: opts?.qty !== undefined && Number.isFinite(opts.qty) ? opts.qty : 0,
         feeBps: breakdown.feeBps,
         feeUsd: breakdown.feeUsd,
         slippageBps: breakdown.slippageBps,
@@ -216,11 +286,13 @@ export function isTradeProfitableAfterFees(
   slippageBps: number,
   marginFactor = 3.0
 ): { profitable: boolean; roundTripCostPct: number; expectedMovePct: number; margin: number } {
-  const { costPct: roundTripCostPct } = computeRoundTripCost(
+  const { breakevenMovePct } = computeRoundTripCost(
     positionSizeUsd,
     feeBps,
     slippageBps
   );
+  // Gate on the COMPOUNDED breakeven, not the naive sum of percentages.
+  const roundTripCostPct = breakevenMovePct;
   const expectedMovePct = takeProfitPct;
   const margin = expectedMovePct / Math.max(roundTripCostPct, 0.001);
   const profitable = margin >= marginFactor;

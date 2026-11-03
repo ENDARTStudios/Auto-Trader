@@ -374,3 +374,43 @@ Se dÃºvida de capital em risco: **kill switch manual primeiro**, rollback depo
 
 **Relacionados:** [SETUP.md](./SETUP.md) Â· [BACKUP_DR.md](./BACKUP_DR.md) Â· [MONITORING.md](./MONITORING.md) Â· [PREVIEW_DEPLOYMENT.md](./PREVIEW_DEPLOYMENT.md)
 
+
+
+---
+
+## Migrações do banco (fonte única do schema) — 2026-11-03
+
+O schema **não** é mais aplicado com `prisma db push` em produção nem no CI.
+
+| Peça | Onde | Papel |
+|---|---|---|
+| Baseline Postgres | `prisma/migrations/20260101000000_baseline/migration.sql` | snapshot completo (34 modelos) gerado por `npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script`. É o início do histórico replayable |
+| Lock de provider | `prisma/migrations/migration_lock.toml` | `provider = "postgresql"` (antes dizia `sqlite` → `prisma migrate deploy` falhava com **P3019**) |
+| Migração legada | `prisma/legacy-sqlite-migrations/` | histórico SQLite (19 modelos, dialeto incompatível com Postgres). Arquivada, **não** está mais no replay |
+| Gate de drift | CI (`ci.yml`) | `npx prisma migrate deploy` seguido de `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` |
+
+### Fluxo por cenário
+
+```bash
+# 1. Mudou o schema.prisma (dev local) — gera migration versionada
+npx prisma migrate dev --name descricao_da_mudanca
+
+# 2. CI / deploy (aplica somente o que ainda não foi aplicado)
+npx prisma migrate deploy
+
+# 3. Banco POPULADO que nunca teve histórico de migrations (bootstrap do Railway)
+node scripts/db-migrate-safe.mjs --dry-run   # imprime o plano, não escreve
+node scripts/db-migrate-safe.mjs             # executa
+```
+
+`scripts/db-migrate-safe.mjs` decide entre quatro caminhos, sem chutar:
+
+1. banco **vazio** → `migrate deploy`;
+2. banco já migrado → no-op;
+3. banco populado, **sem drift** em relação a `schema.prisma` e sem histórico →
+   `prisma migrate resolve --applied 20260101000000_baseline` + `migrate deploy`;
+4. banco populado **com drift** → **aborta** e exige correção humana (baselinear um
+   banco divergente esconderia drift).
+
+> `prisma db push` continua existindo só para bancos locais descartáveis. Em banco
+> com dados ele pode remover colunas/tabelas silenciosamente.

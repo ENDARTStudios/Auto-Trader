@@ -54,3 +54,50 @@ O sistema tem **auto-defesa antes de backup**: kill switches (`risk_config.json`
 ---
 
 **Relacionados:** [PRODUCTION_DEPLOY.md](./PRODUCTION_DEPLOY.md) · [MONITORING.md](./MONITORING.md) · [RULES.md](./RULES.md)
+
+
+---
+
+## 6. Backup e restore executáveis — Postgres (2026-11-03)
+
+Os scripts antigos eram SQLite-only (`sqlite3 .dump`); o provider atual é
+Postgres. O par abaixo é o caminho suportado:
+
+```bash
+# 0. Sanidade (não escreve nada): valida DATABASE_URL, alvo e binários
+DATABASE_URL=... node scripts/backup-full.mjs --check
+# 1. Imprime o plano (host/porta/banco, sem senha)
+DATABASE_URL=... node scripts/backup-full.mjs --dry-run
+# 2. Executa: pg_dump --format=custom + sha256 + retenção
+DATABASE_URL=... node scripts/backup-full.mjs
+#    BACKUP_DIR=backups  BACKUP_RETENTION_DAYS=7  (defaults)
+
+# 3. Restore: valida alvo/dump antes (nada escrito)
+DATABASE_URL=... node scripts/restore-full.mjs --check --file backups/auto-trader-<ts>.dump
+# 4. Restore real (destrutivo): exige --yes
+DATABASE_URL=... node scripts/restore-full.mjs --file backups/auto-trader-<ts>.dump --yes
+```
+
+Garantias implementadas:
+
+- a **senha nunca vai para a linha de comando** (vai via `PGPASSWORD`), então não
+  aparece em `ps`, histórico de shell ou log de CI;
+- `pg_dump` com `--format=custom` → restore seletivo e `pg_restore` (não é um dump
+  SQL de texto);
+- dump vazio falha com erro (não deixa backup falso no diretório);
+- checksum `*.dump.sha256` ao lado de cada backup;
+- retenção **nunca** apaga o backup mais recente;
+- `restore-full.mjs` recusa alvo que pareça produção (nome com `prod`,
+  `railway.internal`, `neon.tech`, `supabase`, `rds.amazonaws`) ou `NODE_ENV=production`
+  sem `--allow-production`, e exige `--yes`.
+
+### Teste de DR (executável, sem tocar produção)
+
+1. `DATABASE_URL=<dev> node scripts/backup-full.mjs --check` → deve dizer `check ok`
+   (se faltar `pg_dump`: instalar `postgresql-client`).
+2. Gerar dump do banco de dev/paper.
+3. Restaurar num banco descartável (`createdb autotrader_dr_test`) apontando
+   `DATABASE_URL` para ele e rodar `restore-full.mjs --yes`.
+4. Subir o app contra o banco restaurado e validar `/api/health/ready` (200) +
+   `Config`/`TradingBalance`/`Position` com as contagens esperadas.
+5. Registrar data/resultado no `INCIDENT_RESPONSE.md` (postmortem curto).

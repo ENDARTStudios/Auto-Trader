@@ -20,6 +20,8 @@ import {
   liveSell,
   ExecutionResult,
 } from "./paper-trader";
+import { recordFeeAuditLog } from "./fee-model";
+import { finalizeRoundPnl } from "./engine-correctness";
 import { recordPaperOrder, transitionPaperOrder } from "./paper-order-store";
 import type {
   ExitReason,
@@ -64,6 +66,34 @@ export async function ensureInitialized(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// System owner — Position.ownerId is NOT NULL (S05 strict RLS). The engine is a
+// system actor, so every position/query it owns is attributed to the super_admin
+// user (there is no nullable "system" owner column). Cached briefly to avoid a
+// user lookup on every query.
+// ---------------------------------------------------------------------------
+
+let cachedSystemOwnerId: { id: string; at: number } | null = null;
+const SYSTEM_OWNER_TTL_MS = 60_000;
+
+export async function getSystemOwnerId(): Promise<string | null> {
+  if (cachedSystemOwnerId && Date.now() - cachedSystemOwnerId.at < SYSTEM_OWNER_TTL_MS) {
+    return cachedSystemOwnerId.id;
+  }
+  const admin = await db.user.findFirst({
+    where: { role: "super_admin" },
+    select: { id: true },
+  });
+  if (!admin) return null;
+  cachedSystemOwnerId = { id: admin.id, at: Date.now() };
+  return admin.id;
+}
+
+/** Where-clause fragment that scopes engine queries to the system owner. */
+export function systemOwnerScope(ownerId: string | null): { ownerId?: string } {
+  return ownerId ? { ownerId } : {};
+}
+
+// ---------------------------------------------------------------------------
 // Open position
 // ---------------------------------------------------------------------------
 
@@ -74,12 +104,14 @@ export async function openPosition(
   scamReport: ScamReportData,
   roundId: number,
   ownerId?: string | null,
+  strategy = "day",
 ): Promise<PositionRow | null> {
-  // Execute buy
+  // Execute buy — real fee + slippage from config (net qty / net cash).
   const isLive = cfg.mode === "live" && cfg.graduatedToLive;
+  const executionOpts = { feeBps: cfg.feeBps, slippageBps: cfg.slippageBps };
   const result: ExecutionResult = isLive
     ? await liveBuy(candidate, amountUsd)
-    : await paperBuy(candidate, amountUsd);
+    : await paperBuy(candidate, amountUsd, executionOpts);
 
   if (!result.ok) {
     logger.warn("portfolio", `Buy falhou para ${candidate.symbol}`, {
@@ -94,11 +126,12 @@ export async function openPosition(
   const sl = entry * (1 - cfg.stopLossPct / 100);
   const maxExitAt = new Date(Date.now() + cfg.maxHoldMinutes * 60_000);
 
-  // Resolve ownerId — for S05 strict RLS, Position.ownerId is NOT NULL
-  let resolvedOwnerId = ownerId;
+  // Resolve ownerId — for S05 strict RLS, Position.ownerId is NOT NULL.
+  // Explicit attribution: caller (engine) passes the system owner; otherwise
+  // resolve the super_admin.
+  let resolvedOwnerId = ownerId ?? null;
   if (!resolvedOwnerId) {
-    const admin = await db.user.findFirst({ where: { role: 'super_admin' }, select: { id: true } });
-    resolvedOwnerId = admin?.id ?? null;
+    resolvedOwnerId = await getSystemOwnerId();
   }
   if (!resolvedOwnerId) {
     logger.error("portfolio", "openPosition without ownerId and no super_admin found — abort");
@@ -122,9 +155,20 @@ export async function openPosition(
       maxExitAt,
       scamScore: scamReport.score,
       scamBreakdown: JSON.stringify(scamReport.findings),
+      strategy,
       roundId,
     },
   });
+
+  // Persist the fee audit trail (this is what makes /api/fees non-zero).
+  if (result.breakdown) {
+    await recordFeeAuditLog(position.id, candidate.symbol, "buy", result.breakdown, {
+      strategy,
+      exchange: candidate.platformId ?? candidate.source,
+      executedPriceUsd: result.executedPriceUsd,
+      qty: result.qty,
+    });
+  }
 
   // Bump counters
   await db.tradingBalance.update({
@@ -191,7 +235,10 @@ export async function closePosition(
   const isLive = cfg.mode === "live" && cfg.graduatedToLive;
   const result: ExecutionResult = isLive
     ? await liveSell(pos.symbol, pos.entryQty, currentPriceUsd)
-    : await paperSell(pos.symbol, pos.entryQty, currentPriceUsd);
+    : await paperSell(pos.symbol, pos.entryQty, currentPriceUsd, {
+        feeBps: cfg.feeBps,
+        slippageBps: cfg.slippageBps,
+      });
 
   if (!result.ok) {
     logger.error("portfolio", `Sell falhou para ${pos.symbol}`, {
@@ -216,6 +263,16 @@ export async function closePosition(
       pnlPct,
     },
   });
+
+  // Persist the sell-leg fee audit trail.
+  if (result.breakdown) {
+    await recordFeeAuditLog(pos.id, pos.symbol, "sell", result.breakdown, {
+      strategy: pos.strategy,
+      exchange: pos.source,
+      executedPriceUsd: result.executedPriceUsd,
+      qty: result.qty,
+    });
+  }
 
   // Update trading balance stats (the actual cash movement already happened
   // in paperSell — we only update counters here).
@@ -278,20 +335,20 @@ export async function rebalanceRound(
   cfg: EngineConfig,
   roundId: number
 ): Promise<{ profitUsd: number; reserveCutUsd: number; reinvestCutUsd: number }> {
-  // Sum realized PnL for this round's closed positions
+  // Sum realized PnL for this round's closed positions and compute the split.
+  // finalizeRoundPnl is pure + always returns a result: losing and break-even
+  // rounds are valid outcomes, not early returns.
   const positions = await db.position.findMany({
     where: { roundId, status: { in: ["closed", "liquidated", "killed"] } },
     select: { pnlUsd: true },
   });
-  const roundPnl = positions.reduce((s, p) => s + (p.pnlUsd ?? 0), 0);
-
-  if (roundPnl <= 0) {
-    logger.info("portfolio", `Round ${roundId} sem lucro (PnL ${roundPnl.toFixed(2)}) — sem split`);
-    return { profitUsd: roundPnl, reserveCutUsd: 0, reinvestCutUsd: 0 };
-  }
-
-  const reserveCut = (roundPnl * cfg.reservePct) / 100;
-  const reinvestCut = (roundPnl * cfg.reinvestPct) / 100;
+  const finalization = finalizeRoundPnl(
+    positions.map((p) => p.pnlUsd),
+    cfg.reservePct,
+    cfg.reinvestPct
+  );
+  const { roundPnlUsd: roundPnl, reserveCutUsd: reserveCut, reinvestCutUsd: reinvestCut } =
+    finalization;
 
   // Move reserve cut from trading balance to reserve.
   // (Cash already sits in trading balance because sells credited it there.)
@@ -314,21 +371,30 @@ export async function rebalanceRound(
     logger.info("portfolio", `Reserva += $${reserveCut.toFixed(2)} (cold storage USDC)`);
   }
 
-  // Update round record
-  await db.round.update({
+  // ALWAYS finalize the round record — including PnL <= 0. updateMany keeps
+  // this idempotent if the round was already completed by another tick.
+  await db.round.updateMany({
     where: { id: roundId },
     data: {
       endedAt: new Date(),
       roundPnlUsd: roundPnl,
+      positionsClosed: finalization.positionCount,
       status: "completed",
     },
   });
 
-  logger.info("portfolio", `Round ${roundId} rebalanceado`, {
-    roundPnl: roundPnl.toFixed(2),
-    reserveCut: reserveCut.toFixed(2),
-    reinvestCut: reinvestCut.toFixed(2),
-  });
+  logger.info(
+    "portfolio",
+    finalization.profitable
+      ? `Round ${roundId} rebalanceado (lucro)`
+      : `Round ${roundId} finalizado sem lucro (PnL ${roundPnl.toFixed(2)}) — sem split`,
+    {
+      roundPnl: roundPnl.toFixed(2),
+      reserveCut: reserveCut.toFixed(2),
+      reinvestCut: reinvestCut.toFixed(2),
+      positions: finalization.positionCount,
+    }
+  );
 
   return { profitUsd: roundPnl, reserveCutUsd: reserveCut, reinvestCutUsd: reinvestCut };
 }

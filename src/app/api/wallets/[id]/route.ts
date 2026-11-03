@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/trading/logger";
 import { deleteWallet, setWalletActive } from "@/lib/trading/wallet-manager";
+import { requireSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/rbac";
+import { ForbiddenError } from "@/lib/auth/errors";
+import { assertOwner } from "@/lib/auth/rls";
+import { handleApiError } from "@/lib/api/error-handler";
 
 // PATCH /api/wallets/[id] — activate/deactivate a wallet
 // Body: { active: boolean }
@@ -9,7 +14,11 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "wallets:write")) throw new ForbiddenError("wallets:write");
     const { id } = await params;
+    // RLS/IDOR: owner only (super_admin bypass) — see src/lib/auth/rls.ts.
+    await assertOwner(session, "walletConnection", id);
     const body = await req.json();
     if (typeof body.active !== "boolean") {
       return NextResponse.json({ error: "Missing 'active' boolean field" }, { status: 400 });
@@ -17,6 +26,9 @@ export async function PATCH(
     await setWalletActive(id, body.active);
     return NextResponse.json({ ok: true });
   } catch (err) {
+    if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
+      return handleApiError(err, "PATCH /api/wallets/[id]");
+    }
     logger.error("api", `Erro ativando wallet: ${String(err)}`);
     return NextResponse.json({ error: "Failed to update wallet" }, { status: 500 });
   }
@@ -24,14 +36,20 @@ export async function PATCH(
 
 // DELETE /api/wallets/[id] — delete a wallet connection
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "wallets:write")) throw new ForbiddenError("wallets:write");
     const { id } = await params;
+    await assertOwner(session, "walletConnection", id);
     await deleteWallet(id);
     return NextResponse.json({ ok: true });
   } catch (err) {
+    if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
+      return handleApiError(err, "DELETE /api/wallets/[id]");
+    }
     logger.error("api", `Erro deletando wallet: ${String(err)}`);
     return NextResponse.json({ error: "Failed to delete wallet" }, { status: 500 });
   }

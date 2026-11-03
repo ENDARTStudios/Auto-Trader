@@ -17,7 +17,8 @@ export type ExitReason =
   | "stop_loss"
   | "timeout"
   | "kill_switch"
-  | "manual";
+  | "manual"
+  | "schedule_force_close"; // forced close when the trading window ends
 
 export type TokenSource = "cex" | "dex";
 
@@ -45,6 +46,12 @@ export interface ScamSubScore {
   score: number;          // 0-100 (100 = safest)
   weight: number;         // 0-1
   findings: string[];
+  /**
+   * true = sub-score NÃO verificável com dado real. O peso é REMOVIDO da soma
+   * e os demais são renormalizados (degradação honesta: score parcial explícito
+   * em vez de valor inventado).
+   */
+  unverified?: boolean;
 }
 
 export interface ScamReportData {

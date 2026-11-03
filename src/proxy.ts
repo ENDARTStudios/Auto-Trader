@@ -2,118 +2,112 @@
 // from `middleware.ts`, which is deprecated and will be removed).
 // Docs: docs/WAF_RATE_LIMIT.md + docs/TLS_HSTS.md + docs/RBAC.md + docs/CSRF
 // Runs on every request matching `config.matcher`.
+//
+// SECURITY MODEL (round 1 hardening)
+// ----------------------------------
+// 1. /api/* auth: the session cookie is `<opaque-token>.<hmac>`. The proxy
+//    verifies the HMAC statelessly (no DB) and returns 401 for missing/invalid
+//    signatures. The handler still re-validates the Session row (expiry,
+//    user.isActive, rate limit) via requireSession — the proxy is a cheap
+//    pre-gate, not the authorization decision.
+// 2. CSRF: double-submit token HMAC-bound to the session cookie value, 1h
+//    window + same-origin check on mutating requests (see src/lib/csrf.ts).
+// 3. Page guards (/dashboard, /login) use the same signature check.
 
 import { NextResponse, type NextRequest } from 'next/server';
-import { timingSafeEqual } from 'crypto';
+import { verifySignedSessionToken } from './lib/auth/session-token';
+import { isPublicApiPath, isCsrfExemptPath } from './lib/auth/public-routes';
+import {
+  CSRF_COOKIE,
+  CSRF_HEADER,
+  isTrustedOrigin,
+  verifyCsrfToken,
+} from './lib/csrf';
 
-const CSRF_HEADER = 'x-csrf-token';
-const CSRF_COOKIE = 'csrf';
-const CSRF_TOLERANCE_MS = 60 * 60 * 1000; // 1 hour
+const SESSION_COOKIE = 'session';
 
 // STATE-MUTATING_METHODS require CSRF validation per OWASP A01.
 const STATE_MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-
-// PUBLIC_API_PATHS that do not require CSRF (auth endpoints, webhooks with
-// their own signature schemes, or static resources).
-const PUBLIC_CSRF_PATHS = new Set([
-  '/api/auth/login',
-  '/api/auth/forgot',
-  '/api/auth/reset',
-  '/api/webhooks/stripe',
-  '/api/mcp',
-  '/api/auth/mfa', // MFA setup uses its own session check
-]);
 
 function isStateMutating(method: string): boolean {
   return STATE_MUTATING_METHODS.has(method.toUpperCase());
 }
 
-function safeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  try {
-    return timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
-  } catch {
-    return false;
-  }
+/** Raw (signed) session cookie value; null when absent. */
+function sessionCookieValue(req: NextRequest): string | null {
+  return req.cookies.get(SESSION_COOKIE)?.value ?? null;
 }
 
-function verifyCsrf(req: NextRequest): { valid: boolean; reason?: string } {
-  // 1. Webhook endpoints use their own signature schemes (e.g. Stripe HMAC).
-  //    Skip CSRF for them — they are not browser-driven.
-  if (req.nextUrl.pathname.startsWith('/api/webhooks/')) {
-    return { valid: true };
-  }
+/** Opaque token when the cookie signature is valid, else null (stateless). */
+function verifiedSessionToken(req: NextRequest): string | null {
+  return verifySignedSessionToken(sessionCookieValue(req));
+}
 
-  // 2. Other public API paths may still be state-mutating; they validate via
-  //    rate limit + their own domain guards (login is rate-limited 5/60s).
-  if (PUBLIC_CSRF_PATHS.has(req.nextUrl.pathname)) {
-    return { valid: true };
-  }
-
-  const headerToken = req.headers.get(CSRF_HEADER);
-  const cookieValue = req.cookies.get(CSRF_COOKIE)?.value;
-
-  if (!headerToken) return { valid: false, reason: 'missing_csrf_header' };
-  if (!cookieValue) return { valid: false, reason: 'missing_csrf_cookie' };
-  if (!safeEqual(headerToken, cookieValue)) return { valid: false, reason: 'csrf_mismatch' };
-
-  // 4. Optional timestamp window (token format: <hex>.<timestampMs>)
-  const dotIdx = headerToken.indexOf('.');
-  if (dotIdx > 0) {
-    const ts = Number(headerToken.slice(dotIdx + 1));
-    if (Number.isFinite(ts) && Math.abs(Date.now() - ts) > CSRF_TOLERANCE_MS) {
-      return { valid: false, reason: 'csrf_expired' };
-    }
-  }
-
-  return { valid: true };
+/** Effective public host, accounting for reverse proxies (Railway/Caddy). */
+function requestHost(req: NextRequest): string | null {
+  const forwarded = req.headers.get('x-forwarded-host');
+  // Some proxies append a comma-separated chain; the first entry is the
+  // client-facing host.
+  const host = forwarded?.split(',')[0]?.trim() ?? req.headers.get('host') ?? req.nextUrl.host;
+  return host ? host.trim() : null;
 }
 
 export function proxy(req: NextRequest) {
   const pathname = req.nextUrl.pathname;
   const method = req.method;
 
-  // 1. Auth guard for /api/* (cookie presence only; DB check is in handler)
-  // Allowlist: health, login e fluxo de recuperação de senha (forgot/reset) são públicos —
-  // usuário deslogado precisa deles; proteção = rate limit 5/60s + token single-use.
-  const publicApi =
-    pathname === '/api/health' ||
-    // Webhooks se autenticam por assinatura HMAC na própria rota, não por sessão.
-    pathname.startsWith('/api/webhooks/') ||
-    pathname.startsWith('/api/auth/login') ||
-    pathname.startsWith('/api/auth/google') ||
-    pathname === '/api/auth/forgot' ||
-    pathname === '/api/auth/reset';
-  if (pathname.startsWith('/api/') && !publicApi) {
-    const hasSession = req.cookies.get('session')?.value;
-    if (!hasSession) {
+  // ---------------------------------------------------------------------
+  // 1. Auth pre-gate for /api/* — signature only, no DB.
+  //    Public allowlist is EXACT and shared with tests (src/lib/auth/public-routes).
+  // ---------------------------------------------------------------------
+  if (pathname.startsWith('/api/') && !isPublicApiPath(pathname)) {
+    if (!verifiedSessionToken(req)) {
       return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }
   }
 
-  // 2. CSRF for state-mutating /api/* requests (browser-driven, not webhooks)
-  // Sem cookie de sessão não existe credencial a proteger: deixa a rota
-  // responder 401 (requireSession) em vez de mascarar com 403 de CSRF.
-  const hasSessionCookie = Boolean(req.cookies.get('session')?.value);
-  if (pathname.startsWith('/api/') && isStateMutating(method) && hasSessionCookie) {
-    const csrf = verifyCsrf(req);
-    if (!csrf.valid) {
-      return NextResponse.json({ error: 'csrf_failed', reason: csrf.reason }, { status: 403 });
+  // ---------------------------------------------------------------------
+  // 2. CSRF for state-mutating /api/* requests.
+  //    a) Same-origin check ALWAYS applies when the browser sent Origin
+  //       (defense in depth, including login/forgot/reset).
+  //    b) Double-submit token applies to every non-exempt mutation that
+  //       carries a session cookie. Without a session cookie there is no
+  //       credential to protect — the handler answers 401 (its requireSession).
+  // ---------------------------------------------------------------------
+  if (pathname.startsWith('/api/') && isStateMutating(method)) {
+    const origin = req.headers.get('origin');
+    if (!isTrustedOrigin(origin, requestHost(req))) {
+      return NextResponse.json(
+        { error: 'csrf_failed', reason: 'origin_mismatch' },
+        { status: 403 },
+      );
+    }
+
+    const cookieValue = sessionCookieValue(req);
+    if (cookieValue && !isCsrfExemptPath(pathname)) {
+      const csrf = verifyCsrfToken(req.headers.get(CSRF_HEADER), cookieValue);
+      if (!csrf.valid) {
+        return NextResponse.json(
+          { error: 'csrf_failed', reason: csrf.reason },
+          { status: 403 },
+        );
+      }
     }
   }
 
-  // 3. Page guard: / (dashboard) requires session, redirect to /login
+  // ---------------------------------------------------------------------
+  // 3. Page guards — /dashboard requires a signed session, /login redirects
+  //    authenticated users to the dashboard.
+  // ---------------------------------------------------------------------
   if (pathname.startsWith('/dashboard')) {
-    const hasSession = req.cookies.get('session')?.value;
-    if (!hasSession) {
+    if (!verifiedSessionToken(req)) {
       const url = req.nextUrl.clone();
       url.pathname = '/login';
       return NextResponse.redirect(url);
     }
   }
   if (pathname === '/login') {
-    const hasSession = req.cookies.get('session')?.value;
-    if (hasSession) {
+    if (verifiedSessionToken(req)) {
       const url = req.nextUrl.clone();
       url.pathname = '/';
       return NextResponse.redirect(url);
@@ -122,7 +116,9 @@ export function proxy(req: NextRequest) {
 
   const res = NextResponse.next();
 
-  // 4. Security headers — defense in depth (also set in Caddy + next.config headers())
+  // ---------------------------------------------------------------------
+  // 4. Security headers — defense in depth (also set in Caddy + next.config)
+  // ---------------------------------------------------------------------
   res.headers.set('X-Frame-Options', 'DENY');
   res.headers.set('X-Content-Type-Options', 'nosniff');
   res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -142,4 +138,3 @@ export function proxy(req: NextRequest) {
 export const config = {
   matcher: ['/api/:path*', '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml).*)'],
 };
-

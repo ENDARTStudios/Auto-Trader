@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/trading/logger";
 import { updateStrategicCapability, type CapabilityStatus } from "@/lib/trading/strategic-roadmap";
+import { requirePermission } from "@/lib/auth/session";
+import { handleApiError } from "@/lib/api/error-handler";
 
 // PATCH /api/roadmap/[id] — update a capability's status / completion / notes
 // Body: { status?: "planned"|"in_progress"|"shipped"|"blocked", completionPct?: number, notes?: string }
@@ -9,6 +11,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("dashboard:read")(req);
     const { id } = await params;
     const body = await req.json();
     const patch: {
@@ -28,6 +31,9 @@ export async function PATCH(
     await updateStrategicCapability(id, patch);
     return NextResponse.json({ ok: true });
   } catch (err) {
+    if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
+      return handleApiError(err, "PATCH /api/roadmap/[id]");
+    }
     logger.error("api", `Erro atualizando capability: ${String(err)}`);
     return NextResponse.json({ error: "Failed to update capability" }, { status: 500 });
   }

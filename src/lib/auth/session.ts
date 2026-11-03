@@ -4,6 +4,9 @@ import { db } from '@/lib/db';
 import { UnauthorizedError, ForbiddenError, RateLimitedError } from './errors';
 import type { Permission } from './rbac';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { signSessionToken, verifySignedSessionToken } from './session-token';
+
+export { signSessionToken, verifySignedSessionToken, getSessionSecret } from './session-token';
 
 export const SESSION_COOKIE_NAME = 'session';
 export const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -17,11 +20,15 @@ export function hashToken(token: string): string {
 }
 
 export function createSessionCookie(token: string, expiresAt: Date): string {
+  // The cookie carries the SIGNED value: <token>.<hmac>. The raw token is never
+  // exposed to the client, so the proxy can validate it statelessly (no DB) and
+  // a forged cookie is rejected before any handler runs.
+  const signed = signSessionToken(token);
   const expires = expiresAt.toUTCString();
   const maxAge = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
   // Secure only in production (localhost dev is http)
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-  return `${SESSION_COOKIE_NAME}=${token}; HttpOnly; Path=/; Expires=${expires}; Max-Age=${maxAge}; SameSite=Lax${secure}`;
+  return `${SESSION_COOKIE_NAME}=${signed}; HttpOnly; Path=/; Expires=${expires}; Max-Age=${maxAge}; SameSite=Lax${secure}`;
 }
 
 export function clearSessionCookie(): string {
@@ -38,7 +45,10 @@ export function parseSessionCookie(cookieHeader: string | null | undefined): str
   return null;
 }
 
-// For NextRequest (cookies API)
+/**
+ * Returns the raw (possibly signed) value of the session cookie, or null.
+ * Use parseSessionTokenFromRequest when the opaque token is needed (DB lookup).
+ */
 export function parseSessionCookieFromRequest(req: Request): string | null {
   // NextRequest has cookies, but we support plain Request too
   const anyReq = req as unknown as { cookies?: { get?: (name: string) => { value: string } | undefined }; headers: Headers };
@@ -50,6 +60,14 @@ export function parseSessionCookieFromRequest(req: Request): string | null {
   return parseSessionCookie(req.headers.get('cookie'));
 }
 
+/**
+ * Returns the verified opaque session token (signature checked, no DB), or null
+ * when the cookie is absent / malformed / tampered.
+ */
+export function parseSessionTokenFromRequest(req: Request): string | null {
+  return verifySignedSessionToken(parseSessionCookieFromRequest(req));
+}
+
 export interface SessionUser {
   userId: string;
   email: string;
@@ -58,8 +76,12 @@ export interface SessionUser {
 }
 
 export async function requireSession(req: Request): Promise<SessionUser> {
-  const token = parseSessionCookieFromRequest(req);
-  if (!token) throw new UnauthorizedError('Missing session');
+  // Step 1 (stateless): the cookie must be signed with SESSION_SECRET. Forged or
+  // tampered cookies are rejected here without touching the database.
+  const token = parseSessionTokenFromRequest(req);
+  if (!token) throw new UnauthorizedError('Missing or invalid session');
+  // Step 2 (stateful): the Session row must still exist, be unexpired, and the
+  // user must be active. The signature alone is not enough (revocation/logout).
   const tokenHash = hashToken(token);
   const session = await db.session.findUnique({ where: { tokenHash } });
   if (!session) throw new UnauthorizedError('Invalid session');

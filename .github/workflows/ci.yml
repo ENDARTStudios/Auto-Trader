@@ -67,8 +67,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push test DB schema (for test:ci vault/signer)
-        run: npx prisma db push
+      # Schema do banco de CI vem das MIGRAÇÕES (fonte única), não de db push.
+      - name: Apply DB migrations (baseline + follow-ups)
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://autotrader:autotrader@localhost:5432/autotrader
+
+      # Gate de drift: replay das migrations (já aplicado acima) x schema.prisma.
+      # --from-config-datasource lê DATABASE_URL do prisma.config.ts; exit 2 = drift.
+      - name: DB — migrations drift gate (schema.prisma vs DB migrado)
+        run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
         env:
           DATABASE_URL: postgresql://autotrader:autotrader@localhost:5432/autotrader
 
@@ -97,6 +105,17 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      # O runner standalone só serve CSS/JS/imagens se .next/static e public
+      # estiverem dentro de .next/standalone (npm run build copia via
+      # scripts/copy-standalone-assets.mjs). Garante que o artefato do Docker
+      # e do start em produção não suba quebrado.
+      - name: Verify standalone bundle has static + public
+        run: |
+          test -f .next/standalone/server.js
+          test -d .next/standalone/.next/static
+          test -d .next/standalone/public
+          echo "standalone ok: $(find .next/standalone/.next/static -type f | wc -l) static files"
 
       - name: Arch — dependency-cruiser (no cycles, no chain→trading)
         run: npx -y dependency-cruiser --validate .dependency-cruiser.cjs src || echo "::warning::dep-cruiser violations (see docs/LINT.md)"
@@ -204,7 +223,8 @@ jobs:
       - run: npx prisma generate
       # Postgres de CI precisa de schema + seed: sem isso /api/health retorna 503
       # e o webServer do Playwright estoura o timeout de 120s (S39).
-      - run: npx prisma db push
+      # Schema vem das migrations (mesma fonte do job ci).
+      - run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://autotrader:autotrader@localhost:5432/autotrader
       - run: npx tsx scripts/seed-auth.ts
@@ -249,7 +269,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx prisma generate
-      - run: npx prisma db push
+      - run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://autotrader:autotrader@localhost:5432/autotrader
       - run: npx tsx scripts/seed-auth.ts

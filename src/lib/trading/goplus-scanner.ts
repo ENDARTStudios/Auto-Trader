@@ -26,6 +26,7 @@
 // this as ONE input among several — never as the sole gatekeeper.
 
 import { logger } from "./logger";
+import { recordSuccess, recordError } from "./source-health";
 
 // ---------------------------------------------------------------------------
 // Chain slug → GoPlus chain ID
@@ -80,6 +81,7 @@ async function fetchGoPlus(
     signal: AbortSignal.timeout(8000),
   });
   if (!resp.ok) {
+    await recordError("goplus", `HTTP ${resp.status} para ${chain}:${address}`);
     logger.warn("goplus", `HTTP ${resp.status} para ${chain}:${address}`);
     return null;
   }
@@ -129,6 +131,7 @@ export async function scanTokenWithGoPlus(
   try {
     data = await fetchGoPlus(chain, address);
   } catch (err) {
+    await recordError("goplus", `scan ${chain}:${address}: ${String(err)}`);
     logger.error("goplus", `Erro chamando GoPlus: ${String(err)}`);
     return {
       score: 50,
@@ -146,6 +149,7 @@ export async function scanTokenWithGoPlus(
   if (!data) {
     // No data — neutral score. We don't fail the token just because GoPlus
     // is unavailable; we already have other heuristics in the scam-detector.
+    // Health já foi registrada como erro em fetchGoPlus (HTTP != 2xx).
     return {
       score: 50,
       honeypotScore: 50,
@@ -158,6 +162,9 @@ export async function scanTokenWithGoPlus(
       raw: null,
     };
   }
+
+  // GoPlus devolveu dados reais para este token — registra saúde da fonte.
+  await recordSuccess("goplus");
 
   // ------------------- honeypot -------------------
   // is_honeypot is the strongest single signal. If true → critical flag.

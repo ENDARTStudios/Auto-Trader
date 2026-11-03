@@ -42,12 +42,19 @@
 
 import { NextResponse } from "next/server";
 import { Exporter } from "@/lib/observability/exporter";
+import { requirePermission } from "@/lib/auth/session";
+import { handleApiError } from "@/lib/api/error-handler";
 
 // Force dynamic — never cache. The snapshot is real-time state.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(req: Request) {
+  try {
+    await requirePermission("system:read")(req);
+  } catch (err) {
+    return handleApiError(err, "GET /api/runtime/status");
+  }
   const exporter = Exporter.global();
   const snapshot = exporter.export();
   return NextResponse.json(snapshot, {

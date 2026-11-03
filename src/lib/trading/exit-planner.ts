@@ -22,7 +22,7 @@
 // confidence >= 70%, the engine closes the position with reason="manual"
 // (logged as AI-driven exit).
 
-import ZAI from "z-ai-web-dev-sdk";
+import { chatCompletion } from "@/lib/ai/provider";
 import { db } from "@/lib/db";
 import { logger } from "./logger";
 import type { SurveillanceAlert, PositionSurveillanceResult } from "./position-surveillance";
@@ -48,14 +48,8 @@ export interface ExitPlan {
   alertSeverity: "info" | "warning" | "critical";
 }
 
-// Reuse the ZAI singleton from ai-agent.ts
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-async function getZai() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
-  }
-  return zaiInstance;
-}
+// Provider de IA real (src/lib/ai/provider.ts). Sem provider configurado ou em
+// erro de rede o erro PROPAGA para o engine — nunca devolvemos um plano falso.
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -280,30 +274,43 @@ export async function planExit(
   const start = Date.now();
   let modelOutput = "";
   let tokensUsed = 0;
-  let error: string | undefined;
 
   try {
-    const zai = await getZai();
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: "assistant", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      thinking: { type: "disabled" },
-    });
-    modelOutput = completion.choices[0]?.message?.content ?? "";
-    tokensUsed =
-      (completion as { usage?: { total_tokens?: number } }).usage?.total_tokens ?? 0;
+    const completion = await chatCompletion({ system: systemPrompt, user: userPrompt });
+    modelOutput = completion.content;
+    tokensUsed = completion.usage?.totalTokens ?? 0;
   } catch (err) {
-    error = String(err);
-    logger.error("exit_planner", `Erro LLM exit plan ${input.symbol}: ${error}`);
-    modelOutput = `[LLM ERROR] ${error}`;
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error("exit_planner", `Erro LLM exit plan ${input.symbol}: ${message}`);
+    // Auditoria da falha + PROPAGAÇÃO: AIUnavailableError (não configurado) e
+    // erros de rede/HTTP sobem para o engine decidir. Nenhum plano é fabricado.
+    try {
+      await db.aIInsight.create({
+        data: {
+          agentRole: "risk_advisor",
+          symbol: input.symbol,
+          tokenId: input.tokenId ?? null,
+          chain: input.chain ?? null,
+          promptSummary,
+          modelOutput: "",
+          recommendation: "hold",
+          confidence: 0,
+          keySignals: "[]",
+          tokensUsed: 0,
+          durationMs: Date.now() - start,
+          error: message,
+        },
+      });
+    } catch (persistErr) {
+      logger.warn("exit_planner", `Falha persistindo insight de erro: ${String(persistErr)}`);
+    }
+    throw err;
   }
 
   const durationMs = Date.now() - start;
-  const action = error ? "hold" : parseAction(modelOutput);
-  const confidence = error ? 0 : parseConfidence(modelOutput);
-  const keySignals = error ? [] : extractSignals(modelOutput);
+  const action = parseAction(modelOutput);
+  const confidence = parseConfidence(modelOutput);
+  const keySignals = extractSignals(modelOutput);
   const suggestedNewSl = parseNumber(modelOutput, "SUGGESTED_NEW_SL");
   const suggestedNewTp = parseNumber(modelOutput, "SUGGESTED_NEW_TP");
 
@@ -327,7 +334,7 @@ export async function planExit(
         keySignals: JSON.stringify(keySignals),
         tokensUsed,
         durationMs,
-        error: error ?? null,
+        error: null,
       },
     });
   } catch (err) {
