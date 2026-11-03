@@ -58,3 +58,28 @@ tem `repo` associado — o último deploy foi via CLI em 01/11).
   `NEXT_PUBLIC_SHOW_DEMO_CREDS=1`.
 - Remover o Postgres legado do Railway só depois de validar o Neon (o `db-backup` cobre a
   janela).
+
+## Vercel: apenas preview
+
+`vercel.json` desliga deploy de `main` (`git.deploymentEnabled.main=false`). Previews de PR
+continuam; produção é só Railway. O alias antigo `auto-trader-snowy.vercel.app` segue no ar
+apontando para o último build (mesmo banco), mas não recebe mais deploy automático.
+
+## Auto-deploy do Railway
+
+Hoje o serviço não tem repositório conectado (`repo: null`) e o repo não tem `RAILWAY_TOKEN`
+como secret — deploy é manual:
+
+```bash
+railway up --service auto-trader --environment production
+```
+
+Para automatizar: conectar o serviço ao GitHub no dashboard do Railway **ou** criar um project
+token e adicionar `RAILWAY_TOKEN` nos secrets do GitHub; aí um job em `ci.yml` pode rodar
+`railway up --ci` no push para `main`.
+
+## Armadilha de CRLF
+
+`git archive` no Windows converters `.sh` para CRLF e o container morria com
+`docker-entrypoint.sh: No such file or directory`. `.gitattributes` fixa `eol=lf` para
+`.sh`/`Dockerfile`; qualquer deploy manual deve conferir os scripts antes do upload.
