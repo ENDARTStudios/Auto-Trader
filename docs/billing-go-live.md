@@ -61,3 +61,33 @@ Depois, no ambiente de produção:
 - O webhook valida HMAC com tolerância de 5 min e é idempotente por `event.id`
   (`tests/billing-webhook.test.ts` cobre assinatura válida, expirada e inválida).
 - O endpoint é público no proxy (sem sessão) por necessidade do Stripe, mas exige assinatura válida.
+
+## Estado em produção (Railway, test mode) — 2026-11-03
+
+Host canônico: `https://auto-trader-production-0cbc.up.railway.app` (Vercel sem aliases de produção).
+
+| Item | Valor |
+|---|---|
+| Chaves | `pk_test_…` / `sk_test_…` no serviço `auto-trader` |
+| Preços | Pro `price_1UXLh5…`, Elite `price_1UXLh6…` (USD 49/199 mensal) |
+| Webhook | `we_1UXiTn…` → `https://auto-trader-production-0cbc.up.railway.app/api/webhooks/stripe` |
+| Eventos | `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed` |
+| Segredo | `STRIPE_WEBHOOK_SECRET` = segredo **desse** endpoint (não o do CLI local) |
+
+Verificado ponta a ponta com cartão `4242 4242 4242 4242`: sessão criada → pagamento →
+`/billing?checkout=success`, subscription `active` no Stripe e plano `pro` no banco.
+
+### Regressão corrigida
+
+`checkout.session.completed` traz uma **Session** (`status: complete`), não uma Subscription.
+O handler antigo gravava `enabled: false` nesse evento e, como ele chega depois de
+`customer.subscription.created`, sobrescrevia o estado ativo. Agora a decisão usa
+`payment_status` (`paid`/`no_payment_required`) e `active`/`trialing` para subscriptions
+(`src/lib/billing/subscription-state.ts`, com testes).
+
+### Para live
+
+1. Criar preços live (mesmos valores) e trocar `STRIPE_PRICE_*`.
+2. Trocar `pk`/`sk` para live.
+3. Criar endpoint de webhook live apontando para o mesmo path; copiar o novo `whsec_`.
+4. Rodar `npm run billing:check` com o ambiente de produção e repetir o teste de compra.
