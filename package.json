@@ -42,7 +42,8 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:reset": "prisma migrate reset",
-    "db:seed:demo": "npx tsx scripts/seed-demo.ts"
+    "db:seed:demo": "npx tsx scripts/seed-demo.ts",
+    "billing:check": "npx tsx scripts/stripe-check.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
