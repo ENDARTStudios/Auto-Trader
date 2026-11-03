@@ -74,7 +74,7 @@ const DEFAULT_TIMING: SupervisorTiming = {
 
 const LOG_PREFIX = "[signer-supervisor]";
 
-const state: {
+interface SupervisorState {
   started: boolean;
   enabled: boolean;
   child: ChildProcess | null;
@@ -88,21 +88,31 @@ const state: {
   readyTimer: ReturnType<typeof setTimeout> | null;
   backoffTimer: ReturnType<typeof setTimeout> | null;
   originalSocketEnv: string | undefined;
-} = {
-  started: false,
-  enabled: false,
-  child: null,
-  ready: false,
-  pid: null,
-  restarts: 0,
-  attempts: 0,
-  socketPath: null,
-  lastError: null,
-  shuttingDown: false,
-  readyTimer: null,
-  backoffTimer: null,
-  originalSocketEnv: undefined,
+}
+
+// O instrumentation e os route handlers do Next standalone são bundles/módulos
+// DIFERENTES no mesmo processo: um `const state` local daria DUAS cópias e o
+// /api/signer/health reportaria spawned=false com o signer rodando. O estado
+// vive no globalThis para ser compartilhado por todas as instâncias do módulo.
+const globalForSigner = globalThis as unknown as {
+  __autoTraderSignerSupervisorState?: SupervisorState;
 };
+const state: SupervisorState =
+  (globalForSigner.__autoTraderSignerSupervisorState ??= {
+    started: false,
+    enabled: false,
+    child: null,
+    ready: false,
+    pid: null,
+    restarts: 0,
+    attempts: 0,
+    socketPath: null,
+    lastError: null,
+    shuttingDown: false,
+    readyTimer: null,
+    backoffTimer: null,
+    originalSocketEnv: undefined,
+  });
 
 let spawnImpl: SpawnFn = nodeSpawn as unknown as SpawnFn;
 let timing: SupervisorTiming = { ...DEFAULT_TIMING };
