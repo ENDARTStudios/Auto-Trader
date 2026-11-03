@@ -1,0 +1,29 @@
+name: deploy-railway
+
+# Deploy de produção no Railway. Fica desligado até existir um project token:
+#   1. Railway → Project Settings → Tokens → create project token (escopo do projeto)
+#   2. GitHub → Settings → Secrets → RAILWAY_TOKEN = <token>
+#   3. GitHub → Settings → Variables → RAILWAY_DEPLOY_ENABLED = true
+#
+# Alternativa sem token: conectar o serviço ao repositório no dashboard do Railway.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: vars.RAILWAY_DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+      - run: npm i -g @railway/cli
+      - name: Railway up
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service auto-trader --environment production --ci
