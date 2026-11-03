@@ -33,6 +33,12 @@ interface Detail {
     strategy: string | null;
     roundId: number | null;
     currentPriceUsd?: number | null;
+    paperOrder?: {
+      key: string;
+      state: string;
+      transitions: { state: string; at: string; note: string }[];
+      createdAt: string;
+    } | null;
   };
   currentPrice?: number | null;
   scamReport?: { score?: number; flags?: string; summary?: string; analyzedAt?: string } | null;
@@ -87,13 +93,18 @@ export function PositionDetailView({ id }: { id: string }) {
   }
 
   const { position: p, scamReport, aiInsights, surveillanceAlerts, marketSnapshots, round } = q.data;
-  const lifecycle = deriveLifecycle({
+  // Preferência pela ordem persistida (Fase B); posições antigas caem no derivado.
+  const persisted = p.paperOrder ?? null;
+  const derived = deriveLifecycle({
     id: p.id,
     status: p.status,
     entryAt: p.entryAt,
     exitAt: p.exitAt,
     exitReason: p.exitReason,
   });
+  const lifecycle = persisted
+    ? { key: persisted.key, current: persisted.state, transitions: persisted.transitions, source: "persistida" as const }
+    : { ...derived, source: "derivada" as const };
   const isOpen = p.status === "open";
   const live = q.data.currentPrice ?? p.currentPriceUsd ?? 0;
   const hasLive = live > 0;
@@ -161,8 +172,11 @@ export function PositionDetailView({ id }: { id: string }) {
             </dl>
           </Card>
 
-          <Card title="Ciclo da ordem" sub={`paper · chave ${lifecycle.key.slice(0, 10)}…`}>
-            <div style={{ display: "grid", gap: 8 }}>
+          <Card
+            title="Ciclo da ordem"
+            sub={`paper · chave ${lifecycle.key.slice(0, 10)}… · ${lifecycle.source}${persisted ? "" : " (posição anterior à tabela)"}`}
+          >
+            <div style={{ display: "grid", gap: 8 }} data-lifecycle-source={lifecycle.source}>
               {lifecycle.transitions.map((t, i) => (
                 <div key={`${t.state}-${i}`} style={{ display: "flex", gap: 10, alignItems: "flex-start", fontSize: 12 }}>
                   <span
@@ -184,7 +198,9 @@ export function PositionDetailView({ id }: { id: string }) {
               ))}
             </div>
             <p className="mrd-dim" style={{ fontSize: 11, marginTop: 10, lineHeight: 1.5 }}>
-              Transições derivadas da posição persistida — o mesmo replay produz a mesma chave.
+              {persisted
+                ? "Transições gravadas na tabela PaperOrder — o mesmo replay produz a mesma chave."
+                : "Transições derivadas da posição (registro anterior à tabela PaperOrder)."}
             </p>
           </Card>
 

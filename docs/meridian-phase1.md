@@ -202,3 +202,7 @@ Casos negativos verificados por HTTP: `state` divergente e callback sem cookie �
 - Novo job `e2e-meridian` no `ci.yml` (roda em push para `main` ou PR com label `e2e`): Postgres + `prisma db push` + `seed-auth` + `seed-demo` + suíte Meridian. O teste do detalhe da posição deixou de ser skip porque o seed garante posições abertas.
 - O teste de rotas ganhou uma repetição para `ERR_ABORTED` (compilação sob demanda no dev) e o teste da posição consulta `/api/positions` antes de navegar, em vez de contar links no instante do load.
 - Verificação local: **13 passed, 0 skipped**.
+
+## Ciclo da ordem lido da tabela (2026-11-02)
+
+`GET /api/positions/[id]` passa a devolver `paperOrder` (key, state, transições, createdAt). O card **Ciclo da ordem** usa a ordem persistida quando existe e cai no derivado (`deriveLifecycle`) para posições anteriores à tabela — o subtítulo indica `persistida` ou `derivada`, e o container expõe `data-lifecycle-source` para o e2e. O seed demo agora cria ordens também para as posições abertas (9 ordens no total).
