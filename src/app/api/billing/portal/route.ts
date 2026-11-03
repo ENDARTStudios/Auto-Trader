@@ -38,9 +38,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "no_customer" }, { status: 409 });
     }
 
+    const portalConfig = process.env.STRIPE_PORTAL_CONFIGURATION?.trim();
     const portal = await stripePost<{ url: string }>("/billing_portal/sessions", {
       customer,
       return_url: `${appUrl()}/billing`,
+      ...(portalConfig ? { configuration: portalConfig } : {}),
     });
 
     return NextResponse.json({ url: portal.url });
