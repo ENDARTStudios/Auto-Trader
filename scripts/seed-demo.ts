@@ -99,6 +99,31 @@ async function main() {
     });
   }
 
+  // ordens persistidas das posições abertas (estado filled)
+  for (const [i, p] of OPEN.entries()) {
+    const id = `demo-pos-open-${i + 1}`;
+    const key = orderKey(id, "buy");
+    const at = new Date(now.getTime() - p.daysAgo * DAY).toISOString();
+    await db.paperOrder.upsert({
+      where: { key },
+      create: {
+        key,
+        positionId: id,
+        symbol: p.symbol,
+        side: "buy",
+        state: "filled",
+        priceUsd: p.entry,
+        qty: p.qty,
+        amountUsd: p.amount,
+        transitions: JSON.stringify([
+          { state: "created", at, note: "ordem criada pelo engine" },
+          { state: "filled", at, note: "executada em paper no preço de entrada" },
+        ]),
+      },
+      update: {},
+    });
+  }
+
   for (const [i, p] of CLOSED.entries()) {
     const id = `demo-pos-closed-${i + 1}`;
     const exitAt = new Date(now.getTime() - p.daysAgo * DAY);

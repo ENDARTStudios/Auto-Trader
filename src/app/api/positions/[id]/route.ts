@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { fetchPricesBatch } from "@/lib/trading/price-feed";
+import { getPaperOrderByPosition } from "@/lib/trading/paper-order-store";
 
 // GET /api/positions/[id] — returns full position detail aggregated with all
 // related data: scam report, AI insights, surveillance alerts, market snapshots,
@@ -109,6 +110,8 @@ export async function GET(
       signal: s.signalLabel,
     }));
 
+  const paperOrder = await getPaperOrderByPosition(position.id).catch(() => null);
+
   return NextResponse.json({
     position: {
       id: position.id,
@@ -133,6 +136,15 @@ export async function GET(
       scamScore: position.scamScore,
       scamBreakdown,
       roundId: position.roundId,
+      // Ciclo de vida persistido (Fase B) — null quando a posição é anterior à tabela.
+      paperOrder: paperOrder
+        ? {
+            key: paperOrder.key,
+            state: paperOrder.state,
+            transitions: paperOrder.transitions,
+            createdAt: paperOrder.createdAt.toISOString(),
+          }
+        : null,
       // Live data (open positions only)
       currentPriceUsd,
       unrealizedPnlUsd,

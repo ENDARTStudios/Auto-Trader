@@ -32,19 +32,22 @@ test("rotas do shell respondem sem erro de página", async ({ page }) => {
   page.on("pageerror", (e) => errors.push(e.message.slice(0, 160)));
 
   for (const [path, heading] of ROUTES) {
-    // No dev server a primeira visita compila a rota e um redirect interno pode
-    // abortar a navegação (ERR_ABORTED). Uma repetição resolve.
+    // No dev server a rota compila sob demanda e pode ser interrompida por um
+    // redirect/navegação pendente (ERR_ABORTED, "interrupted by another navigation").
     for (let attempt = 0; ; attempt++) {
       try {
         await page.goto(path, { waitUntil: "load", timeout: 60_000 });
         break;
       } catch (err) {
-        if (attempt >= 1 || !/ERR_ABORTED/.test(String(err))) throw err;
-        await page.waitForTimeout(1500);
+        const transient = /ERR_ABORTED|interrupted by another navigation/.test(String(err));
+        if (attempt >= 2 || !transient) throw err;
+        await page.waitForTimeout(1200);
       }
     }
     await expect(page.locator(".mrd-title")).toContainText(heading, { timeout: 20_000 });
     await expect(page.locator(".mrd-rail")).toBeVisible();
+    // deixa a navegação anterior assentar antes da próxima rota
+    await page.waitForTimeout(400);
   }
 
   expect(errors, `erros de página: ${errors.join(" | ")}`).toHaveLength(0);
@@ -142,6 +145,8 @@ test("detalhe da posição mostra o ciclo da ordem", async ({ page }) => {
   await expect(link).toBeVisible({ timeout: 25_000 });
   await link.click();
   await expect(page.getByText("Ciclo da ordem")).toBeVisible({ timeout: 25_000 });
+  // Com o seed demo a ordem vem da tabela PaperOrder; sem seed o card cai no derivado.
+  await expect(page.locator("[data-lifecycle-source]")).toHaveAttribute("data-lifecycle-source", /persistida|derivada/);
 });
 
 test("indicador SSE fica live no shell", async ({ page }) => {
