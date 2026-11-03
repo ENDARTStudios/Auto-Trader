@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/trading/logger";
 import { resetSourceHealthCounters, type SourceName } from "@/lib/trading/source-health";
+import { requirePermission } from "@/lib/auth/session";
+import { handleApiError } from "@/lib/api/error-handler";
 
 // POST /api/source-health/reset
 // Body: { source?: "binance"|"dexscreener"|"goplus"|"zai"|"rdap"|"safebrowsing" }
@@ -10,6 +12,7 @@ import { resetSourceHealthCounters, type SourceName } from "@/lib/trading/source
 // preserves lastSuccessAt / lastErrorAt / lastErrorMsg as audit trail.
 export async function POST(req: Request) {
   try {
+    await requirePermission("config:write")(req);
     let body: { source?: string } = {};
     try {
       body = await req.json();
@@ -21,6 +24,9 @@ export async function POST(req: Request) {
     logger.info("api", `SourceHealth reset: ${result.reset} fonte(s) (${source ?? "todas"})`);
     return NextResponse.json(result);
   } catch (err) {
+    if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
+      return handleApiError(err, "POST /api/source-health/reset");
+    }
     logger.error("api", `Erro resetando source-health: ${String(err)}`);
     return NextResponse.json(
       { error: "Failed to reset source health" },

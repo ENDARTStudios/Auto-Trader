@@ -6,6 +6,8 @@ import { fetchPricesBatch } from "@/lib/trading/price-feed";
 import { logger } from "@/lib/trading/logger";
 import { notifyEvent } from "@/lib/trading/notifier";
 import { eventBus } from "@/lib/trading/event-bus";
+import { requirePermission } from "@/lib/auth/session";
+import { handleApiError } from "@/lib/api/error-handler";
 
 // POST /api/positions/[id]/close — manually close an open position at current
 // market price. Reason is recorded as "manual".
@@ -13,6 +15,11 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  try {
+    await requirePermission("positions:write")(req);
+  } catch (err) {
+    return handleApiError(err, "POST /api/positions/[id]/close");
+  }
   const { id } = await params;
   const body = await req.json().catch(() => ({}));
   const operatorNote = String(body.note ?? "").slice(0, 500);

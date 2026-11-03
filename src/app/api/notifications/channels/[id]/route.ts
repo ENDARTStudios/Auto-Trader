@@ -8,6 +8,11 @@ import {
   type NotificationEventType,
 } from "@/lib/trading/notifier";
 import { logger } from "@/lib/trading/logger";
+import { requireSession } from "@/lib/auth/session";
+import { hasPermission } from "@/lib/auth/rbac";
+import { ForbiddenError } from "@/lib/auth/errors";
+import { assertOwner } from "@/lib/auth/rls";
+import { handleApiError } from "@/lib/api/error-handler";
 
 // PATCH /api/notifications/channels/[id] — update channel (name, config, events, enabled, throttleSec)
 // DELETE /api/notifications/channels/[id] — delete channel
@@ -16,7 +21,13 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: Request, { params }: Params) {
   try {
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "notifications:manage")) {
+      throw new ForbiddenError("notifications:manage");
+    }
     const { id } = await params;
+    // RLS: only the owner (or super_admin) may read/update a channel.
+    await assertOwner(session, "notificationChannel", id);
     const existing = await db.notificationChannel.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -98,6 +109,9 @@ export async function PATCH(req: Request, { params }: Params) {
       updatedAt: updated.updatedAt,
     });
   } catch (err) {
+    if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
+      return handleApiError(err, "PATCH /api/notifications/channels/[id]");
+    }
     logger.error("api", `Erro atualizando channel: ${String(err)}`);
     return NextResponse.json(
       { error: "Failed to update channel" },
@@ -106,9 +120,14 @@ export async function PATCH(req: Request, { params }: Params) {
   }
 }
 
-export async function DELETE(_req: Request, { params }: Params) {
+export async function DELETE(req: Request, { params }: Params) {
   try {
+    const session = await requireSession(req);
+    if (!hasPermission(session.role, "notifications:manage")) {
+      throw new ForbiddenError("notifications:manage");
+    }
     const { id } = await params;
+    await assertOwner(session, "notificationChannel", id);
     const existing = await db.notificationChannel.findUnique({ where: { id } });
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -117,6 +136,9 @@ export async function DELETE(_req: Request, { params }: Params) {
     logger.info("api", `Canal deletado: ${existing.name} (${id})`);
     return NextResponse.json({ ok: true });
   } catch (err) {
+    if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
+      return handleApiError(err, "DELETE /api/notifications/channels/[id]");
+    }
     logger.error("api", `Erro deletando channel: ${String(err)}`);
     return NextResponse.json(
       { error: "Failed to delete channel" },

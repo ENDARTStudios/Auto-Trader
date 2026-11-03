@@ -4,6 +4,8 @@
 // Status: 501 Not Implemented — habilitado apenas se FeatureFlag upload_enabled=true (futura).
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/auth/session';
+import { handleApiError } from '@/lib/api/error-handler';
 
 export const runtime = 'nodejs';
 
@@ -29,6 +31,11 @@ function checkMagic(buf: Uint8Array, claimed: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  try {
+    await requirePermission('wallets:write')(req);
+  } catch (err) {
+    return handleApiError(err, 'POST /api/upload');
+  }
   // 6.1 — upload desabilitado no MVP Beta (sem caso de uso)
   return NextResponse.json(
     {
@@ -47,6 +54,11 @@ export async function POST(req: NextRequest) {
   );
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  try {
+    await requirePermission('wallets:write')(req);
+  } catch (err) {
+    return handleApiError(err, 'GET /api/upload');
+  }
   return NextResponse.json({ status: 'upload_stub', enabled: false, fase: '6.1 adiado MVP — sem upload no paper trading' });
 }

@@ -65,14 +65,21 @@ async function fetchOne(apiKey: string, chainId: number, address: string): Promi
   };
 }
 
-export async function fetchEtherscan(): Promise<{ sources: ContractSource[]; source: string }> {
+export async function fetchEtherscan(): Promise<{
+  sources: ContractSource[];
+  source: string;
+  provenance: "live" | "mock";
+}> {
+  // NOTA (audit round1): este connector NÃO foi migrado para live-only nesta
+  // rodada (free tier V2 limita chains; ver report .local/audit/round1-data.md).
+  // Ele agora DECLARA a proveniência para o orquestrador não marcar mock como ok.
   if (process.env.NODE_ENV === "test" || process.env.VITEST) {
-    return { sources: MOCK_SOURCES, source: "Etherscan mock" };
+    return { sources: MOCK_SOURCES, source: "Etherscan mock (NODE_ENV=test)", provenance: "mock" };
   }
 
   const apiKey = getEnv().ETHERSCAN_API_KEY;
   if (!apiKey) {
-    return { sources: MOCK_SOURCES, source: "Etherscan mock (sem ETHERSCAN_API_KEY)" };
+    return { sources: MOCK_SOURCES, source: "Etherscan mock (sem ETHERSCAN_API_KEY)", provenance: "mock" };
   }
 
   try {
@@ -89,9 +96,9 @@ export async function fetchEtherscan(): Promise<{ sources: ContractSource[]; sou
     }
     if (out.length === 0) throw new Error("nenhum contrato retornado");
     logger.info("etl", `Etherscan real: ${out.length} contratos verificados`);
-    return { sources: out, source: "Etherscan real (V2 multi-chain)" };
+    return { sources: out, source: "Etherscan real (V2 multi-chain)", provenance: "live" };
   } catch (e) {
     logger.warn("etl", `Etherscan real falhou — usando mock como fallback: ${String(e)}`);
-    return { sources: MOCK_SOURCES, source: "Etherscan mock (fallback)" };
+    return { sources: MOCK_SOURCES, source: "Etherscan mock (fallback)", provenance: "mock" };
   }
 }

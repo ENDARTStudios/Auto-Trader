@@ -5,14 +5,16 @@
 //      regex-based scam-detector might miss
 //   3. Synthesize news sentiment from public sources
 //
-// Uses z-ai-web-dev-sdk (free, no extra cost). All calls are logged to the
-// AIInsight table so we have a full audit trail of AI decisions.
+// Usa o provider real de src/lib/ai/provider.ts (OpenAI-compatible ou Ollama,
+// configurável por env). Sem provider configurado -> AIUnavailableError
+// PROPAGADO (não existe mais "investigate" fabricado para mascarar falha).
+// Todas as chamadas (e falhas) são logadas na tabela AIInsight.
 //
 // IMPORTANT: AI is advisory only. It can REJECT a trade (veto power) but
 // cannot FORCE a trade — the engine still gates on scam-score, risk-manager,
 // and circuit breakers. AI is a layer of skepticism, not autopilot.
 
-import ZAI from "z-ai-web-dev-sdk";
+import { chatCompletion } from "@/lib/ai/provider";
 import { db } from "@/lib/db";
 import { logger } from "./logger";
 import type { ScamReportData, TokenCandidate } from "./types";
@@ -37,17 +39,6 @@ export interface AIInsightResult {
   tokensUsed: number;
   durationMs: number;
   error?: string;
-}
-
-// ---------------------------------------------------------------------------
-// Singleton ZAI instance (initialised lazily)
-// ---------------------------------------------------------------------------
-let zaiInstance: Awaited<ReturnType<typeof ZAI.create>> | null = null;
-async function getZai() {
-  if (!zaiInstance) {
-    zaiInstance = await ZAI.create();
-  }
-  return zaiInstance;
 }
 
 // ---------------------------------------------------------------------------
@@ -106,6 +97,29 @@ function parseConfidence(text: string): number {
 // ---------------------------------------------------------------------------
 // Core LLM call with retry + audit logging
 // ---------------------------------------------------------------------------
+async function persistInsight(result: AIInsightResult): Promise<void> {
+  try {
+    await db.aIInsight.create({
+      data: {
+        agentRole: result.agentRole,
+        symbol: result.symbol ?? null,
+        tokenId: result.tokenId ?? null,
+        chain: result.chain ?? null,
+        promptSummary: result.promptSummary,
+        modelOutput: result.modelOutput,
+        recommendation: result.recommendation,
+        confidence: result.confidence,
+        keySignals: JSON.stringify(result.keySignals),
+        tokensUsed: result.tokensUsed,
+        durationMs: result.durationMs,
+        error: result.error ?? null,
+      },
+    });
+  } catch (err) {
+    logger.error("ai", `Erro persistindo AIInsight: ${String(err)}`);
+  }
+}
+
 async function callAgent(
   role: AgentRole,
   systemPrompt: string,
@@ -115,76 +129,58 @@ async function callAgent(
   const promptSummary =
     userPrompt.length > 500 ? userPrompt.slice(0, 497) + "..." : userPrompt;
   const start = Date.now();
-  let modelOutput = "";
-  let tokensUsed = 0;
-  let error: string | undefined;
 
   try {
-    const zai = await getZai();
-    const completion = await zai.chat.completions.create({
-      messages: [
-        { role: "assistant", content: systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      thinking: { type: "disabled" },
-    });
-    modelOutput = completion.choices[0]?.message?.content ?? "";
-    tokensUsed = (completion as { usage?: { total_tokens?: number } }).usage?.total_tokens ?? 0;
+    // Provider real (src/lib/ai/provider.ts). Sem provider configurado isto lança
+    // AIUnavailableError; erro de rede/HTTP também propaga — quem chama (engine)
+    // decide o que fazer. Nunca fabricamos um "investigate" para mascarar falha.
+    const completion = await chatCompletion({ system: systemPrompt, user: userPrompt });
+    const modelOutput = completion.content;
+    const tokensUsed = completion.usage?.totalTokens ?? 0;
+    const durationMs = Date.now() - start;
+
+    const result: AIInsightResult = {
+      agentRole: role,
+      symbol: metadata.symbol,
+      tokenId: metadata.tokenId,
+      chain: metadata.chain,
+      recommendation: parseRecommendation(modelOutput),
+      confidence: parseConfidence(modelOutput),
+      keySignals: extractKeySignals(modelOutput),
+      modelOutput,
+      promptSummary,
+      tokensUsed,
+      durationMs,
+    };
+
+    await persistInsight(result);
+    logger.info(
+      "ai",
+      `Agent ${role} ${metadata.symbol ?? "?"} → ${result.recommendation} (conf ${result.confidence}%) ${durationMs}ms`,
+      { tokens: tokensUsed, provider: completion.provider, model: completion.model }
+    );
+    return result;
   } catch (err) {
-    error = String(err);
-    logger.error("ai", `Erro LLM (${role}): ${error}`);
-    modelOutput = `[LLM ERROR] ${error}`;
-  }
-
-  const durationMs = Date.now() - start;
-  const recommendation = error ? "investigate" : parseRecommendation(modelOutput);
-  const confidence = error ? 0 : parseConfidence(modelOutput);
-  const keySignals = error ? [] : extractKeySignals(modelOutput);
-
-  const result: AIInsightResult = {
-    agentRole: role,
-    symbol: metadata.symbol,
-    tokenId: metadata.tokenId,
-    chain: metadata.chain,
-    recommendation,
-    confidence,
-    keySignals,
-    modelOutput,
-    promptSummary,
-    tokensUsed,
-    durationMs,
-    error,
-  };
-
-  // Persist
-  try {
-    await db.aIInsight.create({
-      data: {
-        agentRole: role,
-        symbol: metadata.symbol ?? null,
-        tokenId: metadata.tokenId ?? null,
-        chain: metadata.chain ?? null,
-        promptSummary,
-        modelOutput,
-        recommendation,
-        confidence,
-        keySignals: JSON.stringify(keySignals),
-        tokensUsed,
-        durationMs,
-        error: error ?? null,
-      },
+    const message = err instanceof Error ? err.message : String(err);
+    const durationMs = Date.now() - start;
+    // Auditoria: registra a falha (para não "sumir" do histórico) e REPROPAGA.
+    await persistInsight({
+      agentRole: role,
+      symbol: metadata.symbol,
+      tokenId: metadata.tokenId,
+      chain: metadata.chain,
+      recommendation: "hold", // placeholder — o resultado real é o throw abaixo
+      confidence: 0,
+      keySignals: [],
+      modelOutput: "",
+      promptSummary,
+      tokensUsed: 0,
+      durationMs,
+      error: message,
     });
-  } catch (err) {
-    logger.error("ai", `Erro persistindo AIInsight: ${String(err)}`);
+    logger.error("ai", `Erro LLM (${role}): ${message}`);
+    throw err;
   }
-
-  logger.info(
-    "ai",
-    `Agent ${role} ${metadata.symbol ?? "?"} → ${recommendation} (conf ${confidence}%) ${durationMs}ms`,
-    { tokens: tokensUsed }
-  );
-
-  return result;
 }
 
 // ---------------------------------------------------------------------------

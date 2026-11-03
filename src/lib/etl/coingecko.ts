@@ -1,9 +1,14 @@
-// src/lib/etl/coingecko.ts — CoinGecko connector
-// Real: GET /api/v3/coins/markets (top 100 por market cap) com a chave Demo
-// (header x-cg-demo-api-key, 30 req/min). Sem rede/chave → fallback mock.
-// Em NODE_ENV=test fica no mock para os testes serem determinísticos.
+// src/lib/etl/coingecko.ts — CoinGecko connector (HTTP real, sem mock)
+//
+// Endpoint real (free tier): GET /api/v3/coins/markets (top 100 por market cap).
+//   - Com chave demo: https://api.coingecko.com/api/v3/coins/markets
+//     header x-cg-demo-api-key (30 req/min).
+//   - Se a chave existir mas estiver inválida (401/403), caímos para o endpoint
+//     público SEM a chave (com warning), que é o modo anônimo do mesmo host.
+//   - Se o fallback também falhar, LANÇA: nunca devolvemos preços inventados.
 import { getEnv } from "@/lib/env";
 import { logger } from "../trading/logger";
+import type { EtlProvenance } from "./dexscreener";
 
 export interface Token {
   symbol: string;
@@ -14,20 +19,7 @@ export interface Token {
   volume24hUsd: number;
 }
 
-const MOCK_TOKENS: Token[] = [
-  { symbol: "BTC", name: "Bitcoin", chain: "cex", priceUsd: 65000, marketCapUsd: 1_280_000_000_000, volume24hUsd: 25_000_000_000 },
-  { symbol: "ETH", name: "Ethereum", chain: "cex", priceUsd: 3500, marketCapUsd: 420_000_000_000, volume24hUsd: 12_000_000_000 },
-  { symbol: "SOL", name: "Solana", chain: "cex", priceUsd: 150, marketCapUsd: 70_000_000_000, volume24hUsd: 3_000_000_000 },
-  { symbol: "BNB", name: "Binance Coin", chain: "cex", priceUsd: 600, marketCapUsd: 90_000_000_000, volume24hUsd: 1_500_000_000 },
-  { symbol: "XRP", name: "Ripple", chain: "cex", priceUsd: 0.6, marketCapUsd: 33_000_000_000, volume24hUsd: 1_200_000_000 },
-  { symbol: "ARB", name: "Arbitrum", chain: "arbitrum", priceUsd: 1.2, marketCapUsd: 4_000_000_000, volume24hUsd: 200_000_000 },
-  { symbol: "OP", name: "Optimism", chain: "optimism", priceUsd: 2.5, marketCapUsd: 2_500_000_000, volume24hUsd: 100_000_000 },
-  { symbol: "DEGEN", name: "Degen", chain: "base", priceUsd: 0.01, marketCapUsd: 50_000_000, volume24hUsd: 5_000_000 },
-  { symbol: "BRETT", name: "Brett", chain: "base", priceUsd: 0.05, marketCapUsd: 500_000_000, volume24hUsd: 30_000_000 },
-  { symbol: "TOSHI", name: "Toshi", chain: "base", priceUsd: 0.001, marketCapUsd: 100_000_000, volume24hUsd: 10_000_000 },
-];
-
-// CoinGecko id → chain interna (o resto cai em "cex", igual ao mock dos majors)
+// CoinGecko id → chain interna (o resto cai em "cex", igual à lista de majors)
 const CHAIN_BY_CG_ID: Record<string, string> = {
   arbitrum: "arbitrum",
   "wrapped-bitcoin": "cex",
@@ -49,11 +41,15 @@ interface CgMarketRow {
   total_volume: number;
 }
 
+const CG_URL =
+  "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1";
+const CG_TIMEOUT_MS = 10_000;
+
 function mapMarkets(rows: CgMarketRow[]): Token[] {
   return rows
     .filter((r) => typeof r.current_price === "number" && r.current_price > 0)
     .map((r) => ({
-      symbol: r.symbol.toUpperCase(),
+      symbol: String(r.symbol ?? "").toUpperCase(),
       name: r.name,
       chain: CHAIN_BY_CG_ID[r.id] ?? "cex",
       priceUsd: r.current_price,
@@ -62,37 +58,60 @@ function mapMarkets(rows: CgMarketRow[]): Token[] {
     }));
 }
 
-export async function fetchCoinGecko(): Promise<{ tokens: Token[]; source: string }> {
-  if (process.env.NODE_ENV === "test" || process.env.VITEST) {
-    return { tokens: MOCK_TOKENS, source: "CoinGecko mock" };
+async function callMarkets(apiKey?: string): Promise<CgMarketRow[]> {
+  const resp = await fetch(CG_URL, {
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+      ...(apiKey ? { "x-cg-demo-api-key": apiKey } : {}),
+    },
+    signal: AbortSignal.timeout(CG_TIMEOUT_MS),
+  });
+  if (!resp.ok) {
+    const err = new Error(`CoinGecko HTTP ${resp.status}`) as Error & { status?: number };
+    err.status = resp.status;
+    throw err;
+  }
+  const rows = (await resp.json()) as unknown;
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error("CoinGecko resposta vazia ou malformada");
+  }
+  return rows as CgMarketRow[];
+}
+
+export async function fetchCoinGecko(): Promise<{
+  tokens: Token[];
+  source: string;
+  provenance: EtlProvenance;
+}> {
+  const apiKey = getEnv().COINGECKO_API_KEY;
+  let rows: CgMarketRow[];
+  let source: string;
+
+  if (apiKey) {
+    try {
+      rows = await callMarkets(apiKey);
+      source = "CoinGecko live (demo key)";
+    } catch (err) {
+      const status = (err as { status?: number }).status;
+      if (status === 401 || status === 403) {
+        logger.warn(
+          "etl",
+          `CoinGecko demo key inválida (HTTP ${status}) — fallback para o endpoint público sem chave`
+        );
+        rows = await callMarkets();
+        source = `CoinGecko live (público, fallback após HTTP ${status} da demo key)`;
+      } else {
+        throw err;
+      }
+    }
+  } else {
+    rows = await callMarkets();
+    source = "CoinGecko live (público, sem chave)";
   }
 
-  try {
-    const apiKey = getEnv().COINGECKO_API_KEY;
-    const url = "https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=100&page=1";
-    const resp = await fetch(url, {
-      cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        ...(apiKey ? { "x-cg-demo-api-key": apiKey } : {}),
-      },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!resp.ok) {
-      throw new Error(`CoinGecko HTTP ${resp.status}`);
-    }
-    const rows = (await resp.json()) as CgMarketRow[];
-    if (!Array.isArray(rows) || rows.length === 0) {
-      throw new Error("CoinGecko resposta vazia ou malformada");
-    }
-    const tokens = mapMarkets(rows);
-    logger.info("etl", `CoinGecko real: ${tokens.length} tokens (top market cap)`);
-    return {
-      tokens,
-      source: apiKey ? "CoinGecko real (demo key)" : "CoinGecko real (public)",
-    };
-  } catch (e) {
-    logger.warn("etl", `CoinGecko real falhou — usando mock como fallback: ${String(e)}`);
-    return { tokens: MOCK_TOKENS, source: "CoinGecko mock (fallback)" };
-  }
+  const tokens = mapMarkets(rows);
+  if (tokens.length === 0) throw new Error("CoinGecko: nenhum token utilizável na resposta");
+  logger.info("etl", `CoinGecko real: ${tokens.length} tokens (top market cap)`);
+  return { tokens, source, provenance: "live" };
 }

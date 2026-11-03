@@ -13,6 +13,7 @@ import type { TAGraphState, LLMExtractor } from './tradingagents-adapter';
 import { UnparseableThesis } from './tradingagents-adapter';
 import type { SchemaDescriptor } from './schema-descriptor';
 import { DEFAULT_DESCRIPTOR } from './schema-descriptor';
+import { chatCompletion, AIUnavailableError, extractJsonObject } from '@/lib/ai/provider';
 
 /* ===================== provedor-agnóstico (BYOK) ===================== */
 export interface JSONSchema {
@@ -79,6 +80,25 @@ export function anthropicProvider(client: {
 /* Mock p/ testes determinísticos (sem rede). */
 export function mockProvider(fn: (req: LLMRequest) => unknown): LLMProvider {
   return { async completeJSON<T>(req: LLMRequest) { return fn(req) as T; } };
+}
+
+/**
+ * Provider REAL apontando para src/lib/ai/provider.ts (OpenAI-compatible ou
+ * Ollama, escolhido por env). JSON mode + extração tolerante de bloco.
+ * Sem provider configurado -> AIUnavailableError (o caller NÃO deve operar).
+ */
+export function aiBackedProvider(): LLMProvider {
+  return {
+    async completeJSON<T>(req: LLMRequest): Promise<T> {
+      const res = await chatCompletion({
+        system: req.system,
+        user: req.user,
+        json: true,
+        temperature: req.temperature ?? 0,
+      });
+      return JSON.parse(extractJsonObject(res.content)) as T;
+    },
+  };
 }
 
 /* ===================== schema de saída do extractor ===================== */
@@ -192,6 +212,9 @@ export class ProsaToReportExtractor implements LLMExtractor {
     try {
       raw = await this.provider.completeJSON({ system, user, schema: EXTRACT_SCHEMA, temperature: 0 });
     } catch (e) {
+      // IA não configurada/indisponível é diferente de prosa inválida: propaga
+      // o erro real para o caller decidir (sem fingir que "extraiu" algo).
+      if (e instanceof AIUnavailableError) throw e;
       // falha do provedor = dado inválido -> propaga p/ fallback (4.4d), não opera no escuro
       throw new UnparseableThesis(`provedor falhou: ${(e as Error).message}`);
     }

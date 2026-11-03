@@ -62,7 +62,14 @@ ENV HOSTNAME=0.0.0.0
 COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 USER node
-# T074: start via node (runtime already validated) instead of `npm start`,
-# whose script requires `bun`, absent from this image (pre-existing entrypoint
-# bug: `sh: 1: bun: not found`). Docker-scoped only; package.json untouched.
+# T074 (atualizado): `npm start` agora é "node .next/standalone/server.js"
+# (sem bun/tee — ver package.json), então start local e container usam o mesmo
+# caminho. CMD explícito mantém o contrato do ENTRYPOINT intacto.
 CMD ["node", ".next/standalone/server.js"]
+
+# Healthcheck REAL de prontidão: /api/health/ready devolve 200 só quando o
+# Postgres responde (503 caso contrário). /api/health/live (200 sem DB) fica
+# para liveness — usar readiness aqui evita marcar "healthy" um app que não
+# consegue falar com o banco. --start-period cobre o boot do standalone.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:3000/api/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"

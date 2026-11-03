@@ -4,6 +4,7 @@
 // For DEX tokens, uses DexScreener /tokens/v1/{chain}/{address}.
 
 import { logger } from "./logger";
+import { recordSuccess, recordError } from "./source-health";
 
 interface CacheEntry {
   at: number;
@@ -51,6 +52,8 @@ export async function fetchPriceUsd(
         const json = (await resp.json()) as { price?: string };
         if (json.price) price = parseFloat(json.price);
       }
+      if (price > 0) await recordSuccess("binance");
+      else await recordError("binance", `ticker ${binanceSymbol}: HTTP ${resp.status} sem preço`);
     } else if (source === "dex" && chain && tokenId) {
       const url = `https://api.dexscreener.com/tokens/v1/${chain}/${tokenId}`;
       const resp = await fetch(url, { cache: "no-store" });
@@ -63,8 +66,11 @@ export async function fetchPriceUsd(
           price = parseFloat(json[0].priceUsd);
         }
       }
+      if (price > 0) await recordSuccess("dexscreener");
+      else await recordError("dexscreener", `price ${chain}:${tokenId}: HTTP ${resp.status} sem preço`);
     }
   } catch (err) {
+    await recordError(source === "cex" ? "binance" : "dexscreener", `price ${symbol}: ${String(err)}`);
     logger.warn("engine", `Erro buscando preço ${symbol}`, { error: String(err) });
   }
 

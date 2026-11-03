@@ -27,6 +27,9 @@ import { logger } from "./logger";
 export type SourceName =
   | "binance"
   | "dexscreener"
+  | "geckoterminal"
+  | "coingecko"
+  | "feargreed"
   | "goplus"
   | "zai"
   | "rdap"
@@ -167,6 +170,9 @@ export async function getSourceHealth(): Promise<SourceHealthRow[]> {
   const known: SourceName[] = [
     "binance",
     "dexscreener",
+    "geckoterminal",
+    "coingecko",
+    "feargreed",
     "goplus",
     "zai",
     "rdap",

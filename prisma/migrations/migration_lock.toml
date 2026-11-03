@@ -1,7 +1,8 @@
 # Prisma migration lock for the auto-trader project.
 #
-# Provider: sqlite (development DB at db/custom.db).
-# Production: PostgreSQL (separate schema, separate migration history).
+# Provider: postgresql (dev em docker compose pgvector; prod Railway Postgres).
+# A migração legada em SQLite dialect foi arquivada em prisma/legacy-sqlite-migrations/
+# (não é reproduzível em Postgres e travava `prisma migrate deploy` com P3019).
 #
 # This baseline migration (20260714000001_wallet_exchange_recon_fix) was
 # generated AFTER the PolarFS snapshot recovery. The project had been using
@@ -22,4 +23,4 @@
 #      producing versioned migrations instead of silent `db push` writes.
 #   3. The REG-006 bug (missing fields) is documented in migration history.
 
-provider = "sqlite"
+provider = "postgresql"

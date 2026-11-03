@@ -14,6 +14,10 @@
 
 import { db } from "@/lib/db";
 import { logger } from "./logger";
+import { getConfig } from "./config";
+import { closePosition } from "./portfolio";
+import { fetchPricesBatch } from "./price-feed";
+import { recordRiskEvent } from "./risk-manager";
 
 export interface TradingSchedule {
   enabled: boolean;
@@ -227,6 +231,11 @@ export async function canScoutNow(): Promise<boolean> {
 
 // Force-close all open positions — used when forceCloseAtEnd is true and
 // the schedule window just closed. Returns count of closed positions.
+//
+// Bug being fixed: this used to write status=killed / exitPrice=0 directly,
+// destroying the position notional (no sale, no balance credit, PnL forced to
+// 0). It now routes through portfolio.closePosition() with a REAL market price
+// so the sell is executed, the balance is credited, and PnL is honest.
 export async function forceCloseAllIfOutsideWindow(): Promise<number> {
   const sched = await getSchedule();
   if (!sched.enabled || !sched.forceCloseAtEnd) return 0;
@@ -235,25 +244,55 @@ export async function forceCloseAllIfOutsideWindow(): Promise<number> {
   // We are outside the window + forceClose is set — close all open positions.
   const openPositions = await db.position.findMany({
     where: { status: "open" },
-    select: { id: true, symbol: true },
+    select: {
+      id: true,
+      symbol: true,
+      source: true,
+      chain: true,
+      tokenId: true,
+      entryPriceUsd: true,
+    },
   });
   if (openPositions.length === 0) return 0;
-  const now = new Date();
+
+  const cfg = await getConfig();
+  const prices = await fetchPricesBatch(
+    openPositions.map((p) => ({
+      id: p.id,
+      symbol: p.symbol,
+      source: p.source as "cex" | "dex",
+      chain: p.chain,
+      tokenId: p.tokenId,
+    }))
+  );
+
   let closed = 0;
   for (const p of openPositions) {
+    const marketPrice = prices.get(p.id) ?? 0;
+    const priced = marketPrice > 0;
+    if (!priced) {
+      // Never silently pretend we exited at market when there is no price.
+      await recordRiskEvent(
+        "unpriced_exit",
+        "warning",
+        `Schedule force-close sem preço para ${p.symbol} — liquidando em entryPrice (fallback)`,
+        {
+          positionId: p.id,
+          symbol: p.symbol,
+          fallback: "entry_price",
+          entryPriceUsd: p.entryPriceUsd,
+          reason: "schedule_force_close",
+        }
+      ).catch(() => { /* risk log must not block the exit */ });
+    }
     try {
-      await db.position.update({
-        where: { id: p.id },
-        data: {
-          status: "killed",
-          exitAt: now,
-          exitReason: "schedule_force_close",
-          exitPriceUsd: 0, // portfolio.closePosition would do this properly; this is a safety net
-          pnlUsd: 0,
-          pnlPct: 0,
-        },
-      });
-      closed++;
+      const closedPos = await closePosition(
+        cfg,
+        p.id,
+        priced ? marketPrice : p.entryPriceUsd,
+        "schedule_force_close"
+      );
+      if (closedPos) closed++;
     } catch (err) {
       logger.error("schedule", `Erro ao forçar fechamento de ${p.symbol}`, {
         positionId: p.id,

@@ -1,11 +1,18 @@
 // Market analysis module — combines technical indicators + market sentiment
 // into a composite signal that informs the engine's entry/exit decisions.
 //
-// All data sources are free and open:
-//   - Binance klines REST API (candles for TA) — no auth
-//   - DexScreener (candles/price for DEX tokens) — no auth
+// All data sources are free and open, and ALL are real (no synthetic candles):
+//   - Binance klines REST API — candles for CEX tokens (dataQuality "live")
+//   - DexScreener /tokens/v1 — descobre o pool de MAIOR liquidez do token
+//   - GeckoTerminal /ohlcv/minute — OHLCV real desse pool (dataQuality "live")
 //   - alternative.me Fear & Greed Index API — no auth
 //   - CoinGecko /search/trending — no auth (we use a 60s cache)
+//
+// DEGRADAÇÃO HONESTA (audit round1): antes, quando não havia candles, este
+// módulo sintetizava uma reta + seno a partir do preço atual e calculava
+// RSI/MACD/EMA sobre ruído inventado. Agora, sem OHLCV real ele LANÇA
+// MarketDataUnavailableError (code = "MARKET_DATA_UNAVAILABLE") e o engine
+// decide (ex.: pular entrada). Nenhum indicador é fabricado.
 //
 // Technical indicators implemented inline (no external TA library):
 //   - RSI(14)        — Relative Strength Index
@@ -16,6 +23,8 @@
 
 import { db } from "@/lib/db";
 import { logger } from "./logger";
+import { recordSuccess, recordError } from "./source-health";
+import { fetchTokenPairs } from "@/lib/etl/dexscreener";
 import type { TokenCandidate } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -92,19 +101,65 @@ export function bollinger(
 }
 
 // ---------------------------------------------------------------------------
-// Fetch klines (candles) — Binance for CEX, DexScreener for DEX
+// Fetch klines (candles) — Binance (CEX) / GeckoTerminal OHLCV (DEX). Tudo real.
 // ---------------------------------------------------------------------------
 export interface Candle { open: number; high: number; low: number; close: number; volume: number; time: number; }
+
+/**
+ * Não existe OHLCV real disponível. NUNCA sintetizamos candles: quem chama
+ * decide degradar (o engine cai no fallback neutro; a API responde erro).
+ */
+export class MarketDataUnavailableError extends Error {
+  readonly code = "MARKET_DATA_UNAVAILABLE" as const;
+  constructor(
+    message: string,
+    readonly meta?: { symbol?: string; chain?: string; tokenId?: string; source?: string; cause?: string }
+  ) {
+    super(message);
+    this.name = "MarketDataUnavailableError";
+  }
+}
+
+/** chain interna -> network slug do GeckoTerminal. */
+export const CHAIN_TO_GECKO_NETWORK: Readonly<Record<string, string>> = {
+  ethereum: "eth",
+  eth: "eth",
+  bsc: "bsc",
+  base: "base",
+  arbitrum: "arbitrum",
+  optimism: "optimism",
+  polygon: "polygon_pos",
+  polygon_pos: "polygon_pos",
+};
 
 async function fetchBinanceKlines(symbol: string, interval: string, limit: number): Promise<Candle[]> {
   // symbol like "BTC/USDT" → "BTCUSDT" for Binance
   const bnSymbol = symbol.replace("/", "").toUpperCase();
   const url = `https://api.binance.com/api/v3/klines?symbol=${bnSymbol}&interval=${interval}&limit=${limit}`;
-  const resp = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+  let resp: Response;
+  try {
+    resp = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
+  } catch (err) {
+    await recordError("binance", `klines ${bnSymbol}: ${String(err)}`);
+    throw new MarketDataUnavailableError(`Binance indisponível para ${symbol}`, {
+      symbol,
+      source: "binance",
+      cause: String(err),
+    });
+  }
   if (!resp.ok) {
-    throw new Error(`Binance klines HTTP ${resp.status}`);
+    await recordError("binance", `klines ${bnSymbol}: HTTP ${resp.status}`);
+    throw new MarketDataUnavailableError(`Binance klines HTTP ${resp.status} para ${symbol}`, {
+      symbol,
+      source: "binance",
+    });
   }
   const json = (await resp.json()) as unknown[][];
+  if (!Array.isArray(json) || json.length === 0) {
+    await recordError("binance", `klines ${bnSymbol}: resposta vazia`);
+    throw new MarketDataUnavailableError(`Binance sem candles para ${symbol}`, { symbol, source: "binance" });
+  }
+  await recordSuccess("binance");
   return json.map((k) => ({
     open: parseFloat(k[1] as string),
     high: parseFloat(k[2] as string),
@@ -115,54 +170,123 @@ async function fetchBinanceKlines(symbol: string, interval: string, limit: numbe
   }));
 }
 
-async function fetchDexScreenerCandles(chain: string, tokenId: string): Promise<Candle[]> {
-  // DexScreener doesn't have a public candle endpoint — we synthesize from
-  // recent trades if available, otherwise just use the current price as a flat
-  // line of 50 candles. This is enough to compute RSI/MACD/EMA — though with
-  // less granularity than CEX. Real production would use a free RPC to query
-  // Uniswap V3 pool events and reconstruct OHLCV ourselves.
-  const url = `https://api.dexscreener.com/tokens/v1/${chain}/${tokenId}`;
-  const resp = await fetch(url, { cache: "no-store", signal: AbortSignal.timeout(8000) });
-  if (!resp.ok) {
-    throw new Error(`DexScreener HTTP ${resp.status}`);
-  }
-  const json = (await resp.json()) as Array<{
-    priceUsd?: string;
-    priceNative?: string;
-    txns?: { h1?: { buys?: number; sells?: number }; h6?: { buys?: number; sells?: number }; h24?: { buys?: number; sells?: number } };
-    volume?: { h24?: number; h6?: number; h1?: number };
-    priceChange?: { h1?: number; h6?: number; h24?: number };
-  }>;
-  if (!json || json.length === 0) {
-    throw new Error("Sem dados DexScreener");
-  }
-  const token = json[0];
-  const currentPrice = parseFloat(token.priceUsd ?? "0");
-  if (currentPrice <= 0) {
-    throw new Error("Preço inválido");
-  }
-  // Synthesize 50 candles with the 24h % change as a linear trend
-  const candles: Candle[] = [];
-  const change24hPct = token.priceChange?.h24 ?? 0;
-  // Linear back-calculation: today price = yesterday * (1 + change24hPct/100)
-  // → yesterday price = today / (1 + change24hPct/100)
-  const oldestPrice = currentPrice / (1 + change24hPct / 100);
-  for (let i = 0; i < 50; i++) {
-    const t = i / 49; // 0 to 1
-    const price = oldestPrice + (currentPrice - oldestPrice) * t;
-    // Add some synthetic noise so indicators aren't perfectly flat
-    const noise = price * 0.005 * Math.sin(i / 3);
-    const close = price + noise;
-    candles.push({
-      open: close * 0.998,
-      high: close * 1.003,
-      low: close * 0.997,
-      close,
-      volume: (token.volume?.h24 ?? 0) / 50,
-      time: Date.now() - (50 - i) * 60_000 * 28.8, // 50 candles spanning 24h
+type GeckoOhlcvRow = number[];
+interface GeckoPoolCandidate {
+  pairAddress: string;
+  liquidityUsd: number;
+  inverted: boolean; // true = nosso token é o QUOTE do pool -> invertemos o preço
+}
+
+/**
+ * OHLCV REAL de DEX: descobre o pool de maior liquidez via DexScreener e busca
+ * as velas no GeckoTerminal. Os preços do GeckoTerminal são USD do token BASE;
+ * quando nosso token é o quote do pool, invertemos a série (high/low trocam).
+ */
+async function fetchDexCandles(
+  chain: string,
+  tokenId: string,
+  symbol: string
+): Promise<{ candles: Candle[]; poolAddress: string; network: string; inverted: boolean }> {
+  const network = CHAIN_TO_GECKO_NETWORK[chain.toLowerCase()];
+  if (!network) {
+    throw new MarketDataUnavailableError(`Chain ${chain} sem network GeckoTerminal mapeada`, {
+      symbol,
+      chain,
+      tokenId,
+      source: "geckoterminal",
     });
   }
-  return candles;
+
+  let pairs: Awaited<ReturnType<typeof fetchTokenPairs>>["pairs"];
+  try {
+    const res = await fetchTokenPairs(chain, tokenId);
+    pairs = res.pairs;
+  } catch (err) {
+    await recordError("dexscreener", `pools ${chain}:${tokenId}: ${String(err)}`);
+    throw new MarketDataUnavailableError(`DexScreener indisponível para ${symbol}`, {
+      symbol,
+      chain,
+      tokenId,
+      source: "dexscreener",
+      cause: String(err),
+    });
+  }
+
+  const wanted = tokenId.toLowerCase();
+  const candidates: GeckoPoolCandidate[] = pairs
+    .filter((p) => p.priceUsd > 0 && p.pairAddress)
+    .map((p) => ({
+      pairAddress: p.pairAddress,
+      liquidityUsd: p.liquidityUsd,
+      inverted: p.baseTokenAddress.toLowerCase() !== wanted,
+    }))
+    .sort((a, b) => {
+      // Prefere pool onde NOSSO token é o base (sem inversão) e depois liquidez.
+      if (a.inverted !== b.inverted) return a.inverted ? 1 : -1;
+      return b.liquidityUsd - a.liquidityUsd;
+    })
+    .slice(0, 3);
+
+  if (candidates.length === 0) {
+    await recordError("dexscreener", `pools ${chain}:${tokenId}: sem pares com liquidez`);
+    throw new MarketDataUnavailableError(`Sem pool DEX com liquidez para ${symbol}`, {
+      symbol,
+      chain,
+      tokenId,
+      source: "dexscreener",
+    });
+  }
+  await recordSuccess("dexscreener");
+
+  const errors: string[] = [];
+  for (const pool of candidates) {
+    const url = `https://api.geckoterminal.com/api/v2/networks/${network}/pools/${pool.pairAddress}/ohlcv/minute?aggregate=5&limit=100`;
+    try {
+      const resp = await fetch(url, {
+        cache: "no-store",
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const json = (await resp.json()) as {
+        data?: { attributes?: { ohlcv_list?: GeckoOhlcvRow[] } };
+      };
+      const rows = json.data?.attributes?.ohlcv_list ?? [];
+      if (rows.length < 2) throw new Error("ohlcv_list vazia");
+      const candles: Candle[] = rows
+        .map((row) => {
+          const [ts, o, h, l, c, v] = row;
+          if (pool.inverted) {
+            // 1/p com high/low trocados
+            return {
+              time: ts * 1000,
+              open: 1 / o,
+              high: 1 / l,
+              low: 1 / h,
+              close: 1 / c,
+              volume: v,
+            };
+          }
+          return { time: ts * 1000, open: o, high: h, low: l, close: c, volume: v };
+        })
+        .filter((c) => Number.isFinite(c.close) && c.close > 0)
+        .sort((a, b) => a.time - b.time);
+      if (candles.length < 2) throw new Error("candles inválidos após parse");
+      await recordSuccess("geckoterminal");
+      return { candles, poolAddress: pool.pairAddress, network, inverted: pool.inverted };
+    } catch (err) {
+      errors.push(`${pool.pairAddress}: ${String(err)}`);
+    }
+  }
+
+  await recordError("geckoterminal", `ohlcv ${network}:${tokenId}: ${errors.join(" | ")}`);
+  throw new MarketDataUnavailableError(`GeckoTerminal sem OHLCV real para ${symbol}`, {
+    symbol,
+    chain,
+    tokenId,
+    source: "geckoterminal",
+    cause: errors.join(" | "),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -195,8 +319,10 @@ export async function getFearGreedIndex(): Promise<FearGreedData | null> {
       },
       ts: Date.now(),
     };
+    await recordSuccess("feargreed");
     return fearGreedCache.data;
   } catch (err) {
+    await recordError("feargreed", String(err));
     logger.warn("market", `Fear & Greed indisponível: ${String(err)}`);
     return null;
   }
@@ -232,8 +358,10 @@ export async function getTrendingTokens(): Promise<
       rank: i + 1,
     }));
     trendingCache = { data, ts: Date.now() };
+    await recordSuccess("coingecko");
     return data;
   } catch (err) {
+    await recordError("coingecko", `trending: ${String(err)}`);
     logger.warn("market", `Trending indisponível: ${String(err)}`);
     return [];
   }
@@ -260,6 +388,12 @@ export interface MarketSignal {
   trendingRank: number | null;
   signalScore: number; // 0-100 (100 = strongest buy)
   signalLabel: "strong_buy" | "buy" | "neutral" | "sell" | "strong_sell";
+  /**
+   * "live" = indicadores calculados sobre OHLCV real (Binance para CEX,
+   * GeckoTerminal para DEX). "unavailable" = NÃO houve dado real; o snapshot é
+   * neutro e explicitamente não-analítico (engine aplica o gate de qualidade).
+   */
+  dataQuality: "live" | "unavailable";
   raw: Record<string, unknown>;
 }
 
@@ -276,19 +410,41 @@ function classifySignal(score: number): MarketSignal["signalLabel"] {
 // ---------------------------------------------------------------------------
 export async function analyzeMarket(candidate: TokenCandidate): Promise<MarketSignal> {
   const raw: Record<string, unknown> = {};
+
+  // ---------- candles reais (sem síntese) ----------
   let candles: Candle[] = [];
-  try {
-    if (candidate.source === "cex") {
-      candles = await fetchBinanceKlines(candidate.symbol, "1h", 60);
-    } else if (candidate.chain && candidate.tokenId) {
-      candles = await fetchDexScreenerCandles(candidate.chain, candidate.tokenId);
+  let candleSource: "binance" | "geckoterminal";
+  let poolAddress: string | null = null;
+  let network: string | null = null;
+  let inverted = false;
+
+  if (candidate.source === "cex") {
+    candleSource = "binance";
+    candles = await fetchBinanceKlines(candidate.symbol, "1h", 60); // lança MarketDataUnavailableError
+  } else {
+    candleSource = "geckoterminal";
+    if (!candidate.chain || !candidate.tokenId) {
+      throw new MarketDataUnavailableError(
+        `DEX sem chain/tokenId — impossível obter OHLCV real para ${candidate.symbol}`,
+        { symbol: candidate.symbol, source: "geckoterminal" }
+      );
     }
-  } catch (err) {
-    logger.warn("market", `Erro buscando candles para ${candidate.symbol}: ${String(err)}`);
+    const dex = await fetchDexCandles(candidate.chain, candidate.tokenId, candidate.symbol);
+    candles = dex.candles;
+    poolAddress = dex.poolAddress;
+    network = dex.network;
+    inverted = dex.inverted;
+  }
+
+  if (candles.length < 2) {
+    throw new MarketDataUnavailableError(
+      `OHLCV real insuficiente para ${candidate.symbol} (${candles.length} candles)`,
+      { symbol: candidate.symbol, chain: candidate.chain, tokenId: candidate.tokenId, source: candleSource }
+    );
   }
 
   const closes = candles.map((c) => c.close);
-  const lastPrice = closes.length > 0 ? closes[closes.length - 1] : candidate.priceUsd;
+  const lastPrice = closes[closes.length - 1] ?? candidate.priceUsd;
 
   // Indicators
   let rsi14: number | null = null;
@@ -335,6 +491,12 @@ export async function analyzeMarket(candidate: TokenCandidate): Promise<MarketSi
 
   raw.candle_count = candles.length;
   raw.last_candle_at = candles.length > 0 ? new Date(candles[candles.length - 1].time).toISOString() : null;
+  raw.candle_source = candleSource;
+  raw.candle_interval = candleSource === "binance" ? "1h" : "5m";
+  raw.data_quality = "live";
+  if (poolAddress) raw.pool_address = poolAddress;
+  if (network) raw.gecko_network = network;
+  if (candleSource === "geckoterminal") raw.price_inverted = inverted;
 
   // ------------------- Composite signal -------------------
   // Weights (sum to 100):
@@ -402,6 +564,7 @@ export async function analyzeMarket(candidate: TokenCandidate): Promise<MarketSi
     trendingRank,
     signalScore: score,
     signalLabel: label,
+    dataQuality: "live",
     raw,
   };
 
@@ -433,6 +596,9 @@ export async function analyzeMarket(candidate: TokenCandidate): Promise<MarketSi
     logger.error("market", `Erro persistindo MarketSnapshot: ${String(err)}`);
   }
 
-  logger.info("market", `${candidate.symbol} signal=${label}(${score}) rsi=${rsi14?.toFixed(0) ?? "-"} macd=${macdHist?.toFixed(4) ?? "-"}`);
+  logger.info(
+    "market",
+    `${candidate.symbol} signal=${label}(${score}) rsi=${rsi14?.toFixed(0) ?? "-"} macd=${macdHist?.toFixed(4) ?? "-"} candles=${candles.length}(${candleSource})`
+  );
   return signal;
 }

@@ -4,13 +4,15 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
-import { requireSession, generateToken, hashToken, createSessionCookie, parseSessionCookieFromRequest, SESSION_TTL_MS } from '@/lib/auth/session';
+import { requireSession, generateToken, hashToken, createSessionCookie, parseSessionTokenFromRequest, SESSION_TTL_MS } from '@/lib/auth/session';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
-    const oldToken = parseSessionCookieFromRequest(req as unknown as Request);
+    // parseSessionTokenFromRequest verifies the HMAC signature and returns the
+    // opaque token (what is hashed in the DB) — never the signed cookie value.
+    const oldToken = parseSessionTokenFromRequest(req as unknown as Request);
     if (!oldToken) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
     // Valida sessão atual (lança 401 se inválida/expirada)

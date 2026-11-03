@@ -5,6 +5,8 @@ import {
   removeWatchlist,
   resetAlert,
 } from "@/lib/trading/watchlist";
+import { requirePermission } from "@/lib/auth/session";
+import { handleApiError } from "@/lib/api/error-handler";
 
 // PATCH /api/watchlist/[id] — update notes / threshold / enabled
 export async function PATCH(
@@ -12,6 +14,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("watchlist:manage")(req);
     const { id } = await params;
     const body = (await req.json()) as {
       notes?: string | null;
@@ -27,6 +30,9 @@ export async function PATCH(
     }
     return NextResponse.json({ token: updated });
   } catch (err) {
+    if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
+      return handleApiError(err, "PATCH /api/watchlist/[id]");
+    }
     logger.error("api", `Erro atualizando watchlist token: ${String(err)}`);
     return NextResponse.json(
       { error: "Failed to update watchlist token" },
@@ -37,10 +43,11 @@ export async function PATCH(
 
 // DELETE /api/watchlist/[id] — remove token from watchlist
 export async function DELETE(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("watchlist:manage")(req);
     const { id } = await params;
     const ok = await removeWatchlist(id);
     if (!ok) {
@@ -51,6 +58,9 @@ export async function DELETE(
     }
     return NextResponse.json({ ok: true });
   } catch (err) {
+    if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
+      return handleApiError(err, "DELETE /api/watchlist/[id]");
+    }
     logger.error("api", `Erro removendo watchlist token: ${String(err)}`);
     return NextResponse.json(
       { error: "Failed to remove watchlist token" },
@@ -65,6 +75,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requirePermission("watchlist:manage")(req);
     const { id } = await params;
     const body = (await req.json().catch(() => ({}))) as { action?: string };
     if (body.action === "reset_alert") {
@@ -76,6 +87,9 @@ export async function POST(
       { status: 400 }
     );
   } catch (err) {
+    if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
+      return handleApiError(err, "POST /api/watchlist/[id]");
+    }
     logger.error("api", `Erro em watchlist action: ${String(err)}`);
     return NextResponse.json(
       { error: "Failed to perform action" },

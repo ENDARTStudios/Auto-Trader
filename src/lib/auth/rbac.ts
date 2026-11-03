@@ -1,4 +1,7 @@
-// src/lib/auth/rbac.ts — 4 roles × 24 permissions (see docs/RBAC.md)
+// src/lib/auth/rbac.ts — 4 roles × 25 permissions (see docs/RBAC.md)
+// system:admin (round 1 hardening) = ops/destructive endpoints (backup/restore,
+// maintenance, initialize) — super_admin ONLY. It is intentionally NOT granted
+// to trader/viewer/service.
 export type Role = 'super_admin' | 'trader' | 'viewer' | 'service';
 export type Permission =
   | 'dashboard:read'
@@ -24,6 +27,7 @@ export type Permission =
   | 'chain:broadcast'
   | 'data:export'
   | 'system:read'
+  | 'system:admin'
   | 'deploy:promote';
 
 export const ROLE_PERMISSIONS: Record<Role, Set<Permission>> = {
@@ -51,6 +55,7 @@ export const ROLE_PERMISSIONS: Record<Role, Set<Permission>> = {
     'chain:broadcast',
     'data:export',
     'system:read',
+    'system:admin',
     'deploy:promote',
   ]),
   trader: new Set<Permission>([

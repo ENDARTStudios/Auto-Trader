@@ -29,8 +29,18 @@
 
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/trading/logger";
+import { requirePermission } from "@/lib/auth/session";
+import { handleApiError } from "@/lib/api/error-handler";
 
 export async function POST(req: Request) {
+  // GATE 0 (round 1 hardening): authenticated super_admin ONLY, checked BEFORE
+  // the env gates so the endpoint does not reveal whether it is enabled.
+  try {
+    await requirePermission("system:admin")(req);
+  } catch (err) {
+    return handleApiError(err, "POST /api/debug/crash-test");
+  }
+
   // GATE 1: env var must be explicitly set to "1"
   if (process.env.ENABLE_CRASH_TEST_ENDPOINT !== "1") {
     return NextResponse.json(

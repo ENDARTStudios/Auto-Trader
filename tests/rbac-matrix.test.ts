@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { hasPermission, ROLE_PERMISSIONS, type Permission, type Role } from '../src/lib/auth/rbac';
 
-describe('RBAC matrix 4x24', () => {
+describe('RBAC matrix 4x25', () => {
   const roles: Role[] = ['super_admin', 'trader', 'viewer', 'service'];
   const allPerms: Permission[] = [
     'dashboard:read', 'positions:read', 'positions:write', 'logs:read',
@@ -9,14 +9,14 @@ describe('RBAC matrix 4x24', () => {
     'reserve:manage', 'backtest:run', 'watchlist:manage', 'notifications:manage',
     'wallets:read', 'wallets:write', 'exchanges:manage', 'users:manage',
     'audit:read', 'flags:manage', 'schedule:manage', 'signer:call',
-    'chain:broadcast', 'data:export', 'system:read', 'deploy:promote',
+    'chain:broadcast', 'data:export', 'system:read', 'system:admin', 'deploy:promote',
   ];
 
   it('ROLE_PERMISSIONS has exactly 4 roles', () => {
     expect(Object.keys(ROLE_PERMISSIONS).sort()).toEqual(['service', 'super_admin', 'trader', 'viewer']);
   });
 
-  it('all 24 permissions are covered by at least one role', () => {
+  it('all 25 permissions are covered by at least one role', () => {
     const all = new Set<Permission>();
     for (const role of roles) {
       for (const p of ROLE_PERMISSIONS[role]) all.add(p);
@@ -26,7 +26,7 @@ describe('RBAC matrix 4x24', () => {
     }
   });
 
-  it('super_admin has all 24 permissions', () => {
+  it('super_admin has all 25 permissions', () => {
     for (const p of allPerms) {
       expect(hasPermission('super_admin', p), `super_admin missing ${p}`).toBe(true);
     }
@@ -76,6 +76,13 @@ describe('RBAC matrix 4x24', () => {
     for (const role of roles) {
       const expected = role === 'super_admin';
       expect(hasPermission(role, 'wallets:write'), `${role} wallets:write`).toBe(expected);
+    }
+  });
+
+  it('only super_admin has system:admin (backup/maintenance/initialize)', () => {
+    for (const role of roles) {
+      const expected = role === 'super_admin';
+      expect(hasPermission(role, 'system:admin'), `${role} system:admin`).toBe(expected);
     }
   });
 

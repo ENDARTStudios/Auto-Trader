@@ -90,3 +90,7 @@ check-result.txt
 # docker compose local override (portas locais, ex.: db em 5435)
 docker-compose.override.yml
 .auth/
+
+# Playwright artifacts
+test-results/
+playwright-report/

@@ -3,10 +3,16 @@
 // Each candidate gets a score 0-100 (100 = safest). Score is a weighted
 // average of sub-scores:
 //
-//   honeypot  (weight 0.30) — can we actually sell after buying?
+//   honeypot_turnover (weight 0.30) — HEURÍSTICA de turnover 24h/liquidez.
+//                   NÃO é verificação de honeypot (isso exige simulação on-chain,
+//                   feita pelo GoPlus em goplus-scanner.ts). Sem volume/liquidez
+//                   -> unverified, peso removido.
 //   liquidity (weight 0.20) — LP locked? enough depth? single LP provider?
 //   contract  (weight 0.20) — verified source? mint function? owner can pause/blacklist?
 //   tax       (weight 0.10) — buy/sell tax reasonable (<=10%)? symmetric?
+//                   Hoje NÃO temos fonte de tax no scam-detector (DexScreener não
+//                   expõe tax; só o GoPlus mede) -> sempre unverified => peso
+//                   removido e renormalizado. Nunca mais um 70 fixo inventado.
 //   holder    (weight 0.10) — top 10 holders own <30%? LP holder excluded?
 //   age       (weight 0.10) — token at least 7 days old? newer = riskier
 //
@@ -241,77 +247,56 @@ async function scoreContract(c: TokenCandidate): Promise<ScamSubScore> {
   return { name: "contract", score, weight: 0.20, findings };
 }
 
-// 5. Tax simulation — query DexScreener again for token metadata that
-//    often includes buy/sell tax. As a fallback, assume neutral.
+// 5. Tax — NÃO verificável com as fontes atuais. DexScreener não expõe buy/sell
+//    tax (só simulação de swap on-chain ou GoPlus medem). Antes este check
+//    devolvia 70 fixo com peso 0.10 — número inventado que empurrava o score
+//    final. Agora: unverified=true e peso removido da soma (renormalizada).
 async function scoreTax(c: TokenCandidate): Promise<ScamSubScore> {
   const findings: string[] = [];
-  let score = 70;
-
   if (!c.tokenId || !c.chain) {
-    findings.push("Sem endereço — tax não aplicável");
-    return { name: "tax", score, weight: 0.10, findings };
+    findings.push("Sem endereço de contrato — tax não aplicável (peso removido)");
+  } else {
+    findings.push(
+      "Tax não verificada nesta camada: DexScreener não expõe buy/sell tax; requer simulação on-chain/GoPlus (peso removido da soma)"
+    );
   }
-
-  try {
-    // DexScreener endpoint: GET /tokens/v1/{chain}/{address}
-    const url = `https://api.dexscreener.com/tokens/v1/${c.chain}/${c.tokenId}`;
-    const resp = await fetch(url, { cache: "no-store" });
-    if (resp.ok) {
-      const json = (await resp.json()) as Array<{
-        baseToken?: { symbol?: string };
-        priceUsd?: string;
-      }>;
-      // DexScreener token endpoint doesn't directly return taxes.
-      // We'd need to actually simulate a swap to compute tax — heavy.
-      // For MVP we assume neutral with a small warning.
-      findings.push("Taxa real requer simulação de swap (não executada no MVP)");
-    } else {
-      findings.push(`DexScreener tax endpoint ${resp.status}`);
-    }
-  } catch (err) {
-    findings.push(`Erro tax: ${String(err)}`);
-  }
-
-  return { name: "tax", score, weight: 0.10, findings };
+  return { name: "tax", score: 0, weight: 0.10, findings, unverified: true };
 }
 
-// 6. Honeypot check — best-effort.
-//    Real honeypot detection requires simulating a buy+sell on a local RPC
-//    via eth_call. Without access to a free archive node with state at
-//    recent block, we approximate by combining:
-//      - contract verified? (already in contract score)
-//      - liquidity locked? (DexScreener doesn't expose this directly; we
-//        approximate by checking if age > 7d AND liquidity > $250k)
-//      - sell-side volume ratio (if 24h volume is high relative to liquidity,
-//        people ARE selling successfully — strong honeypot disconfirmation)
-async function scoreHoneypot(c: TokenCandidate): Promise<ScamSubScore> {
+// 6. Turnover — HEURÍSTICA, não verificação de honeypot.
+//    Honeypot real exige simular buy+sell on-chain (é o que o GoPlus faz em
+//    goplus-scanner.ts). O que medimos aqui é o turnover 24h/liquidez: se o
+//    volume gira a pool inteira em 24h, alguém está conseguindo vender com
+//    sucesso — evidência indireta, JAMAIS um selo "honeypot verificado".
+//    Sem volume E sem liquidez -> não há dado: unverified, peso removido.
+async function scoreHoneypotTurnover(c: TokenCandidate): Promise<ScamSubScore> {
   const findings: string[] = [];
-  let score = 50;
+  const PREFIX = "[heurística de turnover — não é honeypot verificado]";
 
-  if (!c.tokenId || !c.chain) {
-    findings.push("Sem endereço — honeypot não aplicável");
-    return { name: "honeypot", score, weight: 0.30, findings };
+  if (!c.tokenId || !c.chain || (c.liquidityUsd <= 0 && c.volume24hUsd <= 0)) {
+    findings.push(`${PREFIX} sem liquidez/volume 24h para estimar turnover — peso removido da soma`);
+    findings.push("Honeypot REAL não verificado: requer GoPlus (simulação on-chain)");
+    return { name: "honeypot_turnover", score: 0, weight: 0.30, findings, unverified: true };
   }
 
-  // Sell activity ratio: volume_24h / liquidity
-  // If >= 1.0, that means the entire liquidity pool has turned over at least
-  // once in 24h — strong evidence sells are working.
+  let score = 50;
+  // Turnover 24h/liquidez: >= 1.0 = a pool inteira girou ao menos 1x em 24h.
   const turnover = c.liquidityUsd > 0 ? c.volume24hUsd / c.liquidityUsd : 0;
   if (turnover >= 2.0) {
     score = 90;
-    findings.push(`Turnover 24h/liquidez = ${turnover.toFixed(2)}x — vende ativo (excelente)`);
+    findings.push(`${PREFIX} turnover 24h/liquidez = ${turnover.toFixed(2)}x — venda claramente ativa`);
   } else if (turnover >= 1.0) {
     score = 80;
-    findings.push(`Turnover ${turnover.toFixed(2)}x — vende ativo (bom)`);
+    findings.push(`${PREFIX} turnover ${turnover.toFixed(2)}x — venda ativa`);
   } else if (turnover >= 0.3) {
     score = 60;
-    findings.push(`Turnover ${turnover.toFixed(2)}x — atividade de venda moderada`);
+    findings.push(`${PREFIX} turnover ${turnover.toFixed(2)}x — atividade de venda moderada`);
   } else if (turnover > 0) {
     score = 35;
-    findings.push(`Turnover ${turnover.toFixed(2)}x — baixa atividade de venda (suspeito)`);
+    findings.push(`${PREFIX} turnover ${turnover.toFixed(2)}x — baixa atividade de venda (suspeito, não confirmado)`);
   } else {
     score = 10;
-    findings.push("Sem volume 24h — possível honeypot");
+    findings.push(`${PREFIX} sem volume 24h — turnover nulo (compatível com honeypot, não confirma)`);
   }
 
   // Age + liquidity combo bonus
@@ -320,7 +305,7 @@ async function scoreHoneypot(c: TokenCandidate): Promise<ScamSubScore> {
     findings.push("Bonus: token maduro + liquidez saudável (+10)");
   }
 
-  return { name: "honeypot", score, weight: 0.30, findings };
+  return { name: "honeypot_turnover", score, weight: 0.30, findings };
 }
 
 // ---------------------------------------------------------------------------
@@ -337,7 +322,7 @@ export async function analyzeToken(
   }
 
   // DEX full analysis
-  const honeypot = await scoreHoneypot(candidate);
+  const honeypot = await scoreHoneypotTurnover(candidate);
   const liquidity = scoreLiquidity(candidate);
   const contract = await scoreContract(candidate);
   const tax = await scoreTax(candidate);
@@ -345,17 +330,36 @@ export async function analyzeToken(
   const age = scoreAge(candidate);
 
   const subscores = [honeypot, liquidity, contract, tax, holder, age];
+  // Renormalização: sub-scores sem dado verificável (unverified) saem da soma e
+  // o peso restante é redistribuído. Assim o score final nunca embute um número
+  // inventado (antes: tax=70 fixo e "honeypot" tratado como verificado).
   let weighted = 0;
   let totalWeight = 0;
+  const unverified: string[] = [];
   for (const s of subscores) {
+    if (s.unverified) {
+      unverified.push(s.name);
+      continue;
+    }
     weighted += s.score * s.weight;
     totalWeight += s.weight;
   }
   const finalScore = totalWeight > 0 ? Math.round(weighted / totalWeight) : 0;
+  if (unverified.length > 0) {
+    logger.info(
+      "scam",
+      `${candidate.symbol} score parcial: ${unverified.join(", ")} sem verificação (peso removido, renormalizado)`
+    );
+  }
   const passed = finalScore >= cfg.scamScoreMin;
 
   const findings: Record<string, string[]> = {};
   for (const s of subscores) findings[s.name] = s.findings;
+  if (unverified.length > 0) {
+    findings.unverified_subscores = [
+      `Peso removido (sem dado real): ${unverified.join(", ")} — score renormalizado sobre ${(totalWeight * 100).toFixed(0)}% do peso total`,
+    ];
+  }
 
   const report: ScamReportData = {
     symbol: candidate.symbol,
