@@ -19,6 +19,10 @@ updates:
     commit-message:
       prefix: "chore"
       include: scope
+    ignore:
+      # typescript-eslint ainda não suporta TS 7 (erro: "does not support TS 7.0").
+      - dependency-name: "typescript"
+        versions: [">=7.0.0"]
 
   - package-ecosystem: github-actions
     directory: "/"
