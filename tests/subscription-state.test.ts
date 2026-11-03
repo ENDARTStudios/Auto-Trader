@@ -3,6 +3,7 @@ import {
   checkoutSessionGrantsAccess,
   isActiveSubscriptionStatus,
   planFromMetadata,
+  userIdFromCustomerKey,
 } from "@/lib/billing/subscription-state";
 
 describe("subscription state", () => {
@@ -31,6 +32,12 @@ describe("subscription state", () => {
   it("sem payment_status aceita apenas sessão completa", () => {
     expect(checkoutSessionGrantsAccess({ status: "complete" })).toBe(true);
     expect(checkoutSessionGrantsAccess({ status: "open" })).toBe(false);
+  });
+
+  it("extrai userId da chave de customer", () => {
+    expect(userIdFromCustomerKey("stripe_customer:user_123")).toBe("user_123");
+    expect(userIdFromCustomerKey("subscription:user_123")).toBeNull();
+    expect(userIdFromCustomerKey("stripe_customer:")).toBeNull();
   });
 
   it("plano só aceita pro/elite, com fallback pro", () => {

@@ -9,6 +9,7 @@ import { clockUtc } from "@/lib/meridian/format";
 
 interface Subscription {
   plan?: string;
+  enabled?: boolean;
   tier?: string;
   status?: string;
   currentPeriodEnd?: string | null;
@@ -56,7 +57,8 @@ export function BillingView() {
   const raw = sub.data?.subscription ?? sub.data;
   const plan = raw?.plan ?? raw?.tier ?? "paper";
   const renews = raw?.currentPeriodEnd ?? raw?.renewsAt ?? null;
-  const status = raw?.status ?? "active";
+  // enabled=false com plano pago = cobrança pendente/falha (webhook marca assim).
+  const status = raw?.enabled === false && plan !== "paper" ? "past_due" : raw?.status ?? "active";
 
   return (
     <>
@@ -65,7 +67,7 @@ export function BillingView() {
           <div className="mrd-title-row">
             <h1 className="mrd-title">Billing</h1>
             <span className="mrd-status">
-              <Badge tone={status === "active" ? "pos" : "warn"}>{status}</Badge>
+              <Badge tone={status === "active" ? "pos" : "warn"}>{status === "past_due" ? "pagamento pendente" : status}</Badge>
               <span className="mrd-dim" style={{ fontSize: 12 }}>{plan} plan</span>
             </span>
           </div>

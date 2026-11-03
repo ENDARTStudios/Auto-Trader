@@ -30,6 +30,15 @@ export function subscriptionKey(userId: string): string {
 }
 
 /** Guarda o customer do Stripe por usuário para o Billing Portal. */
+export const STRIPE_CUSTOMER_PREFIX = "stripe_customer:";
+
 export function stripeCustomerKey(userId: string): string {
-  return `stripe_customer:${userId}`;
+  return `${STRIPE_CUSTOMER_PREFIX}${userId}`;
+}
+
+/** Extrai o userId de uma chave stripe_customer:<userId>; null se não for uma. */
+export function userIdFromCustomerKey(key: string): string | null {
+  if (!key.startsWith(STRIPE_CUSTOMER_PREFIX)) return null;
+  const id = key.slice(STRIPE_CUSTOMER_PREFIX.length).trim();
+  return id.length > 0 ? id : null;
 }
