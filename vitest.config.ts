@@ -23,7 +23,7 @@ export default defineConfig({
       include: ['src/lib/trading/**', 'src/lib/chain/**', 'src/lib/auth/**', 'src/lib/observability/**', 'src/lib/meridian/**'],
       exclude: ['src/components/ui/**', 'src/lib/crash-logger.ts', '**/*.test.ts'],
     },
-    setupFiles: ['dotenv/config'],
+    setupFiles: ['tests/setup-env.ts'],
     testTimeout: 15_000,
   },
   resolve: {
