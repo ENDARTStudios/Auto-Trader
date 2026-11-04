@@ -1,7 +1,6 @@
 # Deploy — arquitetura de hosts (canônica: Railway)
 
-Decisão: **Railway é o host de produção** (app + engine + Redis + banco); **Vercel serve o
-mesmo app apenas como preview/espelho**. Motivo: o engine de trading usa `setInterval` em
+Decisão: **Railway é o host de produção** (app + engine + Redis + banco); **Vercel está DESCONECTADO desde 2026-11-04** (custo de Build CPU Minutes); o projeto Vercel e o avatar/logo-icon foram mantidos. Motivo: o engine de trading usa `setInterval` em
 processo (`src/lib/trading/engine.ts`) e precisa de container contínuo; serverless congela a
 instância e a flag `engineRunning` passaria a mentir.
 
@@ -59,10 +58,9 @@ tem `repo` associado — o último deploy foi via CLI em 01/11).
 - Remover o Postgres legado do Railway só depois de validar o Neon (o `db-backup` cobre a
   janela).
 
-## Vercel: apenas preview
+## Vercel: desligado (custo de Build CPU Minutes)
 
-`vercel.json` desliga deploy de `main` (`git.deploymentEnabled.main=false`). Previews de PR
-continuam; produção é só Railway.
+`vercel.json` fixa `git.deploymentEnabled=false` (nenhum deploy automático). A integração Git da Vercel foi **desconectada** em 2026-11-04; produção é só Railway. O projeto Vercel foi mantido com o avatar (logo-icon) intacto. Preview agora é CI + ambiente local/Docker.
 
 Os aliases de produção da Vercel foram **removidos** (`vercel alias rm`):
 
@@ -83,9 +81,9 @@ como secret — deploy é manual:
 railway up --service auto-trader --environment production
 ```
 
-Para automatizar: conectar o serviço ao GitHub no dashboard do Railway **ou** criar um project
-token e adicionar `RAILWAY_TOKEN` nos secrets do GitHub; aí um job em `ci.yml` pode rodar
-`railway up --ci` no push para `main`.
+CD ativo desde 2026-11-04: project token no GitHub secret `RAILWAY_TOKEN`, variable
+`RAILWAY_DEPLOY_ENABLED=true` e workflow `.github/workflows/deploy-railway.yml` rodando
+`railway up --ci` no push para `main` (verificado com sucesso).
 
 ## Armadilha de CRLF
 
@@ -93,14 +91,14 @@ token e adicionar `RAILWAY_TOKEN` nos secrets do GitHub; aí um job em `ci.yml` 
 `docker-entrypoint.sh: No such file or directory`. `.gitattributes` fixa `eol=lf` para
 `.sh`/`Dockerfile`; qualquer deploy manual deve conferir os scripts antes do upload.
 
-## Deploy automático (opcional, já preparado)
+## Deploy automático (ATIVO)
 
-`.github/workflows/deploy-railway.yml` roda `railway up` no push para `main`, mas só quando
-`RAILWAY_DEPLOY_ENABLED=true` (variable) e `RAILWAY_TOKEN` (secret) existirem. Sem isso, o
-workflow fica pulado e o deploy continua manual.
+`.github/workflows/deploy-railway.yml` roda `railway up` no push para `main`. Já configurado:
+project token `RAILWAY_TOKEN` no GitHub secret e `RAILWAY_DEPLOY_ENABLED=true` na variable;
+workflow executado com sucesso em 2026-11-04.
 
-Passos: Railway → Project Settings → Tokens → *project token*; GitHub → Secrets →
-`RAILWAY_TOKEN`; GitHub → Variables → `RAILWAY_DEPLOY_ENABLED=true`.
+Rollback: Railway → Deployments → deploy anterior → Redeploy; ou
+`gh variable set RAILWAY_DEPLOY_ENABLED --body false` para parar o CD.
 
 ## Alerta de falha de cobrança
 
