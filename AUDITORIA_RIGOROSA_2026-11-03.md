@@ -360,3 +360,15 @@
 
 ### 10.5 Gates finais (rodada 5)
 - `tsc` 0 · `eslint` 0 · `vitest` **77 arquivos / 1050 pass / 1 skip** · build OK · CI verde nas PRs #105–#108 · `main` protegido (checks `ci`+`codeql`, sem force-push/deleção).
+
+---
+
+## 11. Rodada 6 (2026-11-04) — RLS **strict** fase 2 + bugs de surveillance
+
+- **RLS strict em produção**: migration `20260103000000_rls_strict_wallet_notification` removeu a cláusula permissiva "sem contexto" de **WalletConnection** e **NotificationChannel**. Catálogo verificado em prod: essas 2 = STRICT; Position/ExchangeConnection = permissivas (fase 1). Role `autotrader_app` segue `rolbypassrls=false`.
+- **Rollout invertido**: código deployado primeiro (todos os call sites com `withUserRls`/`withSystemRls`: wallet-manager, rotas wallets, `wallet-crypto.loadVault`, signer `sign-methods`, dex-adapter, live-credentials, notifier, backup/info, backfill do db-init), depois a migration foi aplicada via SQL idempotente e **registrada no histórico** (`_prisma_migrations` agora com 3 migrations; `prisma migrate status` = up to date).
+- **Verificação pós-strict**: login 200; wallets/notifications/exchanges/system info/backup/etl 200; signer ready; live paper/desligado; cookie forjado 401.
+- **Bugs reais corrigidos**: regex `tax_spike` (nunca casava `"25% "`) e `holder_concentration` (parsing não determinístico) — 31 testes de surveillance; `wallet-crypto` 11, `paper-trader` 14, `notifier` 31.
+- **Cobertura**: lines 61,93% → **64,44%**; funcs 68,71%.
+- **Gates**: tsc 0 · eslint 0 · `vitest` **81 arquivos / 1131 pass / 1 skip** · build OK (signer 96,5 KiB).
+- **Pendente**: fase 2 restante (Position, ExchangeConnection) — migrar call sites e repetir rollout; operador: CD token, chaves S14 live, Sentry/Redis/AI.
