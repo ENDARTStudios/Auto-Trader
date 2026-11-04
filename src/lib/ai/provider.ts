@@ -74,7 +74,14 @@ const OPENAI_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
 const OLLAMA_DEFAULT_URL = "http://localhost:11434";
 const OLLAMA_DEFAULT_MODEL = "llama3.1";
 const OLLAMA_DEFAULT_EMBEDDING_MODEL = "nomic-embed-text";
-const AI_TIMEOUT_MS = 30_000;
+// Timeout de request por provider. Default 30s (OpenAI), configurável para
+// Ollama local/Railway, onde o cold start de um modelo pode passar de 60s.
+const AI_TIMEOUT_DEFAULT_MS = 30_000;
+function aiTimeoutMs(): number {
+  const raw = Number(process.env.AI_TIMEOUT_MS);
+  if (!Number.isFinite(raw) || raw <= 0) return AI_TIMEOUT_DEFAULT_MS;
+  return Math.min(Math.max(raw, 1_000), 300_000);
+}
 
 /**
  * Modelo de embedding ativo (null quando não há provider).
@@ -174,7 +181,7 @@ function openAIProvider(apiKey: string): AIProvider {
           messages,
         },
         { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-        AbortSignal.timeout(AI_TIMEOUT_MS)
+        AbortSignal.timeout(aiTimeoutMs())
       );
       if (resp.status === 401 || resp.status === 403) {
         // chave inválida/sem permissão = configuração quebrada, não indisponibilidade transitória
@@ -226,7 +233,7 @@ function ollamaProvider(): AIProvider {
           ],
         },
         { Accept: "application/json" },
-        AbortSignal.timeout(AI_TIMEOUT_MS)
+        AbortSignal.timeout(aiTimeoutMs())
       );
       if (!resp.ok) {
         const detail = await resp.text().catch(() => "");
@@ -286,7 +293,7 @@ async function embedOpenAI(texts: string[], apiKey: string): Promise<EmbeddingRe
       ...(dims ? { dimensions: dims } : {}),
     },
     { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
-    AbortSignal.timeout(AI_TIMEOUT_MS)
+    AbortSignal.timeout(aiTimeoutMs())
   );
   if (resp.status === 401 || resp.status === 403) {
     // chave inválida = configuração quebrada, não indisponibilidade transitória
@@ -321,7 +328,7 @@ async function embedOllama(texts: string[]): Promise<EmbeddingResult> {
       ...(dims ? { dimensions: dims } : {}),
     },
     { Accept: "application/json" },
-    AbortSignal.timeout(AI_TIMEOUT_MS)
+    AbortSignal.timeout(aiTimeoutMs())
   );
   if (!resp.ok) {
     const detail = await resp.text().catch(() => "");
