@@ -443,3 +443,21 @@
 ### 16.3 Estado do objetivo
 - Código/segurança/dados do relatório: corrigidos (P0s, RLS strict 4/4, mocks substituídos, backup/restore provado, a11y, CI de main verde).
 - Restam apenas itens que dependem de **credenciais/decisões do operador**: CD Railway token, chaves S14/live, SENTRY_DSN, REDIS_URL, provider de IA/embeddings, provider de e-mail, volume de upload. Nenhuma implementação de código pendente conhecida.
+
+---
+
+## 17. Veredito final (2026-11-04)
+
+O ciclo de 14 rodadas encerra com o objetivo de código/infra cumprido. Evidências consolidadas em
+**RELATORIO_FINAL_AUDITORIA.md**: gates locais (tsc/eslint/vitest 96 arquivos/1305 testes/build),
+CI de main verde (ci + e2e + e2e-meridian + codeql), produção com health/ready 200, RLS
+ALL_STRICT, signer ready, live paper desligado, cookie forjado/senha default 401, migrações 5/5
+up to date e restore de backup provado E2E (34 tabelas/2410 linhas).
+
+Restam apenas ações operacionais que exigem credenciais/decisões externas: token de projeto
+Railway para CD, chaves/OK S14 para live, SENTRY_DSN/REDIS_URL, provider de IA/embeddings,
+provider de e-mail e volume de upload. O sistema falha fechado sem elas.
+
+Limitações residuais honestas: fila assíncrona real não implementada (stub morto removido),
+upload sem ClamAV/S3, coverage.include não inclui src/app/api/**, E2E jobs rodam em main/label,
+dados demo rotulados permanecem no banco até limpeza explícita.
