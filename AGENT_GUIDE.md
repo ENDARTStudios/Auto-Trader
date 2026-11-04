@@ -22,7 +22,7 @@
   PR com `Closes #42` + checklist + evidências
       │
       ▼
-  CI verde (lint + typecheck + test:ci 637 checks + coverage 80% + gitleaks + audit + build + CodeQL)
+  CI verde (lint + typecheck + test:ci 22 scripts tsx + vitest 865 checks + coverage real ~46% lines + gitleaks + audit + build + CodeQL)
       │
       ▼
   Review (CODEOWNERS) + aprovação
@@ -116,7 +116,7 @@ Use `.github/pull_request_template.md` (preenchido automaticamente).
 
 ### 5.4 Testes (ver `docs/TESTING.md`)
 
-- Novo service → teste unit Vitest em `src/lib/**/__tests__/*.test.ts` (≥80% coverage).
+- Novo service → teste unit Vitest em `src/lib/**/__tests__/*.test.ts`. O alvo aspiracional é ≥80% coverage, mas o **threshold real** hoje em `vitest.config.ts` é 30% lines / 39% funcs / 27% branches (medido 2026-11-03: ~46% lines / ~53% funcs). O claim antigo de "80%" era aspiracional, não gate.
 - Nova rota → teste de integração em `tests/integration/*.test.ts` (happy + erro + auth).
 - Novo fluxo crítico → spec E2E em `e2e/*.spec.ts` (Playwright).
 - Bug fix → primeiro escreva teste que reproduz o bug (falha), depois corrija (passa) — ver `SECURITY.md` REG pattern.
@@ -141,8 +141,9 @@ npm run dev                    # Next.js 3000 + SSE + engine singleton
 # Verificação (gate local — rode antes de push)
 npm run lint
 npx tsc --noEmit
-npm run test:ci                # 637 checks — REG-004 gate
-npx vitest run --coverage      # 80% threshold
+npm run test:ci                # gate REG-004 — 22 scripts tsx (local: npm run test:ci:local)
+npx vitest run                 # suíte Vitest — 865 checks, 66 arquivos
+npx vitest run --coverage      # cobertura real ~46% lines (thresholds 30/39/27; 80% é aspiracional)
 gitleaks detect --source . --no-git -v
 npm audit --audit-level=high
 npm run build

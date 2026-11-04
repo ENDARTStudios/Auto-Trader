@@ -4,8 +4,22 @@
 // e a feature flag é controlada em memória. O que se prova aqui é o contrato de
 // recusa (LIVE_DISABLED / LIVE_CREDS_UNAVAILABLE) e a ausência de dados fake.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { ethers } from 'ethers';
+import { SIGNER_PROTOCOL_VERSION } from '@/lib/signer-protocol';
+import type { SignerTransport } from '@/lib/chain/signer-adapter';
+import {
+  QUOTER_V2_ADDRESSES,
+  SWAP_EVENT_ABI,
+  SWAP_ROUTER_02_ADDRESSES,
+  USDC_ADDRESSES,
+  type SignerChainReader,
+} from '@/lib/chain/dex-adapter';
 
-const hoisted = vi.hoisted(() => ({ flagEnabled: false }));
+const hoisted = vi.hoisted(() => ({
+  flagEnabled: false,
+  // Permite trocar a resposta de getDexCredentials por teste (signer source).
+  dexResult: null as null | Record<string, unknown>,
+}));
 
 vi.mock('@/lib/trading/feature-flags', () => ({
   isEnabled: async () => hoisted.flagEnabled,
@@ -17,11 +31,12 @@ vi.mock('@/lib/trading/live-credentials', () => ({
     code: 'LIVE_CREDS_NOT_CONFIGURED',
     reason: 'test: sem credenciais',
   }),
-  getDexCredentials: () => ({
-    ok: false,
-    code: 'LIVE_CREDS_NOT_CONFIGURED',
-    reason: 'test: sem credenciais',
-  }),
+  getDexCredentials: () =>
+    hoisted.dexResult ?? {
+      ok: false,
+      code: 'LIVE_CREDS_NOT_CONFIGURED',
+      reason: 'test: sem credenciais',
+    },
 }));
 
 import {
@@ -51,6 +66,7 @@ beforeEach(() => {
     delete process.env[key];
   }
   FLAG_OFF();
+  hoisted.dexResult = null;
 });
 
 afterEach(() => {
@@ -219,5 +235,176 @@ describe('live-trader — nenhum dado fake', () => {
     expect(addr(LIVE_TRADER_CONFIG.uniswapV3RouterBase)).toBe(true);
     expect(LIVE_TRADER_CONFIG.testnet).toBe(true);
     expect(LIVE_TRADER_CONFIG.failRate).toBe(0);
+  });
+});
+// ===========================================================================
+// RODADA 3 — DEX via signer process (sem privateKey no processo web)
+// ===========================================================================
+describe('live-trader — DEX source=signer', () => {
+  const OWNER = '0x' + 'aa'.repeat(20);
+  const ROUTER = SWAP_ROUTER_02_ADDRESSES.base;
+  const QUOTER = QUOTER_V2_ADDRESSES.base;
+  const USDC = USDC_ADDRESSES.base;
+  const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+  const okReceipt = { status: 1, gasUsed: 21_000n } as unknown as ethers.TransactionReceipt;
+  const swapIface = new ethers.Interface(SWAP_EVENT_ABI);
+
+  const signerCreds = {
+    ok: true,
+    creds: {
+      source: 'signer',
+      chain: 'base',
+      rpcUrl: 'http://127.0.0.1:1',
+      signerSocketPath: 'tcp://127.0.0.1:1',
+      signerWalletId: 'wallet-1',
+    },
+  };
+
+  function providerFor(allowance: bigint) {
+    return {
+      call: async (tx: { to?: string; data?: string }) => {
+        if (tx.to === QUOTER) {
+          return abiCoder.encode(
+            ['uint256', 'uint160', 'uint32', 'uint256'],
+            [2_000_000n, 0n, 0, 100_000n]
+          );
+        }
+        return abiCoder.encode(['uint256'], [allowance]);
+      },
+    } as unknown as ethers.Provider;
+  }
+
+  function transportEcho(capture: Array<{ method: string; params: unknown }>): SignerTransport {
+    return {
+      rpc: async (method: string, params: unknown) => {
+        capture.push({ method, params });
+        const p = params as { requestId: string; payloadHash: string };
+        return {
+          ok: true,
+          result: {
+            ok: true,
+            txHash: '0xsigned',
+            rawSignedTx: '0xdeadbeef',
+            requestId: p.requestId,
+            receivedPayloadHash: p.payloadHash,
+            signerVersion: SIGNER_PROTOCOL_VERSION,
+          },
+        };
+      },
+    };
+  }
+
+  function readerWith(spy: { broadcast: Array<string> }): SignerChainReader {
+    return {
+      getTransactionCount: async () => 3,
+      getFeeData: async () =>
+        ({
+          maxFeePerGas: 30_000_000_000n,
+          maxPriorityFeePerGas: 1_000_000_000n,
+          gasPrice: 25_000_000_000n,
+        }) as unknown as ethers.FeeData,
+      estimateGas: async () => 21_000n,
+      broadcastTransaction: async (raw: string) => {
+        spy.broadcast.push(raw);
+        return {
+          hash: '0xswap',
+          wait: async () =>
+            ({
+              status: 1,
+              gasUsed: 120_000n,
+              logs: [
+                swapIface.encodeEventLog(swapIface.getEvent('Swap')!, [
+                  ROUTER,
+                  OWNER,
+                  -1_000_000n,
+                  2_000_000n,
+                  0n,
+                  0n,
+                  0,
+                ]),
+              ],
+            }) as unknown as ethers.TransactionReceipt,
+        };
+      },
+    };
+  }
+
+  it('source=signer sem walletId → DEX_SIGNER_UNAVAILABLE (fail-closed)', async () => {
+    enableAllFlags();
+    delete process.env.DEX_SIGNER_WALLET_ID;
+    hoisted.dexResult = {
+      ok: true,
+      creds: { source: 'signer', chain: 'base', rpcUrl: 'http://127.0.0.1:1', signerSocketPath: 'tcp://127.0.0.1:1' },
+    };
+    const r = await dexSwapExactTokensSingle(SWAP_REQ, LIVE_CFG);
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toContain('DEX_SIGNER_UNAVAILABLE');
+    expect(r.txHash).toBeUndefined();
+  });
+
+  it('com transport mockado: chama RPC signTransaction e faz broadcast', async () => {
+    enableAllFlags();
+    hoisted.dexResult = signerCreds;
+    const capture: Array<{ method: string; params: unknown }> = [];
+    const spy = { broadcast: [] as string[] };
+    const r = await dexSwapExactTokensSingle(SWAP_REQ, LIVE_CFG, {
+      transport: transportEcho(capture),
+      address: ethers.getAddress(OWNER),
+      provider: providerFor(2n ** 255n), // allowance já suficiente
+      reader: readerWith(spy),
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.txHash).toBe('0xswap');
+    expect(r.amountOutWei).toBe(2_000_000n);
+    expect(r.amountInWei).toBe(SWAP_REQ.amountInWei);
+    expect(capture.map((c) => c.method)).toEqual(['signTransaction']);
+    expect(spy.broadcast).toEqual(['0xdeadbeef']);
+    const params = capture[0].params as {
+      payload: { tx: { from: string; to: string }; chainId: number; type: number };
+    };
+    expect(params.payload.chainId).toBe(8453);
+    expect(params.payload.type).toBe(2);
+    expect(params.payload.tx.to).toBe(ROUTER);
+    expect(params.payload.tx.from).toBe(ethers.getAddress(OWNER));
+  });
+
+  it('dexApproveToken via signer: allowance insuficiente → approve assinado + broadcast', async () => {
+    enableAllFlags();
+    hoisted.dexResult = signerCreds;
+    const capture: Array<{ method: string; params: unknown }> = [];
+    const spy = { broadcast: [] as string[] };
+    const r = await dexApproveToken(
+      USDC,
+      500_000n,
+      ROUTER,
+      'base',
+      LIVE_CFG,
+      {
+        transport: transportEcho(capture),
+        address: ethers.getAddress(OWNER),
+        provider: providerFor(0n),
+        reader: readerWith(spy),
+      }
+    );
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(capture.map((c) => c.method)).toEqual(['signTransaction']);
+    expect(spy.broadcast).toEqual(['0xdeadbeef']);
+    expect(r.txHash).toBe('0xswap');
+  });
+
+  it('dexApproveToken via signer: allowance já suficiente → não assina', async () => {
+    enableAllFlags();
+    hoisted.dexResult = signerCreds;
+    const capture: Array<{ method: string; params: unknown }> = [];
+    const r = await dexApproveToken(USDC, 10n, ROUTER, 'base', LIVE_CFG, {
+      transport: transportEcho(capture),
+      address: ethers.getAddress(OWNER),
+      provider: providerFor(10n),
+    });
+    expect(r).toEqual({ ok: true, txHash: undefined });
+    expect(capture).toHaveLength(0);
   });
 });

@@ -103,6 +103,17 @@ export async function register(): Promise<void> {
     console.error("[instrumentation] initSentry falhou:", (e as Error).message);
   }
 
+  // Round 3: supervisor do processo SIGNER (Unix socket 0600).
+  // DESLIGADO por padrão: só spawna com SIGNER_SPAWN=1. startSignerSupervisor()
+  // nunca lança e nunca derruba o boot do app (bundle ausente/spawn falhando
+  // viram log + retry com backoff). Ver src/lib/signer-supervisor.ts.
+  try {
+    const { startSignerSupervisor } = await import("@/lib/signer-supervisor");
+    await startSignerSupervisor();
+  } catch {
+    // fail-safe: o web sobe mesmo se o signer não puder subir.
+  }
+
   // The crash-logger itself writes a boot marker to logs/boot.log on
   // initialization, so we don't need a separate console.log here. Keeping
   // this function side-effect-free (apart from the registration) also helps

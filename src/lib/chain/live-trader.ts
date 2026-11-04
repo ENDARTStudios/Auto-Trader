@@ -15,7 +15,6 @@
 // `LiveGateConfig` explícito como último argumento: sem ele o resultado é
 // sempre LIVE_DISABLED (não há como provar o gate).
 
-import { ethers } from "ethers";
 import {
   CexAdapterError,
   createCexClient,
@@ -25,11 +24,17 @@ import {
   type CexBalanceRow,
 } from "@/lib/chain/cex-adapter";
 import {
-  ERC20_ABI,
-  createDexWallet,
+  DexAdapterError,
+  addressOf,
+  createDexSigner,
+  ensureErc20Allowance,
   executeSwap,
+  providerOf,
   SWAP_ROUTER_02_ADDRESSES,
+  type SignerChainReader,
 } from "@/lib/chain/dex-adapter";
+import type { SignerTransport } from "@/lib/chain/signer-adapter";
+import type { Provider as EthersProvider } from "ethers";
 import {
   checkLiveGate,
   type LiveGateConfig,
@@ -61,6 +66,14 @@ export interface LiveOrderResult {
   feeUsd?: number;
   error?: string;
   exchange?: "cex" | "dex";
+}
+
+/** Seams de teste (nunca usados pelo engine em produção). */
+export interface DexExecutionOverrides {
+  transport?: SignerTransport;
+  address?: string;
+  provider?: EthersProvider;
+  reader?: SignerChainReader;
 }
 
 export interface DexSwapRequest {
@@ -232,7 +245,8 @@ export async function getCexBalances(
 // ---------------------------------------------------------------------------
 export async function dexSwapExactTokensSingle(
   req: DexSwapRequest,
-  cfg?: LiveGateConfig
+  cfg?: LiveGateConfig,
+  overrides?: DexExecutionOverrides
 ): Promise<DexSwapResult> {
   const gate = await requireGate(cfg);
   if (!gate.allowed) {
@@ -244,7 +258,13 @@ export async function dexSwapExactTokensSingle(
     return { ok: false, error: liveError(LIVE_CREDS_UNAVAILABLE, credsResult.reason) };
   }
   try {
-    const wallet = await createDexWallet(credsResult.creds);
+    // source=signer → assina no signer process (sem privateKey no web);
+    // source=env/wallet → ethers.Wallet local. Ambos via createDexSigner.
+    const wallet = await createDexSigner(credsResult.creds, {
+      transport: overrides?.transport,
+      address: overrides?.address,
+      provider: overrides?.provider,
+    });
     const swap = await executeSwap({
       wallet,
       chain: req.chain,
@@ -252,8 +272,10 @@ export async function dexSwapExactTokensSingle(
       tokenOut: req.tokenOut,
       amountInWei: req.amountInWei,
       minAmountOutWei: req.amountOutMinWei,
-      recipient: req.to,
+      recipient: req.to || addressOf(wallet),
       feeTier: req.feeTier,
+      provider: overrides?.provider,
+      deps: { reader: overrides?.reader },
     });
     if (!swap.ok) {
       return {
@@ -284,7 +306,8 @@ export async function dexApproveToken(
   amount: bigint,
   spender: string,
   chain?: "ethereum" | "arbitrum" | "optimism" | "base",
-  cfg?: LiveGateConfig
+  cfg?: LiveGateConfig,
+  overrides?: DexExecutionOverrides
 ): Promise<DexSwapResult> {
   const gate = await requireGate(cfg);
   if (!gate.allowed) {
@@ -297,22 +320,39 @@ export async function dexApproveToken(
     return { ok: false, error: liveError(LIVE_CREDS_UNAVAILABLE, credsResult.reason) };
   }
   try {
-    const wallet = await createDexWallet(credsResult.creds);
-    const erc20 = new ethers.Contract(token, ERC20_ABI, wallet);
-    const tx = (await erc20.approve(spender, amount)) as ethers.ContractTransactionResponse;
-    const receipt = await tx.wait();
-    if (!receipt || receipt.status !== 1) {
+    const wallet = await createDexSigner(credsResult.creds, {
+      transport: overrides?.transport,
+      address: overrides?.address,
+      provider: overrides?.provider,
+    });
+    const provider = providerOf(wallet);
+    if (!provider) {
+      return { ok: false, error: liveError(DEX_EXECUTION_FAILED, "sem provider RPC") };
+    }
+    // approve do valor EXATO (nunca max), com checagem de allowance; funciona
+    // com wallet local e com signer (raw assinado + broadcast).
+    const result = await ensureErc20Allowance(
+      { provider, owner: addressOf(wallet), signer: wallet, chain },
+      token,
+      spender,
+      amount,
+      { reader: overrides?.reader }
+    );
+    if (!result.ok) {
+      const code = result.code ?? "DEX_APPROVAL_FAILED";
       return {
         ok: false,
-        txHash: tx.hash,
-        error: liveError(DEX_EXECUTION_FAILED, "approve revertido (status != 1)"),
+        txHash: result.txHash,
+        error: liveError(DEX_EXECUTION_FAILED, code + ": " + (result.error ?? "approve falhou")),
       };
     }
-    return { ok: true, txHash: tx.hash };
+    // alreadyApproved = allowance já suficiente: nada a assinar, txHash ausente.
+    return { ok: true, txHash: result.txHash };
   } catch (err) {
+    const code = err instanceof DexAdapterError ? err.code : "DEX_EXECUTION_FAILED";
     return {
       ok: false,
-      error: liveError(DEX_EXECUTION_FAILED, errorMessage(err)),
+      error: liveError(DEX_EXECUTION_FAILED, code + ": " + errorMessage(err)),
     };
   }
 }
@@ -330,7 +370,9 @@ export const LIVE_TRADER_CONFIG = {
 } as const;
 
 function errorMessage(err: unknown): string {
-  if (err instanceof CexAdapterError) return `${err.code}: ${err.message}`;
+  if (err instanceof CexAdapterError || err instanceof DexAdapterError) {
+    return `${err.code}: ${err.message}`;
+  }
   if (err instanceof Error) return err.message;
   return String(err);
 }

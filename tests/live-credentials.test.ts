@@ -35,6 +35,7 @@ const ENV_KEYS = [
   'BINANCE_API_SECRET',
   'DEX_USE_SIGNER',
   'SIGNER_SOCKET_PATH',
+  'DEX_SIGNER_WALLET_ID',
   'DEX_OPERATOR_PRIVATE_KEY',
   'DEX_RPC_URL_ETHEREUM',
   'DEX_RPC_URL_ETH',
@@ -251,6 +252,7 @@ describe('getDexCredentials — fail-closed', () => {
     process.env.LIVE_ALLOW_MAINNET = '1';
     process.env.DEX_USE_SIGNER = '1';
     process.env.SIGNER_SOCKET_PATH = '/tmp/signer.sock';
+    process.env.DEX_SIGNER_WALLET_ID = 'wallet-abc';
     process.env.DEX_RPC_URL_ETH = 'https://rpc.example';
     const result = getDexCredentials('eth');
     expect(result.ok).toBe(true);
@@ -259,8 +261,19 @@ describe('getDexCredentials — fail-closed', () => {
       expect(result.creds.chain).toBe('ethereum');
       expect(result.creds.rpcUrl).toBe('https://rpc.example');
       expect(result.creds.signerSocketPath).toBe('/tmp/signer.sock');
+      expect(result.creds.signerWalletId).toBe('wallet-abc');
       expect('privateKey' in result.creds).toBe(false);
     }
+  });
+
+  it('fails closed when DEX_USE_SIGNER=1 but DEX_SIGNER_WALLET_ID is missing', () => {
+    process.env.LIVE_ALLOW_MAINNET = '1';
+    process.env.DEX_USE_SIGNER = '1';
+    process.env.SIGNER_SOCKET_PATH = '/tmp/signer.sock';
+    process.env.DEX_RPC_URL_ETHEREUM = 'https://rpc.example';
+    const result = getDexCredentials('ethereum');
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.code).toBe(LIVE_CRED_ERROR.DEX_SIGNER_WALLET_ID_REQUIRED);
   });
 
   it('falls back to DEX_OPERATOR_PRIVATE_KEY env when signer is not selected', () => {
@@ -349,10 +362,12 @@ describe('getLiveCredentialStatus — masked, no secrets, no I/O', () => {
     expect(status.testnet).toBeNull();
   });
 
-  it('reports the DEX source (signer)', () => {
+  it('reports the DEX source (signer) only when fully configured (socket + walletId)', () => {
     lockVault();
     process.env.DEX_USE_SIGNER = '1';
     process.env.SIGNER_SOCKET_PATH = '/tmp/signer.sock';
+    expect(getLiveCredentialStatus().dexSource).toBeNull(); // falta DEX_SIGNER_WALLET_ID
+    process.env.DEX_SIGNER_WALLET_ID = 'wallet-abc';
     expect(getLiveCredentialStatus().dexSource).toBe('signer');
   });
 

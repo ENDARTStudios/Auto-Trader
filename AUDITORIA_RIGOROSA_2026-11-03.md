@@ -293,3 +293,42 @@
 3. **RLS nativo Postgres**; CD automático; branch protection; Sentry/Redis/AI configurados em produção (hoje desligados por falta de DSN/URL/key).
 4. **Cobertura** do runtime (engine/portfolio/etl) no ratchet; `test:ci` local Windows; demo seed data vs dados reais.
 5. **Docs históricos** (skill 5 camadas, claims de cobertura, Fly.io).
+
+---
+
+## 9. Status pós-correção — Rodada 3 (2026-11-03, branch `feat/signer-runtime-round3`)
+
+**Escopo:** fechar as limitações da rodada 2 (signer em execução, DEX 100% executável), reprodutibilidade local do gate e correção de claims históricos. **Live continua desligado/fail-closed.**
+
+### Signer como processo real (desligado por padrão)
+- `scripts/build-signer.mjs` (esbuild) gera **`.next/standalone/signer.js`** (93 KiB) + closure de runtime (ethers/@prisma + transitivas) em `.next/standalone/node_modules` (o trace do Next era parcial e sombreava a resolução). `npm run build` já o gera.
+- `src/lib/signer-supervisor.ts`: gate `SIGNER_SPAWN=1`, socket em tmp com permissão 0600, spawn de `process.execPath signer.js`, `SIGNER_READY` validado (type/socketPath/version, timeout 10s), **restart com backoff 1s→30s**, stop/shutdown (SIGTERM→SIGKILL, remove socket), status sempre mascarado; **nunca lança**.
+- `instrumentation.ts` inicia o supervisor após Sentry; `GET /api/signer/health` expõe `supervisor{enabled,spawned,ready,pid,restarts,lastError}`.
+- `docs/06-devops-deployment/signer-runtime.md` (habilitar, política `SIGNER_MAX_TX_USD`/`SIGNER_MAX_WINDOW_USD`/`SIGNER_WINDOW_SEC`, rollback `SIGNER_SPAWN=0`).
+- **Validação local:** bundle carrega e falha apenas no `listen` (Windows não tem Unix socket; esperado). Em produção, habilitado via `SIGNER_SPAWN=1` e verificado por `/api/signer/health`.
+
+### DEX executável de ponta a ponta (fail-closed)
+- `ensureErc20Allowance`: lê allowance, faz `approve` do valor **exato** com receipt status=1; sem approve não há swap.
+- `readTokenDecimals` on-chain com cache (fim do hardcode 18 no sell) e erro tipado.
+- Assinatura via **signer** (EIP-1559): envelope real (`payloadHash` SHA-256), validação de `requestId/payloadHash/signerVersion`, broadcast + receipt; `DEX_SIGNER_WALLET_ID_REQUIRED` sem walletId.
+- `executeSwap`: approve → quoter → swap → receipt; `amountOutMinimum` nunca 0.
+
+### Repositório / demo / docs
+- **`npm run test:ci:local`**: cria banco descartável (`autotrader_test_<pid>`), aplica migrations, roda os **22 scripts** (22/22 PASS em ~142s no Windows), dropa o banco; não toca o DB de dev. Antes o gate local morria no 1º script e, se rodasse, truncava tabelas.
+- **`npm run db:demo:clear`**: limpeza de `demo-pos-*`/snapshots/rounds/logs com dry-run default e `--yes`; teste end-to-end em banco isolado (65 linhas → 0).
+- **Claims corrigidos**: `SECURITY.md` (25 permissões), `AGENT_GUIDE.md`/PLANO_MESTRE/HARDENING (cobertura 80% era aspiracional → real ~46% lines / thresholds 30/39/27; 865 checks vitest + 22 scripts), `TESTING.md` (22 scripts; `test:ci:local`), `current-state-audit.md` §D datada.
+- **Cobertura**: lines 44,75% → **46,18%** (+1,43pp), funcs 51,39% → 52,58%; price-feed 3% → 100%, risk-scaling 0% → 100%, token-selector 0% → 96,5%.
+- `eslint.config.mjs` ignora `.local/**`/test artifacts (antes o bundle de PoC quebrava o lint local).
+
+### Evidências de gate (rodada 3)
+- `npx tsc --noEmit` → 0 · `npx eslint .` → 0 · `npx vitest run` → **66 arquivos / 864 pass / 1 skip**
+- `npm run build` → **OK** (signer.js 93 KiB + 64 pacotes de runtime + static/public)
+- `npm run test:ci:local` → **22/22 PASS** em banco descartável
+- Live fail-closed coberto por testes; nenhuma flag/credencial habilitada.
+
+### Ainda pendente (goal ativo)
+1. **Habilitar live de verdade** só com envelope S14 (chaves testnet, modo live, graduation, flags) — decisão do operador; signer já roda em produção se `SIGNER_SPAWN=1`, mas está **locked** (sem passphrase) e sem wallets no DB.
+2. **RLS nativo Postgres** (policies + GUC por request); multi-tenant real no banco.
+3. **CD automático** (workflow Railway exige `RAILWAY_TOKEN` do operador); branch protection aplicada; Sentry/Redis/AI dependem de DSN/URL/key.
+4. **Cobertura** dos módulos grandes 0% (scam-detector, rising-tokens, schedule, engine/backtest); include de `src/lib/etl/**` no coverage.
+5. **Docs**: Fly.io obsoleto, skill de 5 camadas continua não implementada no runtime (documentado como pendência).

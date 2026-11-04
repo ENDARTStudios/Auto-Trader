@@ -33,7 +33,14 @@ node scripts/db-migrate-safe.mjs --dry-run   # vê o plano, não escreve
 node scripts/db-migrate-safe.mjs             # aplica com segurança
 
 npm run dev                   # http://localhost:3000
-npm run build && npm start    # produção: next standalone (sem bun/tee)
+npm run build                 # next build + bundle do signer + assets do standalone
+npm start                     # produção: node .next/standalone/server.js (sem bun/tee)
+npm run build:signer          # só reempacota .next/standalone/signer.js (esbuild)
+
+# dados de demonstração (dashboard populado) — dry-run por padrão p/ limpar
+npx tsx scripts/seed-demo.ts          # cria/atualiza
+npm run db:demo:clear                 # mostra o que seria apagado (dry-run)
+npm run db:demo:clear -- --yes        # apaga de verdade
 ```
 
 ## Testes e verificação
@@ -41,10 +48,19 @@ npm run build && npm start    # produção: next standalone (sem bun/tee)
 ```bash
 npx tsc --noEmit              # tipos
 npx eslint .                  # lint
-npx vitest run                # unitários (52 arquivos na última rodada)
-npx vitest run tests/health-endpoints.test.ts   # arquivo específico
+npx vitest run                # unitários (60 arquivos / 766 testes na última rodada)
+npx vitest run tests/demo-cleanup.test.ts       # arquivo específico
 npx playwright test           # e2e (sobe o app sozinho)
+
+# gate legado de 22 scripts (vault/signer/H0-H2/M3) SEM tocar no banco de dev:
+npm run test:ci:local                          # cria autotrader_test_<pid>, aplica migrations,
+                                               # roda os 22 scripts nesse banco e dropa no fim
+npm run test:ci:local -- --only test-vault     # subconjunto (substring do nome do arquivo)
+npm run test:ci:local -- --keep                # mantém o banco para inspeção
 ```
+
+> `npm run test:ci` (o do CI) roda contra o `DATABASE_URL` atual e é destrutivo — use-o
+> só contra um banco descartável. Para a máquina de dev, use `test:ci:local`.
 
 ## Status real
 
@@ -56,6 +72,8 @@ npx playwright test           # e2e (sobe o app sozinho)
 | Observabilidade | Sentry por envelope HTTP (sem SDK) se `SENTRY_DSN`; rate limit por processo ou distribuído com `REDIS_URL` |
 | Backup | `scripts/backup-full.mjs` (pg_dump custom) + `scripts/restore-full.mjs` (ver docs/BACKUP_DR) |
 | Deploy | Manual. Não há deploy automático de produção (workflow desligado) |
+| Signer (processo separado) | Empacotado por `scripts/build-signer.mjs` em `.next/standalone/signer.js`. **Default desligado**: só sobe com `SIGNER_SPAWN=1`; status em produção hoje é `configured=false` |
+| Demo data | `scripts/seed-demo.ts` (ids fixos) + `npm run db:demo:clear` (dry-run por padrão, `--yes` para apagar) |
 
 ## Segurança (resumo)
 
@@ -69,6 +87,8 @@ npx playwright test           # e2e (sobe o app sozinho)
 - Documentação legada menciona Fly.io/Vercel e métricas antigas — `docs/06-devops-deployment/PRODUCTION_DEPLOY.md` é a referência atual de deploy manual.
 - Sem `@sentry/nextjs`/`bullmq`: tracing avançado e fila durável não fazem parte desta árvore.
 - Histórico do repositório já conteve `.env`; rotação de chaves é obrigatória para produção.
+- Signer NÃO roda em produção (sem `SIGNER_SPAWN=1`); `configured/reachable` ficam falsos por design até o deploy com a flag.
+- `test:ci` (o script do CI) exige banco descartável; `test:ci:local` é o caminho seguro na dev.
 
 ## Roadmap curto
 
@@ -81,4 +101,4 @@ npx playwright test           # e2e (sobe o app sozinho)
 
 `docs/` (onboarding, arquitetura, devops, segurança) — comece por
 [docs/README.md](docs/README.md), [AGENT_GUIDE.md](AGENT_GUIDE.md) e
-[docs/08-knowledge-management/round2-status.md](docs/08-knowledge-management/round2-status.md).
+[docs/08-knowledge-management/round3-status.md](docs/08-knowledge-management/round3-status.md).

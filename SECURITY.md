@@ -2030,7 +2030,7 @@ Don't. Read `tests/password-reset.test.ts` — it asserts `used=false` then `use
 
 **Security guarantees (REG-012):**
 1. **Authentication** � bcryptjs cost 12 (S02); TOTP 32 chars base32 + window 1 (S04); single-use PasswordReset 15m (S05).
-2. **Authorization** � 4 roles x 24 permissions matrix (S02); hasPermission guard before every protected route; IDOR blocked by ssertOwner (equireAdmin test verified).
+2. **Authorization** � 4 roles x 25 permissions matrix (S02); hasPermission guard before every protected route; IDOR blocked by ssertOwner (equireAdmin test verified).
 3. **RLS** � Position.ownerId NOT NULL (S05); lsWhere injects {ownerId: userId} except super_admin; super_admin bypass verified.
 4. **Transport** � HSTS max-age=63072000; includeSubDomains; preload (S01 next.config.ts:8); CSP + X-Frame-Options DENY; Stripe webhook HMAC SHA-256 + 	imingSafeEqual + 5min tolerance.
 5. **Rate limiting** � 100/10s default + 5/60s auth + Redis INCR/EXPIRE branch (S06); test verifies 6+ requests return 429.
