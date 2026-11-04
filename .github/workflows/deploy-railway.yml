@@ -1,29 +1,97 @@
 name: deploy-railway
 
-# Deploy de produção no Railway. Fica desligado até existir um project token:
-#   1. Railway → Project Settings → Tokens → create project token (escopo do projeto)
-#   2. GitHub → Settings → Secrets → RAILWAY_TOKEN = <token>
-#   3. GitHub → Settings → Variables → RAILWAY_DEPLOY_ENABLED = true
+# CD de producao no Railway.
 #
-# Alternativa sem token: conectar o serviço ao repositório no dashboard do Railway.
+# ESTADO ATUAL: DESLIGADO. O job é pulado pelo gate
+# `if: vars.RAILWAY_DEPLOY_ENABLED == 'true'` — a variable não existe no repo e o
+# secret RAILWAY_TOKEN também não. Portanto NADA é deployado por este workflow.
+#
+# Por que o token não foi criado por automacao (rodada 4):
+#   a mutation `projectTokenCreate` da API do Railway respondeu `Not Authorized`
+#   com o token OAuth do CLI — esse token não tem permissão de mintar project
+#   token. Criar o token é ação humana no dashboard (ou conectar o serviço ao
+#   repositório pelo dashboard, que deploya no push sem passar pelo Actions).
+#
+# PASSOS DO OPERADOR (3) — para habilitar o CD:
+#   1. Railway -> Project auto-trader -> Settings -> Tokens -> Create Project Token
+#      (escopo do projeto; copie o valor uma única vez)
+#   2. gh secret set RAILWAY_TOKEN --body <token>
+#      (ou GitHub -> Settings -> Secrets and variables -> Actions -> New secret)
+#   3. gh variable set RAILWAY_DEPLOY_ENABLED --body true
+#      (ou a mesma tela, aba Variables)
+#   Antes de habilitar, rode localmente: node scripts/verify-cd-config.mjs
+#   (exit 0 = READY). O próprio workflow roda esse script como sanity antes do deploy.
+#
+# ROLLBACK:
+#   - Railway -> Deployments -> escolha o deploy anterior -> Redeploy (imediato)
+#   - ou: git revert <commit> && git push origin main (CD roda de novo no push)
+#   - parar todo o CD: gh variable set RAILWAY_DEPLOY_ENABLED --body false
+#
+# Enquanto o CD estiver bloqueado, o deploy canônico é MANUAL (operador/Lead):
+#   railway up --service auto-trader --environment production
+#   curl -fsS https://<host>/api/health/ready
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+# Um deploy por vez: nunca cancela um deploy em andamento no meio (Railway
+# poderia ficar com duas releases concorrentes).
+concurrency:
+  group: deploy-railway
+  cancel-in-progress: false
+
 jobs:
   deploy:
     if: vars.RAILWAY_DEPLOY_ENABLED == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    environment: production
     steps:
       - uses: actions/checkout@v7
+
       - uses: actions/setup-node@v7
         with:
           node-version: 20
-      - run: npm i -g @railway/cli
-      - name: Railway up
+
+      # Sanity gate: se a variable estiver true mas o secret faltar (ou o
+      # workflow tiver perdido o gate), falha AQUI — antes de tocar no Railway.
+      # Lê config do ambiente (o GITHUB_TOKEN de CI não lista secrets) e nunca
+      # imprime valores.
+      - name: Sanity — CD config (RAILWAY_TOKEN + RAILWAY_DEPLOY_ENABLED)
+        run: node scripts/verify-cd-config.mjs
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          CD_VAR_ENABLED: ${{ vars.RAILWAY_DEPLOY_ENABLED }}
+
+      - name: Install Railway CLI
+        run: npm i -g @railway/cli
+
+      # Opcional: com token de PROJETO o CLI costuma resolver o projeto sozinho;
+      # se não resolver, defina a variable RAILWAY_PROJECT_ID para linkar.
+      - name: Link project (opcional)
+        if: vars.RAILWAY_PROJECT_ID != ''
+        run: railway link --project "${{ vars.RAILWAY_PROJECT_ID }}"
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      - name: Railway up (production)
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
         run: railway up --service auto-trader --environment production --ci
+
+      # Smoke pós-deploy: readiness responde 200 quando o app está com banco OK.
+      # Usa a URL pública do serviço (variable), nunca hardcode de host.
+      - name: Smoke — readiness
+        if: vars.RAILWAY_PUBLIC_URL != ''
+        run: |
+          for i in $(seq 1 10); do
+            if curl -fsS "${{ vars.RAILWAY_PUBLIC_URL }}/api/health/ready"; then exit 0; fi
+            echo "readiness ainda não OK (tentativa $i/10)"; sleep 6
+          done
+          echo "::error::/api/health/ready não respondeu 200 após o deploy"
+          exit 1

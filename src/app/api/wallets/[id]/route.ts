@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/trading/logger";
-import { deleteWallet, setWalletActive } from "@/lib/trading/wallet-manager";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/rbac";
 import { ForbiddenError } from "@/lib/auth/errors";
 import { assertOwner } from "@/lib/auth/rls";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { handleApiError } from "@/lib/api/error-handler";
 
 // PATCH /api/wallets/[id] — activate/deactivate a wallet
@@ -23,7 +23,21 @@ export async function PATCH(
     if (typeof body.active !== "boolean") {
       return NextResponse.json({ error: "Missing 'active' boolean field" }, { status: 400 });
     }
-    await setWalletActive(id, body.active);
+    // RLS nativo: update/updateMany na MESMA transação com app.user_id —
+    // um trader só ativa/desativa as próprias wallets (super_admin = bypass).
+    await withUserRls(session, async (tx) => {
+      if (body.active) {
+        await tx.walletConnection.updateMany({
+          where: { isActive: true },
+          data: { isActive: false },
+        });
+      }
+      await tx.walletConnection.update({
+        where: { id },
+        data: { isActive: body.active, lastUsedAt: new Date() },
+      });
+    });
+    logger.info("wallet", `Wallet ${id} ${body.active ? "activated" : "deactivated"}`);
     return NextResponse.json({ ok: true });
   } catch (err) {
     if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
@@ -44,7 +58,8 @@ export async function DELETE(
     if (!hasPermission(session.role, "wallets:write")) throw new ForbiddenError("wallets:write");
     const { id } = await params;
     await assertOwner(session, "walletConnection", id);
-    await deleteWallet(id);
+    await withUserRls(session, (tx) => tx.walletConnection.delete({ where: { id } }));
+    logger.info("wallet", `Wallet ${id} deleted`);
     return NextResponse.json({ ok: true });
   } catch (err) {
     if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {

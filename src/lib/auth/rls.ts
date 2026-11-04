@@ -1,8 +1,12 @@
-// src/lib/auth/rls.ts — Row Level Security helper (app-layer, see docs/RLS.md)
+// src/lib/auth/rls.ts — RLS helper de aplicação (ver docs/05-security-compliance/RLS.md).
+//
+// Este arquivo é a camada LEGADA/compatível (where-clause por owner + IDOR).
+// A camada NATIVA (GUC por transação + policies Postgres) vive em
+// src/lib/auth/rls-context.ts e reexporta os helpers daqui.
 import { db } from '@/lib/db';
 import type { SessionUser } from './session';
 
-type RlsModel = 'walletConnection' | 'exchangeConnection' | 'notificationChannel';
+export type RlsModel = 'walletConnection' | 'exchangeConnection' | 'notificationChannel';
 
 // Returns a where clause that enforces owner isolation
 export function rlsWhere(session: SessionUser, _model: RlsModel): Record<string, unknown> {

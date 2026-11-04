@@ -2,6 +2,53 @@
 
 ---
 
+<!-- CANONICO-RAILWAY: 2026-11-04 -->
+
+> ## ⚠️ LEIA PRIMEIRO — este documento é HISTÓRICO em partes
+>
+> **O host canônico de produção é o RAILWAY** (app + engine + Postgres), não o Fly.io.
+> As seções 1–10 abaixo (marcadas HISTÓRICO) foram escritas em 2026-08/09 para Fly.io e
+> NÃO refletem a realidade: `flyctl`, `fly secrets`, `fly postgres`, `auto-trader-prod.fly.dev`
+> e o custo em Fly.io estão obsoletos. Use esta seção, `CI_CD_PIPELINE.md` e
+> `docs/08-knowledge-management/round4-status.md` como referência.
+>
+> ### Estado real do deploy (2026-11-04)
+>
+> - **Deploy é MANUAL** hoje: o operador/Lead roda `railway up --service auto-trader
+>   --environment production` e valida `GET /api/health/ready` (200).
+> - **CD automático está PRONTO porém DESLIGADO**: o workflow
+>   `.github/workflows/deploy-railway.yml` existe, tem gate
+>   `if: vars.RAILWAY_DEPLOY_ENABLED == 'true'` e sanity step, mas o repositório
+>   **não tem** o secret `RAILWAY_TOKEN` nem a variable `RAILWAY_DEPLOY_ENABLED` —
+>   logo o job é pulado em todo push. Verifique com `node scripts/verify-cd-config.mjs`
+>   (exit 1 = bloqueado).
+> - **Por que não foi habilitado por automação:** a mutation `projectTokenCreate` da API
+>   do Railway respondeu `Not Authorized` com o token OAuth do CLI (não pode mintar
+>   project token). Criar o token é ação humana no dashboard.
+>
+> ### Habilitar o CD (operador — 3 passos)
+>
+> 1. Railway → Project **auto-trader** → Settings → Tokens → **Create Project Token**.
+> 2. `gh secret set RAILWAY_TOKEN --body <token>` (ou Settings → Secrets → Actions).
+> 3. `gh variable set RAILWAY_DEPLOY_ENABLED --body true` (ou a mesma tela, aba Variables).
+>
+> Opcionais: `RAILWAY_PROJECT_ID` (link do projeto no CLI) e `RAILWAY_PUBLIC_URL`
+> (habilita o smoke de readiness pós-deploy).
+>
+> ### Rollback
+>
+> 1. **Railway → Deployments → deploy anterior → Redeploy** (mais rápido, sem git).
+> 2. Ou `git revert <commit> && git push origin main` (o CD roda de novo no push).
+> 3. Emergência/parada: `gh variable set RAILWAY_DEPLOY_ENABLED --body false` — o CD para
+>    de rodar no próximo push; e Railway → Settings → desabilitar deploy automático.
+> 4. Banco: ver `BACKUP_DR.md` (`scripts/backup-full.mjs` / `restore-full.mjs`).
+>
+> ### Migrations
+>
+> Schema agora é versionado (`prisma/migrations`, baseline + RLS). Aplicar com
+> `prisma migrate deploy` no deploy (CI já aplica e tem gate de drift). Nunca
+> `prisma db push` em banco com dados — ver seção "Migrações do banco" no fim.
+
 ## [Conteudo mesclado de DEPLOY.md — reorganizacao docs 2026-09-27]
 
 # DEPLOY.md â€” Auto Trader Production Deployment (S27 T003)
@@ -12,7 +59,7 @@
 
 ---
 
-## 1. Architecture
+## 1. Architecture ⚠️ HISTÓRICO (Fly.io — obsoleto, ver topo)
 
 ```
                     â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
@@ -45,7 +92,7 @@
 
 ---
 
-## 2. Required Environment Variables (Fly.io secrets)
+## 2. Required Environment Variables ⚠️ HISTÓRICO (era Fly.io secrets; no Railway os secrets ficam no dashboard/CLI)
 
 ```bash
 # === Core ===
@@ -89,7 +136,7 @@ done
 
 ---
 
-## 3. Fly.io Setup
+## 3. Fly.io Setup ⚠️ HISTÓRICO (obsoleto: o host canônico é Railway)
 
 ```bash
 # 1. Install flyctl
@@ -224,7 +271,7 @@ Set up Sentry alert rules: https://your-domain.sentry.io/alerts/rules/
 
 ---
 
-## 8. Cost Estimate (Fly.io + Cloudflare free + Stripe free)
+## 8. Cost Estimate ⚠️ HISTÓRICO (custos de Fly.io; ver dashboard do Railway)
 
 | Service | Plan | Cost |
 |---|---|---|
@@ -239,7 +286,7 @@ Set up Sentry alert rules: https://your-domain.sentry.io/alerts/rules/
 
 ---
 
-## 9. Rollback Procedure
+## 9. Rollback Procedure ⚠️ HISTÓRICO (Fly.io releases; use o rollback do topo / Railway Deployments)
 
 ```bash
 # 1. Check current deployment
