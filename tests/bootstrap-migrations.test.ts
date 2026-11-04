@@ -26,10 +26,15 @@ const rlsExchangeStrictRaw = readFileSync(
   'prisma/migrations/20260104000000_rls_strict_exchange/migration.sql',
   'utf8',
 );
+const rlsPositionStrictRaw = readFileSync(
+  'prisma/migrations/20260105000000_rls_strict_position/migration.sql',
+  'utf8',
+);
 const BASELINE_SHA = sha256Lf(baselineRaw);
 const RLS_SHA = sha256Lf(rlsRaw);
 const RLS_STRICT_SHA = sha256Lf(rlsStrictRaw);
 const RLS_EXCHANGE_STRICT_SHA = sha256Lf(rlsExchangeStrictRaw);
+const RLS_POSITION_STRICT_SHA = sha256Lf(rlsPositionStrictRaw);
 
 describe('bootstrap-prod-migrations — checksum', () => {
   it('sha256 hex do conteúdo (fixtures conhecidas)', () => {
@@ -49,15 +54,18 @@ describe('bootstrap-prod-migrations — checksum', () => {
       '20260102000000_rls_policies',
       '20260103000000_rls_strict_wallet_notification',
       '20260104000000_rls_strict_exchange',
+      '20260105000000_rls_strict_position',
     ]);
     expect(migrations[0].checksum).toBe(BASELINE_SHA);
     expect(migrations[1].checksum).toBe(RLS_SHA);
     expect(migrations[2].checksum).toBe(RLS_STRICT_SHA);
     expect(migrations[3].checksum).toBe(RLS_EXCHANGE_STRICT_SHA);
+    expect(migrations[4].checksum).toBe(RLS_POSITION_STRICT_SHA);
     expect(migrations[0].applied_steps_count).toBe(111);
     expect(migrations[1].applied_steps_count).toBe(16);
     expect(migrations[2].applied_steps_count).toBe(8);
     expect(migrations[3].applied_steps_count).toBe(4);
+    expect(migrations[4].applied_steps_count).toBe(4);
   });
 });
 

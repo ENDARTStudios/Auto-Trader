@@ -9,11 +9,12 @@ import { listWallets, createWallet } from '@/lib/trading/wallet-manager';
 import { listExchanges, createExchange } from '@/lib/trading/wallet-manager';
 import { listChannels } from '@/lib/trading/notifier';
 
-// Round 6/7 — RLS STRICT: WalletConnection + NotificationChannel (fase 2) e
-// ExchangeConnection (fase 3) SEM a cláusula permissiva 'sem contexto'. Com
-// role NON-superuser: SELECT sem GUC = 0 linhas; INSERT sem GUC = negado.
-// Rotas/helpers precisam de contexto explícito (withUserRls nas rotas;
-// withSystemRls no engine/signer/vault/boot). Position segue fase 1.
+// Rounds 6/7/8 — RLS STRICT: WalletConnection + NotificationChannel (fase 2),
+// ExchangeConnection (fase 3) e Position (fase 4) SEM a cláusula permissiva
+// 'sem contexto'. Com role NON-superuser: SELECT sem GUC = 0 linhas; INSERT sem
+// GUC = negado. Rotas/helpers precisam de contexto explícito (withUserRls nas
+// rotas; withSystemRls no engine/signer/vault/boot). Com a fase 4, TODAS as
+// tabelas com ownerId são fail-closed.
 
 const TEST_ROLE = 'autotrader_rls_test';
 const PREFIX = 'RLS6-';
@@ -31,6 +32,8 @@ let channelA = '';
 let channelB = '';
 let exchangeA = '';
 let exchangeB = '';
+let positionA = '';
+let positionB = '';
 
 function sessionFor(user: { id: string; email: string }, role: string): SessionUser {
   return { userId: user.id, email: user.email, role, isActive: true };
@@ -93,10 +96,18 @@ beforeAll(async () => {
   const exch = { exchange: 'binance', testnet: true, permissions: JSON.stringify({ read: true, trade: true, withdraw: false }) };
   exchangeA = (await db.exchangeConnection.create({ data: { ...exch, ownerId: userA.id, label: PREFIX + 'EXCH-A' } })).id;
   exchangeB = (await db.exchangeConnection.create({ data: { ...exch, ownerId: userB.id, label: PREFIX + 'EXCH-B' } })).id;
+
+  const pos = {
+    source: 'cex', status: 'open', entryPriceUsd: 100, entryAmountUsd: 100, entryQty: 1,
+    takeProfitPrice: 115, stopLossPrice: 92, maxExitAt: new Date(Date.now() + 3_600_000), scamScore: 80, roundId: 1,
+  };
+  positionA = (await db.position.create({ data: { ...pos, ownerId: userA.id, symbol: PREFIX + 'POS-A' } })).id;
+  positionB = (await db.position.create({ data: { ...pos, ownerId: userB.id, symbol: PREFIX + 'POS-B' } })).id;
 }, 60_000);
 
 afterAll(async () => {
   try {
+    await db.position.deleteMany({ where: { symbol: { startsWith: PREFIX } } });
     await db.walletConnection.deleteMany({ where: { label: { startsWith: PREFIX } } });
     await db.exchangeConnection.deleteMany({ where: { label: { startsWith: PREFIX } } });
     await db.notificationChannel.deleteMany({ where: { name: { startsWith: PREFIX } } });
@@ -321,5 +332,68 @@ describe('RLS strict — ExchangeConnection (fase 3, round 7)', () => {
     await withUserRls(session, (tx) => deleteExchange(temp.id, tx), rlsDb);
     const gone = await db.exchangeConnection.findUnique({ where: { id: temp.id } });
     expect(gone).toBeNull();
+  });
+});
+
+describe('RLS strict — Position (fase 4, round 8)', () => {
+  const positionData = (ownerId: string, symbol: string) => ({
+    ownerId,
+    symbol,
+    source: 'cex',
+    status: 'open',
+    entryPriceUsd: 100,
+    entryAmountUsd: 100,
+    entryQty: 1,
+    takeProfitPrice: 115,
+    stopLossPrice: 92,
+    maxExitAt: new Date(Date.now() + 3_600_000),
+    scamScore: 80,
+    roundId: 1,
+  });
+
+  it('sem contexto: SELECT retorna 0 linhas e INSERT é negado', async () => {
+    const positions = await rlsDb.position.findMany({ where: { symbol: { startsWith: PREFIX } } });
+    expect(positions).toEqual([]);
+    await expect(
+      rlsDb.position.create({ data: positionData(userA.id, PREFIX + 'POS-NOCTX') }),
+    ).rejects.toBeTruthy();
+    const leaked = await db.position.findMany({ where: { symbol: PREFIX + 'POS-NOCTX' } });
+    expect(leaked.length).toBe(0);
+  });
+
+  it('contexto de user A: vê só A; INSERT cross-owner negado; INSERT próprio ok', async () => {
+    const session = sessionFor(userA, 'trader');
+    const positions = await withUserRls(
+      session,
+      (tx) => tx.position.findMany({ where: { symbol: { startsWith: PREFIX } } }),
+      rlsDb,
+    );
+    expect(positions.map((p) => p.id)).toEqual([positionA]);
+
+    await expect(
+      withUserRls(session, (tx) => tx.position.create({ data: positionData(userB.id, PREFIX + 'POS-CROSS') }), rlsDb),
+    ).rejects.toBeTruthy();
+
+    const created = await withUserRls(
+      session,
+      (tx) => tx.position.create({ data: positionData(userA.id, PREFIX + 'POS-OWN') }),
+      rlsDb,
+    );
+    expect(created.ownerId).toBe(userA.id);
+    await db.position.delete({ where: { id: created.id } });
+  });
+
+  it('withSystemRls (engine/jobs) e super_admin (bypass) veem tudo', async () => {
+    const systemPositions = await withSystemRls(
+      (tx) => tx.position.findMany({ where: { symbol: { startsWith: PREFIX } } }),
+      rlsDb,
+    );
+    expect(systemPositions.length).toBe(2);
+    const superPositions = await withUserRls(
+      sessionFor(userA, 'super_admin'),
+      (tx) => tx.position.findMany({ where: { symbol: { startsWith: PREFIX } } }),
+      rlsDb,
+    );
+    expect(superPositions.length).toBe(2);
   });
 });

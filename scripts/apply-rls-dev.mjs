@@ -91,5 +91,5 @@ try {
 
 console.log(
   '[apply-rls-dev] ok: ' + toApply.length + ' migration(s) / ' + totalStatements + ' statements aplicados (idempotente). ' +
-    'Fases 2/3 (rounds 6-7): WalletConnection + NotificationChannel + ExchangeConnection STRICT (sem contexto = 0 linhas); Position ainda fase 1.',
+    'Fases 2/3/4 (rounds 6-8): as 4 tabelas com ownerId (Wallet/Notification/Exchange/Position) são STRICT — sem contexto = 0 linhas/negado.',
 );

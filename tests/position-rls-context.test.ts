@@ -1,12 +1,12 @@
-// tests/position-rls-context.test.ts — preparação do flip STRICT de Position.
+// tests/position-rls-context.test.ts — flip STRICT de Position (fase 4, round 8).
 //
 // (a) Testa o auditor scripts/audit-rls-context.mjs com fixtures (CLI real).
-// (b) Prova, num Postgres real com role NÃO-superuser, que:
+// (b) Prova, num Postgres real com role NÃO-superuser, que a tabela REAL
+//     Position agora é STRICT (migration 20260105000000_rls_strict_position):
+//     - cliente global SEM contexto → 0 linhas e INSERT negado;
 //     - withSystemRls (engine/jobs) enxerga as posições;
-//     - withUserRls(trader) só enxerga as próprias;
-//     - um cliente global SEM contexto veria 0 linhas num cenário STRICT
-//       (simulado numa tabela-espelho com a policy planejada da round 8 —
-//       a policy real de Position continua permissiva nesta rodada).
+//     - withUserRls(trader) só enxerga as próprias (WITH CHECK barra cross-owner);
+//     - withUserRls(super_admin) faz bypass.
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'node:fs';
@@ -105,8 +105,7 @@ describe('audit-rls-context (fixtures)', () => {
 // (b) Integração Postgres com role NÃO-superuser
 // ---------------------------------------------------------------------------
 const TEST_ROLE = 'autotrader_position_ctx_test';
-const SIM_TABLE = 'PositionStrictSim';
-const PREFIX = 'RLS7-CTX-';
+const PREFIX = 'RLS8-CTX-';
 
 type RlsPrisma = ReturnType<typeof createPrismaClient>;
 const dbAdmin: RlsPrisma = createPrismaClient();
@@ -148,17 +147,13 @@ function withSys<T>(fn: (tx: RlsTransactionClient) => Promise<T>): Promise<T> {
   return withSystemRls(fn, rlsDb);
 }
 
-const STRICT_POLICY_SQL =
-  'CREATE POLICY "' + SIM_TABLE + '_rls" ON "' + SIM_TABLE + '" ' +
-  "USING (current_setting('app.rls_bypass', true) = 'on' OR \"ownerId\" = current_setting('app.user_id', true)) " +
-  "WITH CHECK (current_setting('app.rls_bypass', true) = 'on' OR \"ownerId\" = current_setting('app.user_id', true))";
-
 beforeAll(async () => {
   adminClient = new pg.Client({ connectionString: requireDatabaseUrl() });
   await adminClient.connect();
 
-  // Aplica TODAS as migrations de RLS (fase 1 permissiva + fase 2 strict de
-  // Wallet/Notification) — idempotente, mesmo padrão de tests/rls-policies.test.ts.
+  // Aplica TODAS as migrations de RLS em ordem (fase 1 → strict Wallet/
+  // Notification/Exchange/Position) — idempotente, mesmo padrão de
+  // tests/rls-policies.test.ts.
   const migrationsRoot = join(process.cwd(), 'prisma', 'migrations');
   const names = readdirSync(migrationsRoot, { withFileTypes: true })
     .filter((e) => e.isDirectory())
@@ -214,24 +209,10 @@ beforeAll(async () => {
     await dbAdmin.position.create({ data: { ...base, ownerId: traderB.id, symbol: PREFIX + 'B' } })
   ).id;
 
-  // Tabela-espelho com a policy STRICT planejada para Position na round 8
-  // (sem a cláusula permissiva "sem contexto"). Não toca na policy real.
-  await adminClient.query('DROP TABLE IF EXISTS "' + SIM_TABLE + '"');
-  await adminClient.query(
-    'CREATE TABLE "' + SIM_TABLE + '" ("id" text PRIMARY KEY, "ownerId" text NOT NULL)'
-  );
-  await adminClient.query('ALTER TABLE "' + SIM_TABLE + '" ENABLE ROW LEVEL SECURITY');
-  await adminClient.query('ALTER TABLE "' + SIM_TABLE + '" FORCE ROW LEVEL SECURITY');
-  await adminClient.query(STRICT_POLICY_SQL);
-  await adminClient.query('GRANT SELECT, INSERT, UPDATE, DELETE ON "' + SIM_TABLE + '" TO ' + TEST_ROLE);
-  await adminClient.query(
-    'INSERT INTO "' + SIM_TABLE + '" VALUES (\'sim-a\', \'' + traderA.id + '\'), (\'sim-b\', \'' + traderB.id + '\')'
-  );
 });
 
 afterAll(async () => {
   try {
-    await adminClient.query('DROP TABLE IF EXISTS "' + SIM_TABLE + '"');
     await dbAdmin.position.deleteMany({ where: { symbol: { startsWith: PREFIX } } });
     await dbAdmin.user.deleteMany({ where: { email: { startsWith: 'rls7-' } } });
   } finally {
@@ -268,34 +249,62 @@ describe('Position — withSystemRls/withUserRls com role NÃO-superuser', () =>
   });
 });
 
-describe('Cenário STRICT simulado (tabela-espelho com a policy da round 8)', () => {
-  it('cliente global SEM contexto veria 0 linhas (por isso migramos tudo)', async () => {
-    const rows = (await rlsDb.$queryRawUnsafe(
-      'SELECT count(*)::int AS n FROM "' + SIM_TABLE + '"'
-    )) as Array<{ n: number }>;
-    expect(rows[0]?.n).toBe(0);
+describe('Position STRICT de verdade (fase 4, round 8) — tabela REAL', () => {
+  const positionData = (ownerId: string, symbol: string) => ({
+    ownerId,
+    symbol,
+    source: 'cex',
+    status: 'open',
+    entryPriceUsd: 100,
+    entryAmountUsd: 100,
+    entryQty: 1,
+    takeProfitPrice: 115,
+    stopLossPrice: 92,
+    maxExitAt: new Date(Date.now() + 3_600_000),
+    scamScore: 80,
+    roundId: 1,
   });
 
-  it('withSystemRls vê as 2 linhas no cenário strict', async () => {
-    const rows = await withSys(
-      (tx) =>
-        tx.$queryRawUnsafe(
-          'SELECT count(*)::int AS n FROM "' + SIM_TABLE + '"'
-        ) as Promise<Array<{ n: number }>>
-    );
-    expect(rows[0]?.n).toBe(2);
+  it('cliente global SEM contexto → 0 linhas (fail-closed)', async () => {
+    const rows = await rlsDb.position.findMany({ where: { symbol: { startsWith: PREFIX } } });
+    expect(rows).toEqual([]);
   });
 
-  it('withUserRls(traderA) vê só 1 linha no cenário strict', async () => {
+  it('INSERT sem contexto é negado pela policy (WITH CHECK)', async () => {
+    await expect(
+      rlsDb.position.create({
+        data: positionData(traderA.id, PREFIX + 'NOCTX'),
+      }),
+    ).rejects.toBeTruthy();
+    const leaked = await dbAdmin.position.findMany({ where: { symbol: PREFIX + 'NOCTX' } });
+    expect(leaked.length).toBe(0);
+  });
+
+  it('withUserRls(traderA): vê só A e INSERT cross-owner (B) é negado', async () => {
     const rows = await withUserRls(
       sessionA(),
-      (tx) =>
-        tx.$queryRawUnsafe(
-          'SELECT "ownerId" FROM "' + SIM_TABLE + '"'
-        ) as Promise<Array<{ ownerId: string }>>,
+      (tx) => tx.position.findMany({ where: { symbol: { startsWith: PREFIX } } }),
       rlsDb
     );
-    expect(rows).toHaveLength(1);
-    expect(rows[0].ownerId).toBe(traderA.id);
+    expect(rows.map((r) => r.id)).toEqual([posA]);
+
+    await expect(
+      withUserRls(
+        sessionA(),
+        (tx) =>
+          tx.position.create({ data: positionData(traderB.id, PREFIX + 'CROSS') }),
+        rlsDb
+      ),
+    ).rejects.toBeTruthy();
+  });
+
+  it('withUserRls(traderA): INSERT da própria posição funciona', async () => {
+    const created = await withUserRls(
+      sessionA(),
+      (tx) => tx.position.create({ data: positionData(traderA.id, PREFIX + 'OWN') }),
+      rlsDb
+    );
+    expect(created.ownerId).toBe(traderA.id);
+    await dbAdmin.position.delete({ where: { id: created.id } });
   });
 });

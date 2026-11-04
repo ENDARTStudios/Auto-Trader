@@ -58,6 +58,11 @@ npm run db:demo:clear -- --yes        # apaga de verdade
   NÃO for superuser nem tiver `BYPASSRLS` — verifique com
   `node scripts/verify-rls-enforcement.mjs --expect-enforced` (exit 1 = inerte).
   Rollout/rollback do role em [docs/05-security-compliance/RLS.md](docs/05-security-compliance/RLS.md) §9.
+- **Scripts de manutenção** (seed, limpeza, backfill, reset) chamam
+  `scripts/lib/require-bypass-rls.mjs` e **abortam** se o `DATABASE_URL` for do app role
+  (`NOBYPASSRLS`) — com RLS strict eles veriam 0 linhas e falhariam em silêncio. Use a
+  connection string do **owner** para manutenção; no runtime use `withSystemRls`.
+  Detalhes: [runbook §8](docs/06-devops-deployment/DB_MIGRATIONS_RUNBOOK.md).
 
 ## Testes e verificação
 

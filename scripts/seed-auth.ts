@@ -1,10 +1,14 @@
 // scripts/seed-auth.ts — Seed admin@local + viewer@local
 import { createPrismaClient } from '@/lib/db';
 import { hashPasswordSync } from '../src/lib/auth/password';
+import { requireBypassRls } from './lib/require-bypass-rls.mjs';
 
 const db = createPrismaClient();
 
 async function main() {
+  // Guard: o backfill de ownerId toca WalletConnection/ExchangeConnection/
+  // NotificationChannel (RLS strict) — sem bypass o UPDATE afeta 0 linhas.
+  await requireBypassRls({ context: 'seed-auth' });
   const adminHash = hashPasswordSync('Admin123!');
   const viewerHash = hashPasswordSync('Viewer123!');
   const traderHash = hashPasswordSync('Trader123!');

@@ -14,6 +14,7 @@
 import "dotenv/config";
 import { createPrismaClient } from "@/lib/db";
 import { orderKey } from "../src/lib/trading/paper-order-lifecycle";
+import { requireBypassRls } from "./lib/require-bypass-rls.mjs";
 
 const db = createPrismaClient();
 const clean = process.argv.includes("--clean");
@@ -37,6 +38,9 @@ const CLOSED = [
 ];
 
 async function main() {
+  // Guard: o seed escreve/limpa Position (RLS strict); com app role veria 0 linhas
+  // e "funcionaria" pela metade. Exige role com bypass (owner/operação).
+  await requireBypassRls({ context: "seed-demo" });
   const admin = await db.user.findUnique({ where: { email: "admin@local" } });
   if (!admin) {
     throw new Error("admin@local não existe — rode `npx tsx scripts/seed-auth.ts` primeiro.");

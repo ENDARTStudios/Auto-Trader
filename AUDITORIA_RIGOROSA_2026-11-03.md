@@ -372,3 +372,25 @@
 - **Cobertura**: lines 61,93% → **64,44%**; funcs 68,71%.
 - **Gates**: tsc 0 · eslint 0 · `vitest` **81 arquivos / 1131 pass / 1 skip** · build OK (signer 96,5 KiB).
 - **Pendente**: fase 2 restante (Position, ExchangeConnection) — migrar call sites e repetir rollout; operador: CD token, chaves S14 live, Sentry/Redis/AI.
+
+---
+
+## 12. Rodadas 7–8 (2026-11-04) — RLS **strict nas 4 tabelas** e scripts de manutenção seguros
+
+### 12.1 RLS strict completo (fail-closed)
+- Rodada 7: `ExchangeConnection` strict (manager com tx, rotas `withUserRls`, `live-credentials`/`wallet-crypto`/`db-init` system) + **33 call sites de `db.position.*` migrados** para `withSystemRls`/`withUserRls` (auditor `scripts/audit-rls-context.mjs` = 0 violações) + teste de strict simulado.
+- Rodada 8: `Position` strict (última tabela) — migration `20260105000000_rls_strict_position`, testes integrais atualizados, docs RLS v5.
+- **Produção após flip**: `ROLE={"current_user":"autotrader_app","rolbypassrls":false}`; catálogo **STRICT nas 4 tabelas** (WalletConnection, NotificationChannel, ExchangeConnection, Position); `_prisma_migrations` com **5 migrations**, `prisma migrate status` = up to date.
+- **Verificação pós-flip em produção**: health/ready 200, login 200, `/api/status` (paths de sistema de Position) 200 com contagens, `/api/positions` (super_admin bypass) 200, analytics/history/surveillance/backup/info/etl 200, signer ready, live paper/desligado, cookie forjado 401.
+- Efeito multi-tenant: viewer/trader passam a ver apenas as próprias posições/wallets/exchanges/canais; `super_admin` bypassa; engine/jobs usam `withSystemRls`.
+- Rollback documentado: recriar as policies permissivas da `20260102000000_rls_policies` (sem deploy de código).
+
+### 12.2 Scripts de manutenção sob RLS
+- `scripts/lib/require-bypass-rls.mjs`: guard que **aborta** (exit 1) se o `DATABASE_URL` não tiver `BYPASSRLS`/superuser, com mensagem acionável; validado nos dois sentidos (app role em prod → ABORTA; owner local → OK).
+- 8 scripts de manutenção protegidos (seed-demo, seed-auth, clear-demo-data, cleanup-wallets, cleanup-stress-wallets, reset-db, backfills); scripts de `test:ci` isentos (DB descartável superuser).
+- `verify-rls-enforcement.mjs` agora classifica **as 4 tabelas** STRICT/PERMISSIVE e suporta `--expect-all-strict`.
+- Correções de dívida: client Prisma CJS legado com adapter por URL (`scripts/lib/prisma-client-maintenance.cjs`) e imports quebrados nos backfills.
+- Runbook: `DB_MIGRATIONS_RUNBOOK.md §8` (owner vs app role vs test:ci, tabela script→guard, rollback).
+
+### 12.3 Gates finais (rodada 8)
+- `tsc` 0 · `eslint` 0 · `vitest` **83 arquivos / 1161 pass / 1 skip** · auditor RLS exit 0 · CI verde · PR #111 e (round 8) mergeados em `main`.

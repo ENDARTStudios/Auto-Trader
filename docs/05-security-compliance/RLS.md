@@ -1,9 +1,10 @@
 # RLS — Row Level Security (nativo Postgres)
 
-> **Versão:** 4.0 — round 7 (2026-11-03) — fases 2 e 3 STRICT: WalletConnection,
-> NotificationChannel e ExchangeConnection. Position segue fase 1.
-> **Status:** policies Postgres implementadas e testadas (`tests/rls-policies.test.ts` fase 1 +
-> `tests/rls-strict.test.ts` fases 2/3).
+> **Versão:** 5.0 — round 8 (2026-11-03) — fases 2, 3 e 4 STRICT: **todas** as
+> tabelas com `ownerId` (WalletConnection, NotificationChannel, ExchangeConnection,
+> Position) são fail-closed sem contexto explícito.
+> **Status:** policies Postgres implementadas e testadas (`tests/rls-strict.test.ts`,
+> `tests/rls-policies.test.ts`, `tests/position-rls-context.test.ts`).
 > **Princípio:** nenhuma query deve ler/escrever linha de outro usuário, mesmo se
 > o RBAC/aplicação falhar. RLS é a segunda barreira.
 
@@ -87,9 +88,38 @@ Call sites migrados no round 7:
 - `live-credentials` (lookup da ExchangeConnection ativa), `wallet-crypto.loadVault`
   e `db-init` (backfill) já rodavam em `withSystemRls` desde o round 6 — confirmados.
 
-Tabela ainda em fase 1 (permissiva sem contexto): **Position**. Endurecê-la é o
-próximo passo (mesmo procedimento abaixo), com o cuidado de migrar antes
-engine/portfolio/backtest e rotas que consultam posições.
+### Fase 4 (round 8): STRICT em Position (última tabela)
+
+`prisma/migrations/20260105000000_rls_strict_position/migration.sql` recria
+`Position_rls` sem a cláusula permissiva (mesmo padrão das fases 2/3).
+
+Os 33 call sites de `Position` já estavam com contexto desde a rodada 7
+(deployada): rotas de usuário via `withUserRls`; engine/portfolio/risk/schedule/
+backtest/analytics/backup/info via `withSystemRls` (ou `tx` recebido de um
+helper). O auditor `node scripts/audit-rls-context.mjs` valida isso
+automaticamente (0 violações, exit 0).
+
+Com a fase 4, **todas as tabelas multi-tenant estão STRICT**:
+
+| Tabela | Fase | Sem contexto (role app non-superuser) |
+|---|---|---|
+| WalletConnection | 2 (round 6) | SELECT 0 / escrita negada |
+| NotificationChannel | 2 (round 6) | SELECT 0 / escrita negada |
+| ExchangeConnection | 3 (round 7) | SELECT 0 / escrita negada |
+| Position | 4 (round 8) | SELECT 0 / escrita negada |
+
+### O que isso significa por papel
+
+- **viewer**: `positions:read`/logs continuam permitidos, mas só vê as posições
+  do próprio `ownerId`. Como o seed cria o viewer sem posições, o dashboard do
+  viewer aparece vazio (comportamento esperado do multi-tenant; super_admin/
+  trader dono veem as suas).
+- **trader**: vê/opera apenas as posições do próprio `ownerId`; INSERT/UPDATE
+  com `ownerId` de outro usuário é rejeitado pelo WITH CHECK.
+- **super_admin**: `app.rls_bypass='on'` no contexto → vê e escreve todas.
+- **engine/jobs/signer/boot** (sem usuário HTTP): `withSystemRls` (bypass
+  explícito) — único caminho autorizado para operações globais.
+- Qualquer query fora dos helpers → 0 linhas/negada (fail-closed).
 
 ### Como adicionar a próxima tabela ao strict
 
@@ -116,8 +146,22 @@ CREATE POLICY "WalletConnection_rls" ON "WalletConnection"
   )
   WITH CHECK (<mesma expressão>);
 ```
-(idem para `NotificationChannel` e `ExchangeConnection`). Nenhuma mudança de
-código é necessária — os helpers já funcionam nas duas fases.
+(idem para `NotificationChannel`, `ExchangeConnection` e `Position`). Nenhuma
+mudança de código é necessária — os helpers já funcionam nas duas fases.
+
+### Runbook de verificação pós-flip (produção)
+
+1. Logar como super_admin → dashboard: posições aparecem (bypass).
+2. Logar como trader dono das posições do engine (owner = super_admin do seed):
+   se o trader não for o owner, verá 0 posições — comportamento correto do
+   multi-tenant (não é bug de UI).
+3. `GET /api/status`, `GET /api/positions`, `GET /api/history`,
+   `GET /api/analytics` e `GET /api/system/info` respondem 200 (as rotas usam
+   contexto; `/api/system/*` usa `withSystemRls`).
+4. `GET /api/audit`/backup admin (`/api/system/backup`) funcionam (system).
+5. Não deve haver 500 nem listas inesperadamente vazias para o owner real; se
+   houver 0 linhas para todos, verificar se a migration foi aplicada DEPOIS do
+   deploy do código e se o `DATABASE_URL` usa `autotrader_app` (não superuser).
 
 ### FORCE ROW LEVEL SECURITY (essencial)
 O usuário de banco que **é dono das tabelas** bypassa RLS por padrão. `FORCE`
@@ -173,9 +217,9 @@ não-superuser; em produção o default é o singleton `db`.
 
 ## 6. Limitações / próximos passos
 
-- **WalletConnection/NotificationChannel/ExchangeConnection são STRICT (fases 2/3)**:
-  qualquer acesso fora dos helpers retorna 0 linhas/é negado com role de app
-  non-superuser. **Position** segue permissiva sem contexto (fase 1).
+- **Todas as 4 tabelas são STRICT (fases 2/3/4)**: qualquer acesso fora dos
+  helpers retorna 0 linhas/é negado com role de app non-superuser — inclusive
+  Position. Não existe mais cláusula permissiva "sem contexto" em nenhuma policy.
 - Queries fora dos helpers nas tabelas de fase 1 seguem permissivas. O passo final é migrar TODOS os
   acessos às 4 tabelas e então endurecer a policy (negar quando `app.user_id`
   ausente) — só depois de todos os call sites adotarem.

@@ -115,3 +115,62 @@ Depois de qualquer rollback, rode de novo §2 (dry-run) e §4 (verificação).
 - CI: gate de drift em `.github/workflows/ci.yml` (`migrate diff --exit-code`)
 - RLS: `docs/05-security-compliance/RLS.md` · Backup: `BACKUP_DR.md`
 - Testes dos helpers: `tests/bootstrap-migrations.test.ts`
+
+## 8. Scripts de manutenção sob RLS (rodada 8)
+
+Produção roda com role `autotrader_app` (**NOBYPASSRLS**) e as tabelas
+`Position`, `WalletConnection`, `ExchangeConnection` e `NotificationChannel` são
+**STRICT**. Nesse cenário um script de manutenção com o role de app **não falha
+com erro**: ele vê 0 linhas e o DELETE/UPDATE afeta 0 registros — falha silenciosa.
+
+### 8.1 Regra
+
+| Quem | Role que pode rodar manutenção |
+|---|---|
+| Script de manutenção (seed, limpeza, backfill, reset) | **owner do banco** ou role com `BYPASSRLS` |
+| Runtime da aplicação (`/api/**`, engine, signer) | `autotrader_app` + `withSystemRls` (GUC `app.rls_bypass='on'`) |
+| `npm run test:ci` / suítes de teste | banco **descartável** com superuser (`test:ci:local`) — não precisam de guard |
+
+### 8.2 Guard
+
+```bash
+# verifica o role do DATABASE_URL atual (exit 0 = pode rodar; 1 = aborta)
+node scripts/lib/require-bypass-rls.mjs
+node scripts/lib/require-bypass-rls.mjs --json
+```
+
+Os scripts abaixo chamam o guard automaticamente antes de tocar no banco:
+
+| Script | Toca | Guard |
+|---|---|---|
+| `scripts/seed-demo.ts` | Position (STRICT) | `context: seed-demo` |
+| `scripts/seed-auth.ts` | WalletConnection/ExchangeConnection/NotificationChannel | `context: seed-auth` |
+| `scripts/clear-demo-data.mjs` | Position | `context: clear-demo-data` |
+| `scripts/cleanup-wallets.ts` | WalletConnection | `context: cleanup-wallets` |
+| `scripts/cleanup-stress-wallets.js` | WalletConnection | `context: cleanup-stress-wallets` |
+| `scripts/reset-db.js` | Position (+ outras) | `context: reset-db` |
+| `scripts/backfill-consecutive-losses.js` | Position (leitura) | `context: backfill-consecutive-losses` |
+| `scripts/backfill-paper-cycle-attempts.js` | Position (leitura) | `context: backfill-paper-cycle-attempts` |
+
+Scripts de `test:ci` (`scripts/test-*.ts`) e `test:ci:local` rodam em banco
+descartável com superuser — **de propósito não têm guard**.
+
+### 8.3 Rodando com o owner (produção / manutenção)
+
+```bash
+# injeta a env de produção e usa o role de app -> deve ABORTAR (esperado)
+railway run --service auto-trader --environment production node scripts/lib/require-bypass-rls.mjs
+#
+# para operar de verdade, use a connection string do OWNER do Neon:
+DATABASE_URL='postgresql://neondb_owner:...@...neon.tech/neondb?sslmode=require' \
+  node scripts/clear-demo-data.mjs            # dry-run primeiro
+```
+
+### 8.4 Rollback / se algo der errado
+
+- Scripts de manutenção **não alteram schema**; rollback = desfazer os dados pelo
+  caminho inverso (ou restore de `scripts/restore-full.mjs` se houve deleção ampla).
+- Se o guard abortar por engano (role de operação sem bypass), conceda
+  `ALTER ROLE <role> BYPASSRLS;` (com o owner) — nunca rode com o app role.
+- Nunca use `SET session_replication_role = replica` como atalho: desliga triggers e
+  não é o mecanismo de RLS do projeto.
