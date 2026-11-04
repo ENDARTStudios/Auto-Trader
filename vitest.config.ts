@@ -5,6 +5,10 @@ import path from 'path';
 export default defineConfig({
   test: {
     globals: true,
+    // Evita o EnvironmentTeardownError intermitente ("Closing rpc while
+    // onUserConsoleLog was pending") que derrubava o job de coverage no CI
+    // quando um teste (ex.: data-real) logava durante o teardown do worker.
+    disableConsoleIntercept: true,
     // O SQLite de teste é único por run: arquivos em paralelo criam/limpam
     // posições ao mesmo tempo e quebram suites que assumem banco vazio.
     fileParallelism: false,

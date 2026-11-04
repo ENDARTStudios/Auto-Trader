@@ -79,6 +79,9 @@ export function LogsConsole({ logs, isLoading, className, maxHeight }: LogsConso
         ref={containerRef}
         className="console flex-1 mx-2 mb-2"
         style={{ maxHeight: maxHeight ?? 320 }}
+        role="region"
+        aria-label="Logs console"
+        tabIndex={0}
       >
         {isLoading && logs.length === 0 ? (
           <div className="text-center text-[10px] text-muted-foreground label-mono py-4">
