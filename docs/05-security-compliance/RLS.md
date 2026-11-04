@@ -115,6 +115,68 @@ node scripts/apply-rls-dev.mjs
 npx vitest run tests/rls-policies.test.ts
 ```
 
+## 9. Rollout do enforcement — role de app sem BYPASSRLS (rodada 5, 2026-11-04)
+
+> **Caveat descoberto em produção:** o role `neondb_owner` do Neon tem
+> `rolbypassrls = true` (e é owner das tabelas). RLS **não** se aplica a ele, então
+> as policies criadas na rodada 4 estavam **inertes** — medido por
+> `node scripts/verify-rls-enforcement.mjs` (**INERTE**, exit 1 com
+> `--expect-enforced`). `FORCE ROW LEVEL SECURITY` não resolve isso: FORCE só
+> alcança o **owner**; BYPASSRLS ignora RLS por completo.
+
+### 9.1 Criar/ajustar o role de aplicação (operador)
+
+```sql
+-- role de app: login, SEM superuser, SEM bypassrls
+CREATE ROLE app_rls LOGIN PASSWORD '<senha forte>' NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+GRANT CONNECT ON DATABASE <db> TO app_rls;
+GRANT USAGE ON SCHEMA public TO app_rls;
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_rls;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO app_rls;
+-- e para tabelas/sequências futuras criadas pelo owner:
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_rls;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT ON SEQUENCES TO app_rls;
+```
+
+Conferir (deve retornar `false, false`):
+
+```sql
+SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = 'app_rls';
+```
+
+### 9.2 Trocar o DATABASE_URL (sem mudar schema)
+
+1. Crie o role acima (as tabelas continuam pertencendo ao owner; FORCE RLS já está ligado).
+2. Atualize `DATABASE_URL` no provedor (Railway/Neon) para o novo role — **nunca** no git.
+3. Redeploy/reinício do app.
+4. Valide (deve sair **ENFORCED**, exit 0):
+
+```bash
+node scripts/verify-rls-enforcement.mjs --expect-enforced
+```
+
+> Se o Neon usar pooler (pgbouncer, transaction mode), `SET LOCAL`/`set_config(..., true)
+> continua funcionando porque o helper abre transação por request
+> (`src/lib/auth/rls-context.ts`). Evite `SET` de sessão em pooler transaction.
+
+### 9.3 Rollback
+
+Reverter é **só reverter o `DATABASE_URL`** para o role anterior e reiniciar — não
+há mudança de schema. Se o novo role não tiver grant suficiente, o app falha com
+permissão negada em tabela específica: conceda o grant (acima) em vez de voltar o role.
+Para desligar o enforcement como último recurso: voltar `DATABASE_URL` ao owner
+(volta a ser inerte — registrar decisão em `DECISOES.md`).
+
+### 9.4 Caveats
+
+- **Owner do Neon tem BYPASSRLS por definição** — não é configurável pelo usuário;
+  por isso o app não deve usar o owner.
+- O modo **sem contexto é permissivo** (compatibilidade de rollout). Enforcement total
+  passa a valer quando os call sites que consultam as 4 tabelas usarem
+  `withUserRls`/`withSystemRls`; até lá, o isolamento é o do app-layer (`withRLS`).
+- Verificação de enforcement precisa de linhas de **outros** usuários para ser
+  conclusiva; em banco vazio o script avisa "isolamento não distinguível".
+
 ## 8. Referências
 
 - Migração: `prisma/migrations/20260102000000_rls_policies/migration.sql`
