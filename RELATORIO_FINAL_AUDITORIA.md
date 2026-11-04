@@ -72,16 +72,20 @@ do operador (chaves, tokens, URLs) — não há implementação de código pende
 - Prisma: 5 migrations; database schema is up to date.
 - CI de main #41774981390: ci, e2e, e2e-meridian, codeql = success.
 
-## 4. Itens que dependem do operador (fora do código)
+## 4. Itens operacionais — status após configuração de 2026-11-04
 
-1. CD automático Railway: criar RAILWAY_TOKEN de projeto + RAILWAY_DEPLOY_ENABLED=true
-   (workflow deploy-railway.yml pronto e gated).
-2. Live trading: chaves de exchange (vault/env) + aprovação S14 (LIVE_TRADING_ENABLED,
-   S14_APPROVED, feature flag, graduation); o código já aplica todos os gates e falha fechado.
-3. Observabilidade/telemetria: SENTRY_DSN, REDIS_URL (rate limit distribuído/SSE).
-4. IA/embeddings: AI_PROVIDER/AI_API_KEY (ou OLLAMA_URL) e rodar scripts/reindex-embeddings.ts.
-5. E-mail: RESEND_API_KEY/EMAIL_FROM ou EMAIL_WEBHOOK_URL/TOKEN.
-6. Upload: montar volume persistente e definir UPLOAD_DIR (default /data/uploads).
+| Item | Status | Detalhe |
+|---|---|---|
+| Redis | **OK (local + produção)** | Local: container `autotrader-redis` com senha em 127.0.0.1:6380. Produção: serviço Railway `Redis`; `REDIS_URL` setado no app e validado com `REDIS_OK=ok` via SSH. |
+| Upload | **OK (local + produção)** | Local `UPLOAD_DIR=.local/uploads`; produção `UPLOAD_DIR=/data/uploads` no volume Railway; `GET /api/upload` = enabled/local-filesystem. |
+| IA/embeddings | **OK local** | Ollama local (llama3.2:1b + nomic-embed-text); chat e embedding 768 dims validados pelo código do app. Produção sem provider (503) até deploy de Ollama ou chave externa. |
+| E-mail | **OK local** | Sink de webhook local (127.0.0.1:9091) + token; `sendEmail` validado. Produção exige conta Resend ou endpoint próprio. |
+| Sentry | **LOCAL OK** | Sink local compatível com envelope HTTP (127.0.0.1:9090) com DSN gerado; eventos capturados. DSN de Sentry cloud exige conta. |
+| Live trading | **BLOQUEADO (operador)** | Chaves de exchange só o dono da conta cria; aprovação S14 pendente. Flags permanecem false. |
+| CD Railway | **BLOQUEADO (operador)** | `projectTokenCreate` via OAuth retorna Not Authorized; criar token no dashboard e salvar como secret `RAILWAY_TOKEN` + variable `RAILWAY_DEPLOY_ENABLED=true`. |
+
+Como subir os serviços locais após reboot: `pwsh -NoProfile -File .local/dev-services/start-local-services.ps1`.
+A suíte de testes ficou hermética ao `.env` local (`tests/setup-env.ts` remove apenas chaves de integração local).
 
 ## 5. Riscos/limitações residuais honestas
 
