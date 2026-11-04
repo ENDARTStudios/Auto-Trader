@@ -414,3 +414,12 @@
 - **E-mail transacional real**: `src/lib/notifications/email.ts` com Resend (`RESEND_API_KEY`/`EMAIL_FROM`) ou webhook (`EMAIL_WEBHOOK_URL`/`EMAIL_WEBHOOK_TOKEN`), timeout 5s, nunca lança; `/api/auth/forgot` envia de verdade e **não loga mais URL/token em produção** (vazamento corrigido), mantendo anti-enumeração e token só em dev/E2E; `.env.example` documenta todas as envs (upload/email/RAG).
 - **Gates**: tsc 0 (após `next typegen`) · eslint 0 · `vitest` **90 arquivos / 1256 pass / 1 skip** · build OK.
 - Pendente de operador: configurar provider de IA/e-mail/upload dir em produção e rodar o reindex; CD/live/Sentry/Redis seguem por credenciais.
+
+---
+
+## 15. Rodada 11 (2026-11-04) — honestidade dos dados demo e consolidação final
+
+- **Selo Demo data**: `isDemoDataPresent()` (posições `demo-pos-*` e rounds 9001–9005, lido com contexto de sistema por causa do RLS strict) agora alimenta `EngineSnapshot.demoData` (`/api/status`); o dashboard Meridian exibe o selo **Demo data** ao lado de *Paper* — números semeados por `scripts/seed-demo.ts` deixam de parecer operação real. Para remover: `npm run db:demo:clear -- --yes`.
+- **Docs alinhados ao código**: README (status real de RLS strict, IA/RAG real, upload real, e-mail real, signer ativo em produção, backup de restore provado, selo demo), PLANO_MESTRE 6.1 (upload deixou de ser stub; ClamAV/S3 marcados como não implementados; 6.2 fila já corrigida na rodada 9).
+- **Gates**: tsc 0 · eslint 0 · `vitest` (novo `tests/demo-data.test.ts` incluído) · build OK. Deploy em produção com verificação de `/api/status` (`demoData:true`) e do selo na UI.
+- **Estado do objetivo**: todas as falhas de código/segurança/dados do relatório foram corrigidas e os sistemas antes simulados (live gating, signer, ETL/OHLCV, IA/RAG, upload, e-mail, backup/restore) têm implementação real com degradação honesta. O que resta depende **exclusivamente de credenciais/decisões do operador** (CD Railway token, chaves S14 para live, `SENTRY_DSN`, `REDIS_URL`, `AI_API_KEY`, provider de e-mail, `UPLOAD_DIR` em volume) — não de código.

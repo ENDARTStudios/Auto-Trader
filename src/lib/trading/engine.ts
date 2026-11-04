@@ -57,6 +57,7 @@ import {
   validateEntryPrice,
 } from "./engine-correctness";
 import type { EngineSnapshot, ExitReason, LoopState } from "./types";
+import { isDemoDataPresent } from "@/lib/demo-data";
 
 // ---------------------------------------------------------------------------
 // Singleton state
@@ -1147,6 +1148,7 @@ export async function getEngineSnapshot(): Promise<EngineSnapshot> {
   const openCount = await withSystemRls((tx) =>
     tx.position.count({ where: { status: "open" } })
   );
+  const demoData = await isDemoDataPresent();
 
   const status: EngineSnapshot["status"] = cfg.killSwitchActive
     ? "killed"
@@ -1186,6 +1188,7 @@ export async function getEngineSnapshot(): Promise<EngineSnapshot> {
     killSwitchReason: cfg.killSwitchReason,
     currentRoundId: engine.getCurrentRoundId(),
     loopIteration: engine.getIteration(),
+    demoData,
   };
 }
 
