@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { listRecentAlerts, runSurveillance, resolveAlertsForPosition } from "@/lib/trading/position-surveillance";
 import { logger } from "@/lib/trading/logger";
 import { requireSession } from "@/lib/auth/session";
@@ -75,9 +76,12 @@ export async function POST(req: Request) {
     const body = parsed.data;
 
     if (body.action === "scan_now") {
-      const openPositions = await db.position.findMany({
-        where: { status: "open" },
-      });
+      // RLS (prep round 7): contexto do usuário que disparou o scan.
+      const openPositions = await withUserRls(session, (tx) =>
+        tx.position.findMany({
+          where: { status: "open" },
+        })
+      );
       if (openPositions.length === 0) {
         return NextResponse.json({
           ok: true,

@@ -1,8 +1,12 @@
 // src/lib/rag/graph.ts — Knowledge Graph builder (token → platform → chain)
 import { db } from '@/lib/db';
+import { withSystemRls } from '@/lib/auth/rls-context';
 
 export async function buildGraph(): Promise<{ nodes: Array<{ id: string; label: string; type: string }>; edges: Array<{ from: string; to: string; label: string; weight: number }> }> {
-  const positions = await db.position.findMany({ take: 20, select: { symbol: true, chain: true, source: true, scamScore: true } });
+  // RLS (prep round 7): builder de knowledge graph é rotina de SISTEMA.
+  const positions = await withSystemRls((tx) =>
+    tx.position.findMany({ take: 20, select: { symbol: true, chain: true, source: true, scamScore: true } })
+  );
   const scams = await db.scamReport.findMany({ take: 10, select: { symbol: true, chain: true, score: true, passed: true } });
   const market = await db.marketSnapshot.findMany({ take: 10, select: { symbol: true, chain: true, signalLabel: true } });
 

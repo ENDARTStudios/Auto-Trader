@@ -189,23 +189,33 @@ export async function deleteWallet(
 // Exchange CRUD
 // ---------------------------------------------------------------------------
 
-export async function listExchanges(): Promise<ExchangeConnectionRow[]> {
-  const rows = await db.exchangeConnection.findMany({
+export async function listExchanges(
+  client?: Prisma.TransactionClient,
+): Promise<ExchangeConnectionRow[]> {
+  // client = transação com contexto RLS (withUserRls/withSystemRls); default db.
+  // ExchangeConnection é STRICT (round 7): sem contexto o role de app vê 0.
+  const conn = client ?? db;
+  const rows = await conn.exchangeConnection.findMany({
     orderBy: { createdAt: "desc" },
   });
   return rows.map((r) => toExchangeRow(r)!).filter(Boolean);
 }
 
-export async function createExchange(input: {
-  label: string;
-  exchange: string;
-  apiKey: string;
-  apiSecret: string;
-  apiPassphrase?: string;
-  passphrase: string; // encryption passphrase (always required)
-  testnet?: boolean;
-  ipWhitelistConfigured?: boolean;
-}): Promise<ExchangeConnectionRow> {
+export async function createExchange(
+  input: {
+    label: string;
+    exchange: string;
+    apiKey: string;
+    apiSecret: string;
+    apiPassphrase?: string;
+    passphrase: string; // encryption passphrase (always required)
+    testnet?: boolean;
+    ipWhitelistConfigured?: boolean;
+    /** RLS: owner da conexão (obrigatório sob contexto de usuário). */
+    ownerId?: string | null;
+  },
+  client?: Prisma.TransactionClient,
+): Promise<ExchangeConnectionRow> {
   // SECURITY: enforce NO withdrawal permission at creation time
   const permissions = { read: true, trade: true, withdraw: false };
 
@@ -215,8 +225,10 @@ export async function createExchange(input: {
     ? encryptSecret(input.apiPassphrase, input.passphrase)
     : null;
 
-  const row = await db.exchangeConnection.create({
+  const conn = client ?? db;
+  const row = await conn.exchangeConnection.create({
     data: {
+      ownerId: input.ownerId ?? null,
       label: input.label,
       exchange: input.exchange,
       apiKeyEncrypted,
@@ -233,22 +245,32 @@ export async function createExchange(input: {
   return toExchangeRow(row)!;
 }
 
-export async function setExchangeActive(exchangeId: string, active: boolean): Promise<void> {
+export async function setExchangeActive(
+  exchangeId: string,
+  active: boolean,
+  client?: Prisma.TransactionClient,
+): Promise<void> {
+  const conn = client ?? db;
   if (active) {
-    await db.exchangeConnection.updateMany({
+    // RLS scopes this updateMany to the owner's rows when a user context is used.
+    await conn.exchangeConnection.updateMany({
       where: { isActive: true },
       data: { isActive: false },
     });
   }
-  await db.exchangeConnection.update({
+  await conn.exchangeConnection.update({
     where: { id: exchangeId },
     data: { isActive: active, lastUsedAt: new Date() },
   });
   logger.info("wallet", `Exchange ${exchangeId} ${active ? "activated" : "deactivated"}`);
 }
 
-export async function deleteExchange(exchangeId: string): Promise<void> {
-  await db.exchangeConnection.delete({ where: { id: exchangeId } });
+export async function deleteExchange(
+  exchangeId: string,
+  client?: Prisma.TransactionClient,
+): Promise<void> {
+  const conn = client ?? db;
+  await conn.exchangeConnection.delete({ where: { id: exchangeId } });
   logger.info("wallet", `Exchange ${exchangeId} deleted`);
 }
 

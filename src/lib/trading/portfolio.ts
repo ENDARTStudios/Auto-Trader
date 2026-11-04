@@ -22,6 +22,7 @@ import {
 } from "./paper-trader";
 import { recordFeeAuditLog } from "./fee-model";
 import { finalizeRoundPnl } from "./engine-correctness";
+import { withSystemRls } from "@/lib/auth/rls-context";
 import { recordPaperOrder, transitionPaperOrder } from "./paper-order-store";
 import type {
   ExitReason,
@@ -138,27 +139,31 @@ export async function openPosition(
     return null;
   }
 
-  const position = await db.position.create({
-    data: {
-      ownerId: resolvedOwnerId,
-      symbol: candidate.symbol,
-      tokenId: candidate.tokenId ?? null,
-      chain: candidate.chain ?? null,
-      source: candidate.source,
-      status: "open",
-      entryPriceUsd: entry,
-      entryAmountUsd: result.amountUsd,
-      entryQty: result.qty,
-      entryAt: new Date(),
-      takeProfitPrice: tp,
-      stopLossPrice: sl,
-      maxExitAt,
-      scamScore: scamReport.score,
-      scamBreakdown: JSON.stringify(scamReport.findings),
-      strategy,
-      roundId,
-    },
-  });
+  // RLS (prep round 7): Position será STRICT na round 8 — o engine é SISTEMA,
+  // então toda query de posição roda em contexto explícito de bypass.
+  const position = await withSystemRls((tx) =>
+    tx.position.create({
+      data: {
+        ownerId: resolvedOwnerId,
+        symbol: candidate.symbol,
+        tokenId: candidate.tokenId ?? null,
+        chain: candidate.chain ?? null,
+        source: candidate.source,
+        status: "open",
+        entryPriceUsd: entry,
+        entryAmountUsd: result.amountUsd,
+        entryQty: result.qty,
+        entryAt: new Date(),
+        takeProfitPrice: tp,
+        stopLossPrice: sl,
+        maxExitAt,
+        scamScore: scamReport.score,
+        scamBreakdown: JSON.stringify(scamReport.findings),
+        strategy,
+        roundId,
+      },
+    })
+  );
 
   // Persist the fee audit trail (this is what makes /api/fees non-zero).
   if (result.breakdown) {
@@ -229,7 +234,9 @@ export async function closePosition(
   currentPriceUsd: number,
   reason: ExitReason
 ): Promise<PositionRow | null> {
-  const pos = await db.position.findUnique({ where: { id: positionId } });
+  const pos = await withSystemRls((tx) =>
+    tx.position.findUnique({ where: { id: positionId } })
+  );
   if (!pos || pos.status !== "open") return null;
 
   const isLive = cfg.mode === "live" && cfg.graduatedToLive;
@@ -261,18 +268,20 @@ export async function closePosition(
   const pnlUsd = exitAmount - pos.entryAmountUsd;
   const pnlPct = (pnlUsd / pos.entryAmountUsd) * 100;
 
-  const updated = await db.position.update({
-    where: { id: positionId },
-    data: {
-      status: pnlUsd < 0 && reason === "stop_loss" ? "liquidated" : "closed",
-      exitPriceUsd: result.executedPriceUsd,
-      exitAmountUsd: exitAmount,
-      exitAt: new Date(),
-      exitReason: reason,
-      pnlUsd,
-      pnlPct,
-    },
-  });
+  const updated = await withSystemRls((tx) =>
+    tx.position.update({
+      where: { id: positionId },
+      data: {
+        status: pnlUsd < 0 && reason === "stop_loss" ? "liquidated" : "closed",
+        exitPriceUsd: result.executedPriceUsd,
+        exitAmountUsd: exitAmount,
+        exitAt: new Date(),
+        exitReason: reason,
+        pnlUsd,
+        pnlPct,
+      },
+    })
+  );
 
   // Persist the sell-leg fee audit trail.
   if (result.breakdown) {
@@ -348,10 +357,12 @@ export async function rebalanceRound(
   // Sum realized PnL for this round's closed positions and compute the split.
   // finalizeRoundPnl is pure + always returns a result: losing and break-even
   // rounds are valid outcomes, not early returns.
-  const positions = await db.position.findMany({
-    where: { roundId, status: { in: ["closed", "liquidated", "killed"] } },
-    select: { pnlUsd: true },
-  });
+  const positions = await withSystemRls((tx) =>
+    tx.position.findMany({
+      where: { roundId, status: { in: ["closed", "liquidated", "killed"] } },
+      select: { pnlUsd: true },
+    })
+  );
   const finalization = finalizeRoundPnl(
     positions.map((p) => p.pnlUsd),
     cfg.reservePct,

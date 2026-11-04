@@ -36,7 +36,8 @@ export async function GET(req: Request) {
     tradingSchedule,
   ] = await Promise.all([
     db.config.findFirst(),
-    db.position.findMany(),
+    // Position será STRICT (round 8) — backup é SISTEMA (rota já exige system:read).
+    withSystemRls((tx) => tx.position.findMany()),
     db.round.findMany(),
     db.appLog.findMany({ orderBy: { createdAt: "desc" }, take: 5000 }),
     db.scamReport.findMany(),

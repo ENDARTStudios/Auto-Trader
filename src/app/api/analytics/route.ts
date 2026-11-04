@@ -21,6 +21,7 @@
 
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/rbac";
 import { ForbiddenError } from "@/lib/auth/errors";
@@ -107,13 +108,16 @@ export async function GET(req: Request) {
     }
 
     // ----- Closed positions in range (for breakdowns) -----
-    const closedPositions = await db.position.findMany({
-      where: {
-        status: "closed",
-        exitAt: { gte: since },
-      },
-      orderBy: { exitAt: "asc" },
-    });
+    // RLS (prep round 7): posições no contexto do usuário (strict na round 8).
+    const closedPositions = await withUserRls(session, (tx) =>
+      tx.position.findMany({
+        where: {
+          status: "closed",
+          exitAt: { gte: since },
+        },
+        orderBy: { exitAt: "asc" },
+      })
+    );
 
     // ----- By symbol -----
     const bySymbolMap = new Map<
@@ -181,11 +185,13 @@ export async function GET(req: Request) {
     }
 
     // ----- Streaks (across all closed positions, not just range) -----
-    const allClosed = await db.position.findMany({
-      where: { status: "closed", exitAt: { not: null } },
-      orderBy: { exitAt: "asc" },
-      select: { pnlUsd: true },
-    });
+    const allClosed = await withUserRls(session, (tx) =>
+      tx.position.findMany({
+        where: { status: "closed", exitAt: { not: null } },
+        orderBy: { exitAt: "asc" },
+        select: { pnlUsd: true },
+      })
+    );
     let currentWinStreak = 0;
     let currentLossStreak = 0;
     let longestWinStreak = 0;

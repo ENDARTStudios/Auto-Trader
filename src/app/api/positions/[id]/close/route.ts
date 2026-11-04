@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { getConfig } from "@/lib/trading/config";
 import { closePosition } from "@/lib/trading/portfolio";
 import { fetchPricesBatch } from "@/lib/trading/price-feed";
@@ -15,8 +16,9 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let session;
   try {
-    await requirePermission("positions:write")(req);
+    session = await requirePermission("positions:write")(req);
   } catch (err) {
     return handleApiError(err, "POST /api/positions/[id]/close");
   }
@@ -24,7 +26,11 @@ export async function POST(
   const body = await req.json().catch(() => ({}));
   const operatorNote = String(body.note ?? "").slice(0, 500);
 
-  const position = await db.position.findUnique({ where: { id } });
+  // RLS (prep round 7): leitura no contexto do usuário (IDOR bloqueado quando
+  // Position virar STRICT). O closePosition() abaixo é rotina de sistema.
+  const position = await withUserRls(session, (tx) =>
+    tx.position.findUnique({ where: { id } })
+  );
   if (!position) {
     return NextResponse.json({ error: "Posição não encontrada" }, { status: 404 });
   }

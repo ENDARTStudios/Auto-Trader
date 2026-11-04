@@ -9,15 +9,21 @@ const fetchPricesBatch = vi.fn();
 const recordRiskEvent = vi.fn();
 const getConfig = vi.fn();
 
-vi.mock('@/lib/db', () => ({
-  db: {
+vi.mock('@/lib/db', () => {
+  // Round 7: schedule usa withSystemRls (contexto RLS explícito para Position).
+  // O tx mockado é o próprio objeto mock — $transaction(fn) apenas chama fn(tx).
+  const dbMock = {
     tradingSchedule: {
       findUnique: (...a: unknown[]) => scheduleFindUnique(...a),
       upsert: (...a: unknown[]) => scheduleUpsert(...a),
     },
     position: { findMany: (...a: unknown[]) => positionFindMany(...a) },
-  },
-}));
+    // tx mockado: withSystemRls chama tx.$queryRaw (tagged template) + fn(tx).
+    $queryRaw: async () => [],
+    $transaction: async (fn: (tx: unknown) => Promise<unknown>) => fn(dbMock),
+  };
+  return { db: dbMock };
+});
 vi.mock('@/lib/trading/config', () => ({ getConfig: (...a: unknown[]) => getConfig(...a) }));
 vi.mock('@/lib/trading/portfolio', () => ({ closePosition: (...a: unknown[]) => closePosition(...a) }));
 vi.mock('@/lib/trading/price-feed', () => ({ fetchPricesBatch: (...a: unknown[]) => fetchPricesBatch(...a) }));

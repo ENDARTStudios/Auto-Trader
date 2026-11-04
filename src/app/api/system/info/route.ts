@@ -31,8 +31,11 @@ export async function GET(req: Request) {
     tradingSchedules,
   ] = await Promise.all([
     db.config.count(),
-    db.position.count({ where: { status: "open" } }),
-    db.position.count({ where: { status: { in: ["closed", "killed", "liquidated"] } } }),
+    // Position será STRICT (round 8) — contagens de sistema.
+    withSystemRls((tx) => tx.position.count({ where: { status: "open" } })),
+    withSystemRls((tx) =>
+      tx.position.count({ where: { status: { in: ["closed", "killed", "liquidated"] } } })
+    ),
     db.round.count(),
     db.appLog.count(),
     db.scamReport.count(),

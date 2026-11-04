@@ -6,12 +6,14 @@ import { db, createPrismaClient } from '@/lib/db';
 import { withUserRls, withSystemRls, type RlsTransactionClient } from '@/lib/auth/rls-context';
 import type { SessionUser } from '@/lib/auth/session';
 import { listWallets, createWallet } from '@/lib/trading/wallet-manager';
+import { listExchanges, createExchange } from '@/lib/trading/wallet-manager';
 import { listChannels } from '@/lib/trading/notifier';
 
-// Round 6 — RLS STRICT fase 2: WalletConnection + NotificationChannel SEM a
-// cláusula permissiva 'sem contexto'. Com role NON-superuser: SELECT sem GUC =
-// 0 linhas; INSERT sem GUC = negado. Rotas/helpers precisam de contexto
-// explícito (withUserRls nas rotas; withSystemRls no engine/signer/boot).
+// Round 6/7 — RLS STRICT: WalletConnection + NotificationChannel (fase 2) e
+// ExchangeConnection (fase 3) SEM a cláusula permissiva 'sem contexto'. Com
+// role NON-superuser: SELECT sem GUC = 0 linhas; INSERT sem GUC = negado.
+// Rotas/helpers precisam de contexto explícito (withUserRls nas rotas;
+// withSystemRls no engine/signer/vault/boot). Position segue fase 1.
 
 const TEST_ROLE = 'autotrader_rls_test';
 const PREFIX = 'RLS6-';
@@ -27,6 +29,8 @@ let walletA = '';
 let walletB = '';
 let channelA = '';
 let channelB = '';
+let exchangeA = '';
+let exchangeB = '';
 
 function sessionFor(user: { id: string; email: string }, role: string): SessionUser {
   return { userId: user.id, email: user.email, role, isActive: true };
@@ -85,11 +89,16 @@ beforeAll(async () => {
   const chan = { type: 'telegram', config: JSON.stringify({ botToken: 'x', chatId: 'y' }), events: JSON.stringify([]) };
   channelA = (await db.notificationChannel.create({ data: { ...chan, ownerId: userA.id, name: PREFIX + 'CHAN-A' } })).id;
   channelB = (await db.notificationChannel.create({ data: { ...chan, ownerId: userB.id, name: PREFIX + 'CHAN-B' } })).id;
+
+  const exch = { exchange: 'binance', testnet: true, permissions: JSON.stringify({ read: true, trade: true, withdraw: false }) };
+  exchangeA = (await db.exchangeConnection.create({ data: { ...exch, ownerId: userA.id, label: PREFIX + 'EXCH-A' } })).id;
+  exchangeB = (await db.exchangeConnection.create({ data: { ...exch, ownerId: userB.id, label: PREFIX + 'EXCH-B' } })).id;
 }, 60_000);
 
 afterAll(async () => {
   try {
     await db.walletConnection.deleteMany({ where: { label: { startsWith: PREFIX } } });
+    await db.exchangeConnection.deleteMany({ where: { label: { startsWith: PREFIX } } });
     await db.notificationChannel.deleteMany({ where: { name: { startsWith: PREFIX } } });
     await db.user.deleteMany({ where: { id: { in: [userA?.id, userB?.id].filter(Boolean) as string[] } } });
   } catch {
@@ -107,7 +116,7 @@ afterAll(async () => {
   }
 });
 
-describe('RLS strict — WalletConnection + NotificationChannel', () => {
+describe('RLS strict — WalletConnection + NotificationChannel (fase 2)', () => {
   it('sem contexto: SELECT retorna 0 linhas (fase 2 strict)', async () => {
     const wallets = await rlsDb.walletConnection.findMany({ where: { label: { startsWith: PREFIX } } });
     const channels = await rlsDb.notificationChannel.findMany({ where: { name: { startsWith: PREFIX } } });
@@ -183,5 +192,134 @@ describe('RLS strict — helpers da aplicação continuam funcionando', () => {
     const names = channels.map((c) => c.name);
     expect(names).toContain(PREFIX + 'CHAN-A');
     expect(names).toContain(PREFIX + 'CHAN-B');
+  });
+});
+
+describe('RLS strict — ExchangeConnection (fase 3, round 7)', () => {
+  it('sem contexto: SELECT retorna 0 linhas', async () => {
+    const exchanges = await rlsDb.exchangeConnection.findMany({ where: { label: { startsWith: PREFIX } } });
+    expect(exchanges).toEqual([]);
+  });
+
+  it('sem contexto: INSERT é negado pela policy (WITH CHECK)', async () => {
+    await expect(
+      rlsDb.exchangeConnection.create({
+        data: { ownerId: userA.id, label: PREFIX + 'EXCH-NOCTX', exchange: 'binance', testnet: true },
+      }),
+    ).rejects.toBeTruthy();
+    const leaked = await db.exchangeConnection.findMany({ where: { label: PREFIX + 'EXCH-NOCTX' } });
+    expect(leaked.length).toBe(0);
+  });
+
+  it('contexto de user A: vê só A; INSERT cross-owner negado; INSERT próprio ok', async () => {
+    const session = sessionFor(userA, 'trader');
+    const exchanges = await withUserRls(
+      session,
+      (tx) => tx.exchangeConnection.findMany({ where: { label: { startsWith: PREFIX } } }),
+      rlsDb,
+    );
+    expect(exchanges.map((e) => e.id)).toEqual([exchangeA]);
+
+    await expect(
+      withUserRls(
+        session,
+        (tx) =>
+          tx.exchangeConnection.create({
+            data: { ownerId: userB.id, label: PREFIX + 'EXCH-CROSS', exchange: 'binance', testnet: true },
+          }),
+        rlsDb,
+      ),
+    ).rejects.toBeTruthy();
+
+    const created = await withUserRls(
+      session,
+      (tx) =>
+        tx.exchangeConnection.create({
+          data: { ownerId: userA.id, label: PREFIX + 'EXCH-OWN', exchange: 'binance', testnet: true },
+        }),
+      rlsDb,
+    );
+    expect(created.ownerId).toBe(userA.id);
+    await db.exchangeConnection.delete({ where: { id: created.id } });
+  });
+
+  it('withSystemRls (vault/engine) e super_admin (bypass) veem tudo', async () => {
+    const systemExchanges = await withSystemRls(
+      (tx) => tx.exchangeConnection.findMany({ where: { label: { startsWith: PREFIX } } }),
+      rlsDb,
+    );
+    expect(systemExchanges.length).toBe(2);
+    const superExchanges = await withUserRls(
+      sessionFor(userA, 'super_admin'),
+      (tx) => tx.exchangeConnection.findMany({ where: { label: { startsWith: PREFIX } } }),
+      rlsDb,
+    );
+    expect(superExchanges.length).toBe(2);
+  });
+
+  it('wallet-manager.listExchanges funciona com contexto de user e de sistema', async () => {
+    const session = sessionFor(userA, 'trader');
+    const userExchanges = await withUserRls(session, (tx) => listExchanges(tx), rlsDb);
+    const userIds = userExchanges.map((e) => e.id);
+    expect(userIds).toContain(exchangeA);
+    expect(userIds).not.toContain(exchangeB);
+
+    const systemExchanges = await withSystemRls((tx) => listExchanges(tx), rlsDb);
+    const systemIds = systemExchanges.map((e) => e.id);
+    expect(systemIds).toContain(exchangeA);
+    expect(systemIds).toContain(exchangeB);
+  });
+
+  it('wallet-manager.createExchange SEM contexto é negado; COM contexto de sistema funciona', async () => {
+    // Sem contexto: WITH CHECK rejeita (ownerId informado, app.user_id vazio).
+    await expect(
+      rlsDb.$transaction((tx: RlsTransactionClient) =>
+        createExchange(
+          {
+            label: PREFIX + 'EXCH-NOCREATE',
+            exchange: 'binance',
+            apiKey: 'k',
+            apiSecret: 's',
+            passphrase: 'p',
+            testnet: true,
+            ownerId: userA.id,
+          },
+          tx,
+        ),
+      ),
+    ).rejects.toBeTruthy();
+
+    const created = await withSystemRls(
+      (tx) =>
+        createExchange(
+          {
+            label: PREFIX + 'EXCH-SYSCREATE',
+            exchange: 'binance',
+            apiKey: 'k',
+            apiSecret: 's',
+            passphrase: 'p',
+            testnet: true,
+            ownerId: userA.id,
+          },
+          tx,
+        ),
+      rlsDb,
+    );
+    expect(created.label).toBe(PREFIX + 'EXCH-SYSCREATE');
+    await db.exchangeConnection.delete({ where: { id: created.id } });
+  });
+
+  it('wallet-manager.setExchangeActive/deleteExchange com contexto funcionam', async () => {
+    const session = sessionFor(userA, 'trader');
+    const temp = await db.exchangeConnection.create({
+      data: { ownerId: userA.id, label: PREFIX + 'EXCH-TOGGLE', exchange: 'binance', testnet: true },
+    });
+    const { setExchangeActive, deleteExchange } = await import('@/lib/trading/wallet-manager');
+    await withUserRls(session, (tx) => setExchangeActive(temp.id, true, tx), rlsDb);
+    const active = await db.exchangeConnection.findUnique({ where: { id: temp.id } });
+    expect(active?.isActive).toBe(true);
+    await withUserRls(session, (tx) => deleteExchange(temp.id, tx), rlsDb);
+    const gone = await db.exchangeConnection.findUnique({ where: { id: temp.id } });
+    expect(gone).toBeNull();
   });
 });
