@@ -66,7 +66,7 @@ export function LogsFeed({
         <CardTitle>Activity Logs ({logs.length})</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="max-h-[600px] overflow-y-auto font-mono text-xs space-y-0.5">
+        <div className="max-h-[600px] overflow-y-auto font-mono text-xs space-y-0.5" tabIndex={0}>
           {logs.map((l) => (
             <div
               key={l.id}

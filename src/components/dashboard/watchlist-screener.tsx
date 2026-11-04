@@ -111,7 +111,7 @@ export function WatchlistScreener({ rows, isLoading, className }: WatchlistScree
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto" style={{ maxHeight: 360 }}>
+      <div className="flex-1 overflow-auto" style={{ maxHeight: 360 }} role="region" aria-label="Watchlist table" tabIndex={0}>
         <table className="portfolio-table">
           <thead>
             <tr>

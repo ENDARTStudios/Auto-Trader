@@ -394,3 +394,13 @@
 
 ### 12.3 Gates finais (rodada 8)
 - `tsc` 0 · `eslint` 0 · `vitest` **83 arquivos / 1161 pass / 1 skip** · auditor RLS exit 0 · CI verde · PR #111 e (round 8) mergeados em `main`.
+
+---
+
+## 13. Rodada 9 (2026-11-04) — backup/restore provado, E2E, a11y e cobertura do motor
+
+- **Backup/restore E2E real (Docker)**: scripts/backup-restore-e2e.mjs roda pg_dump -Fc + pg_restore em containers postgres:16 contra o Postgres local (host.docker.internal), banco descartável, compara TODAS as tabelas e limpa. Resultado: **PASS — 34/34 tabelas e 2410/2410 linhas idênticas**. O teste revelou e corrigiu: restore quebrava por GRANT a roles efêmeras (dump agora --no-acl, com nota de DR) e tabelas voláteis (classificação explícita). Scripts ganharam PG_DUMP_BIN/PG_RESTORE_BIN (Windows/Docker) e BACKUP_DR.md §7.
+- **E2E Playwright em banco isolado**: main **49/52** e Meridian **12/13**; 2 falhas eram **a11y real** (scrollable-region-focusable serious) e 1 flake de transporte. **Corrigido no app**: tabIndex={0} (+ role/aria onde aplicável) em 12 regiões roláveis de tabelas/painéis; spec a11y-dashboard re-executada contra o build standalone → **1 passed, axe evidence []**. Meridian 1 falha é o copilot ledger dependente de provider LLM (sem key no ambiente).
+- **Fila**: o bullmq-stub era **dead code** (0 callers de produção; só um teste) e foi **removido** (stub + teste). Fila assíncrona real (BullMQ+Redis) **não implementada** — documentado em SECURITY/PLANO_MESTRE/README; não recriar stub.
+- **Cobertura do motor**: +51 testes determinísticos (mocks de db/RLS, fake timers): portfolio.ts 2%→**100%**, performance-snapshot.ts 0→**100%**, engine.ts 0→15%, engine-correctness 100%. Global: lines **64,46% → 67,24%**, funcs 68,30% → **71,06%**.
+- **Gates**: tsc 0 · eslint 0 · vitest **85 arquivos / 1205 pass / 1 skip** · build OK · a11y spec verde · backup E2E exit 0.

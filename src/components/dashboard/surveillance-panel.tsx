@@ -176,7 +176,7 @@ export function SurveillancePanel({ alerts, counts, isLoading }: Props) {
               Nenhum alerta de vigilância ativo. Posições sob controle.
             </div>
           ) : (
-            <div className="space-y-2 max-h-[600px] overflow-y-auto">
+            <div className="space-y-2 max-h-[600px] overflow-y-auto" tabIndex={0}>
               {alerts.map((a) => {
                 const meta = TYPE_META[a.type];
                 const Icon = meta.icon;

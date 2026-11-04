@@ -26,6 +26,14 @@ const DRY_RUN = args.includes('--dry-run');
 const DIR = resolve(process.env.BACKUP_DIR || 'backups');
 const RETENTION_DAYS = Number(process.env.BACKUP_RETENTION_DAYS || 7);
 const PREFIX = 'auto-trader-';
+// Binário configurável: no Windows (sem cliente PostgreSQL no PATH) aponte para
+// um pg_dump.exe, um wrapper (ex.: docker/psql shim) ou use o E2E via Docker.
+const PG_DUMP_BIN = process.env.PG_DUMP_BIN || 'pg_dump';
+const USING_CUSTOM_BIN = Boolean(process.env.PG_DUMP_BIN);
+const MISSING_BIN_HINT =
+  'pg_dump não encontrado. Opções: (a) instale o cliente PostgreSQL e/ou defina ' +
+  'PG_DUMP_BIN=/caminho/pg_dump(.exe); (b) no Windows sem cliente, use o teste/E2E via ' +
+  'Docker: node scripts/backup-restore-e2e.mjs.';
 
 function log(m) { console.log('[backup-full] ' + m); }
 function fail(m) { console.error('[backup-full] ERRO: ' + m); process.exit(1); }
@@ -58,12 +66,15 @@ const pgEnv = Object.assign({}, process.env, {
 if (conn.password) pgEnv.PGPASSWORD = conn.password;
 
 if (CHECK) {
-  const which = spawnSync('pg_dump', ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' });
+  const which = spawnSync(PG_DUMP_BIN, ['--version'], {
+    encoding: 'utf8',
+    shell: USING_CUSTOM_BIN ? false : process.platform === 'win32',
+  });
   const ok = which.status === 0;
   log('host=' + conn.host + ' port=' + conn.port + ' db=' + conn.database + ' user=' + conn.user + ' (senha omitida)');
-  log('pg_dump: ' + (ok ? String(which.stdout).trim() : 'NAO ENCONTRADO no PATH'));
+  log('pg_dump: ' + PG_DUMP_BIN + ' -> ' + (ok ? String(which.stdout).trim() : 'NAO ENCONTRADO/executável'));
   log('destino=' + DIR + ' retencao=' + RETENTION_DAYS + 'd');
-  if (!ok) fail('instale o cliente PostgreSQL (pg_dump) para habilitar backup real.');
+  if (!ok) fail(MISSING_BIN_HINT);
   log('check ok');
   process.exit(0);
 }
@@ -79,13 +90,14 @@ if (DRY_RUN) {
 mkdirSync(DIR, { recursive: true });
 log('dump de ' + conn.database + '@' + conn.host + ':' + conn.port + ' -> ' + file);
 const dump = spawnSync(
-  'pg_dump',
+  PG_DUMP_BIN,
   ['--format=custom', '--no-password', '--file=' + file],
-  { env: pgEnv, encoding: 'utf8', shell: process.platform === 'win32' },
+  { env: pgEnv, encoding: 'utf8', shell: USING_CUSTOM_BIN ? false : process.platform === 'win32' },
 );
+if (dump.error && dump.error.code === 'ENOENT') fail(MISSING_BIN_HINT);
 if (dump.status !== 0) {
   console.error(String(dump.stderr || '').trim().slice(-2000));
-  fail('pg_dump falhou com exit ' + dump.status);
+  fail('pg_dump (' + PG_DUMP_BIN + ') falhou com exit ' + dump.status);
 }
 if (!existsSync(file) || statSync(file).size === 0) fail('dump gerado está vazio: ' + file);
 

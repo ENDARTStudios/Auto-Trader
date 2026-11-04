@@ -21,6 +21,15 @@ function value(name) {
 function log(m) { console.log('[restore-full] ' + m); }
 function fail(m) { console.error('[restore-full] ERRO: ' + m); process.exit(1); }
 
+// Binário configurável (ver backup-full.mjs). No Windows sem cliente PostgreSQL,
+// use PG_RESTORE_BIN ou o E2E via Docker: node scripts/backup-restore-e2e.mjs.
+const PG_RESTORE_BIN = process.env.PG_RESTORE_BIN || 'pg_restore';
+const USING_CUSTOM_BIN = Boolean(process.env.PG_RESTORE_BIN);
+const MISSING_BIN_HINT =
+  'pg_restore não encontrado. Opções: (a) instale o cliente PostgreSQL e/ou defina ' +
+  'PG_RESTORE_BIN=/caminho/pg_restore(.exe); (b) no Windows sem cliente, use o E2E via ' +
+  'Docker: node scripts/backup-restore-e2e.mjs.';
+
 const file = value('file');
 if (!file) fail('informe --file <dump> (gerado por scripts/backup-full.mjs)');
 const dumpPath = resolve(file);
@@ -44,9 +53,12 @@ log('dump: ' + dumpPath + ' (' + size + ' bytes)');
 log('alvo parece PRODUCAO: ' + (looksProduction ? 'SIM' : 'nao'));
 
 if (flag('check')) {
-  const which = spawnSync('pg_restore', ['--version'], { encoding: 'utf8', shell: process.platform === 'win32' });
-  log('pg_restore: ' + (which.status === 0 ? String(which.stdout).trim() : 'NAO ENCONTRADO no PATH'));
-  if (which.status !== 0) fail('instale o cliente PostgreSQL (pg_restore).');
+  const which = spawnSync(PG_RESTORE_BIN, ['--version'], {
+    encoding: 'utf8',
+    shell: USING_CUSTOM_BIN ? false : process.platform === 'win32',
+  });
+  log('pg_restore: ' + PG_RESTORE_BIN + ' -> ' + (which.status === 0 ? String(which.stdout).trim() : 'NAO ENCONTRADO/executável'));
+  if (which.status !== 0) fail(MISSING_BIN_HINT);
   log('check ok — nada foi escrito');
   process.exit(0);
 }
@@ -69,9 +81,10 @@ env.PGDATABASE = database;
 
 log('iniciando pg_restore...');
 const res = spawnSync(
-  'pg_restore',
+  PG_RESTORE_BIN,
   ['--no-password', '--no-owner', '--exit-on-error', '--dbname=' + database, dumpPath],
-  { env: env, encoding: 'utf8', stdio: ['ignore', 'inherit', 'inherit'], shell: process.platform === 'win32' },
+  { env: env, encoding: 'utf8', stdio: ['ignore', 'inherit', 'inherit'], shell: USING_CUSTOM_BIN ? false : process.platform === 'win32' },
 );
-if (res.status !== 0) fail('pg_restore falhou com exit ' + res.status);
+if (res.error && res.error.code === 'ENOENT') fail(MISSING_BIN_HINT);
+if (res.status !== 0) fail('pg_restore (' + PG_RESTORE_BIN + ') falhou com exit ' + res.status);
 log('restore concluído. Valide com: curl -fsS <base>/api/health/ready');

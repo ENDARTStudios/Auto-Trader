@@ -90,7 +90,7 @@ export function RoundsTable({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+        <div className="overflow-x-auto max-h-[600px] overflow-y-auto" tabIndex={0}>
           <table className="w-full text-sm">
             <thead className="sticky top-0 bg-card">
               <tr className="text-left text-muted-foreground border-b">

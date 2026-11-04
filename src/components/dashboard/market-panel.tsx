@@ -186,7 +186,7 @@ export function MarketPanel({ data, isLoading }: Props) {
               </AlertDescription>
             </Alert>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0}>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-left border-b">
