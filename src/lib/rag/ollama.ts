@@ -1,30 +1,24 @@
-// src/lib/rag/ollama.ts — Ollama nomic-embed-text with fallback to hash mock
-import { generateEmbedding } from './embeddings';
+// src/lib/rag/ollama.ts — DEPRECATED shim
+//
+// Round 10: embeddings reais agora vivem em src/lib/ai/provider.ts (embedText),
+// usado pelo RAG em src/lib/rag/embeddings.ts (embedTextForRag). Esta função é
+// mantida apenas por compatibilidade de assinatura e delega ao provider.
+// Sem provider em dev/test, cai no hash determinístico (fallback explícito);
+// em produção sem provider propaga AIUnavailableError (nunca hash silencioso).
+import { AIUnavailableError, embedText } from '@/lib/ai/provider';
+import { generateEmbedding, isHashFallbackAllowed } from './embeddings';
 
 export async function generateEmbeddingOllama(text: string): Promise<number[]> {
-  const url = process.env.OLLAMA_URL ?? 'http://localhost:11434';
-  const model = process.env.OLLAMA_MODEL ?? 'nomic-embed-text';
   try {
-    const res = await fetch(`${url}/api/embed`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, input: text }),
-    });
-    if (!res.ok) throw new Error(`Ollama ${res.status}`);
-    const data = (await res.json()) as { embeddings: number[][] };
-    const emb = data.embeddings?.[0];
-    if (emb && emb.length > 0) {
-      // Ollama nomic-embed-text is 768 dims, pad or truncate to 1536 for compatibility with mock
-      if (emb.length === 1536) return emb;
-      if (emb.length === 768) {
-        // Duplicate to 1536 for mock compatibility
-        return [...emb, ...emb];
-      }
-      return emb;
+    const res = await embedText([text]);
+    const vector = res.vectors[0];
+    if (Array.isArray(vector) && vector.length > 0) return vector;
+    throw new Error('provider devolveu embedding vazio');
+  } catch (err) {
+    if (err instanceof AIUnavailableError) {
+      if (!isHashFallbackAllowed()) throw err;
+      return generateEmbedding(text);
     }
-    throw new Error('No embeddings');
-  } catch {
-    // Fallback to hash mock (dev without ollama)
-    return generateEmbedding(text);
+    throw err;
   }
 }

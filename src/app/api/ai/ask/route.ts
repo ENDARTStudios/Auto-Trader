@@ -7,7 +7,7 @@ import { handleApiError } from '@/lib/api/error-handler';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { askRag } from '@/lib/rag/pipeline';
 import { buildEvidenceLedger } from '@/lib/rag/evidence';
-import { chatCompletion, getAIStatus, AIUnavailableError } from '@/lib/ai/provider';
+import { getAIStatus, AIUnavailableError } from '@/lib/ai/provider';
 import { recordSuccess, recordError } from '@/lib/trading/source-health';
 
 const schema = z.object({ question: z.string().min(3).max(500) });
@@ -17,12 +17,6 @@ function getClientIp(req: Request): string {
   if (xff) return xff.split(',')[0].trim();
   return 'unknown';
 }
-
-const SYSTEM_PROMPT =
-  'Você é o analista do Auto Trader (bot de cripto em paper-trading). ' +
-  'Responda em português, curto e direto, USANDO APENAS o contexto citado. ' +
-  'Se o contexto não bastar, diga explicitamente o que falta — nunca invente números. ' +
-  'Não dê conselho financeiro pessoal; descreva risco e evidência.';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,8 +31,7 @@ export async function POST(req: Request) {
     const parsed = schema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: 'validation_error', details: parsed.error.flatten() }, { status: 400 });
 
-    // Sem provider real configurado -> 503 explícito. Nada de resposta "mock LLM"
-    // apresentada como análise (era o comportamento antigo de askRag).
+    // Sem provider real configurado -> 503 explícito (nada de resposta "mock LLM").
     const status = getAIStatus();
     if (!status.configured) {
       return NextResponse.json(
@@ -47,17 +40,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const result = await askRag(parsed.data.question);
-    const evidence = buildEvidenceLedger(result.answer, result.citations);
-
-    let answer = result.answer;
+    // UMA chamada real ao provider (dentro de askRag). O evidence ledger é gerado
+    // a partir da RESPOSTA REAL — antes ele era montado sobre o texto mock.
+    let result: Awaited<ReturnType<typeof askRag>>;
     try {
-      const completion = await chatCompletion({
-        system: SYSTEM_PROMPT,
-        user: `CONTEXTO INDEXADO:\n${result.context || '(vazio)'}\n\nPERGUNTA: ${parsed.data.question}`,
-        temperature: 0.2,
-      });
-      answer = completion.content;
+      result = await askRag(parsed.data.question);
       await recordSuccess('zai');
     } catch (err) {
       if (err instanceof AIUnavailableError) {
@@ -70,13 +57,15 @@ export async function POST(req: Request) {
       throw err;
     }
 
+    const evidence = buildEvidenceLedger(result.answer, result.citations);
+
     return NextResponse.json({
-      answer,
+      answer: result.answer,
       citations: result.citations,
       context: result.context,
       evidence,
-      provider: status.provider,
-      model: status.model,
+      provider: result.provider,
+      model: result.model,
     });
   } catch (err) {
     return handleApiError(err, 'POST /api/ai/ask');

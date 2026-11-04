@@ -37,7 +37,7 @@ function clearAIEnv() {
 describe('AI provider — sem configuração', () => {
   it('getAIStatus() => configured false e getAIProvider() lança AIUnavailableError', () => {
     clearAIEnv();
-    expect(getAIStatus()).toEqual({ configured: false, provider: null, model: null });
+    expect(getAIStatus()).toEqual({ configured: false, provider: null, model: null, embeddingModel: null });
     try {
       getAIProvider();
       throw new Error('deveria ter lançado');
@@ -70,7 +70,7 @@ describe('AI provider — OpenAI-compatible', () => {
     );
 
     const status = getAIStatus();
-    expect(status).toEqual({ configured: true, provider: 'openai', model: 'gpt-4o-mini' });
+    expect(status).toEqual({ configured: true, provider: 'openai', model: 'gpt-4o-mini', embeddingModel: 'text-embedding-3-small' });
 
     const res = await chatCompletion({ system: 'sys', user: 'usr', json: true });
     expect(res.content).toBe('RECOMMENDATION: hold');
@@ -131,7 +131,7 @@ describe('AI provider — Ollama', () => {
     );
 
     const status = getAIStatus();
-    expect(status).toEqual({ configured: true, provider: 'ollama', model: 'llama3.1' });
+    expect(status).toEqual({ configured: true, provider: 'ollama', model: 'llama3.1', embeddingModel: 'nomic-embed-text' });
 
     const res = await chatCompletion({ system: 'sys', user: 'usr', json: true });
     expect(res.provider).toBe('ollama');
