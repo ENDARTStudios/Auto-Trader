@@ -1,7 +1,7 @@
 # PREVIEW_DEPLOYMENT — Validando um PR Antes do Merge
 
 > **Versão:** 1.0 — 2026-09-23
-> **Realidade atual:** não há preview por-PR hospedado (Vercel/Netlify não usados — engine long-running). O "preview" é **CI completo + ambiente local/Docker do revisor**. Staging real é Fase 9.1.6 (job stub no CI — [ROADMAP.md](./ROADMAP.md)).
+> **Realidade atual (2026-11-04):** não há preview por-PR hospedado — a Vercel foi **desconectada** (custo de Build CPU Minutes; projeto/avatar mantidos). O preview é CI + ambiente local/Docker do revisor. Staging real é Fase 9.1.6 (job stub no CI — [ROADMAP.md](./ROADMAP.md)).
 
 ---
 
