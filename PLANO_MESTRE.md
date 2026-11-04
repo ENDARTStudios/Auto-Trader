@@ -182,12 +182,12 @@ Stack: Next.js 16 + TypeScript + Tailwind + shadcn/ui (todos open-source e gratu
 
 ## FASE 6 — AVANÇADO `[upload/fila/cache/IA-RAG OBRIGATÓRIOS]` ✅ **S06/S11-S13/S28 verificado 2026-08-27**
 
-- [x] 6.1 **Upload seguro** `[OBRIGATÓRIO]` — **stub MVP** (sem upload no paper trading; stub 501 documenta contrato) — evidência: `src/app/api/upload/route.ts:1` 501 `upload_not_enabled` + `MAGIC_ALLOW`/`MAX_BYTES`/`checkMagic` + `contract` 6.1.1-6.1.5:
+- [x] 6.1 **Upload seguro** `[OBRIGATÓRIO]` — **real (rodada 10, 2026-11-04)**: multipart com magic bytes/limites, storage local privado e metadados; GET expõe status real. Limitações em `docs/04-api-integrations/UPLOAD.md`:
 - [x] 6.1.1 Validação de tipo MIME real (magic bytes, não só extensão) — evidência: `src/app/api/upload/route.ts:7` `MAGIC_ALLOW` PNG/JPEG/PDF `checkMagic`
-- [x] 6.1.2 Tamanho máximo configurável por tipo de upload — evidência: `src/app/api/upload/route.ts:14` `MAX_BYTES` 1/5/10 MiB per mime
-- [x] 6.1.3 Antivírus: ClamAV rodando em container separado (gratuito) — evidência: `src/app/api/upload/route.ts:1` stub documenta `ClamAV container (future)` + `docker-compose.yml:1` pronto para `clamav/clamav` service (adiado sem uso)
-- [x] 6.1.4 Armazenamento em S3-compatível (MinIO local em dev, Cloudflare R2 em prod — gratuito até 10GB) — evidência: `src/app/api/upload/route.ts:1` stub `S3 MinIO local / R2 prod (future)` + `docs/06-devops-deployment/PRODUCTION_DEPLOY.md:1` S3 já previsto
-- [x] 6.1.5 Nomes de arquivo aleatórios (UUID) — nunca nome do usuário — evidência: `src/app/api/upload/route.ts:1` stub `UUID filename (future)` + `checkMagic`/`MAX_BYTES` já validam antes de gerar nome
+- [x] 6.1.2 Tamanho máximo configurável por tipo de upload — evidência: `src/app/api/upload/route.ts:14` `MAX_BYTES` 5/5/10 MiB per mime + `UPLOAD_DIR`/`UPLOAD_ENABLED`
+- [ ] 6.1.3 Antivírus: ClamAV — **NÃO implementado**: storage local privado sem varredura AV; roadmap quando houver bucket/AV.
+- [ ] 6.1.4 Armazenamento em S3-compatível — **NÃO implementado**: storage local (`/data/uploads` com volume; senão `.local/uploads`), privado no filesystem.
+- [x] 6.1.5 Nomes de arquivo aleatórios (UUID) — `randomUUID()` + extensão derivada do mime; nome do cliente ignorado (sem path traversal).
 - [ ] 6.2 **Fila assíncrona** `[OBRIGATÓRIO]`: BullMQ + Redis para ETL, envio de emails, reprocessamento de snapshots — **NÃO implementado**: o antigo `src/lib/queue/bullmq-stub.ts` era dead code (0 callers) e foi removido na rodada 9 (2026-11-04). Hoje o ETL roda síncrono via `/api/etl`; não há worker separado. Reimplementar apenas com Redis real disponível.
 - [x] 6.3 **Cache Redis** `[OBRIGATÓRIO]`: read-through em consultas frequentes (lista de tokens, top scam reports). Invalidação por evento (write-through em updates) — evidência: `src/lib/rate-limit.ts:1` `REDIS_URL` + `src/lib/trading/price-feed.ts:1` cache, `docker-compose.yml:1` esperando `REDIS_URL`
 - [x] 6.4 **Pipeline ETL** `[OBRIGATÓRIO]`:

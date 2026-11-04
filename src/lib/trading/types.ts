@@ -100,6 +100,8 @@ export interface EngineSnapshot {
   // Round
   currentRoundId: number | null;
   loopIteration: number;
+  // Dados semeados por scripts/seed-demo.ts (posições demo-pos-*/rounds 9001-9005)
+  demoData: boolean;
 }
 
 export interface PositionRow {

@@ -75,6 +75,14 @@ export function OverviewView() {
     queryFn: () => apiGet<InsightRow[]>("/api/ai-insights?limit=1"),
     retry: 0,
   });
+  // Selo honesto de dados demo (seed-demo): números fabricados não devem parecer
+  // operação real. /api/status calcula com contexto de sistema (RLS strict).
+  const demoFlag = useQuery<{ demoData?: boolean }>({
+    queryKey: ["mrd", "demo-flag"],
+    queryFn: () => apiGet<{ demoData?: boolean }>("/api/status"),
+    refetchInterval: 60_000,
+    retry: 0,
+  });
 
   const running = status.data?.runtime === "RUNNING";
 
@@ -128,6 +136,7 @@ export function OverviewView() {
             <h1 className="mrd-title">Mission control</h1>
             <span className="mrd-status">
               <Badge tone="warn">Paper</Badge>
+              {demoFlag.data?.demoData ? <Badge tone="brand">Demo data</Badge> : null}
               <span className="mrd-dim" style={{ fontSize: 12 }} aria-live="polite">
                 {status.isLoading
                   ? "Checking engine…"

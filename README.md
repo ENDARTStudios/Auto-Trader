@@ -90,11 +90,15 @@ npm run test:ci:local -- --keep                # mantém o banco para inspeção
 | Trading paper (engine, sizing, risco, exit) | Funcional; engine parado por padrão |
 | Execução live | **Implementada e desligada**. Gate: `mode=live` + `graduatedToLive` + kill switch off + `LIVE_TRADING_ENABLED=true` + `S14_APPROVED=true` + feature flag `enable_live_trading`. Credenciais hoje retornam `LIVE_CREDS_NOT_CONFIGURED` |
 | Auth | Sessão assinada (HMAC) + CSRF + RBAC + RLS; cookie forjado → 401; sem `SESSION_SECRET` é fail-closed |
-| Observabilidade | Sentry por envelope HTTP (sem SDK) se `SENTRY_DSN`; rate limit por processo ou distribuído com `REDIS_URL` |
-| Backup | `scripts/backup-full.mjs` (pg_dump custom) + `scripts/restore-full.mjs` (ver docs/BACKUP_DR) |
+| Observabilidade | Sentry por envelope HTTP (sem SDK) se `SENTRY_DSN`; rate limit por processo ou distribuído com `REDIS_URL`. Sem as envs: no-op/log local (não finge telemetria) |
+| RLS (multi-tenant) | **Strict nas 4 tabelas** com `ownerId` (Position, WalletConnection, ExchangeConnection, NotificationChannel): sem contexto = 0 linhas; super_admin/engine usam `withUserRls`/`withSystemRls`. Role de app `autotrader_app` sem BYPASSRLS |
+| Backup | `scripts/backup-full.mjs` + `scripts/restore-full.mjs`; restore **provado E2E** (Docker pg_dump/pg_restore, 34 tabelas/2410 linhas) — `docs/06-devops-deployment/BACKUP_DR.md` |
+| IA/RAG | Provider real (OpenAI-compatible/Ollama) para chat **e embeddings**; sem provider → 503 explícito (sem “mock LLM”); `scripts/reindex-embeddings.ts` após configurar |
+| Upload | **Real** em storage local privado (`UPLOAD_DIR`, default `/data/uploads` ou `.local/uploads`), magic bytes + limites + UUID; sem ClamAV/S3 (documentado em `docs/04-api-integrations/UPLOAD.md`) |
+| E-mail | Transacional real (Resend ou webhook); reset de senha envia de verdade e **não loga token em produção**; sem credencial → `EMAIL_NOT_CONFIGURED` registrado |
 | Deploy | **Railway** é o host canônico; deploy **manual** (`railway up`). CD automático existe (`deploy-railway.yml`) mas está **desligado** até o operador criar `RAILWAY_TOKEN` + `RAILWAY_DEPLOY_ENABLED=true` — cheque com `node scripts/verify-cd-config.mjs` |
-| Signer (processo separado) | Empacotado por `scripts/build-signer.mjs` em `.next/standalone/signer.js`. **Default desligado**: só sobe com `SIGNER_SPAWN=1`; status em produção hoje é `configured=false` |
-| Demo data | `scripts/seed-demo.ts` (ids fixos) + `npm run db:demo:clear` (dry-run por padrão, `--yes` para apagar) |
+| Signer (processo separado) | Empacotado por `scripts/build-signer.mjs` em `.next/standalone/signer.js`. Sobe com `SIGNER_SPAWN=1`; **em produção** `/api/signer/health` = configured/reachable/ready com protocolo 1.1.0-m2 |
+| Demo data | `scripts/seed-demo.ts` (ids fixos) + `npm run db:demo:clear` (dry-run por padrão, `--yes` para apagar). Quando há dados demo, o dashboard Meridian mostra o selo **Demo data** (números fabricados não parecem operação real) |
 
 ## Deploy (Railway)
 
