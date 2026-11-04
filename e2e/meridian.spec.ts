@@ -107,6 +107,36 @@ test("MFA: painel de setup mostra segredo e campo de código", async ({ page }) 
 });
 
 test("copilot mostra ledger de evidências da resposta", async ({ page }) => {
+  // Determinístico: NÃO depende de provider LLM/AI_API_KEY no ambiente (a CI não
+  // tem chave e o /api/ai/ask devolve 503). O corpo abaixo replica o contrato
+  // real da rota (answer/citations/context/evidence) para exercitar a UI do
+  // ledger de evidências de forma estável.
+  await page.route("**/api/ai/ask", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        answer: "O drawdown atual é 4,2%, conforme a curva auditada.",
+        citations: [
+          {
+            entityType: "PerformanceSnapshot",
+            entityId: "8001",
+            score: 0.91,
+            content: "drawdown 4.2% em 2026-11-01",
+          },
+        ],
+        context: "[PerformanceSnapshot:8001 score=0.910] drawdown 4.2% em 2026-11-01",
+        evidence: {
+          verdict: "grounded",
+          claims: [{ raw: "4,2%", value: 4.2, kind: "percent", supported: true }],
+          unsupportedCount: 0,
+          citationCount: 1,
+        },
+        provider: "e2e-stub",
+        model: "e2e",
+      }),
+    });
+  });
   await page.goto("/copilot");
   await expect(page.locator(".mrd-title")).toContainText("Copilot", { timeout: 20_000 });
   await page.fill(".mrd-compose textarea", "drawdown atual?");

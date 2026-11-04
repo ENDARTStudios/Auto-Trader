@@ -2086,25 +2086,19 @@ Removing this db.positionAlert.create call means no UI alert is shown.
 
 ## REG-014: Sentry + Ollama + BullMQ stubs (S28)
 
-**Date:** 2026-08-30 (S28 � observability stack stubs)
+**Date:** 2026-08-30 (S28 — observability stack; atualizado na rodada 12, 2026-11-04)
 
-**Test:** 	ests/bullmq-sentry-ollama.test.ts (7/7 PASS).
+**Rule 1 (Sentry sem SDK):** o error tracking usa transporte por envelope HTTP (src/lib/observability/sentry-http.ts), sem @sentry/nextjs (que nunca esteve no package.json). initSentry() em sentry-init.ts é idempotente e no-op sem SENTRY_DSN. O wrapper de servidor (sentry.ts, usa node:crypto) NÃO pode ser importado por Client Components: o browser usa sentry-client.ts, que apenas loga (o import antigo quebrava o bundle com "Module not found: node:crypto", visto no e2e-meridian da CI). O scrub remove ENCRYPTION_KEY/SESSION_SECRET/SENTRY_DSN/STRIPE_SECRET_KEY.
 
-**Rule 1 (Sentry init idempotent):** initSentry() in src/lib/observability/sentry-init.ts MUST be idempotent (if (initialized) return) and a no-op when SENTRY_DSN is absent. In production, deploy via 
-pm install @sentry/nextjs + ly secrets set SENTRY_DSN=.... The eforeSend scrub MUST strip ENCRYPTION_KEY, SESSION_SECRET, SENTRY_DSN, STRIPE_SECRET_KEY from event.request.headers and event.extra.
+**Rule 2 (Embeddings reais + fallback explícito):** o RAG usa embeddings reais via provider (embedText(): OpenAI-compatible /embeddings ou Ollama /api/embed). O fallback hash (generateEmbedding) é permitido APENAS em dev/test ou com RAG_ALLOW_HASH_FALLBACK=1; em produção sem provider o pipeline lança AIUnavailableError — nunca indexa/responde vetor aleatório. A busca ignora vetores de dimensão incompatível.
 
-**Rule 2 (Ollama fallback):** generateEmbeddingOllama(text) in src/lib/rag/ollama.ts MUST fallback to generateEmbedding (hash mock 1536 dims) when localhost:11434 is unreachable. Production runs ollama serve (or docker run ollama) and sets OLLAMA_URL env. The fallback ensures dev environments work without external dependencies.
-
-**Rule 3 (BullMQ stub) — REMOVIDO na rodada 9 (2026-11-04):** o `src/lib/queue/bullmq-stub.ts` era dead code (0 callers de produção; apenas o teste o usava). Removido junto com `tests/bullmq-sentry-ollama.test.ts`. **Fila assíncrona real (BullMQ + Redis) NÃO está implementada** — o ETL roda de forma síncrona via `/api/etl` e não há worker separado. Ver README (limitações/roadmap). Não recriar o stub: implementar BullMQ+Redis de verdade quando houver Redis no ambiente.
+**Rule 3 (BullMQ stub) — REMOVIDO na rodada 9 (2026-11-04):** o src/lib/queue/bullmq-stub.ts era dead code (0 callers de produção; apenas o teste o usava). Removido junto com tests/bullmq-sentry-ollama.test.ts. Fila assíncrona real (BullMQ + Redis) NÃO está implementada — o ETL roda de forma síncrona via /api/etl e não há worker separado. Ver README (limitações/roadmap). Não recriar o stub: implementar BullMQ+Redis de verdade quando houver Redis no ambiente.
 
 **Test pin (vitest):**
-1. initSentry is idempotent � second call does not throw.
-2. captureSentryException does not crash when @sentry/nextjs is not installed.
-3. generateEmbeddingOllama("BTC") returns 1536-dim non-zero vector even with no ollama server.
-4. Queue.add+process runs 3 jobs sequentially in declared order.
-5. Queue with ttempts:3 retries failed jobs exactly 3 times.
-6. Queue with ttempts:2 retries failed jobs exactly 2 times (then moves to ailed).
-7. Worker ticks at 10ms poll interval and exits cleanly via close().
+1. initSentry é idempotente — segunda chamada não lança.
+2. captureError/captureSentryException não quebram sem SDK (transporte HTTP no-op sem DSN).
+3. Sem provider de IA em produção, askRag/embeddings lançam AIUnavailableError (nada de mock como análise).
+4. (Pins da fila removidos junto com o stub morto — sem fila real hoje.)
 
 **Why these are regressions:** A future maintainer might remove the Sentry init guard (causing double-init in dev with HMR), might remove the Ollama fallback (causing dev tests to fail when ollama is not running), or might remove the BullMQ retry logic (causing silent job loss on transient errors). This entry documents the invariants.
 

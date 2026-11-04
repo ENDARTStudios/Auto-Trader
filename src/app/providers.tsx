@@ -5,19 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { MotionConfig } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
-
-function getCaptureError() {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    return require("@/lib/observability/sentry").captureError as (
-      err: Error,
-      ctx?: Record<string, unknown>,
-    ) => void;
-  } catch {
-    return (err: Error, ctx?: Record<string, unknown>) =>
-      console.error("[captureError]", ctx?.label ?? "unknown", err.message);
-  }
-}
+import { captureClientError } from "@/lib/observability/sentry-client";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
@@ -25,7 +13,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       new QueryClient({
         queryCache: new QueryCache({
           onError: (error, query) => {
-            getCaptureError()(error as Error, {
+            captureClientError(error as Error, {
               label: "tanstack:query",
               queryKey: query.queryKey,
             });
@@ -33,7 +21,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         }),
         mutationCache: new MutationCache({
           onError: (error, _vars, _ctx, mutation) => {
-            getCaptureError()(error as Error, {
+            captureClientError(error as Error, {
               label: "tanstack:mutation",
               mutationKey: (mutation.options as unknown as { mutationKey?: unknown })?.mutationKey,
             });
