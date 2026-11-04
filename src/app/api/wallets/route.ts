@@ -5,6 +5,7 @@ import { getVaultStatus } from "@/lib/trading/wallet-manager";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/rbac";
 import { ForbiddenError } from "@/lib/auth/errors";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { handleApiError } from "@/lib/api/error-handler";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -23,7 +24,13 @@ export async function GET(req: Request) {
     const session = await requireSession(req);
     if (!hasPermission(session.role, "wallets:read")) throw new ForbiddenError("wallets:read");
     const isSuper = session.role === "super_admin";
-    const [wallets, vaultStatus] = await Promise.all([listWallets(session.userId, isSuper), Promise.resolve(getVaultStatus())]);
+    // WalletConnection é STRICT (round 6): a listagem PRECISA de contexto RLS.
+    // withUserRls abre a transação com app.user_id/app.rls_bypass e o manager
+    // usa esse client (super_admin vira bypass='on').
+    const [wallets, vaultStatus] = await Promise.all([
+      withUserRls(session, (tx) => listWallets(session.userId, isSuper, tx)),
+      Promise.resolve(getVaultStatus()),
+    ]);
     return NextResponse.json({ wallets, vaultStatus });
   } catch (err) {
     if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") return handleApiError(err, "GET /api/wallets");
@@ -55,17 +62,23 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-    const wallet = await createWallet({
-      label: String(body.label),
-      type: String(body.type),
-      address: String(body.address),
-      chain: body.chain ? String(body.chain) : undefined,
-      readOnly: body.readOnly ?? false,
-      publicKey: body.publicKey ? String(body.publicKey) : undefined,
-      privateKey: body.privateKey ? String(body.privateKey) : undefined,
-      passphrase: body.passphrase ? String(body.passphrase) : undefined,
-      ownerId: session.userId,
-    });
+    // WalletConnection é STRICT: INSERT sem contexto é negado pela policy.
+    const wallet = await withUserRls(session, (tx) =>
+      createWallet(
+        {
+          label: String(body.label),
+          type: String(body.type),
+          address: String(body.address),
+          chain: body.chain ? String(body.chain) : undefined,
+          readOnly: body.readOnly ?? false,
+          publicKey: body.publicKey ? String(body.publicKey) : undefined,
+          privateKey: body.privateKey ? String(body.privateKey) : undefined,
+          passphrase: body.passphrase ? String(body.passphrase) : undefined,
+          ownerId: session.userId,
+        },
+        tx,
+      ),
+    );
     return NextResponse.json({ wallet });
   } catch (err) {
     if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") return handleApiError(err, "POST /api/wallets");

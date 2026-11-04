@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { logger } from "@/lib/trading/logger";
 import { requirePermission } from "@/lib/auth/session";
+import { withSystemRls } from "@/lib/auth/rls-context";
 import { handleApiError } from "@/lib/api/error-handler";
 
 // GET /api/system/backup — exports the full DB as a JSON download.
@@ -45,7 +46,8 @@ export async function GET(req: Request) {
     db.positionAlert.findMany(),
     db.backtestResult.findMany(),
     db.performanceSnapshot.findMany(),
-    db.notificationChannel.findMany(),
+    // NotificationChannel é STRICT (round 6): o backup é rotina de SISTEMA.
+    withSystemRls((tx) => tx.notificationChannel.findMany()),
     db.notificationLog.findMany({ orderBy: { sentAt: "desc" }, take: 5000 }),
     db.reserve.findFirst(),
     db.tradingBalance.findFirst(),
@@ -188,21 +190,24 @@ export async function POST(req: Request) {
   }
 
   // 5. NotificationChannels (by id)
+  // STRICT (round 6): restore é rotina de SISTEMA (rota já exige system:admin).
   if (Array.isArray(d.notificationChannels)) {
     let count = 0;
-    for (const ch of d.notificationChannels) {
-      try {
-        const { createdAt, updatedAt, ...patch } = ch;
-        await db.notificationChannel.upsert({
-          where: { id: ch.id },
-          create: patch,
-          update: patch,
-        });
-        count++;
-      } catch (err) {
-        logger.warn("api", `Erro restaurando canal ${ch.id}`, { error: String(err) });
+    await withSystemRls(async (tx) => {
+      for (const ch of d.notificationChannels) {
+        try {
+          const { createdAt, updatedAt, ...patch } = ch;
+          await tx.notificationChannel.upsert({
+            where: { id: ch.id },
+            create: patch,
+            update: patch,
+          });
+          count++;
+        } catch (err) {
+          logger.warn("api", `Erro restaurando canal ${ch.id}`, { error: String(err) });
+        }
       }
-    }
+    });
     restored.notificationChannels = count;
   }
 

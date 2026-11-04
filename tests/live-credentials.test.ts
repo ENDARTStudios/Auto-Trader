@@ -5,12 +5,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // Hermetic: DB + wallet vault are mocked. No real secrets are used.
 // ---------------------------------------------------------------------------
 
-vi.mock('@/lib/db', () => ({
-  db: {
+// Round 6: live-credentials usa withSystemRls (RLS). O mock do db expõe
+// $transaction + $queryRaw e o tx fake delega para os mesmos vi.fn().
+vi.mock('@/lib/db', () => {
+  const dbMock: Record<string, unknown> = {
     exchangeConnection: { findFirst: vi.fn() },
     user: { findFirst: vi.fn() },
-  },
-}));
+    $queryRaw: vi.fn(async () => []),
+  };
+  dbMock.$transaction = async (fn: (tx: unknown) => unknown) => fn(dbMock);
+  return { db: dbMock };
+});
 
 import { db } from '@/lib/db';
 import { walletVault } from '@/lib/trading/wallet-crypto';

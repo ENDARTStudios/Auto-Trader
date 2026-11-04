@@ -731,26 +731,33 @@ class WalletVault {
       this.lockInternal("relock before unlock", ip);
     }
 
-    // Lazy-load DB to avoid circular import issues at module load time.
-    const { db } = await import("@/lib/db");
+    // Lazy-load do contexto RLS (evita ciclo no module load; o self-import de
+    // wallet-crypto via notifier continua sob demanda).
+    const { withSystemRls } = await import("@/lib/auth/rls-context");
 
-    // Load all wallet rows that have an encrypted private key.
-    const walletRows = await db.walletConnection.findMany({
-      where: { privateKeyEncrypted: { not: null } },
-      select: { id: true, label: true, privateKeyEncrypted: true, readOnly: true },
-    });
-    // Load all exchange rows that have encrypted credentials.
-    const exchangeRows = await db.exchangeConnection.findMany({
-      where: { apiKeyEncrypted: { not: null } },
-      select: {
-        id: true,
-        label: true,
-        exchange: true,
-        apiKeyEncrypted: true,
-        apiSecretEncrypted: true,
-        apiPassphraseEncrypted: true,
-      },
-    });
+    // STRICT (round 6): WalletConnection exige contexto explícito; sem ele a
+    // query retorna 0 linhas para o role de app (non-superuser). Unlock é uma
+    // rotina de SISTEMA (carrega TODAS as credenciais do cofre), por isso
+    // app.rls_bypass='on'. O escopo da transação fica só nas duas leituras.
+    const { walletRows, exchangeRows } = await withSystemRls(async (tx) => ({
+      // Load all wallet rows that have an encrypted private key.
+      walletRows: await tx.walletConnection.findMany({
+        where: { privateKeyEncrypted: { not: null } },
+        select: { id: true, label: true, privateKeyEncrypted: true, readOnly: true },
+      }),
+      // Load all exchange rows that have encrypted credentials.
+      exchangeRows: await tx.exchangeConnection.findMany({
+        where: { apiKeyEncrypted: { not: null } },
+        select: {
+          id: true,
+          label: true,
+          exchange: true,
+          apiKeyEncrypted: true,
+          apiSecretEncrypted: true,
+          apiPassphraseEncrypted: true,
+        },
+      }),
+    }));
 
     // v19.3 FIX (operator review of v19.2 bonus finding): if the DB has 0
     // wallet rows AND 0 exchange rows, the decrypt loop below is empty, so

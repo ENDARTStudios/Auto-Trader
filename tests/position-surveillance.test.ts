@@ -30,6 +30,7 @@ vi.mock('@/lib/trading/price-feed', () => ({
 }));
 
 import {
+  extractPercent,
   listRecentAlerts,
   resolveAlertsForPosition,
   runSurveillance,
@@ -89,6 +90,19 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe('extractPercent (parser dos findings)', () => {
+  it.each([
+    ['Sell tax 25% (predatória)', 25],
+    ['sell tax 30%', 30],
+    ['Sell tax 5.5% (excelente)', 5.5],
+    ['Top 10 holders: 90.0% (perigosamente concentrada)', 90],
+    ['Liquidez atual $20000 — abaixo de $50k', null],
+    ['3694011 holders (excelente)', null],
+  ])('%s => %s', (text, expected) => {
+    expect(extractPercent(text)).toBe(expected);
+  });
+});
+
 describe('runSurveillance — casos base', () => {
   it('sem posições => [] e não consulta preços', async () => {
     expect(await runSurveillance([])).toEqual([]);
@@ -145,12 +159,36 @@ describe('runSurveillance — DEX (GoPlus + DexScreener)', () => {
     expect(res[0].currentGoPlusScore).toBe(5);
   });
 
-  // NOTA (cobertura honesta): os caminhos de alerta por FINDING textual do
-  // GoPlus (holder_concentration / tax_spike) não são exercitáveis com o
-  // contrato atual — ver ".local/audit/round5-coverage.md" §pendências:
-  //   • tax: /\b(...)%\b/ não casa "25% " (o \b após % exige char de palavra);
-  //   • holder: o finding do GoPlus real não expõe o texto "top ... holders".
-  // Reportado como bug de regex/fonte, não mascarado com mock artificial.
+  // Regressão round 6: estes dois caminhos estavam MORTOS (regex com "%\b" e
+  // comparação textual de holder). Agora comparam o percentual extraído.
+  it.each([
+    ['Top 10 holders: 90.0% (perigosamente concentrada)', true],
+    ['Top 10 holders: 55.0% (concentrada)', true],
+    ['Top 10 holders: 20.0% (ótima distribuição)', false],
+    ['3694011 holders (excelente)', false], // contagem sem percentual => sem dado
+  ])('holder_concentration: %s => alerta=%s', async (finding, shouldAlert) => {
+    scanTokenWithGoPlus.mockResolvedValue(goplus({ findings: [finding] }));
+    const res = await runSurveillance([position()]);
+    expect(res[0].alerts.some((a) => a.type === 'holder_concentration')).toBe(shouldAlert);
+  });
+
+  it('holder_concentration sem finding de holders => sem alerta (ausência de dado)', async () => {
+    scanTokenWithGoPlus.mockResolvedValue(goplus({ findings: ['✓ Source code verificado', '✓ Sem função mint'] }));
+    const res = await runSurveillance([position()]);
+    expect(res[0].alerts).toEqual([]);
+  });
+
+  it.each([
+    ['⚠️ Sell tax 25% (predatória)', true],
+    ['Sell tax 30% (predatória)', true],
+    ['Sell tax 10.0% (alta)', true],
+    ['Sell tax 5.5% (excelente)', false],
+    ['Buy tax 30% (predatória)', false], // só sell tax interessa
+  ])('tax_spike: %s => alerta=%s', async (finding, shouldAlert) => {
+    scanTokenWithGoPlus.mockResolvedValue(goplus({ findings: [finding] }));
+    const res = await runSurveillance([position()]);
+    expect(res[0].alerts.some((a) => a.type === 'tax_spike')).toBe(shouldAlert);
+  });
 
   it('falha do GoPlus é engolida (não derruba a vigilância)', async () => {
     scanTokenWithGoPlus.mockRejectedValue(new Error('goplus down'));

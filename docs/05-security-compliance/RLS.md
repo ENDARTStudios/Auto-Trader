@@ -1,7 +1,8 @@
 # RLS — Row Level Security (nativo Postgres)
 
-> **Versão:** 2.0 — round 4 (2026-11-03) — substitui o design v1.0 app-layer.
-> **Status:** policies Postgres implementadas e testadas (`tests/rls-policies.test.ts`).
+> **Versão:** 3.0 — round 6 (2026-11-03) — fase 2 STRICT em WalletConnection + NotificationChannel.
+> **Status:** policies Postgres implementadas e testadas (`tests/rls-policies.test.ts` fase 1 +
+> `tests/rls-strict.test.ts` fase 2).
 > **Princípio:** nenhuma query deve ler/escrever linha de outro usuário, mesmo se
 > o RBAC/aplicação falhar. RLS é a segunda barreira.
 
@@ -41,6 +42,63 @@ Leitura da condição:
 - GUC de usuário presente → só linhas com `ownerId` do usuário.
 
 `WITH CHECK` bloqueia INSERT/UPDATE com `ownerId` de outro usuário (testado).
+
+### Fase 2 (round 6): STRICT em WalletConnection + NotificationChannel
+
+`prisma/migrations/20260103000000_rls_strict_wallet_notification/migration.sql`
+recria as policies dessas duas tabelas **sem** a cláusula
+`NULLIF(current_setting('app.user_id', true), '') IS NULL`:
+
+```sql
+USING (
+  current_setting('app.rls_bypass', true) = 'on'
+  OR "ownerId" = current_setting('app.user_id', true)
+)
+WITH CHECK (<mesma expressão>)
+```
+
+Consequência: com role de aplicação NÃO-superuser, **sem contexto explícito**
+SELECT retorna 0 linhas e INSERT/UPDATE/DELETE são negados nessas duas tabelas.
+Todo call site precisa de:
+
+- **rotas de usuário** → `withUserRls(session, fn)` (super_admin vira bypass);
+- **engine / jobs / signer / boot / rotas admin** → `withSystemRls(fn)`.
+
+Call sites migrados no round 6: `api/wallets` (GET/POST + `[id]`), `wallet-manager`
+(parâmetro opcional `client: Prisma.TransactionClient`), `wallet-crypto.loadVault`,
+`signer/sign-methods`, `chain/dex-adapter`, `live-credentials`, `notifier`,
+`api/system/backup|info`, `db-init` (backfill).
+
+Tabelas ainda em fase 1 (permissivas sem contexto): **Position** e
+**ExchangeConnection**. Endurecê-las é o próximo passo (mesmo procedimento).
+
+### Como adicionar a próxima tabela ao strict
+
+1. `grep` por todos os acessos à tabela (`db.<model>` / delegates Prisma).
+2. Migrar cada call site: `withUserRls` (input de usuário) ou `withSystemRls`
+   (sistema). NUNCA usar `withSystemRls` para input de usuário sem autorização.
+3. Nova migration `*_rls_strict_<tabela>/migration.sql` idempotente recriando a
+   policy sem a cláusula permissiva (DROP POLICY IF EXISTS + CREATE).
+4. Rodar `node scripts/apply-rls-dev.mjs` (aplica TODAS as migrations RLS em
+   ordem) e adicionar/extender o teste de negação sem contexto.
+5. **Rollout invertido**: deploy do código primeiro; só depois aplicar a
+   migration em produção (o Lead).
+
+### Rollback do strict
+
+Recriar as policies com a cláusula permissiva (fase 1) para as tabelas afetadas:
+```sql
+DROP POLICY IF EXISTS "WalletConnection_rls" ON "WalletConnection";
+CREATE POLICY "WalletConnection_rls" ON "WalletConnection"
+  USING (
+    current_setting('app.rls_bypass', true) = 'on'
+    OR NULLIF(current_setting('app.user_id', true), '') IS NULL
+    OR "ownerId" = current_setting('app.user_id', true)
+  )
+  WITH CHECK (<mesma expressão>);
+```
+(idem para `NotificationChannel`). Nenhuma mudança de código é necessária — os
+helpers já funcionam nas duas fases.
 
 ### FORCE ROW LEVEL SECURITY (essencial)
 O usuário de banco que **é dono das tabelas** bypassa RLS por padrão. `FORCE`
@@ -96,7 +154,10 @@ não-superuser; em produção o default é o singleton `db`.
 
 ## 6. Limitações / próximos passos
 
-- Queries fora dos helpers seguem permissivas. O passo final é migrar TODOS os
+- **WalletConnection/NotificationChannel são STRICT (fase 2)**: qualquer acesso
+  fora dos helpers retorna 0 linhas/é negado com role de app non-superuser.
+  Position/ExchangeConnection seguem permissivas sem contexto (fase 1).
+- Queries fora dos helpers nas tabelas de fase 1 seguem permissivas. O passo final é migrar TODOS os
   acessos às 4 tabelas e então endurecer a policy (negar quando `app.user_id`
   ausente) — só depois de todos os call sites adotarem.
 - `WalletConnection.ownerId`/`ExchangeConnection.ownerId`/`NotificationChannel.ownerId`
@@ -109,10 +170,11 @@ não-superuser; em produção o default é o singleton `db`.
 ## 7. Operação
 
 ```bash
-# DEV (idempotente): aplica as policies no Postgres local
+# DEV (idempotente): aplica TODAS as migrations de RLS em ordem
+# (fase 1 permissiva → fase 2 strict). Opcional: passar o nome de uma migration.
 node scripts/apply-rls-dev.mjs
-# Prova de isolamento (role não-superuser dedicada, cleanup automático)
-npx vitest run tests/rls-policies.test.ts
+# Fase 1 (permissiva sem contexto) + fase 2 (strict wallet/notification)
+npx vitest run tests/rls-policies.test.ts tests/rls-strict.test.ts
 ```
 
 ## 9. Rollout do enforcement — role de app sem BYPASSRLS (rodada 5, 2026-11-04)

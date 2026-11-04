@@ -13,6 +13,7 @@
 // acompanha o provider atual (postgresql). Manter em sincronia com
 // scripts/seed-auth.ts e scripts/seed-flags.ts.
 import { db } from "@/lib/db";
+import { withSystemRls } from "@/lib/auth/rls-context";
 import { hashPasswordSync } from "@/lib/auth/password";
 import { SCHEMA_SQL } from "@/lib/db/schema-sql.generated";
 
@@ -74,10 +75,15 @@ async function seedUsers(): Promise<void> {
     update: { passwordHash: traderHash, role: "trader", isActive: true },
   });
 
-  // Backfill ownerId para linhas RLS órfãs (mesma semântica do seed-auth.ts)
-  await db.walletConnection.updateMany({ where: { ownerId: null }, data: { ownerId: admin.id } });
-  await db.exchangeConnection.updateMany({ where: { ownerId: null }, data: { ownerId: admin.id } });
-  await db.notificationChannel.updateMany({ where: { ownerId: null }, data: { ownerId: admin.id } });
+  // Backfill ownerId para linhas RLS órfãs (mesma semântica do seed-auth.ts).
+  // STRICT (round 6): WalletConnection/NotificationChannel exigem contexto
+  // explícito — boot/seed é rotina de SISTEMA (bypass). ExchangeConnection
+  // ainda é permissiva, mas já roda no mesmo contexto por consistência.
+  await withSystemRls(async (tx) => {
+    await tx.walletConnection.updateMany({ where: { ownerId: null }, data: { ownerId: admin.id } });
+    await tx.exchangeConnection.updateMany({ where: { ownerId: null }, data: { ownerId: admin.id } });
+    await tx.notificationChannel.updateMany({ where: { ownerId: null }, data: { ownerId: admin.id } });
+  });
 }
 
 const FLAGS: Array<{ key: string; enabled: boolean; rolloutPct: number; description: string }> = [

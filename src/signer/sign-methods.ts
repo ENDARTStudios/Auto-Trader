@@ -745,13 +745,17 @@ async function findSignableWalletForAddress(
 ): Promise<{ wallet: Wallet; walletId: string } | null> {
   if (!walletVault.isUnlocked()) return null;
 
-  // Lazy-load DB to avoid circular import issues at module load time.
-  const { db } = await import("@/lib/db");
+  // Lazy-load do contexto RLS (evita ciclo no module load do signer).
+  const { withSystemRls } = await import("@/lib/auth/rls-context");
 
-  const rows = await db.walletConnection.findMany({
-    where: { privateKeyEncrypted: { not: null }, readOnly: false },
-    select: { id: true, address: true },
-  });
+  // STRICT (round 6): o signer é SISTEMA — roda com app.rls_bypass='on' para
+  // enxergar as wallets do cofre (não há usuário HTTP neste processo).
+  const rows = await withSystemRls((tx) =>
+    tx.walletConnection.findMany({
+      where: { privateKeyEncrypted: { not: null }, readOnly: false },
+      select: { id: true, address: true },
+    }),
+  );
 
   const target = address.toLowerCase();
   const matches = rows.filter((r) => r.address.toLowerCase() === target);
@@ -781,11 +785,14 @@ async function findSignableWalletForAddress(
  * chainId for EIP-155 signing when the payload doesn't include chainId.
  */
 async function getWalletChainFromDb(walletId: string): Promise<string | null> {
-  const { db } = await import("@/lib/db");
-  const row = await db.walletConnection.findUnique({
-    where: { id: walletId },
-    select: { chain: true },
-  });
+  const { withSystemRls } = await import("@/lib/auth/rls-context");
+  // STRICT (round 6): contexto de sistema (bypass) — ver comentário acima.
+  const row = await withSystemRls((tx) =>
+    tx.walletConnection.findUnique({
+      where: { id: walletId },
+      select: { chain: true },
+    }),
+  );
   return row?.chain ?? null;
 }
 
