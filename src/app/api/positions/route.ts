@@ -53,8 +53,10 @@ export async function GET(req: Request) {
     const currentPrice = prices.get(p.id) ?? 0;
     const unrealizedPnlUsd =
       currentPrice > 0 ? (currentPrice - p.entryPriceUsd) * p.entryQty : 0;
+    // Sem preço do feed (currentPrice=0) o P&L é desconhecido: NÃO derive -100%
+    // a partir de 0 (bug da round 13); mantenha 0, coerente com unrealizedPnlUsd.
     const unrealizedPnlPct =
-      p.entryPriceUsd > 0
+      currentPrice > 0 && p.entryPriceUsd > 0
         ? ((currentPrice - p.entryPriceUsd) / p.entryPriceUsd) * 100
         : 0;
     return {

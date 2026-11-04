@@ -423,3 +423,23 @@
 - **Docs alinhados ao código**: README (status real de RLS strict, IA/RAG real, upload real, e-mail real, signer ativo em produção, backup de restore provado, selo demo), PLANO_MESTRE 6.1 (upload deixou de ser stub; ClamAV/S3 marcados como não implementados; 6.2 fila já corrigida na rodada 9).
 - **Gates**: tsc 0 · eslint 0 · `vitest` (novo `tests/demo-data.test.ts` incluído) · build OK. Deploy em produção com verificação de `/api/status` (`demoData:true`) e do selo na UI.
 - **Estado do objetivo**: todas as falhas de código/segurança/dados do relatório foram corrigidas e os sistemas antes simulados (live gating, signer, ETL/OHLCV, IA/RAG, upload, e-mail, backup/restore) têm implementação real com degradação honesta. O que resta depende **exclusivamente de credenciais/decisões do operador** (CD Railway token, chaves S14 para live, `SENTRY_DSN`, `REDIS_URL`, `AI_API_KEY`, provider de e-mail, `UPLOAD_DIR` em volume) — não de código.
+
+---
+
+## 16. Rodadas 12–13 (2026-11-04) — CI pós-merge verde, runner E2E e cobertura de rotas
+
+### 16.1 Rodada 12: e2e-meridian e bundle client
+- Descoberto que a CI de **main** falhava desde a rodada 8: o job e2e-meridian (só em push na main) quebrava em "copilot mostra ledger de evidências" porque a CI não tem provider LLM (/api/ai/ask 503). Além disso o webServer logava Module not found: node:crypto porque providers.tsx (Client Component) importava o wrapper de servidor.
+- Correções: sentry-client.ts client-safe (sem Node) usado por providers.tsx; sentry.ts sem require('@sentry/nextjs') (transporte HTTP); spec do copilot intercepta /api/ai/ask com contrato determinístico e copy do copilot atualizada.
+- Verificação: suíte Meridian local no standalone 12 passed/1 skipped; **run de main #41771091921 com ci + e2e + e2e-meridian + codeql TODOS verdes** (primeiro run de main verde desde a rodada 8).
+
+### 16.2 Rodada 13: runner E2E standalone e cobertura de rotas
+- scripts/e2e-standalone.mjs: DB descartável + migrations + seeds (auth/flags/demo) + build standalone + dois servers (3000/3100) + Playwright main/meridian + cleanup garantido (taskkill /T, DROP WITH FORCE, tmp/.auth, portas). Default --workers 2 (4 workers geravam 3 flakes de transporte). Resultado real: **main 52/52 PASS (1m26s)** com --main-only; execução completa com --build: main 49/52 (flakes de clique/transporte) e **meridian 13/13**, cleanup ok. Documentado em docs/06-devops-deployment/E2E.md.
+- Cobertura de rotas: +5 arquivos/44 testes cobrindo 10 handlers (positions, positions/[id], close, rounds, graduation, engine/start|stop, ai-insights, notifications/logs, analytics) com casos 200/400/401/403/404/429/500 e mocks determinísticos.
+- **2 bugs reais encontrados e corrigidos com testes**: (a) GET /api/positions sem preço do feed calculava unrealizedPnlPct = -100% (agora 0, coerente com o P&L em USD); (b) GET /api/analytics com range inválido caía silenciosamente em 24h e ecoava o range inválido — agora responde **400 invalid_range** com a lista de ranges aceitos.
+- Nota de cobertura: coverage.include do vitest não inclui src/app/api/**, então os testes de rota elevam a confiança mas não o número global. Recomendação para rodada futura: incluir rotas no include (thresholds atuais seguram).
+- graft rebuild executado (4058 nós, 9510 edges).
+
+### 16.3 Estado do objetivo
+- Código/segurança/dados do relatório: corrigidos (P0s, RLS strict 4/4, mocks substituídos, backup/restore provado, a11y, CI de main verde).
+- Restam apenas itens que dependem de **credenciais/decisões do operador**: CD Railway token, chaves S14/live, SENTRY_DSN, REDIS_URL, provider de IA/embeddings, provider de e-mail, volume de upload. Nenhuma implementação de código pendente conhecida.
