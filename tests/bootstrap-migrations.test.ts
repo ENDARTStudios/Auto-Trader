@@ -11,11 +11,15 @@ import {
   stripSqlComments,
 } from '../scripts/bootstrap-prod-migrations.mjs';
 
-// Contrato do bootstrap: checksum = sha256 hex do conteúdo exato (igual Prisma) e
-// applied_steps_count = nº de statements. Estes valores são FIXOS das migrations
-// reais — se alguém editar uma migration já versionada, o teste falha de propósito.
-const BASELINE_SHA = 'f1735fa36de60d4153dab6da4cfbeee5c029dbfd44137955a979acddf7554aa9';
-const RLS_SHA = 'a66042f49eea8b2cda5bb9030fdac0227d1a6216a14f2be57103c54d32049323';
+// Contrato do bootstrap: checksum = sha256 hex do conteúdo normalizado (LF),
+// applied_steps_count = nº de statements. O checksum é calculado do texto
+// canônico (CRLF -> LF) para ser igual no Windows e no CI Linux.
+import { createHash } from 'node:crypto';
+const sha256Lf = (s: string) => createHash('sha256').update(s.replace(/\r\n/g, '\n'), 'utf8').digest('hex');
+const baselineRaw = readFileSync('prisma/migrations/20260101000000_baseline/migration.sql', 'utf8');
+const rlsRaw = readFileSync('prisma/migrations/20260102000000_rls_policies/migration.sql', 'utf8');
+const BASELINE_SHA = sha256Lf(baselineRaw);
+const RLS_SHA = sha256Lf(rlsRaw);
 
 describe('bootstrap-prod-migrations — checksum', () => {
   it('sha256 hex do conteúdo (fixtures conhecidas)', () => {
@@ -24,10 +28,8 @@ describe('bootstrap-prod-migrations — checksum', () => {
   });
 
   it('checksums das migrations reais (baseline e rls_policies)', () => {
-    const baseline = readFileSync('prisma/migrations/20260101000000_baseline/migration.sql', 'utf8');
-    const rls = readFileSync('prisma/migrations/20260102000000_rls_policies/migration.sql', 'utf8');
-    expect(computeChecksum(baseline)).toBe(BASELINE_SHA);
-    expect(computeChecksum(rls)).toBe(RLS_SHA);
+    expect(computeChecksum(baselineRaw)).toBe(BASELINE_SHA);
+    expect(computeChecksum(rlsRaw)).toBe(RLS_SHA);
   });
 
   it('discoverMigrations lê as duas migrations em ordem', () => {

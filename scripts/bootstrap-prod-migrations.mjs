@@ -50,9 +50,16 @@ export const CREATE_MIGRATIONS_TABLE_SQL =
   '"applied_steps_count" INTEGER NOT NULL DEFAULT 0' +
   ')';
 
-/** Prisma usa sha256 hex do CONTEÚDO exato do migration.sql. */
+/**
+ * Prisma usa sha256 hex do CONTEUDO do migration.sql. Normalizamos CRLF -> LF
+ * para o checksum ser o MESMO no Windows (checkout CRLF) e no Linux/CI (LF):
+ * a fonte canonica e o blob do git (LF). Sem isso, um bootstrap no Windows
+ * grava um checksum que o prisma migrate deploy do CI/prod acusa como
+ * migration modificada.
+ */
 export function computeChecksum(sqlContent) {
-  return createHash('sha256').update(sqlContent, 'utf8').digest('hex');
+  const normalized = sqlContent.replace(/\r\n/g, '\n');
+  return createHash('sha256').update(normalized, 'utf8').digest('hex');
 }
 
 export function stripSqlComments(sql) {

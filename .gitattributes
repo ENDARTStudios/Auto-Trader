@@ -4,6 +4,10 @@
 Dockerfile text eol=lf
 docker-entrypoint.sh text eol=lf
 
+# Migracoes Prisma: checksum e sha256 do conteudo. Canonical = LF (git/CI);
+# checkout CRLF no Windows mudaria o checksum e o migrate deploy acusaria drift.
+prisma/migrations/** text eol=lf
+
 # Binários não devem sofrer conversão.
 *.png binary
 *.jpg binary
