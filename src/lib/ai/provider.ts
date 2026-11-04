@@ -49,6 +49,14 @@ export interface AIStatus {
   configured: boolean;
   provider: AIProviderKind | null;
   model: string | null;
+  /** Modelo de embedding que será usado (null quando não há provider). */
+  embeddingModel: string | null;
+}
+
+export interface EmbeddingResult {
+  vectors: number[][];
+  model: string;
+  provider: AIProviderKind;
 }
 
 /** Erro de configuração/indisponibilidade do provedor de IA (não é falha de rede). */
@@ -62,9 +70,31 @@ export class AIUnavailableError extends Error {
 
 const OPENAI_DEFAULT_BASE = "https://api.openai.com/v1";
 const OPENAI_DEFAULT_MODEL = "gpt-4o-mini";
+const OPENAI_DEFAULT_EMBEDDING_MODEL = "text-embedding-3-small";
 const OLLAMA_DEFAULT_URL = "http://localhost:11434";
 const OLLAMA_DEFAULT_MODEL = "llama3.1";
+const OLLAMA_DEFAULT_EMBEDDING_MODEL = "nomic-embed-text";
 const AI_TIMEOUT_MS = 30_000;
+
+/**
+ * Modelo de embedding ativo (null quando não há provider).
+ *   openai: AI_EMBEDDING_MODEL || 'text-embedding-3-small'
+ *   ollama: AI_EMBEDDING_MODEL || OLLAMA_MODEL || 'nomic-embed-text'
+ */
+export function getEmbeddingModel(): string | null {
+  const kind = resolveProviderKind();
+  if (!kind) return null;
+  if (kind === "openai") return env("AI_EMBEDDING_MODEL") ?? OPENAI_DEFAULT_EMBEDDING_MODEL;
+  return env("AI_EMBEDDING_MODEL") ?? env("OLLAMA_MODEL") ?? OLLAMA_DEFAULT_EMBEDDING_MODEL;
+}
+
+/** Dimensões opcionais pedidas ao provider (AI_EMBEDDING_DIMS). */
+function embeddingDimensions(): number | undefined {
+  const raw = env("AI_EMBEDDING_DIMS");
+  if (!raw) return undefined;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n > 0 ? n : undefined;
+}
 
 function env(name: string): string | undefined {
   const v = process.env[name];
@@ -87,14 +117,22 @@ function resolveProviderKind(): AIProviderKind | null {
 
 export function getAIStatus(): AIStatus {
   const kind = resolveProviderKind();
-  if (!kind) return { configured: false, provider: null, model: null };
+  if (!kind) {
+    return { configured: false, provider: null, model: null, embeddingModel: null };
+  }
   if (kind === "openai") {
-    return { configured: true, provider: "openai", model: env("AI_MODEL") ?? OPENAI_DEFAULT_MODEL };
+    return {
+      configured: true,
+      provider: "openai",
+      model: env("AI_MODEL") ?? OPENAI_DEFAULT_MODEL,
+      embeddingModel: getEmbeddingModel(),
+    };
   }
   return {
     configured: true,
     provider: "ollama",
     model: env("OLLAMA_MODEL") ?? OLLAMA_DEFAULT_MODEL,
+    embeddingModel: getEmbeddingModel(),
   };
 }
 
@@ -230,6 +268,89 @@ export function getAIProvider(): AIProvider {
 /** Atalho: chat completion pelo provider ativo (lança AIUnavailableError se não houver). */
 export async function chatCompletion(req: ChatCompletionRequest): Promise<ChatCompletionResult> {
   return getAIProvider().chatCompletion(req);
+}
+
+// ---------------------------------------------------------------------------
+// Embeddings (RAG) — mesmo provider, endpoint dedicado
+// ---------------------------------------------------------------------------
+
+async function embedOpenAI(texts: string[], apiKey: string): Promise<EmbeddingResult> {
+  const baseUrl = (env("AI_BASE_URL") ?? OPENAI_DEFAULT_BASE).replace(/\/+$/, "");
+  const model = getEmbeddingModel() ?? OPENAI_DEFAULT_EMBEDDING_MODEL;
+  const dims = embeddingDimensions();
+  const resp = await postJson(
+    `${baseUrl}/embeddings`,
+    {
+      model,
+      input: texts,
+      ...(dims ? { dimensions: dims } : {}),
+    },
+    { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
+    AbortSignal.timeout(AI_TIMEOUT_MS)
+  );
+  if (resp.status === 401 || resp.status === 403) {
+    // chave inválida = configuração quebrada, não indisponibilidade transitória
+    throw new AIUnavailableError(
+      `Provedor OpenAI-compatible rejeitou a credencial de embeddings (HTTP ${resp.status})`
+    );
+  }
+  if (!resp.ok) throw new Error(`Embeddings HTTP ${resp.status} (${baseUrl})`);
+  const json = (await resp.json()) as {
+    data?: Array<{ embedding?: number[]; index?: number }>;
+  };
+  const data = json.data ?? [];
+  const vectors = data
+    .slice()
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
+    .map((d) => d.embedding ?? []);
+  if (vectors.length !== texts.length || vectors.some((v) => v.length === 0)) {
+    throw new Error("Embeddings provider devolveu quantidade/vetores inválidos");
+  }
+  return { vectors, model, provider: "openai" };
+}
+
+async function embedOllama(texts: string[]): Promise<EmbeddingResult> {
+  const baseUrl = (env("OLLAMA_URL") ?? OLLAMA_DEFAULT_URL).replace(/\/+$/, "");
+  const model = getEmbeddingModel() ?? OLLAMA_DEFAULT_EMBEDDING_MODEL;
+  const dims = embeddingDimensions();
+  const resp = await postJson(
+    `${baseUrl}/api/embed`,
+    {
+      model,
+      input: texts,
+      ...(dims ? { dimensions: dims } : {}),
+    },
+    { Accept: "application/json" },
+    AbortSignal.timeout(AI_TIMEOUT_MS)
+  );
+  if (!resp.ok) {
+    const detail = await resp.text().catch(() => "");
+    throw new Error(`Ollama embed HTTP ${resp.status} (${baseUrl})${detail ? ": " + detail.slice(0, 200) : ""}`);
+  }
+  const json = (await resp.json()) as { embeddings?: number[][] };
+  const vectors = json.embeddings ?? [];
+  if (vectors.length !== texts.length || vectors.some((v) => !Array.isArray(v) || v.length === 0)) {
+    throw new Error("Ollama devolveu embeddings inválidos");
+  }
+  return { vectors, model, provider: "ollama" };
+}
+
+/**
+ * Gera embeddings reais para um lote de textos.
+ * Sem provider configurado -> AIUnavailableError (o RAG decide se degrada).
+ */
+export async function embedText(texts: string[]): Promise<EmbeddingResult> {
+  const provider = getAIProvider(); // lança AIUnavailableError se não configurado
+  if (!Array.isArray(texts) || texts.length === 0) {
+    const model = getEmbeddingModel() ?? "";
+    return { vectors: [], model, provider: provider.kind };
+  }
+  if (provider.kind === "openai") {
+    const apiKey = env("AI_API_KEY") ?? env("OPENAI_API_KEY");
+    if (!apiKey) throw new AIUnavailableError("AI_PROVIDER=openai sem AI_API_KEY/OPENAI_API_KEY");
+    return embedOpenAI(texts, apiKey);
+  }
+  return embedOllama(texts);
 }
 
 /** Extrai o primeiro objeto JSON de um texto (LLMs às vezes embrulham em prosa). */

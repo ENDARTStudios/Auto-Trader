@@ -5,6 +5,8 @@ import { zAccountEmail } from '@/lib/auth/email';
 import { generateToken, hashToken } from '@/lib/auth/session';
 import { checkRateLimit, rateLimitResponse } from '@/lib/rate-limit';
 import { handleApiError } from '@/lib/api/error-handler';
+import { sendEmail } from '@/lib/notifications/email';
+import { logger } from '@/lib/trading/logger';
 
 const schema = z.object({ email: zAccountEmail });
 
@@ -39,15 +41,45 @@ export async function POST(req: Request) {
 
     await db.passwordReset.create({ data: { userId: user.id, tokenHash, expiresAt } });
 
-    // Mock email — log to console and to AppLog
-    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/reset?token=${token}`;
-    console.log(`[mock email] Password reset for ${user.email}: ${resetUrl}`);
-    // In production, send via nodemailer / resend / etc.
+    // E-mail transacional REAL (Resend ou webhook próprio). O resetUrl carrega o
+    // token: NUNCA pode aparecer em log de produção.
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
+    const resetUrl = `${appUrl}/reset?token=${token}`;
+    const isProduction = process.env.NODE_ENV === 'production';
 
-    // For dev, return token in response when not production (helps E2E)
-    if (process.env.NODE_ENV !== 'production') {
+    const emailResult = await sendEmail({
+      to: user.email,
+      subject: 'Redefinição de senha — Auto Trader',
+      text:
+        'Recebemos um pedido para redefinir a senha da sua conta.\n\n' +
+        `Abra este link (expira em 15 minutos): ${resetUrl}\n\n` +
+        'Se não foi você, ignore este e-mail — sua senha continua a mesma.',
+      html:
+        '<p>Recebemos um pedido para redefinir a senha da sua conta.</p>' +
+        `<p><a href="${resetUrl}">Redefinir senha</a> (expira em 15 minutos)</p>` +
+        '<p>Se não foi você, ignore este e-mail — sua senha continua a mesma.</p>',
+    });
+
+    // Metadados de envio (sem token, sem resetUrl). Vai para AppLog via logger.
+    logger.info('api', 'password reset solicitado', {
+      userId: user.id,
+      emailSent: emailResult.ok,
+      provider: emailResult.provider,
+    });
+    if (!emailResult.ok) {
+      logger.warn('api', 'falha ao enviar e-mail de reset (sem token no log)', {
+        userId: user.id,
+        code: emailResult.code ?? 'EMAIL_UNKNOWN',
+        provider: emailResult.provider,
+      });
+    }
+
+    // Apenas fora de produção o link é impresso (e devolvido) — necessário para E2E/dev.
+    if (!isProduction) {
+      console.log('[dev] Password reset link:', resetUrl);
       return NextResponse.json({ ok: true, token, resetUrl });
     }
+    // Produção: resposta SEMPRE genérica (não confirma existência de conta nem expõe token).
     return NextResponse.json({ ok: true });
   } catch (err) {
     return handleApiError(err, 'POST /api/auth/forgot');

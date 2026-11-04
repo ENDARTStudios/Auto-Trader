@@ -1,7 +1,19 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// Round 10: o RAG usa provider REAL. Aqui mockamos só as chamadas de IA
+// (chatCompletion) mantendo a classe AIUnavailableError real. Embeddings caem
+// no fallback hash em NODE_ENV=test (sem provider) — comportamento explícito.
+vi.mock('@/lib/ai/provider', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/ai/provider')>();
+  return { ...actual, chatCompletion: vi.fn() };
+});
+
+import { chatCompletion, AIUnavailableError } from '@/lib/ai/provider';
 import { generateEmbedding, cosine, searchEmbeddings } from '@/lib/rag/embeddings';
 import { askRag } from '@/lib/rag/pipeline';
 import { buildGraph } from '@/lib/rag/graph';
+
+const mockedChat = vi.mocked(chatCompletion);
 
 describe('RAG embeddings', () => {
   it('generateEmbedding 1536 dims normalized', () => {
@@ -29,12 +41,19 @@ describe('RAG embeddings', () => {
     // May be 0 if no embeddings yet, but after askRag seed it will be 3
   });
 
-  it('askRag returns answer + citations', async () => {
-    const res = await askRag('Quem ganhou a Copa?');
-    expect(res.answer.length).toBeGreaterThan(10);
-    expect(res.citations.length).toBeGreaterThan(0);
+  it('askRag devolve a resposta REAL do provider (sem "mock LLM")', async () => {
+    mockedChat.mockResolvedValueOnce({ content: 'Resposta real do provider.', provider: 'openai', model: 'gpt-4o-mini', durationMs: 1 });
+    const res = await askRag('Qual é o token com maior liquidez?');
+    expect(res.answer).toBe('Resposta real do provider.');
+    expect(res.answer).not.toMatch(/mock LLM/i);
     expect(res.citations.length).toBeLessThanOrEqual(3);
-    expect(res.context.length).toBeGreaterThan(0);
+    expect(res.provider).toBe('openai');
+    expect(mockedChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('askRag sem provider => AIUnavailableError (nunca fabrica resposta)', async () => {
+    mockedChat.mockRejectedValueOnce(new AIUnavailableError());
+    await expect(askRag('qualquer pergunta válida')).rejects.toBeInstanceOf(AIUnavailableError);
   });
 
   it('buildGraph nodes/edges', async () => {

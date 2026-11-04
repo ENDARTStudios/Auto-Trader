@@ -404,3 +404,13 @@
 - **Fila**: o bullmq-stub era **dead code** (0 callers de produção; só um teste) e foi **removido** (stub + teste). Fila assíncrona real (BullMQ+Redis) **não implementada** — documentado em SECURITY/PLANO_MESTRE/README; não recriar stub.
 - **Cobertura do motor**: +51 testes determinísticos (mocks de db/RLS, fake timers): portfolio.ts 2%→**100%**, performance-snapshot.ts 0→**100%**, engine.ts 0→15%, engine-correctness 100%. Global: lines **64,46% → 67,24%**, funcs 68,30% → **71,06%**.
 - **Gates**: tsc 0 · eslint 0 · vitest **85 arquivos / 1205 pass / 1 skip** · build OK · a11y spec verde · backup E2E exit 0.
+
+---
+
+## 14. Rodada 10 (2026-11-04) — RAG real, upload real e e-mail transacional
+
+- **RAG sem mocks**: `askRag` faz uma chamada real a `chatCompletion()` (system+contexto) e o evidence ledger passa a ser gerado sobre a **resposta real** (antes usava o texto mock); embeddings reais via `embedText()` (OpenAI-compatible `/embeddings` e Ollama `/api/embed`), com hash apenas como fallback explícito de dev/test (`RAG_ALLOW_HASH_FALLBACK`) — em produção sem provider **lança** em vez de indexar vetor aleatório; `searchEmbeddings` ignora dimensão incompatível; `scripts/reindex-embeddings.ts` (exige --yes) reindexa após configurar provider.
+- **Upload real (saiu do 501)**: `POST /api/upload` multipart com allowlist PNG/JPEG/PDF, **magic bytes**, limites por mime, nome UUID, gravação `0600` em `UPLOAD_DIR` (default `/data/uploads` ou `.local/uploads`), sha256; `GET` status real (sem stub, sem vazar path absoluto); erros 400/413/415/503 com contratos tipados; `docs/04-api-integrations/UPLOAD.md`.
+- **E-mail transacional real**: `src/lib/notifications/email.ts` com Resend (`RESEND_API_KEY`/`EMAIL_FROM`) ou webhook (`EMAIL_WEBHOOK_URL`/`EMAIL_WEBHOOK_TOKEN`), timeout 5s, nunca lança; `/api/auth/forgot` envia de verdade e **não loga mais URL/token em produção** (vazamento corrigido), mantendo anti-enumeração e token só em dev/E2E; `.env.example` documenta todas as envs (upload/email/RAG).
+- **Gates**: tsc 0 (após `next typegen`) · eslint 0 · `vitest` **90 arquivos / 1256 pass / 1 skip** · build OK.
+- Pendente de operador: configurar provider de IA/e-mail/upload dir em produção e rodar o reindex; CD/live/Sentry/Redis seguem por credenciais.
