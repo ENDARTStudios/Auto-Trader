@@ -1,8 +1,9 @@
 # RLS — Row Level Security (nativo Postgres)
 
-> **Versão:** 3.0 — round 6 (2026-11-03) — fase 2 STRICT em WalletConnection + NotificationChannel.
+> **Versão:** 4.0 — round 7 (2026-11-03) — fases 2 e 3 STRICT: WalletConnection,
+> NotificationChannel e ExchangeConnection. Position segue fase 1.
 > **Status:** policies Postgres implementadas e testadas (`tests/rls-policies.test.ts` fase 1 +
-> `tests/rls-strict.test.ts` fase 2).
+> `tests/rls-strict.test.ts` fases 2/3).
 > **Princípio:** nenhuma query deve ler/escrever linha de outro usuário, mesmo se
 > o RBAC/aplicação falhar. RLS é a segunda barreira.
 
@@ -69,8 +70,26 @@ Call sites migrados no round 6: `api/wallets` (GET/POST + `[id]`), `wallet-manag
 `signer/sign-methods`, `chain/dex-adapter`, `live-credentials`, `notifier`,
 `api/system/backup|info`, `db-init` (backfill).
 
-Tabelas ainda em fase 1 (permissivas sem contexto): **Position** e
-**ExchangeConnection**. Endurecê-las é o próximo passo (mesmo procedimento).
+### Fase 3 (round 7): STRICT em ExchangeConnection
+
+`prisma/migrations/20260104000000_rls_strict_exchange/migration.sql` recria a
+policy de ExchangeConnection sem a cláusula permissiva (mesmo padrão da fase 2:
+`bypass = 'on' OR "ownerId" = app.user_id`, em USING e WITH CHECK).
+
+Call sites migrados no round 7:
+
+- `wallet-manager` exchange CRUD (`listExchanges`/`createExchange`/
+  `setExchangeActive`/`deleteExchange`) ganhou `client?: Prisma.TransactionClient`;
+  `createExchange` também aceita `ownerId` (obrigatório sob contexto de usuário,
+  senão o WITH CHECK rejeita ownerId NULL);
+- `api/exchanges` GET/POST e `api/exchanges/[id]` usam `withUserRls` (super_admin
+  = bypass; demais só o próprio);
+- `live-credentials` (lookup da ExchangeConnection ativa), `wallet-crypto.loadVault`
+  e `db-init` (backfill) já rodavam em `withSystemRls` desde o round 6 — confirmados.
+
+Tabela ainda em fase 1 (permissiva sem contexto): **Position**. Endurecê-la é o
+próximo passo (mesmo procedimento abaixo), com o cuidado de migrar antes
+engine/portfolio/backtest e rotas que consultam posições.
 
 ### Como adicionar a próxima tabela ao strict
 
@@ -97,8 +116,8 @@ CREATE POLICY "WalletConnection_rls" ON "WalletConnection"
   )
   WITH CHECK (<mesma expressão>);
 ```
-(idem para `NotificationChannel`). Nenhuma mudança de código é necessária — os
-helpers já funcionam nas duas fases.
+(idem para `NotificationChannel` e `ExchangeConnection`). Nenhuma mudança de
+código é necessária — os helpers já funcionam nas duas fases.
 
 ### FORCE ROW LEVEL SECURITY (essencial)
 O usuário de banco que **é dono das tabelas** bypassa RLS por padrão. `FORCE`
@@ -154,9 +173,9 @@ não-superuser; em produção o default é o singleton `db`.
 
 ## 6. Limitações / próximos passos
 
-- **WalletConnection/NotificationChannel são STRICT (fase 2)**: qualquer acesso
-  fora dos helpers retorna 0 linhas/é negado com role de app non-superuser.
-  Position/ExchangeConnection seguem permissivas sem contexto (fase 1).
+- **WalletConnection/NotificationChannel/ExchangeConnection são STRICT (fases 2/3)**:
+  qualquer acesso fora dos helpers retorna 0 linhas/é negado com role de app
+  non-superuser. **Position** segue permissiva sem contexto (fase 1).
 - Queries fora dos helpers nas tabelas de fase 1 seguem permissivas. O passo final é migrar TODOS os
   acessos às 4 tabelas e então endurecer a policy (negar quando `app.user_id`
   ausente) — só depois de todos os call sites adotarem.
@@ -173,7 +192,7 @@ não-superuser; em produção o default é o singleton `db`.
 # DEV (idempotente): aplica TODAS as migrations de RLS em ordem
 # (fase 1 permissiva → fase 2 strict). Opcional: passar o nome de uma migration.
 node scripts/apply-rls-dev.mjs
-# Fase 1 (permissiva sem contexto) + fase 2 (strict wallet/notification)
+# Fase 1 (permissiva sem contexto) + fases 2/3 (strict wallet/notification/exchange)
 npx vitest run tests/rls-policies.test.ts tests/rls-strict.test.ts
 ```
 

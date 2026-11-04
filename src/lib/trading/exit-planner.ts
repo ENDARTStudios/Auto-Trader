@@ -24,6 +24,7 @@
 
 import { chatCompletion } from "@/lib/ai/provider";
 import { db } from "@/lib/db";
+import { withSystemRls } from "@/lib/auth/rls-context";
 import { logger } from "./logger";
 import type { SurveillanceAlert, PositionSurveillanceResult } from "./position-surveillance";
 import { analyzeMarket } from "./market-analysis";
@@ -390,19 +391,23 @@ export async function applyExitPlan(plan: ExitPlan): Promise<boolean> {
 
   // For tighten_sl / raise_tp — update the position row directly
   if (plan.action === "tighten_sl" && plan.suggestedNewSl) {
-    await db.position.update({
-      where: { id: plan.positionId },
-      data: { stopLossPrice: plan.suggestedNewSl },
-    });
+    await withSystemRls((tx) =>
+      tx.position.update({
+        where: { id: plan.positionId },
+        data: { stopLossPrice: plan.suggestedNewSl },
+      })
+    );
     logger.info("exit_planner", `${plan.symbol}: SL atualizado para $${plan.suggestedNewSl}`);
     return true;
   }
 
   if (plan.action === "raise_tp" && plan.suggestedNewTp) {
-    await db.position.update({
-      where: { id: plan.positionId },
-      data: { takeProfitPrice: plan.suggestedNewTp },
-    });
+    await withSystemRls((tx) =>
+      tx.position.update({
+        where: { id: plan.positionId },
+        data: { takeProfitPrice: plan.suggestedNewTp },
+      })
+    );
     logger.info("exit_planner", `${plan.symbol}: TP atualizado para $${plan.suggestedNewTp}`);
     return true;
   }

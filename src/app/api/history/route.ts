@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/rbac";
 import { ForbiddenError } from "@/lib/auth/errors";
@@ -22,11 +23,14 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const limit = Math.min(parseInt(url.searchParams.get("limit") ?? "50"), 200);
 
-  const closed = await db.position.findMany({
-    where: { status: { in: ["closed", "liquidated", "killed"] } },
-    orderBy: { exitAt: "desc" },
-    take: limit,
-  });
+  // RLS (prep round 7): contexto do usuário (super_admin bypass).
+  const closed = await withUserRls(session, (tx) =>
+    tx.position.findMany({
+      where: { status: { in: ["closed", "liquidated", "killed"] } },
+      orderBy: { exitAt: "desc" },
+      take: limit,
+    })
+  );
 
     return NextResponse.json(
       closed.map((p) => ({

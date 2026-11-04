@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { fetchPricesBatch } from "@/lib/trading/price-feed";
 import { getPaperOrderByPosition } from "@/lib/trading/paper-order-store";
 import { requirePermission } from "@/lib/auth/session";
@@ -12,13 +13,18 @@ export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let session;
   try {
-    await requirePermission("positions:read")(req);
+    session = await requirePermission("positions:read")(req);
   } catch (err) {
     return handleApiError(err, "GET /api/positions/[id]");
   }
   const { id } = await params;
-  const position = await db.position.findUnique({ where: { id } });
+  // RLS (prep round 7): contexto do usuário — super_admin vê tudo; os demais
+  // só a própria posição (IDOR bloqueado pela policy quando strict).
+  const position = await withUserRls(session, (tx) =>
+    tx.position.findUnique({ where: { id } })
+  );
   if (!position) {
     return NextResponse.json({ error: "Posição não encontrada" }, { status: 404 });
   }

@@ -5,6 +5,7 @@ import { listExchanges, createExchange } from "@/lib/trading/wallet-manager";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/rbac";
 import { ForbiddenError } from "@/lib/auth/errors";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { handleApiError } from "@/lib/api/error-handler";
 
@@ -36,7 +37,9 @@ export async function GET(req: Request) {
     const session = await requireSession(req);
     if (!hasPermission(session.role, "exchanges:manage")) throw new ForbiddenError("exchanges:manage");
 
-    const exchanges = await listExchanges();
+    // ExchangeConnection é STRICT (round 7): listagem exige contexto RLS.
+    // withUserRls filtra pelo owner (super_admin = app.rls_bypass='on').
+    const exchanges = await withUserRls(session, (tx) => listExchanges(tx));
     return NextResponse.json({ exchanges });
   } catch (err) {
     return handleApiError(err, "GET /api/exchanges");
@@ -62,16 +65,24 @@ export async function POST(req: Request) {
     }
     const body = parsed.data;
 
-    const exchange = await createExchange({
-      label: body.label,
-      exchange: body.exchange,
-      apiKey: body.apiKey,
-      apiSecret: body.apiSecret,
-      apiPassphrase: body.apiPassphrase,
-      passphrase: body.passphrase,
-      testnet: body.testnet ?? false,
-      ipWhitelistConfigured: body.ipWhitelistConfigured ?? false,
-    });
+    // STRICT: INSERT sem contexto é negado; o ownerId precisa ser o da sessão
+    // (a policy WITH CHECK exige ownerId = app.user_id).
+    const exchange = await withUserRls(session, (tx) =>
+      createExchange(
+        {
+          label: body.label,
+          exchange: body.exchange,
+          apiKey: body.apiKey,
+          apiSecret: body.apiSecret,
+          apiPassphrase: body.apiPassphrase,
+          passphrase: body.passphrase,
+          testnet: body.testnet ?? false,
+          ipWhitelistConfigured: body.ipWhitelistConfigured ?? false,
+          ownerId: session.userId,
+        },
+        tx,
+      ),
+    );
     return NextResponse.json({ exchange });
   } catch (err) {
     return handleApiError(err, "POST /api/exchanges");

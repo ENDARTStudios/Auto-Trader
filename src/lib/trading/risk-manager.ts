@@ -7,6 +7,7 @@
 //   - max drawdown from peak
 
 import { db } from "@/lib/db";
+import { withSystemRls } from "@/lib/auth/rls-context";
 import { EngineConfig } from "./config";
 import { logger } from "./logger";
 import type { RiskAssessment } from "./types";
@@ -91,10 +92,12 @@ export async function assessTradeRisk(
 
   // 5. Max daily loss — sum of realized + unrealized losses in last 24h
   const since = new Date(Date.now() - DAY_MS);
-  const recentCloses = await db.position.findMany({
-    where: { status: { in: ["closed", "liquidated", "killed"] }, exitAt: { gte: since } },
-    select: { pnlUsd: true },
-  });
+  const recentCloses = await withSystemRls((tx) =>
+    tx.position.findMany({
+      where: { status: { in: ["closed", "liquidated", "killed"] }, exitAt: { gte: since } },
+      select: { pnlUsd: true },
+    })
+  );
   const dailyPnl = recentCloses.reduce(
     (sum, p) => sum + (p.pnlUsd ?? 0),
     0
@@ -127,10 +130,12 @@ export async function assessTradeRisk(
 
   // 6. Max exposure per token — computed against PEAK balance so it stays
   //    stable within a round (current balance drops as positions open).
-  const openForSymbol = await db.position.findMany({
-    where: { symbol, status: "open" },
-    select: { entryAmountUsd: true },
-  });
+  const openForSymbol = await withSystemRls((tx) =>
+    tx.position.findMany({
+      where: { symbol, status: "open" },
+      select: { entryAmountUsd: true },
+    })
+  );
   const exposedUsd = openForSymbol.reduce(
     (sum, p) => sum + p.entryAmountUsd,
     0

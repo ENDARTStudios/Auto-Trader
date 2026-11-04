@@ -13,6 +13,7 @@
 // which is the standard cross-runtime way to handle tz in JS without external libs.
 
 import { db } from "@/lib/db";
+import { withSystemRls } from "@/lib/auth/rls-context";
 import { logger } from "./logger";
 import { getConfig } from "./config";
 import { closePosition } from "./portfolio";
@@ -242,17 +243,20 @@ export async function forceCloseAllIfOutsideWindow(): Promise<number> {
   const status = await getScheduleStatus();
   if (status.within) return 0;
   // We are outside the window + forceClose is set — close all open positions.
-  const openPositions = await db.position.findMany({
-    where: { status: "open" },
-    select: {
-      id: true,
-      symbol: true,
-      source: true,
-      chain: true,
-      tokenId: true,
-      entryPriceUsd: true,
-    },
-  });
+  // STRICT prep (round 7): force-close é rotina de SISTEMA → bypass explícito.
+  const openPositions = await withSystemRls((tx) =>
+    tx.position.findMany({
+      where: { status: "open" },
+      select: {
+        id: true,
+        symbol: true,
+        source: true,
+        chain: true,
+        tokenId: true,
+        entryPriceUsd: true,
+      },
+    })
+  );
   if (openPositions.length === 0) return 0;
 
   const cfg = await getConfig();

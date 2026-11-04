@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { fetchPricesBatch } from "@/lib/trading/price-feed";
 import type { PositionRow } from "@/lib/trading/types";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -28,11 +29,15 @@ export async function GET(req: Request) {
     }
     const session = await requireSession(req);
     if (!hasPermission(session.role, "positions:read")) throw new ForbiddenError("positions:read");
-    const openPositions = await db.position.findMany({
-    where: { status: "open" },
-    orderBy: { entryAt: "desc" },
-    take: 50,
-  });
+    // RLS (prep round 7): Position será STRICT na round 8 — consulta no
+    // contexto do usuário (super_admin bypass; demais só as próprias).
+    const openPositions = await withUserRls(session, (tx) =>
+      tx.position.findMany({
+        where: { status: "open" },
+        orderBy: { entryAt: "desc" },
+        take: 50,
+      })
+    );
 
   const prices = await fetchPricesBatch(
     openPositions.map((p) => ({

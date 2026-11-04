@@ -91,5 +91,5 @@ try {
 
 console.log(
   '[apply-rls-dev] ok: ' + toApply.length + ' migration(s) / ' + totalStatements + ' statements aplicados (idempotente). ' +
-    'Fase 2 (round 6): WalletConnection + NotificationChannel STRICT (sem contexto = 0 linhas).',
+    'Fases 2/3 (rounds 6-7): WalletConnection + NotificationChannel + ExchangeConnection STRICT (sem contexto = 0 linhas); Position ainda fase 1.',
 );

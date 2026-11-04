@@ -18,7 +18,7 @@
 // Even if the operator is bullish on a single token, the cap forces them to
 // spread risk across unrelated positions.
 
-import { db } from "@/lib/db";
+import { withSystemRls } from "@/lib/auth/rls-context";
 import { logger } from "./logger";
 import type { EngineConfig } from "./config";
 import type { TokenCandidate } from "./types";
@@ -55,10 +55,12 @@ export async function checkDiversification(
   const reasons: string[] = [];
 
   // Count current open positions by symbol / chain / strategy
-  const openPositions = await db.position.findMany({
-    where: { status: "open" },
-    select: { symbol: true, chain: true, strategy: true },
-  });
+  const openPositions = await withSystemRls((tx) =>
+    tx.position.findMany({
+      where: { status: "open" },
+      select: { symbol: true, chain: true, strategy: true },
+    })
+  );
 
   const perSymbol = openPositions.filter((p) => p.symbol === candidate.symbol).length;
   const perChain = openPositions.filter(
@@ -130,10 +132,12 @@ export async function getDiversificationSnapshot(): Promise<{
   // different symbol/chain/strategy), 0 = all eggs in one basket
   diversityScore: number;
 }> {
-  const openPositions = await db.position.findMany({
-    where: { status: "open" },
-    select: { symbol: true, chain: true, strategy: true },
-  });
+  const openPositions = await withSystemRls((tx) =>
+    tx.position.findMany({
+      where: { status: "open" },
+      select: { symbol: true, chain: true, strategy: true },
+    })
+  );
 
   const bySymbol: Record<string, number> = {};
   const byChain: Record<string, number> = {};
@@ -187,10 +191,12 @@ export async function pickStrategyForCandidate(
   cfg: EngineConfig
 ): Promise<string | null> {
   const enabled = cfg.enabledStrategies.length > 0 ? cfg.enabledStrategies : ["scalp", "day", "swing"];
-  const openPositions = await db.position.findMany({
-    where: { status: "open" },
-    select: { strategy: true },
-  });
+  const openPositions = await withSystemRls((tx) =>
+    tx.position.findMany({
+      where: { status: "open" },
+      select: { strategy: true },
+    })
+  );
 
   // Count open positions per strategy
   const counts: Record<string, number> = {};

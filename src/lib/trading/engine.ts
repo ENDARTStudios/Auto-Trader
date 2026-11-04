@@ -13,6 +13,7 @@
 // by one logical step. Real production would run this in a separate worker.
 
 import { db } from "@/lib/db";
+import { withSystemRls } from "@/lib/auth/rls-context";
 import { getConfig, setEngineRunning, EngineConfig } from "./config";
 import { logger } from "./logger";
 import {
@@ -180,9 +181,11 @@ class Engine {
       //    NOT NULL — see portfolio.getSystemOwnerId). Never touch another
       //    operator's positions from the automated loop.
       const ownerId = await getSystemOwnerId();
-      const openCount = await db.position.count({
-        where: { status: "open", ...systemOwnerScope(ownerId) },
-      });
+      const openCount = await withSystemRls((tx) =>
+        tx.position.count({
+          where: { status: "open", ...systemOwnerScope(ownerId) },
+        })
+      );
 
       if (openCount === 0) {
         // Finalize any round that still exists: the in-memory id, or a round
@@ -242,9 +245,11 @@ class Engine {
     const round = await db.round.findUnique({ where: { id: roundId } });
     if (!round || (round.positionsOpened ?? 0) <= 0) return;
 
-    const positionsClosed = await db.position.count({
-      where: { roundId, status: { in: ["closed", "liquidated", "killed"] } },
-    });
+    const positionsClosed = await withSystemRls((tx) =>
+      tx.position.count({
+        where: { roundId, status: { in: ["closed", "liquidated", "killed"] } },
+      })
+    );
     // feed the 20-attempt graduation window; also keeps the legacy
     // paperCyclesPassed counter compatible (incremented on profitable rounds).
     await recordPaperCycleAttempt(roundId, result.profitUsd, {
@@ -287,9 +292,11 @@ class Engine {
   // -------------------------------------------------------------------------
   private async monitorAndExit(cfg: EngineConfig): Promise<number> {
     const ownerId = await getSystemOwnerId();
-    const openPositions = await db.position.findMany({
-      where: { status: "open", ...systemOwnerScope(ownerId) },
-    });
+    const openPositions = await withSystemRls((tx) =>
+      tx.position.findMany({
+        where: { status: "open", ...systemOwnerScope(ownerId) },
+      })
+    );
     if (openPositions.length === 0) return 0;
 
     const prices = await fetchPricesBatch(
@@ -374,7 +381,9 @@ class Engine {
       });
       // External notification — fetch fresh position to compute P&L
       try {
-        const fresh = await db.position.findUnique({ where: { id: pos.id } });
+        const fresh = await withSystemRls((tx) =>
+          tx.position.findUnique({ where: { id: pos.id } })
+        );
         const pnlUsd = fresh?.pnlUsd ?? 0;
         const pnlPct = fresh?.pnlPct ?? 0;
         notifyEvent({
@@ -487,9 +496,11 @@ class Engine {
   // -------------------------------------------------------------------------
   private async forceExitAll(cfg: EngineConfig, reason: ExitReason): Promise<void> {
     const ownerId = await getSystemOwnerId();
-    const openPositions = await db.position.findMany({
-      where: { status: "open", ...systemOwnerScope(ownerId) },
-    });
+    const openPositions = await withSystemRls((tx) =>
+      tx.position.findMany({
+        where: { status: "open", ...systemOwnerScope(ownerId) },
+      })
+    );
     const prices = await fetchPricesBatch(
       openPositions.map((p) => ({
         id: p.id,
@@ -1133,7 +1144,9 @@ export const engine = new Engine();
 export async function getEngineSnapshot(): Promise<EngineSnapshot> {
   const cfg = await getConfig();
   const tb = await db.tradingBalance.findUnique({ where: { id: "singleton" } });
-  const openCount = await db.position.count({ where: { status: "open" } });
+  const openCount = await withSystemRls((tx) =>
+    tx.position.count({ where: { status: "open" } })
+  );
 
   const status: EngineSnapshot["status"] = cfg.killSwitchActive
     ? "killed"

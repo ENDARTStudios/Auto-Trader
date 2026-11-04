@@ -14,6 +14,7 @@
 // The equity curve in the Analytics tab is built from these snapshots.
 
 import { db } from "@/lib/db";
+import { withSystemRls } from "@/lib/auth/rls-context";
 import { fetchPricesBatch } from "./price-feed";
 import { logger } from "./logger";
 
@@ -46,9 +47,11 @@ export async function recordSnapshotIfDue(): Promise<void> {
     const rb = await db.reserve.findUnique({ where: { id: "singleton" } });
     if (!tb || !rb) return;
 
-    const openPositions = await db.position.findMany({
-      where: { status: "open" },
-    });
+    const openPositions = await withSystemRls((tx) =>
+      tx.position.findMany({
+        where: { status: "open" },
+      })
+    );
 
     let unrealizedPnlUsd = 0;
     if (openPositions.length > 0) {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/rbac";
 import { ForbiddenError } from "@/lib/auth/errors";
@@ -47,16 +48,19 @@ export async function GET(req: Request) {
     const range = new URL(req.url).searchParams.get("range") ?? "30d";
     const since = sinceFor(range);
 
-    const positions = await db.position.findMany({
-      where: {
-        ownerId: session.userId,
-        status: { in: ["closed", "liquidated", "killed"] },
-        ...(since ? { exitAt: { gte: since } } : {}),
-      },
-      orderBy: { exitAt: "desc" },
-      take: 500,
-      select: { id: true, symbol: true, entryAt: true, pnlPct: true, pnlUsd: true, scamScore: true },
-    });
+    // RLS (prep round 7): contexto do usuário; ownerId no where mantido.
+    const positions = await withUserRls(session, (tx) =>
+      tx.position.findMany({
+        where: {
+          ownerId: session.userId,
+          status: { in: ["closed", "liquidated", "killed"] },
+          ...(since ? { exitAt: { gte: since } } : {}),
+        },
+        orderBy: { exitAt: "desc" },
+        take: 500,
+        select: { id: true, symbol: true, entryAt: true, pnlPct: true, pnlUsd: true, scamScore: true },
+      })
+    );
 
     if (positions.length === 0) {
       return NextResponse.json({ range, totalTrades: 0, minSample: MIN_SAMPLE, factors: {}, noSample: 0 });

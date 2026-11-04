@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireSession } from "@/lib/auth/session";
+import { withUserRls } from "@/lib/auth/rls-context";
+import { requireSession, type SessionUser } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/rbac";
 import { ForbiddenError } from "@/lib/auth/errors";
 import { handleApiError } from "@/lib/api/error-handler";
@@ -44,31 +45,37 @@ interface RpcRequest {
   params?: { name?: ToolName; arguments?: Record<string, unknown> };
 }
 
-async function callTool(name: ToolName, userId: string) {
+async function callTool(name: ToolName, session: SessionUser) {
+  const userId = session.userId;
   if (name === "positions_list") {
-    const rows = await db.position.findMany({
-      where: { ownerId: userId, status: "open" },
-      orderBy: { entryAt: "desc" },
-      select: {
-        id: true,
-        symbol: true,
-        source: true,
-        entryPriceUsd: true,
-        entryAmountUsd: true,
-        entryAt: true,
-      },
-    });
+    // RLS (prep round 7): contexto do usuário autenticado (mcp exige sessão).
+    const rows = await withUserRls(session, (tx) =>
+      tx.position.findMany({
+        where: { ownerId: userId, status: "open" },
+        orderBy: { entryAt: "desc" },
+        select: {
+          id: true,
+          symbol: true,
+          source: true,
+          entryPriceUsd: true,
+          entryAmountUsd: true,
+          entryAt: true,
+        },
+      })
+    );
     return { positions: rows };
   }
 
   if (name === "portfolio_summary") {
-    const [open, latest] = await Promise.all([
-      db.position.findMany({
+    const open = await withUserRls(session, (tx) =>
+      tx.position.findMany({
         where: { ownerId: userId, status: "open" },
         select: { entryAmountUsd: true },
-      }),
-      db.performanceSnapshot.findFirst({ orderBy: { timestamp: "desc" } }).catch(() => null),
-    ]);
+      })
+    );
+    const latest = await db.performanceSnapshot
+      .findFirst({ orderBy: { timestamp: "desc" } })
+      .catch(() => null);
     const deployed = open.reduce((sum, p) => sum + (Number.isFinite(p.entryAmountUsd) ? p.entryAmountUsd : 0), 0);
     return {
       openPositions: open.length,
@@ -135,7 +142,7 @@ export async function POST(req: Request) {
     if (rpc.method === "tools/call") {
       const name = rpc.params?.name;
       if (!name || !TOOLS.some((t) => t.name === name)) return error(-32602, "unknown_tool");
-      const data = await callTool(name as ToolName, session.userId);
+      const data = await callTool(name as ToolName, session);
       return reply({ content: [{ type: "text", text: JSON.stringify(data) }], isError: false });
     }
 
