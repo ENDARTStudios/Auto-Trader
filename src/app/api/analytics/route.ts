@@ -52,7 +52,15 @@ export async function GET(req: Request) {
     if (!hasPermission(session.role, "dashboard:read")) throw new ForbiddenError("dashboard:read");
     const url = new URL(req.url);
     const rangeKey = url.searchParams.get("range") ?? "24h";
-    const rangeMs = RANGES[rangeKey] ?? RANGES["24h"];
+    // Contrato explícito: ranges fora de RANGES são erro de validação (400) em vez
+    // de cair silenciosamente em 24h e ecoar o range inválido (bug da round 13).
+    if (!(rangeKey in RANGES)) {
+      return NextResponse.json(
+        { error: "invalid_range", accepted: Object.keys(RANGES) },
+        { status: 400 },
+      );
+    }
+    const rangeMs = RANGES[rangeKey];
     // For "all", use epoch (1970-01-01). For others, subtract from now.
     const since = rangeMs > 0 ? new Date(Date.now() - rangeMs) : new Date(0);
     // ----- Equity curve from PerformanceSnapshot -----
