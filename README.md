@@ -43,6 +43,22 @@ npm run db:demo:clear                 # mostra o que seria apagado (dry-run)
 npm run db:demo:clear -- --yes        # apaga de verdade
 ```
 
+## DB / Migrações
+
+- Schema **versionado** em `prisma/migrations` (baseline + RLS). Em banco novo:
+  `npx prisma migrate deploy`.
+- Banco que **já tem tabelas** mas nunca teve histórico (caso da produção): use
+  `node scripts/bootstrap-prod-migrations.mjs` — **dry-run por padrão**, só grava com
+  `--yes`, valida drift antes, e nunca aplica o SQL das migrations. Runbook:
+  [docs/06-devops-deployment/DB_MIGRATIONS_RUNBOOK.md](docs/06-devops-deployment/DB_MIGRATIONS_RUNBOOK.md).
+- Banco populado sem drift e sem histórico (bootstrap assistido):
+  `node scripts/db-migrate-safe.mjs --dry-run` → sem flag.
+- **RLS**: policies nas tabelas multi-tenant (`Position`, `WalletConnection`,
+  `ExchangeConnection`, `NotificationChannel`). Enforcement só vale se o role do app
+  NÃO for superuser nem tiver `BYPASSRLS` — verifique com
+  `node scripts/verify-rls-enforcement.mjs --expect-enforced` (exit 1 = inerte).
+  Rollout/rollback do role em [docs/05-security-compliance/RLS.md](docs/05-security-compliance/RLS.md) §9.
+
 ## Testes e verificação
 
 ```bash

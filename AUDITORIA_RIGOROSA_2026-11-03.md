@@ -332,3 +332,31 @@
 3. **CD automático** (workflow Railway exige `RAILWAY_TOKEN` do operador); branch protection aplicada; Sentry/Redis/AI dependem de DSN/URL/key.
 4. **Cobertura** dos módulos grandes 0% (scam-detector, rising-tokens, schedule, engine/backtest); include de `src/lib/etl/**` no coverage.
 5. **Docs**: Fly.io obsoleto, skill de 5 camadas continua não implementada no runtime (documentado como pendência).
+
+---
+
+## 10. Rodadas 4–5 (2026-11-03/04) — RLS nativo **enforçado** e migrações de produção
+
+### 10.1 RLS nativo — policies + context + **enforcement ativo em produção**
+- Migration `20260102000000_rls_policies`: **ENABLE + FORCE ROW LEVEL SECURITY** + policies `USING/WITH CHECK` por `ownerId` em `Position`, `WalletConnection`, `ExchangeConnection`, `NotificationChannel`; `rls-context.ts` (`withUserRls`/`withSystemRls`) injeta `app.user_id`/`app.rls_bypass` via `set_config(..., true)`; rotas de wallets/exchanges/notifications adotaram o contexto.
+- **Role de aplicação criado no Neon**: `autotrader_app` (`rolsuper=false`, `rolbypassrls=false`) com grants de tabelas/sequences/functions + default privileges; `DATABASE_URL` de produção trocado para esse role (rollback = reverter a env para a URL antiga, guardada fora do git).
+- **Verificação em produção** (após redeploy):
+  - `ROLE={"current_user":"autotrader_app","rolsuper":false,"rolbypassrls":false}`; `POLICIES=4`.
+  - `POSITION_COUNTS={"admin":9,"viewer":0,"none":9}` → isolamento **ativo** com contexto; sem contexto = permissivo (compatibilidade de rollout).
+  - App 100% funcional: health/ready 200, login 200, wallets/exchanges/notifications/status/backup/etl 200, **signer ready** (pid 14), live paper/desligado, cookie forjado 401.
+- Limitação documentada: queries ainda não migradas para `withUserRls` continuam permissivas (próximo passo: endurecer a policy depois de migrar todos os call sites).
+
+### 10.2 Migrações de produção
+- `scripts/bootstrap-prod-migrations.mjs` (dry-run default, gate de drift, idempotente): histórico do Prisma Migrate bootstrapado no Neon — `_prisma_migrations` com **baseline (111 statements)** + **rls_policies (16)**, checksums sha256, `finished_at` preenchido; schema drift **OK**. `prisma migrate deploy` futuro passa a ser aplicável.
+- `scripts/verify-rls-enforcement.mjs` + `DB_MIGRATIONS_RUNBOOK.md` (rollback em 4 níveis) e `RLS.md §9`.
+
+### 10.3 Cobertura (rodadas 4–5)
+- Lines **55,79% (r4) → 62,01% (r5)**; funcs 66,10%; os módulos 0% foram cobertos: `scam-detector` ~95%, `schedule` ~97%, `rising-tokens` ~96%, `backtest` ~91%, `strategic-roadmap` 100%, `watchlist` 98,6%, `proxy-trust` 95,2%, `site-integrity` 86,7%, `position-surveillance` ~85%.
+- Bug real encontrado pelos testes: `position-surveillance.ts` regex de `tax_spike` com `%\b` nunca casa findings reais; `holder_concentration` não dispara deterministicamente — registrado para correção.
+
+### 10.4 CD / pendências do operador
+- CD **pronto e desligado**: `deploy-railway.yml` endurecido + `verify-cd-config.mjs`; bloqueio = project token do Railway (a API recusou `projectTokenCreate` para o token OAuth do CLI). Passos: dashboard → `gh secret set RAILWAY_TOKEN` → `gh variable set RAILWAY_DEPLOY_ENABLED --body true`.
+- Live trading segue **desligado** (sem chaves/op S14); Sentry/Redis/AI aguardam DSN/URL/key.
+
+### 10.5 Gates finais (rodada 5)
+- `tsc` 0 · `eslint` 0 · `vitest` **77 arquivos / 1050 pass / 1 skip** · build OK · CI verde nas PRs #105–#108 · `main` protegido (checks `ci`+`codeql`, sem force-push/deleção).
