@@ -161,15 +161,16 @@ describe('RLS nativo — catálogo', () => {
 });
 
 describe('RLS nativo — isolamento por owner', () => {
-  it('sem contexto: Position/Exchange permissivas (fase 1) e Wallet/Channel STRICT (fase 2, 0 linhas)', async () => {
+  it('sem contexto: TODAS as 4 tabelas são STRICT (fase 4, round 8) — 0 linhas', async () => {
     const positions = await rlsDb.position.findMany({ where: { symbol: { startsWith: PREFIX } } });
     const wallets = await rlsDb.walletConnection.findMany({ where: { label: { startsWith: PREFIX } } });
     const channels = await rlsDb.notificationChannel.findMany({ where: { name: { startsWith: PREFIX } } });
-    // Fase 1 (ainda permissiva sem GUC):
-    expect(positions.length).toBe(2);
-    // Fase 2 / round 6 (strict — sem contexto = deny):
+    const exchanges = await rlsDb.exchangeConnection.findMany({ where: { label: { startsWith: PREFIX } } });
+    // Fase 4 (round 8): Position também strict — sem contexto = deny.
+    expect(positions.length).toBe(0);
     expect(wallets.length).toBe(0);
     expect(channels.length).toBe(0);
+    expect(exchanges.length).toBe(0);
   });
 
   it('withUserRls(user A) vê só as linhas de A', async () => {
@@ -222,6 +223,9 @@ describe('RLS nativo — isolamento por owner', () => {
       expect(inside.length).toBe(1);
     });
     const outside = await rlsDb.position.findMany({ where: { symbol: { startsWith: PREFIX } } });
-    expect(outside.length).toBe(2);
+    // Fase 4 (round 8): Position também é STRICT — sem contexto = 0. Prova que o
+    // GUC é transaction-local (o contexto não "vazou" para a query seguinte) e
+    // que a policy fail-closed está ativa.
+    expect(outside.length).toBe(0);
   });
 });

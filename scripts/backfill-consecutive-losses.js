@@ -14,9 +14,9 @@
 //
 // Output: prints the old → new value and exits 0 on success.
 
-const { PrismaClient } = require("@prisma/client");
+const { createMaintenanceClient } = require("./lib/prisma-client-maintenance.cjs");
 
-const db = createPrismaClient();
+let db;
 
 async function main() {
   console.log("→ Reading TradingBalance singleton…");
@@ -112,11 +112,18 @@ async function main() {
   }
 }
 
-main()
-  .catch((err) => {
+(async () => {
+  // Guard (RLS): lê Position (STRICT) — com app role veria 0 linhas e resetaria o
+  // contador silenciosamente. Exige role com bypass.
+  const { requireBypassRls } = await import("./lib/require-bypass-rls.mjs");
+  await requireBypassRls({ context: "backfill-consecutive-losses" });
+  db = createMaintenanceClient();
+  try {
+    await main();
+  } catch (err) {
     console.error("✗ Backfill failed:", err);
-    process.exit(1);
-  })
-  .finally(async () => {
+    process.exitCode = 1;
+  } finally {
     await db.$disconnect();
-  });
+  }
+})();

@@ -18,6 +18,7 @@
 import "dotenv/config";
 import { createRequire } from "node:module";
 import { DEMO_RANGES, DEMO_TABLES, buildCountSql, buildDeleteSql, demoDeleteSpec, totalCounts } from "./lib/demo-ids.mjs";
+import { requireBypassRls } from "./lib/require-bypass-rls.mjs";
 
 const require = createRequire(import.meta.url);
 const { Client } = require("pg");
@@ -56,6 +57,9 @@ async function countAll() {
 }
 
 async function main() {
+  // Guard: DELETE em Position (RLS strict) com app role (NOBYPASSRLS) apagaria 0
+  // linhas silenciosamente — aborta com instrução antes de qualquer operação.
+  await requireBypassRls({ context: "clear-demo-data" });
   await client.connect();
   const before = await countAll();
 
