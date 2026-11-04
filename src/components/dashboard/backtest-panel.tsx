@@ -528,7 +528,7 @@ function BacktestDetailCard({
             <p className="text-xs text-muted-foreground">
               Trades por símbolo ({data.trades.length} exibidos dos {data.totalTrades} totais)
             </p>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto" tabIndex={0}>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="border-b text-left">

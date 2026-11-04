@@ -2095,7 +2095,7 @@ pm install @sentry/nextjs + ly secrets set SENTRY_DSN=.... The eforeSend scrub
 
 **Rule 2 (Ollama fallback):** generateEmbeddingOllama(text) in src/lib/rag/ollama.ts MUST fallback to generateEmbedding (hash mock 1536 dims) when localhost:11434 is unreachable. Production runs ollama serve (or docker run ollama) and sets OLLAMA_URL env. The fallback ensures dev environments work without external dependencies.
 
-**Rule 3 (BullMQ stub):** src/lib/queue/bullmq-stub.ts is the in-process implementation used in dev/test. To switch to real BullMQ in production, replace the file body with export { Queue, Worker } from "bullmq". The stub maintains the same API surface (add/process/pollIntervalMs/attempts) so the swap is transparent.
+**Rule 3 (BullMQ stub) — REMOVIDO na rodada 9 (2026-11-04):** o `src/lib/queue/bullmq-stub.ts` era dead code (0 callers de produção; apenas o teste o usava). Removido junto com `tests/bullmq-sentry-ollama.test.ts`. **Fila assíncrona real (BullMQ + Redis) NÃO está implementada** — o ETL roda de forma síncrona via `/api/etl` e não há worker separado. Ver README (limitações/roadmap). Não recriar o stub: implementar BullMQ+Redis de verdade quando houver Redis no ambiente.
 
 **Test pin (vitest):**
 1. initSentry is idempotent � second call does not throw.

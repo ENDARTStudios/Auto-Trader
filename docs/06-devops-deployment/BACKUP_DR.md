@@ -101,3 +101,85 @@ Garantias implementadas:
 4. Subir o app contra o banco restaurado e validar `/api/health/ready` (200) +
    `Config`/`TradingBalance`/`Position` com as contagens esperadas.
 5. Registrar data/resultado no `INCIDENT_RESPONSE.md` (postmortem curto).
+
+## 7. Windows / Docker — backup e restore sem cliente PostgreSQL (rodada 9)
+
+O host de desenvolvimento Windows **não tem** `pg_dump`/`pg_restore` nativos. Duas
+formas suportadas:
+
+### 7.1 E2E real via Docker (recomendado para validar)
+
+```bash
+node scripts/backup-restore-e2e.mjs            # dump + restore + comparação; limpa tudo
+node scripts/backup-restore-e2e.mjs --json     # saída para automação
+node scripts/backup-restore-e2e.mjs --keep     # preserva banco descartável + tmp
+node scripts/backup-restore-e2e.mjs --image postgres:16
+```
+
+O que ele faz (sem tocar em produção): lê `DATABASE_URL` do `.env` (senha nunca
+impressa), cria `autotrader_restore_e2e_<pid>`, roda `pg_dump -Fc` **dentro** do
+container `postgres:16` apontando para o host via `host.docker.internal`, restaura
+num segundo container no banco descartável e compara a contagem de **todas** as
+tabelas. `--add-host=host.docker.internal:host-gateway` cobre também Linux.
+
+Evidência real (2026-11-04):
+
+```
+[backup-e2e] docker server: 29.8.1
+[backup-e2e] dump ok: 2113925 bytes
+[backup-e2e] restore ok
+[backup-e2e] tabelas: origem=34 restaurado=34
+[backup-e2e] linhas: origem=2410 restaurado=2410
+[backup-e2e] PASS: restore íntegro — 34 tabelas / 2410 linhas idênticas
+```
+
+Notas de fidelidade:
+
+- o dump usa `--no-owner --no-acl`; o restore usa `--no-owner --exit-on-error`.
+  GRANTs para roles efêmeras de teste (ex.: `autotrader_rls_test`) não existem no
+  cluster de destino e fariam o restore falhar — em DR real, provisione os roles
+  (`autotrader_app` + grants) **antes/depois** e rode o restore como owner.
+- se a origem tiver a extensão `vector`, o E2E troca a imagem para
+  `pgvector/pgvector:pg16` automaticamente (a imagem `postgres:16` não traz pgvector).
+- tabelas que mudam durante o teste (fonte viva: app/engine escrevendo) são
+  detectadas como **voláteis** e reportadas; as demais são comparadas linha a linha.
+  Para um teste 100% determinístico, rode com o app parado.
+
+### 7.2 Scripts normais com binário apontado por env
+
+```bash
+# defina o binário (caminho do pg_dump.exe ou wrapper) — evita depender do PATH
+PG_DUMP_BIN='C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe' \
+  node --env-file=.env scripts/backup-full.mjs --check
+PG_RESTORE_BIN='C:\\Program Files\\PostgreSQL\\16\\bin\\pg_restore.exe' \
+  node --env-file=.env scripts/restore-full.mjs --check --file backups/<dump>.dump
+```
+
+Sem o binário, os scripts falham com mensagem clara apontando para o E2E/Docker
+(validado: `PG_RESTORE_BIN=C:\\nao\\existe\\pg_restore.exe` → exit 1 com instrução).
+
+### 7.3 RPO/RTO com este caminho
+
+| Cenário | RPO alvo | RTO alvo | Comando |
+|---|---|---|---|
+| Perda do banco de dev/paper | 24h (aceitável) | 1h | `node scripts/backup-restore-e2e.mjs` valida o caminho; restore real com `scripts/restore-full.mjs` (binário local) |
+| Deploy ruim em produção | 0 (rollback de imagem) | 30min | Railway → Deployments → Redeploy + `curl /api/health/ready` |
+| Corrupção/perda de dados em produção | último dump agendado | 2-4h | dump `pg_dump -Fc` do owner → `pg_restore` no banco novo → apontar `DATABASE_URL` → smoke `/api/health/ready` |
+| Perda de vault/chaves | 0 (backup offline) | 4h | ver §1 (não coberto por dump do banco) |
+
+### 7.4 Teste de restore (checklist executável)
+
+1. `node scripts/backup-restore-e2e.mjs` → **PASS** (exit 0, tabelas e linhas idênticas).
+2. Rodar o mesmo com o app **parado** para exigir comparação exata (sem voláteis).
+3. Restore num banco descartável a partir de um dump **real** de produção:
+   `createdb`, `pg_restore --no-owner --exit-on-error`, comparar contagens, subir o app
+   apontando `DATABASE_URL` para ele e validar login + `/api/health/ready`.
+4. Registrar data/resultado no `INCIDENT_RESPONSE.md` (postmortem curto).
+
+### 7.5 Rollback
+
+- **Dados**: manter o dump anterior; restore pelo caminho acima para um banco novo e
+  trocar `DATABASE_URL` (nunca sobrescrever produção no lugar).
+- **App**: Railway → Deployments → deploy anterior → Redeploy.
+- **RLS/role**: se o restore foi para um cluster cujo role de app não tem grants, o app
+  falha com permissão negada — execute os GRANTs de `docs/05-security-compliance/RLS.md` §9.1.

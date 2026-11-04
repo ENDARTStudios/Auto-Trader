@@ -726,7 +726,7 @@ export function WatchlistPanel() {
               Nenhum token em observação. Adicione acima para começar.
             </div>
           ) : (
-            <div className="overflow-x-auto -mx-2">
+            <div className="overflow-x-auto -mx-2" tabIndex={0}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-xs uppercase tracking-wide text-muted-foreground border-b border-border/60">
