@@ -8,6 +8,7 @@
 // being written to the DB. The passphrase is required for any operation
 // that needs to decrypt (which is currently none — v16 is read-only display).
 
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { logger } from "./logger";
 import { encryptSecret, maskApiKey, walletVault } from "./wallet-crypto";
@@ -93,26 +94,37 @@ function toExchangeRow(r: Awaited<ReturnType<typeof db.exchangeConnection.findUn
 // Wallet CRUD
 // ---------------------------------------------------------------------------
 
-export async function listWallets(ownerId?: string | null, isSuperAdmin = false): Promise<WalletConnectionRow[]> {
+export async function listWallets(
+  ownerId?: string | null,
+  isSuperAdmin = false,
+  client?: Prisma.TransactionClient,
+): Promise<WalletConnectionRow[]> {
   const where = !isSuperAdmin && ownerId ? { ownerId } : isSuperAdmin ? {} : { ownerId: ownerId ?? undefined };
-  const rows = await db.walletConnection.findMany({
+  // client = transação com contexto RLS (withUserRls/withSystemRls); default
+  // db para compatibilidade. WalletConnection é STRICT (round 6): chamadas sem
+  // contexto retornam 0 linhas quando o role do banco é non-superuser.
+  const conn = client ?? db;
+  const rows = await conn.walletConnection.findMany({
     where: Object.keys(where).length ? where : undefined,
     orderBy: { createdAt: "desc" },
   });
   return rows.map((r) => toWalletRow(r)!).filter(Boolean);
 }
 
-export async function createWallet(input: {
-  label: string;
-  type: string;
-  address: string;
-  chain?: string;
-  readOnly?: boolean;
-  publicKey?: string;
-  privateKey?: string;
-  passphrase?: string;
-  ownerId?: string | null;
-}): Promise<WalletConnectionRow> {
+export async function createWallet(
+  input: {
+    label: string;
+    type: string;
+    address: string;
+    chain?: string;
+    readOnly?: boolean;
+    publicKey?: string;
+    privateKey?: string;
+    passphrase?: string;
+    ownerId?: string | null;
+  },
+  client?: Prisma.TransactionClient,
+): Promise<WalletConnectionRow> {
   let privateKeyEncrypted: string | null = null;
   if (input.privateKey && input.passphrase) {
     privateKeyEncrypted = encryptSecret(input.privateKey, input.passphrase);
@@ -125,7 +137,8 @@ export async function createWallet(input: {
     // ok
   }
 
-  const row = await db.walletConnection.create({
+  const conn = client ?? db;
+  const row = await conn.walletConnection.create({
     data: {
       ownerId: input.ownerId ?? null,
       label: input.label,
@@ -142,23 +155,33 @@ export async function createWallet(input: {
   return toWalletRow(row)!;
 }
 
-export async function setWalletActive(walletId: string, active: boolean): Promise<void> {
+export async function setWalletActive(
+  walletId: string,
+  active: boolean,
+  client?: Prisma.TransactionClient,
+): Promise<void> {
+  const conn = client ?? db;
   if (active) {
-    // Deactivate all others first
-    await db.walletConnection.updateMany({
+    // Deactivate all others first (RLS scopes this to the owner's rows when a
+    // user context is provided).
+    await conn.walletConnection.updateMany({
       where: { isActive: true },
       data: { isActive: false },
     });
   }
-  await db.walletConnection.update({
+  await conn.walletConnection.update({
     where: { id: walletId },
     data: { isActive: active, lastUsedAt: new Date() },
   });
   logger.info("wallet", `Wallet ${walletId} ${active ? "activated" : "deactivated"}`);
 }
 
-export async function deleteWallet(walletId: string): Promise<void> {
-  await db.walletConnection.delete({ where: { id: walletId } });
+export async function deleteWallet(
+  walletId: string,
+  client?: Prisma.TransactionClient,
+): Promise<void> {
+  const conn = client ?? db;
+  await conn.walletConnection.delete({ where: { id: walletId } });
   logger.info("wallet", `Wallet ${walletId} deleted`);
 }
 

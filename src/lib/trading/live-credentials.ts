@@ -33,6 +33,7 @@
 //   - getLiveCredentialStatus() é síncrono e NÃO consulta o DB.
 
 import { db } from "@/lib/db";
+import { withSystemRls } from "@/lib/auth/rls-context";
 import { walletVault } from "./wallet-crypto";
 
 // ---------------------------------------------------------------------------
@@ -162,13 +163,19 @@ export async function getCexCredentials(
   if (vaultUnlocked) {
     try {
       const resolvedOwner = await resolveOwnerId(ownerId);
-      const connection = await db.exchangeConnection.findFirst({
-        where: {
-          isActive: true,
-          ...(resolvedOwner ? { ownerId: resolvedOwner } : {}),
-        },
-        orderBy: { createdAt: "asc" },
-      });
+      // Contexto explícito de SISTEMA: a resolução de credenciais é chamada
+      // pelo executor (não por input direto de usuário) e precisa enxergar a
+      // conexão ativa do owner resolvido. ExchangeConnection ainda é
+      // permissiva nesta fase, mas já fica pronta para o strict futuro.
+      const connection = await withSystemRls((tx) =>
+        tx.exchangeConnection.findFirst({
+          where: {
+            isActive: true,
+            ...(resolvedOwner ? { ownerId: resolvedOwner } : {}),
+          },
+          orderBy: { createdAt: "asc" },
+        }),
+      );
       if (!connection) {
         return fail(
           LIVE_CRED_ERROR.NOT_CONFIGURED,

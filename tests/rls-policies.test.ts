@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import pg from 'pg';
 import { db, createPrismaClient } from '@/lib/db';
@@ -67,9 +67,20 @@ function roleConnectionUrl(): string {
   return url.toString();
 }
 async function applyRlsPolicies(client: pg.Client): Promise<void> {
-  const sql = readFileSync(MIGRATION, 'utf8').replace(/--[^\n]*/g, '');
-  const statements = sql.split(';').map((s) => s.trim()).filter((s) => s.length > 0);
-  for (const statement of statements) await client.query(statement);
+  // TODAS as migrations de RLS em ordem (fase 1 permissiva → fase 2 strict do
+  // round 6). Aplicar só a fase 1 reverteria WalletConnection/NotificationChannel
+  // para permissivo e mascararia o strict.
+  const migrationsRoot = join(process.cwd(), 'prisma', 'migrations');
+  const names = readdirSync(migrationsRoot, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .filter((name) => /rls/i.test(name))
+    .sort();
+  for (const name of names) {
+    const sql = readFileSync(join(migrationsRoot, name, 'migration.sql'), 'utf8').replace(/--[^\n]*/g, '');
+    const statements = sql.split(';').map((s) => s.trim()).filter((s) => s.length > 0);
+    for (const statement of statements) await client.query(statement);
+  }
 }
 
 beforeAll(async () => {
@@ -150,13 +161,15 @@ describe('RLS nativo — catálogo', () => {
 });
 
 describe('RLS nativo — isolamento por owner', () => {
-  it('sem contexto (GUC ausente) é permissivo — compatibilidade do rollout', async () => {
+  it('sem contexto: Position/Exchange permissivas (fase 1) e Wallet/Channel STRICT (fase 2, 0 linhas)', async () => {
     const positions = await rlsDb.position.findMany({ where: { symbol: { startsWith: PREFIX } } });
     const wallets = await rlsDb.walletConnection.findMany({ where: { label: { startsWith: PREFIX } } });
     const channels = await rlsDb.notificationChannel.findMany({ where: { name: { startsWith: PREFIX } } });
+    // Fase 1 (ainda permissiva sem GUC):
     expect(positions.length).toBe(2);
-    expect(wallets.length).toBe(2);
-    expect(channels.length).toBe(2);
+    // Fase 2 / round 6 (strict — sem contexto = deny):
+    expect(wallets.length).toBe(0);
+    expect(channels.length).toBe(0);
   });
 
   it('withUserRls(user A) vê só as linhas de A', async () => {

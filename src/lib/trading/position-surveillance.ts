@@ -94,6 +94,29 @@ async function fetchDexPair(
 }
 
 // ---------------------------------------------------------------------------
+// Thresholds + parsing helpers
+// ---------------------------------------------------------------------------
+/** Acima disso o tax de venda é considerado spike (mesma semântica do round 5). */
+export const SELL_TAX_ALERT_PCT = 10;
+/** Acima disso o top-10 de holders é concentração perigosa. */
+export const HOLDER_CONCENTRATION_ALERT_PCT = 50;
+
+/**
+ * Extrai o PRIMEIRO percentual de um finding textual do GoPlus.
+ * Ex.: "Sell tax 25% (predatória)" -> 25; "Top 10 holders: 55.0% (...)" -> 55.
+ *
+ * Bug corrigido (round 6): a regex antiga era /\b(1[0-9]|[2-9]\d|100)%\b/ —
+ * o \b DEPOIS do "%" nunca casa quando o percentual é seguido de espaço/fim
+ * ("25% "), então o alerta de tax_spike nunca disparava em produção.
+ */
+export function extractPercent(text: string): number | null {
+  const m = text.match(/(\d+(?:\.\d+)?)\s*%/);
+  if (!m) return null;
+  const n = Number.parseFloat(m[1]);
+  return Number.isFinite(n) ? n : null;
+}
+
+// ---------------------------------------------------------------------------
 // Insert alert helper (dedupes against recent unresolved alerts of same type)
 // ---------------------------------------------------------------------------
 async function insertAlert(
@@ -262,34 +285,45 @@ export async function runSurveillance(
           if (alert) alerts.push(alert);
         }
 
-        // 3b. Holder concentration — check findings for "holder concentration"
-        const holderFinding = goplus.findings.find((f) =>
-          f.toLowerCase().includes("holder")
-        );
-        if (holderFinding && /top.*holder.*[4-9]\d%|>\s*50%/.test(holderFinding)) {
+        // 3b. Holder concentration — o GoPlus emite findings no formato
+        // "Top 10 holders: 55.0% (...)". Comparamos o PERCENTUAL extraído
+        // (não o texto), então 55.0% e 90% disparam e 20% não.
+        // Sem finding com percentual => sem dado => NÃO alerta.
+        const holderFinding = goplus.findings.find((f) => {
+          if (!/holder/i.test(f)) return false;
+          const pct = extractPercent(f);
+          return pct !== null && pct >= HOLDER_CONCENTRATION_ALERT_PCT;
+        });
+        if (holderFinding) {
+          const topHolderPct = extractPercent(holderFinding);
           const alert = await insertAlert(
             pos.id,
             pos.symbol,
             "holder_concentration",
             "warning",
             holderFinding,
-            { finding: holderFinding }
+            { finding: holderFinding, topHolderPct, threshold: HOLDER_CONCENTRATION_ALERT_PCT }
           );
           if (alert) alerts.push(alert);
         }
 
-        // 3c. Tax spike — if sell tax > 10%
-        const taxFinding = goplus.findings.find((f) =>
-          f.toLowerCase().includes("sell tax")
-        );
-        if (taxFinding && /\b(1[0-9]|[2-9]\d|100)%\b/.test(taxFinding)) {
+        // 3c. Tax spike — sell tax >= 10% (percentual extraído do finding).
+        // Bug corrigido (round 6): a regex antiga terminava em "%\b" e nunca
+        // casava "25% " (percentual seguido de espaço), deixando o alerta morto.
+        const taxFinding = goplus.findings.find((f) => {
+          if (!/sell tax/i.test(f)) return false;
+          const pct = extractPercent(f);
+          return pct !== null && pct >= SELL_TAX_ALERT_PCT;
+        });
+        if (taxFinding) {
+          const sellTaxPct = extractPercent(taxFinding);
           const alert = await insertAlert(
             pos.id,
             pos.symbol,
             "tax_spike",
             "warning",
             taxFinding,
-            { finding: taxFinding }
+            { finding: taxFinding, sellTaxPct, threshold: SELL_TAX_ALERT_PCT }
           );
           if (alert) alerts.push(alert);
         }

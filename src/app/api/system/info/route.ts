@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import fs from "fs";
 import path from "path";
 import { requirePermission } from "@/lib/auth/session";
+import { withSystemRls } from "@/lib/auth/rls-context";
 import { handleApiError } from "@/lib/api/error-handler";
 
 // GET /api/system/info — returns DB stats (table counts + file size + uptime)
@@ -41,7 +42,9 @@ export async function GET(req: Request) {
     db.positionAlert.count(),
     db.backtestResult.count(),
     db.performanceSnapshot.count(),
-    db.notificationChannel.count(),
+    // NotificationChannel é STRICT (round 6): contagem precisa de contexto de
+    // sistema (rota já exige system:read).
+    withSystemRls((tx) => tx.notificationChannel.count()),
     db.notificationLog.count(),
     db.tradingSchedule.count(),
   ]);

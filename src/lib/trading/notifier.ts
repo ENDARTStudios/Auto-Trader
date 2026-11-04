@@ -14,6 +14,7 @@
 // are silently dropped, but a "throttled" NotificationLog row is written).
 
 import { db } from "@/lib/db";
+import { withSystemRls } from "@/lib/auth/rls-context";
 import { logger } from "./logger";
 
 // ---------------------------------------------------------------------------
@@ -114,16 +115,23 @@ function parseChannel(row: {
 }
 
 export async function listChannels(): Promise<NotificationChannelRow[]> {
-  const rows = await db.notificationChannel.findMany({
-    orderBy: { createdAt: "asc" },
-  });
+  // STRICT (round 6): NotificationChannel exige contexto explícito. O
+  // dispatcher de notificações é SISTEMA (não tem usuário HTTP) → bypass.
+  const rows = await withSystemRls((tx) =>
+    tx.notificationChannel.findMany({
+      orderBy: { createdAt: "asc" },
+    }),
+  );
   return rows
     .map(parseChannel)
     .filter((c): c is NotificationChannelRow => c !== null);
 }
 
 export async function getChannel(id: string): Promise<NotificationChannelRow | null> {
-  const row = await db.notificationChannel.findUnique({ where: { id } });
+  // STRICT (round 6): contexto de sistema (mesmo racional de listChannels).
+  const row = await withSystemRls((tx) =>
+    tx.notificationChannel.findUnique({ where: { id } }),
+  );
   if (!row) return null;
   return parseChannel(row);
 }

@@ -18,8 +18,13 @@ import { createHash } from 'node:crypto';
 const sha256Lf = (s: string) => createHash('sha256').update(s.replace(/\r\n/g, '\n'), 'utf8').digest('hex');
 const baselineRaw = readFileSync('prisma/migrations/20260101000000_baseline/migration.sql', 'utf8');
 const rlsRaw = readFileSync('prisma/migrations/20260102000000_rls_policies/migration.sql', 'utf8');
+const rlsStrictRaw = readFileSync(
+  'prisma/migrations/20260103000000_rls_strict_wallet_notification/migration.sql',
+  'utf8',
+);
 const BASELINE_SHA = sha256Lf(baselineRaw);
 const RLS_SHA = sha256Lf(rlsRaw);
+const RLS_STRICT_SHA = sha256Lf(rlsStrictRaw);
 
 describe('bootstrap-prod-migrations — checksum', () => {
   it('sha256 hex do conteúdo (fixtures conhecidas)', () => {
@@ -32,16 +37,19 @@ describe('bootstrap-prod-migrations — checksum', () => {
     expect(computeChecksum(rlsRaw)).toBe(RLS_SHA);
   });
 
-  it('discoverMigrations lê as duas migrations em ordem', () => {
+  it('discoverMigrations lê as migrations em ordem', () => {
     const migrations = discoverMigrations();
     expect(migrations.map((m) => m.migration_name)).toEqual([
       '20260101000000_baseline',
       '20260102000000_rls_policies',
+      '20260103000000_rls_strict_wallet_notification',
     ]);
     expect(migrations[0].checksum).toBe(BASELINE_SHA);
     expect(migrations[1].checksum).toBe(RLS_SHA);
+    expect(migrations[2].checksum).toBe(RLS_STRICT_SHA);
     expect(migrations[0].applied_steps_count).toBe(111);
     expect(migrations[1].applied_steps_count).toBe(16);
+    expect(migrations[2].applied_steps_count).toBe(8);
   });
 });
 

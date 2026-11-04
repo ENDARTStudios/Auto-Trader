@@ -416,11 +416,15 @@ async function resolveSignerAddress(
   }
   try {
     // Endereço não é segredo; resolve pelo walletId no DB (web process).
-    const { db } = await import("@/lib/db");
-    const row = await db.walletConnection.findUnique({
-      where: { id: walletId },
-      select: { address: true },
-    });
+    // STRICT (round 6): WalletConnection exige contexto; a resolução roda em
+    // nome do sistema/signer → withSystemRls (bypass explícito).
+    const { withSystemRls } = await import("@/lib/auth/rls-context");
+    const row = await withSystemRls((tx) =>
+      tx.walletConnection.findUnique({
+        where: { id: walletId },
+        select: { address: true },
+      }),
+    );
     if (!row?.address) return null;
     return ethers.getAddress(row.address);
   } catch {
