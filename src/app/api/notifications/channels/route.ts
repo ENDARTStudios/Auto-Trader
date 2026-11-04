@@ -11,6 +11,7 @@ import {
 import { logger } from "@/lib/trading/logger";
 import { requirePermission } from "@/lib/auth/session";
 import { rlsWhere } from "@/lib/auth/rls";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { handleApiError } from "@/lib/api/error-handler";
 
 // GET /api/notifications/channels — list channels (RLS: own channels, or all
@@ -19,10 +20,15 @@ import { handleApiError } from "@/lib/api/error-handler";
 export async function GET(req: Request) {
   try {
     const session = await requirePermission("notifications:manage")(req);
-    const rows = await db.notificationChannel.findMany({
-      where: rlsWhere(session, "notificationChannel"),
-      orderBy: { createdAt: "asc" },
-    });
+    // RLS nativo: a transação carrega app.user_id/app.rls_bypass; a policy do
+    // Postgres filtra por ownerId (super_admin = bypass). O where rlsWhere
+    // continua como defesa em profundidade na camada de aplicação.
+    const rows = await withUserRls(session, (tx) =>
+      tx.notificationChannel.findMany({
+        where: rlsWhere(session, "notificationChannel"),
+        orderBy: { createdAt: "asc" },
+      }),
+    );
     const channels = rows
       .map((row) => {
         try {
@@ -110,18 +116,19 @@ export async function POST(req: Request) {
     }
 
     const events = body.events ?? [];
-    const created = await db.notificationChannel.create({
-      data: {
-        name: body.name,
-        type: body.type,
-        config: JSON.stringify(body.config),
-        events: JSON.stringify(events),
-        enabled: body.enabled ?? true,
-        throttleSec: Math.max(0, body.throttleSec ?? 0),
-        ownerId: session.userId,
-      },
-    });
-
+    const created = await withUserRls(session, (tx) =>
+      tx.notificationChannel.create({
+        data: {
+          name: body.name!,
+          type: body.type!,
+          config: JSON.stringify(body.config),
+          events: JSON.stringify(events),
+          enabled: body.enabled ?? true,
+          throttleSec: Math.max(0, body.throttleSec ?? 0),
+          ownerId: session.userId,
+        },
+      }),
+    );
     logger.info("api", `Canal de notificação criado: ${created.name} (${created.type})`);
 
     return NextResponse.json({

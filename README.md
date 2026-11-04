@@ -71,9 +71,32 @@ npm run test:ci:local -- --keep                # mantém o banco para inspeção
 | Auth | Sessão assinada (HMAC) + CSRF + RBAC + RLS; cookie forjado → 401; sem `SESSION_SECRET` é fail-closed |
 | Observabilidade | Sentry por envelope HTTP (sem SDK) se `SENTRY_DSN`; rate limit por processo ou distribuído com `REDIS_URL` |
 | Backup | `scripts/backup-full.mjs` (pg_dump custom) + `scripts/restore-full.mjs` (ver docs/BACKUP_DR) |
-| Deploy | Manual. Não há deploy automático de produção (workflow desligado) |
+| Deploy | **Railway** é o host canônico; deploy **manual** (`railway up`). CD automático existe (`deploy-railway.yml`) mas está **desligado** até o operador criar `RAILWAY_TOKEN` + `RAILWAY_DEPLOY_ENABLED=true` — cheque com `node scripts/verify-cd-config.mjs` |
 | Signer (processo separado) | Empacotado por `scripts/build-signer.mjs` em `.next/standalone/signer.js`. **Default desligado**: só sobe com `SIGNER_SPAWN=1`; status em produção hoje é `configured=false` |
 | Demo data | `scripts/seed-demo.ts` (ids fixos) + `npm run db:demo:clear` (dry-run por padrão, `--yes` para apagar) |
+
+## Deploy (Railway)
+
+Fly.io é **histórico**; o host canônico é o Railway (app + engine + Postgres).
+
+- **Hoje (manual):** `railway up --service auto-trader --environment production` e valide
+  `curl -fsS https://<host>/api/health/ready` (200).
+- **CD automático:** pronto e **desligado**. `.github/workflows/deploy-railway.yml` tem gate
+  `if: vars.RAILWAY_DEPLOY_ENABLED == 'true'`, `concurrency` (nunca cancela deploy em
+  andamento), sanity `node scripts/verify-cd-config.mjs` antes de tocar no Railway e
+  smoke de `/api/health/ready` após subir.
+- **Habilitar (operador, 3 passos):** 1) Railway → Project auto-trader → Settings → Tokens →
+  *Create Project Token*; 2) `gh secret set RAILWAY_TOKEN`; 3)
+  `gh variable set RAILWAY_DEPLOY_ENABLED --body true`. Antes: `node scripts/verify-cd-config.mjs`
+  (exit 0 = READY; exit 1 = BLOQUEADO com o que falta).
+- **Por que não foi automatizado até aqui:** a API do Railway respondeu `Not Authorized` ao
+  tentar criar project token com o token OAuth do CLI — criação de token é ação humana.
+- **Rollback:** Railway → Deployments → deploy anterior → *Redeploy*; ou
+  `git revert <commit> && git push origin main`; parar o CD:
+  `gh variable set RAILWAY_DEPLOY_ENABLED --body false`.
+
+Detalhes: [docs/06-devops-deployment/CI_CD_PIPELINE.md](docs/06-devops-deployment/CI_CD_PIPELINE.md) e
+[docs/06-devops-deployment/PRODUCTION_DEPLOY.md](docs/06-devops-deployment/PRODUCTION_DEPLOY.md).
 
 ## Segurança (resumo)
 
@@ -84,7 +107,7 @@ npm run test:ci:local -- --keep                # mantém o banco para inspeção
 ## Limitações conhecidas
 
 - Cobertura de testes parcial; alguns módulos críticos (engine, carteira) sem teste unitário.
-- Documentação legada menciona Fly.io/Vercel e métricas antigas — `docs/06-devops-deployment/PRODUCTION_DEPLOY.md` é a referência atual de deploy manual.
+- Documentação legada de Fly.io está **marcada como HISTÓRICO** em `docs/06-devops-deployment/PRODUCTION_DEPLOY.md` (banner no topo); a referência atual é Railway + `CI_CD_PIPELINE.md`.
 - Sem `@sentry/nextjs`/`bullmq`: tracing avançado e fila durável não fazem parte desta árvore.
 - Histórico do repositório já conteve `.env`; rotação de chaves é obrigatória para produção.
 - Signer NÃO roda em produção (sem `SIGNER_SPAWN=1`); `configured/reachable` ficam falsos por design até o deploy com a flag.
@@ -93,7 +116,7 @@ npm run test:ci:local -- --keep                # mantém o banco para inspeção
 ## Roadmap curto
 
 1. Cobertura nos módulos críticos + ratchet de thresholds.
-2. Deploy automatizado com smoke test (`/api/health/ready`).
+2. Habilitar o CD do Railway (depende do project token do operador) — workflow e smoke de `/api/health/ready` já prontos.
 3. Sessão/auditoria de drift de schema no CI (já existe gate de drift).
 4. Live somente após envelope humano (S14) e chaves de testnet validadas.
 

@@ -167,3 +167,42 @@ Criada: `docs/03-development-process/AGENT_TEAM.md` — 6 bots (Sentinela/Builde
 2. Rodada 2: Etherscan sem mock em produção; `/api/market` 503 tipado para `MARKET_DATA_UNAVAILABLE`; labels de UI honestos ("Turnover (heurística)"); `geckoterminal` crítico e gate de fonte **por escopo (CEX/DEX)**.
 3. Rodada 3 (esta): claims documentais corrigidos + cobertura real elevada nos módulos puros (`price-feed` 3%→100% lines, `risk-scaling` 0%→100%, `token-selector` 0%→97%).
 
+## E. Rodada 4 — CI/CD e docs de deploy (2026-11-04)
+
+### E.1 CD do Railway: pronto, porém desligado
+
+- `.github/workflows/deploy-railway.yml` reescrito: gate `if: vars.RAILWAY_DEPLOY_ENABLED == 'true'`,
+  `concurrency: { group: deploy-railway, cancel-in-progress: false }` (nunca cancela deploy em
+  andamento), `timeout-minutes: 25`, `environment: production`, **sanity** `node
+  scripts/verify-cd-config.mjs` antes de tocar no Railway, `railway up --service auto-trader
+  --environment production --ci` e **smoke** opcional de `/api/health/ready`.
+- **Estado verificado hoje:** `gh secret list --json name` → `[]` e `gh variable list --json
+  name,value` → `[]`. Não existe `RAILWAY_TOKEN` nem `RAILWAY_DEPLOY_ENABLED`; logo o job de
+  deploy é **skipped** em todo push. `node scripts/verify-cd-config.mjs` → **BLOQUEADO**, exit 1.
+- **Causa raiz do bloqueio:** a mutation `projectTokenCreate` da API do Railway respondeu
+  `Not Authorized` com o token OAuth do CLI (não tem permissão de mintar project token).
+  Criar token é ação humana — 3 passos documentados no workflow, no README e em
+  `docs/06-devops-deployment/CI_CD_PIPELINE.md`.
+- Deploy canônico segue **manual** (`railway up` + smoke). Rollback documentado em 3 níveis:
+  Redeploy do deploy anterior no dashboard; `git revert` + push; desligar o CD pela variable.
+
+### E.2 Documentação de deploy
+
+- `docs/06-devops-deployment/PRODUCTION_DEPLOY.md` ganhou banner canônico no topo
+  (estado real, 3 passos do operador, rollback, migrations) e as seções 1/2/3/8/9 de Fly.io
+  foram **marcadas como HISTÓRICO** (obsoletas: `flyctl`, `fly postgres`, custos).
+- `docs/06-devops-deployment/CI_CD_PIPELINE.md` deixou de ser esqueleto: descreve jobs do
+  `ci.yml`, ordem/gates de cada step, gates não-bloqueantes (dep-cruiser/knip/Trivy) e o CD.
+- `README.md`: seção **Deploy (Railway)** com estado atual, passos do operador e rollback;
+  linha da tabela de status e roadmap atualizados.
+
+### E.3 Pendências abertas ao fim da rodada 4
+
+1. **CD bloqueado por credencial humana** (project token do Railway) — sem previsão; nada
+   quebra enquanto isso (deploy manual segue válido).
+2. **`main` sem branch protection** (`gh api .../branches/main/protection` → 404): CI verde
+   não é obrigatório para merge; política escrita em `docs/branch-protection-policy.md`.
+3. RLS nativo em rollout (migration `20260102000000_rls_policies` + `scripts/apply-rls-dev.mjs`):
+   aplicação em produção **não verificada** nesta rodada — depende do deploy da migration.
+4. `npm run test:ci` (script do CI) continua destrutivo contra o `DATABASE_URL` apontado;
+   na dev use `npm run test:ci:local` (banco descartável).

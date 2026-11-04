@@ -12,6 +12,7 @@ import { requireSession } from "@/lib/auth/session";
 import { hasPermission } from "@/lib/auth/rbac";
 import { ForbiddenError } from "@/lib/auth/errors";
 import { assertOwner } from "@/lib/auth/rls";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { handleApiError } from "@/lib/api/error-handler";
 
 // PATCH /api/notifications/channels/[id] — update channel (name, config, events, enabled, throttleSec)
@@ -28,7 +29,10 @@ export async function PATCH(req: Request, { params }: Params) {
     const { id } = await params;
     // RLS: only the owner (or super_admin) may read/update a channel.
     await assertOwner(session, "notificationChannel", id);
-    const existing = await db.notificationChannel.findUnique({ where: { id } });
+    // RLS nativo: leitura dentro do contexto do usuário (policy filtra ownerId).
+    const existing = await withUserRls(session, (tx) =>
+      tx.notificationChannel.findUnique({ where: { id } }),
+    );
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
@@ -91,10 +95,14 @@ export async function PATCH(req: Request, { params }: Params) {
       updates.throttleSec = Math.max(0, body.throttleSec);
     }
 
-    const updated = await db.notificationChannel.update({
-      where: { id },
-      data: updates as never,
-    });
+    // RLS nativo: o UPDATE roda com app.user_id; a policy também barra
+    // alteração de linha de outro owner (WITH CHECK).
+    const updated = await withUserRls(session, (tx) =>
+      tx.notificationChannel.update({
+        where: { id },
+        data: updates as never,
+      }),
+    );
 
     logger.info("api", `Canal atualizado: ${updated.name} (${updated.id})`);
 
@@ -128,11 +136,13 @@ export async function DELETE(req: Request, { params }: Params) {
     }
     const { id } = await params;
     await assertOwner(session, "notificationChannel", id);
-    const existing = await db.notificationChannel.findUnique({ where: { id } });
+    const existing = await withUserRls(session, (tx) =>
+      tx.notificationChannel.findUnique({ where: { id } }),
+    );
     if (!existing) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    await db.notificationChannel.delete({ where: { id } });
+    await withUserRls(session, (tx) => tx.notificationChannel.delete({ where: { id } }));
     logger.info("api", `Canal deletado: ${existing.name} (${id})`);
     return NextResponse.json({ ok: true });
   } catch (err) {

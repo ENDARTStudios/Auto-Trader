@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { logger } from "@/lib/trading/logger";
-import { deleteExchange, setExchangeActive } from "@/lib/trading/wallet-manager";
 import { requirePermission } from "@/lib/auth/session";
+import { withUserRls } from "@/lib/auth/rls-context";
 import { handleApiError } from "@/lib/api/error-handler";
 
 // PATCH /api/exchanges/[id] — activate/deactivate an exchange
@@ -10,13 +10,26 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requirePermission("exchanges:manage")(req);
+    const session = await requirePermission("exchanges:manage")(req);
     const { id } = await params;
     const body = await req.json();
     if (typeof body.active !== "boolean") {
       return NextResponse.json({ error: "Missing 'active' boolean field" }, { status: 400 });
     }
-    await setExchangeActive(id, body.active);
+    // RLS nativo: transação com app.user_id/app.rls_bypass.
+    await withUserRls(session, async (tx) => {
+      if (body.active) {
+        await tx.exchangeConnection.updateMany({
+          where: { isActive: true },
+          data: { isActive: false },
+        });
+      }
+      await tx.exchangeConnection.update({
+        where: { id },
+        data: { isActive: body.active, lastUsedAt: new Date() },
+      });
+    });
+    logger.info("wallet", `Exchange ${id} ${body.active ? "activated" : "deactivated"}`);
     return NextResponse.json({ ok: true });
   } catch (err) {
     if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
@@ -33,9 +46,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requirePermission("exchanges:manage")(req);
+    const session = await requirePermission("exchanges:manage")(req);
     const { id } = await params;
-    await deleteExchange(id);
+    await withUserRls(session, (tx) => tx.exchangeConnection.delete({ where: { id } }));
+    logger.info("wallet", `Exchange ${id} deleted`);
     return NextResponse.json({ ok: true });
   } catch (err) {
     if ((err as Error).name === "UnauthorizedError" || (err as Error).name === "ForbiddenError") {
